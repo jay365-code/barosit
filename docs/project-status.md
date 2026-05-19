@@ -1,0 +1,356 @@
+# 프로젝트 현황 (Project Status)
+
+> **이 문서의 목적**: 대화창이 바뀌어도 이 문서만 읽으면 어디까지 개발됐고 다음에 뭘 해야 할지 즉시 파악 가능하도록 유지. 큰 변경 후엔 이 문서도 함께 갱신.
+
+## 빠른 요약
+
+**BaroSit** — 데스크톱 자세 모니터링 앱 (Tauri 2 + React + MediaPipe)
+
+- ✅ macOS 핵심 기능 동작 (자세 6종 감지 + 점수 + 스트레칭 7종 보너스 + 위젯 모드 + 장시간 사용성 보호)
+- ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
+- 🟡 Windows 빌드 호환성 작업 완료 (cfg 분기 + CI 워크플로우) — 실제 Windows 러너 검증 대기
+- 🟡 일부 UX 다듬기 + 영문화 미진행
+- ❌ 배포(서명·공증·랜딩) 안 됨
+
+## 핵심 문서 (먼저 읽기)
+
+| 문서 | 내용 |
+|---|---|
+| [기획안.md](./기획안.md) | 앱 전체 기획 — 현재 구현 기준 |
+| [architecture.md](./architecture.md) | 윈도우·모드·검출 owner 구조 |
+| [detection-algorithm.md](./detection-algorithm.md) | 자세 감지·점수 알고리즘 디테일 |
+| [ui-modes.md](./ui-modes.md) | UX 흐름 (메인/위젯 모드) |
+| [settings.md](./settings.md) | 사용자 설정 + localStorage 키 표 |
+| [ipc-reference.md](./ipc-reference.md) | Tauri 명령·이벤트·CustomEvent |
+| [development.md](./development.md) | dev/build, 디버깅, 폴더 구조 |
+| [changelog.md](./changelog.md) | 세션 변경 이력 카테고리별 요약 |
+
+## 개발 완료 항목
+
+### 자세 감지 파이프라인
+- [x] MediaPipe 4모델 통합 (Pose + Face + Hand + Image Segmenter)
+- [x] 256×192 카메라 해상도 + 15 FPS
+- [x] LandmarkSmoother (7프레임 이동평균)
+- [x] visibility ≥ 0.7 필터
+- [x] setTimeout-recursive 검출 루프 (백프레셔 방지)
+- [x] 마스크 버퍼 재사용 (GC 부담 0)
+- [x] 카메라 자동 재시작 + visibility change 대응
+
+### 자세 6종 판정 (자세 위반 카테고리)
+- [x] 거북목 (face pitch + headSize + z + drop 4신호 합산)
+- [x] 턱 괴임 (pose + hand fingertip 결합)
+- [x] 어깨 기울임 (baseline 대비 delta · 절댓값)
+- [x] 등 구부정 (어깨 너비 + 어깨 y drop)
+- [x] 모니터 거리 과근접 (-zDelta + 귀 너비 비율 확대)
+- [x] 어깨 비대칭 (부호 있는 tilt + 어깨 중점 대비 코 x 오프셋 변화)
+
+### 스트레칭 7종 (보너스)
+- [x] 기지개 overhead (+5) — 팔꿈치 어깨 위 sw*0.20 + 손목/팔꿈치 코보다 위
+- [x] 목 풀기 behind_head (+5) — 팔꿈치 외측+위 + 손목 귀 근접/가려짐
+- [x] 어깨 스트레치 cross_body (+4) — wrist가 어깨 중점 너머 + 동측 팔꿈치 검증
+- [x] 사이드 굽힘 side (+3) — 한쪽 팔 위 + 어깨 기울임 0.06+ + 코 같은 방향
+- [x] 어깨 으쓱 shoulder_shrug (+3) — baseline 대비 양 어깨 sw*0.20 위로
+- [x] 목 좌우 풀기 neck_side (+4) — face roll Δ 0.25 rad + 어깨 수평 유지
+- [x] 상체 앞 숙이기 forward_fold (+5) — 코 sw*0.30 아래 + 어깨 sw*0.15 아래
+- [x] 2.0초 hold + 60초 쿨다운 + 600ms 갭 허용
+
+### 안정화 알고리즘
+- [x] ViolationSmoother (EMA α=0.15 + 히스테리시스 0.6/0.3 + 최소 3초 hold)
+- [x] ViolationTracker (지속 시간 추적 + 알람 발사)
+- [x] 부재 감지 (8초 미감지 → paused)
+
+### 점수 시스템
+- [x] 0-100 점수, localStorage 영속화
+- [x] 지속 시간 가속 패널티 (0/2/10/30/60초 구간)
+- [x] 연속 좋은 자세 회복 가속 (5분/15분 구간)
+- [x] 빠른 회복 보너스 +2
+- [x] 스트레칭 보너스 (CustomEvent `posture-bonus`)
+- [x] 윈도우 간 storage 이벤트 동기화
+- [x] visibilitychange/focus 시 localStorage 재로드 (suspend 보상)
+- [x] frozen 조건 (비활성 owner / paused / cameraReady=false / baseline=null)
+
+### 캘리브레이션
+- [x] 5초 측정 + 5가지 적합성 체크 (상체 보임/고개 들기/머리 수평/손 떼기/자세 유지)
+- [x] 65% 이상 적합 프레임이어야 베이스라인 저장
+- [x] 측면 카메라 지원 (사용자 자연 자세를 베이스라인으로)
+- [x] 잘못된 알림 신고 → sensitivity +0.1 (최대 2.0)
+
+### 장시간 사용성 (자세 위반과 별도 카테고리 · 점수에 영향 없음)
+- [x] **Phase 1** 정기 휴식 알림 — 30/50/120분 micro/standup/deep (KOSHA H-30, Cornell 50/10, Hedge 20-8-2)
+- [x] 자리비움 5분+ / 깊은 휴식 5분+ → `secsSeated` 자동 리셋
+- [x] **Phase 2** 누적 부하 알림 — 30분 슬라이딩 윈도우 자세별 누적 비율 25% 도달 시 (McGill 디스크 creep)
+- [x] **Phase 3** 자세 변동성 알림 — 10분 윈도우 어깨/머리 std 부족 시 긍정 톤 스트레칭 권유 (McGill "next posture")
+- [x] **Phase 4** 적응형 민감도 — 세션 길이(2/4/6h)·시간대(13–15시/16–18시) 임계 자동 완화 (max 보정)
+- [x] WKWebView throttle 회피 — 무음 AudioContext `startKeepAwake()`
+- [x] Pose loop freeze 자가복구 — heartbeat watchdog (30s 경고 / 60s `window.location.reload()`)
+- [x] 4 분야 설정 라이브 reload (`*_CONFIG_CHANGED_EVENT`)
+- [x] 위젯 state 에 `breakStatus` 포함 publish
+
+### UI 모드 시스템
+- [x] 메인 모드 ↔ 위젯 모드 mutually exclusive
+- [x] 메인 X 클릭 → 자동 위젯 모드 전환 (Rust CloseRequested + 이벤트)
+- [x] Dock 클릭 → 자동 메인 모드 전환 (Rust Reopen 이벤트)
+- [x] 250ms 카메라 핸드오버 지연
+- [x] 카메라 실패 시 800ms 후 재시도
+- [x] 검출 owner 동적 전환
+
+### 위젯 (플로팅 윈도우)
+- [x] 별도 Tauri 윈도우 (`index.html#widget` URL hash)
+- [x] frameless, transparent, alwaysOnTop, skipTaskbar
+- [x] `macOSPrivateApi: true` 로 투명 배경 활성
+- [x] 미니바 (상태 점 + 점수 + 라벨) — 설정 ON/OFF 가능
+- [x] 카메라 아이콘 (위젯 모드에서만, SVG)
+- [x] 호버 패널 (위반·코칭 메시지·마지막 알람·잘못된 알림 신고)
+- [x] 드래그로 위치 이동 + localStorage 저장
+- [x] 우측 상단 기본 배치
+
+### 메인 모니터 화면
+- [x] 카메라 영상 또는 실루엣 (프라이버시 모드)
+- [x] 점수 chip 좌상단
+- [x] 위반 chip 하단
+- [x] 스트레칭 토스트 (3초 페이드)
+- [x] "위젯 모드로 전환" / "다시 캘리브레이션" / "디버그 보기" 버튼
+- [x] 디버그 패널 (모든 신호 실시간)
+
+### 시각화 — 실루엣 모드
+- [x] Image Segmenter 마스크 기반 사람 영역 색칠
+- [x] Face mesh 478점 dots
+- [x] 어깨 가로 라인
+- [x] 멀티레이어 블러 (글로우 효과)
+- [x] 포즈 기반 클리핑 (의자 등 주변 사물 제거)
+
+### Rust 백엔드
+- [x] 시스템 트레이 (메뉴 + tooltip + title 이모지 🟢🟡🔴⚪)
+- [x] OS 네이티브 알림 (`tauri-plugin-notification`)
+- [x] 단일 인스턴스 락 (`tauri-plugin-single-instance`)
+- [x] 자동 시작 (`tauri-plugin-autostart`)
+- [x] 윈도우 라이프사이클 (close→hide + 이벤트, reopen 이벤트)
+- [x] Anthropic Claude API 클라이언트 + prompt caching (`claude-haiku-4-5`)
+
+### 설정
+- [x] 자세별 임계값 (durationSecs + sensitivity)
+- [x] 미니바 표시 토글
+- [x] 실루엣 모드 토글
+- [x] LLM 코칭 활성화 + Anthropic API 키 입력
+- [x] 자동 시작 토글
+- [x] 앱 종료 버튼 (두 번 클릭 패턴)
+
+### 대시보드
+- [x] 일별 자세 이벤트 통계
+- [x] 기록 삭제 옵션
+
+### 데이터 저장 (localStorage)
+- [x] 점수 / 베이스라인 / 임계값 / 위젯 상태 / 이벤트 로그 / 설정 전반
+- [x] 백업/복원 키 18종 (5/14 4 Phase 설정 + `onboarded_v1` 포함, API 키 제외)
+
+### 자동 업데이트
+- [x] `tauri-plugin-updater` + `plugin-process` 통합, updater pubkey 임베드
+- [x] `useUpdater` React hook — 마운트 5초 후 자동 체크, 24h 쿨다운, snooze 지원
+- [x] `UpdateNotice` 배너 — 우측 하단, 릴리스 노트 요약 + 다운로드 진행 progress bar
+- [x] 설정 "정보" 섹션 "업데이트 확인" 수동 버튼 (autoUpdate feature 일 때만)
+- [x] GitHub Actions [release.yml](../.github/workflows/release.yml) — `tauri-action` 매트릭스 (macOS universal + Windows), 자동 서명·Release 생성·`latest.json` 게시
+- [x] minisign 서명 키페어 생성 완료 (`~/.barosit-signing/`)
+- [ ] **사용자 셋업 대기**: git init/GitHub repo + Secrets 등록 + tauri.conf.json endpoints `__OWNER__/__REPO__` 치환
+
+### 첫 실행 온보딩
+- [x] 3 페이지 모달 — 환영 → 작동 원리(자세 6종 안내) → 프라이버시(온디바이스 강조)
+- [x] `onboarded_v1` localStorage 키 기반 1회 표시
+- [x] 마지막 페이지 "카메라 권한 허용" → `platform.requestPermissionsForMonitoring()`
+- [x] 1페이지에 "건너뛰기" 옵션 (캘리브레이션으로 직행)
+- [x] 페이지 인디케이터 3 페이지 모두 일관
+
+---
+
+## 향후 진행 항목
+
+우선순위는 ROI + 사용자 임팩트 기준. 일정은 없음(바이브코딩).
+
+### 🔴 출시 블로커 (반드시)
+
+- [ ] **macOS 코드 서명 + 공증** — Apple Developer 계정 필요. 안 하면 사용자가 "확인되지 않은 개발자" 경고 뚫어야 함
+- [x] **자동 업데이트 (코드)** — `tauri-plugin-updater` + `plugin-process` 통합, useUpdater hook, UpdateNotice 배너, 설정 수동 확인 버튼, [release.yml](../.github/workflows/release.yml) CI. **사용자 셋업 필요**: git init/GitHub repo + Secrets 등록 + tauri.conf.json endpoints 치환 (changelog §18 절차 참조)
+- [ ] **프라이버시 정책 + 이용약관** — 카메라 처리 명시, 한국 개인정보보호법 / GDPR
+- [x] **첫 실행 온보딩** — 3 페이지 (환영 / 작동 원리 / 프라이버시) + 카메라 권한 요청 통합 ([src/views/Onboarding.tsx](../src/views/Onboarding.tsx), [App.tsx:177](../src/App.tsx))
+
+### 🟡 시장 진입
+
+- [ ] **랜딩 페이지** — 도메인 + 다운로드 + 데모 GIF
+- [ ] **앱 이름 + 로고 + 아이콘** 최종 결정
+- [ ] **가격 모델 결정** — 후보:
+  - 완전 무료 + 오픈소스
+  - 무료 + 사용자 본인 API 키로 LLM (추천)
+  - Mac App Store $5-15 일회성
+  - 구독 $2-5/월
+- [ ] **영문화** (`react-i18next`)
+- [ ] **데모 영상 + 스크린샷**
+
+### 🟢 플랫폼 확장
+
+#### Windows 버전
+- [x] Rust cfg 분기 (`macos-private-api`/`RunEvent::Reopen`/트레이 `set_title` 모두 macOS only로 격리)
+- [x] `RunEvent::Reopen` 대안 — 트레이 클릭 시 `main:reopened` emit (양 OS 공통)
+- [x] GitHub Actions `windows-latest` 빌드 워크플로우 ([.github/workflows/build-windows.yml](../.github/workflows/build-windows.yml))
+- [ ] 실제 Windows 러너 빌드 산출물 검증
+- [ ] 트레이 동작 검증 (Action Center 알림)
+- [ ] 외장 USB 웹캠 호환성 테스트
+- [ ] Windows 카메라 권한 안내 텍스트
+- [ ] Cmd+Q → Alt+F4 사용자 안내 (시스템 단축키는 OS 자동 처리)
+
+#### Web 풀버전 (마케팅 funnel + 설치 불가 환경)
+- [x] IPC 추상화 레이어 (`src/platform/` — tauri/web 분기)
+- [x] 트레이/네이티브 알림 → 브라우저 Notification API + canvas favicon
+- [x] 다중 윈도우 제거 (단일 페이지, 위젯 chunk 트리쉐이킹)
+- [x] 위젯 모드 비활성 (웹은 메인만)
+- [x] 설정 화면에 "백그라운드 모니터링은 데스크톱에서" 안내
+- [x] `dev:web`/`build:web`/`preview:web` 스크립트
+- [x] OG/Twitter 메타 + theme-color
+- [ ] 다운로드 CTA 링크(데스크톱 앱 배포 후)
+- [ ] 정적 호스팅 배포 (Cloudflare Pages 등)
+- [ ] LLM 코칭 (v2 — 백엔드 프록시 필요)
+- [ ] PWA 설정 (선택)
+
+### 🔵 기능 보완
+
+- [x] **에러 상태 UX** — 카메라 5종 분기 (거부/점유/없음/해상도/Abort) + 모델 로드 실패 메시지 + "다시 시도" 버튼
+- [x] **데이터 백업/복원** — JSON export/import (API 키 제외)
+- [x] **자세 종류 확장** — 모니터 거리 + 어깨 비대칭 (6종)
+- [x] **위반 알림 강화** — 4가지 다중 선택(가장자리 글로우/위젯 확장/풀스크린/사운드) + 점진 강도
+- [x] **스트레칭 감지 정밀화** — 4종 false positive 차단 (책상 위 자세·마우스 reach 등)
+- [x] **민감도 default** 1.0 → 1.4 (실사용 체감 "보통")
+- [ ] **시간대별 히트맵** 대시보드
+- [ ] **주간/월간 트렌드** 대시보드
+- [ ] **자세 종류 추가** — 목 회전, 시선 방향 등
+- [ ] **휴식 알림** (포모도로 통합) — M3에서 글로벌 input hook 필요
+- [ ] **외장 웹캠 / 멀티 모니터** 호환성 검증
+- [ ] **배터리 모드** 감지 → FPS 자동 낮춤
+
+### 🟣 기술 개선
+
+- [ ] **SQLite 이전** — 대규모 이력 + 더 풍부한 분석 쿼리
+- [ ] **OS 키체인** — API 키를 `keyring` crate로 저장
+- [ ] **익명 텔레메트리** (옵트인) — 사용 패턴 분석
+- [ ] **크래시 리포트** (Sentry 또는 자체)
+- [ ] **자동화 테스트** (현재 거의 없음)
+
+### 🟤 커뮤니티 / 운영
+
+- [ ] **GitHub 오픈소스 공개** 검토
+- [ ] **인앱 피드백** 채널
+- [ ] **Discord/Slack** 사용자 커뮤니티
+- [ ] **블로그** ("왜 거북목이 위험한지" 등 콘텐츠 마케팅)
+- [ ] **Product Hunt** 출시
+
+---
+
+## 최근 주요 결정사항 (대화 맥락)
+
+이전 대화에서 결정된 주요 사항:
+
+1. **앱 이름**: `BaroSit` / `바로씻` (코드는 `barosit`, 도메인 `barosit.com`)
+2. **시간 임계값 기본값**: 5초 (기획안 30초 → 사용자가 5초 선택)
+3. **점수 그레이스**: 위반 시작 후 2초까지 패널티 0
+4. **위젯 모드 ↔ 메인 모드 mutually exclusive** — 동시 활성 안 됨
+5. **메인 X 클릭** → 위젯 모드 자동 전환 (백그라운드 모니터링 유지)
+6. **Dock 클릭** → 메인 모드 자동 전환
+7. **미니바**: 항상 떠 있음 (설정으로만 끔), 클릭 시 모드 전환 안 함 (드래그 전용)
+8. **카메라 아이콘**: 위젯 모드에서만, 클릭 시 메인 모드 복귀
+9. **데이터 저장**: localStorage (SQLite/키체인 안 함 — 단일 사용자 데스크톱이라 충분)
+10. **검출 owner**: 한 시점에 하나만 (메인 OR 위젯)
+11. **카메라 핸드오버**: 250ms 지연 + 800ms 재시도
+12. **기획안.md** 는 코드 현재 상태 반영해 갱신됨. **코드가 진실의 원천**.
+13. **장시간 사용성 (2026-05-14)**: 자세 위반과 별개 카테고리로 (a) 정기 휴식, (b) 누적 부담, (c) 자세 변동성 3개 신호 + (d) 적응형 민감도 보정 추가. Phase 1~4 로 코드에 명시. **자세 점수에는 영향 안 주고 알림만 별도 발사** — alarm fatigue 방지.
+
+## 알려진 한계 / 제약
+
+1. **macOS 전용 일부 동작** — `RunEvent::Reopen`, `macOSPrivateApi`, 트레이 이모지 등은 macOS 전제
+2. **MediaPipe 모델 외부 CDN 의존** — 첫 실행 시 약 20MB 다운로드 필요. 오프라인 사용 시 캐시되어 있어야 함.
+3. **dev 모드 메모리 부담** — RSS 2.7GB+ (프로덕션 빌드는 600MB-1GB)
+4. **빠른 움직임 시 마스크 노이즈** — Image Segmenter 신뢰도 저하 가시화 (EMA로 완화 중)
+5. **카메라 권한 다이얼로그** — dev 모드는 호출 주체가 Terminal/VSCode 등으로 잡힘. 프로덕션 빌드 후 앱 자체로 권한 받아야 정상.
+
+## 🐞 발견된 버그 / 사용 중 리포트
+
+> 실사용 중 사용자 리포트. 재현·원인 파악·수정.
+
+- [ ] **메인 윈도우가 다른 앱에 가려져 있을 때 미니바 동작 안 함** (2026-05-19 리포트)
+  - 증상: BaroSit 메인 윈도우가 visible 이지만 다른 앱(에디터·브라우저 등) 뒤로 가려진 상태에서 미니바 상태/점수가 멈춤
+  - 추정: 메인 owner pose loop 가 WKWebView occluded throttle 로 슬립. 현재 [keepAwake.ts](../src/keepAwake.ts) + [watchdog.ts](../src/watchdog.ts) 는 메인이 hidden(트레이) 상태일 때 기준이라 단순 occluded 케이스가 안 잡힘
+  - 확인 필요: (a) 메인 hidden vs 다른 앱에 가려짐(occluded) vs minimize 세 케이스 구분, (b) watchdog 60s reload 가 발화되는지(발화 안 한다면 heartbeat 자체는 도는 중인데 무언가 다른 게 멈춘 것), (c) 메인이 owner 일 때 미니바도 동일 owner state 의존이므로 메인 throttle → 미니바 stale 가능성
+  - 가능한 수정 방향: 메인 occluded 감지(`document.visibilityState` 불충분 시 [Page Visibility API](https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API) 외에 focus/blur·`pagehide` 조합) + occluded 시 owner 를 위젯으로 자동 핸드오버 / 또는 keepAwake 가 occluded 에서도 동작하도록 확장
+
+## QA 대기 — 5/14 4 Phase 동작 검증 체크리스트
+
+> 사용자가 실사용 중 자연 검증. 발견 즉시 본 문서 또는 별도 PR. 자동 검증(타입체크·정적 연결·Phase 4 순수 함수 8케이스)은 통과(2026-05-19).
+
+- [ ] **Phase 1 — 휴식 알림**: 설정 → "휴식 알림" → `환기 미리보기` / `일어서기 미리보기` / `긴 휴식 미리보기` 3 버튼 발사 → 글로우·위젯 확장·사운드 정상
+- [ ] **Phase 2 — 누적 부하**: 윈도우 10분 / 임계 10% 로 단축 후 1~2분간 의도적 거북목·슬라우칭 반복 → 환기 알림 발사
+- [ ] **Phase 3 — 자세 변동성**: 윈도우 5분으로 단축 + 정자세 5분 정지 유지 → 긍정 톤 권유 발사
+- [ ] **Phase 4 — 적응형 민감도**: 활성화 후 DevTools 콘솔 `localStorage.setItem('adaptive_sensitivity', JSON.stringify({enabled:true, sessionStartedAt: Date.now() - 6*3600*1000})); location.reload();` → 디버그 패널에 `postureMultiplier ≈ 1.3` 보정 확인
+- [ ] **이벤트 로그 적재**: 4 카테고리 발사가 [eventLog.ts](../src/pose/eventLog.ts) → 대시보드 통계에 반영되는지
+- [ ] **알림 강화 4 모드 호환성**: 글로우·위젯 확장·풀스크린·사운드 4 모드가 4 카테고리 모두에서 동일하게 동작하는지
+- [ ] **keepAwake**: 메인 윈도우 hide 상태로 5분 이상 두고 위젯 모니터링 지속되는지
+- [ ] **watchdog**: 의도적 freeze 시뮬 시 60초 후 reload 동작
+
+### 발견 시 후속 작업 후보 (검증 효율·UX 개선)
+
+- [ ] 누적·변동성·적응형 섹션에도 **미리보기 발사 버튼** 추가 (현재는 휴식에만 있음)
+- [ ] 적응형 민감도 섹션에 **현재 보정값(`postureMultiplier` / `reason`) 라이브 표시**
+
+## 다음 작업 시작 시 체크리스트
+
+새 대화에서 이어서 작업할 때:
+
+1. **이 문서 + [development.md](./development.md)** 먼저 읽기
+2. 현재 어떤 항목을 하려는지 확정 (위 "향후 진행 항목" 중 선택)
+3. `npm run tauri dev` 로 동작 확인
+4. 변경 후 [changelog.md](./changelog.md) 갱신
+5. 큰 변경은 이 문서의 "개발 완료 항목" / "향후 진행 항목" 도 업데이트
+
+## 빌드 / 실행 명령
+
+```bash
+# 데스크톱 개발
+npm run tauri dev
+
+# 데스크톱 프로덕션 빌드
+npm run tauri build
+# → src-tauri/target/release/bundle/macos/BaroSit.app
+
+# 웹 개발
+npm run dev:web                  # http://localhost:1430
+
+# 웹 프로덕션 빌드
+npm run build:web                # dist-web/ 정적 번들
+npm run preview:web              # 로컬에서 미리보기
+```
+
+웹 배포는 `dist-web/` 디렉토리를 Cloudflare Pages·Vercel·Netlify 등 정적
+호스팅에 그대로 업로드하면 됨. HTTPS 필수(카메라 권한). MediaPipe 모델은
+Google CDN에서 자동 로드되므로 별도 작업 불필요.
+
+## 코드 진입점 빠른 참고
+
+| 영역 | 파일 |
+|---|---|
+| 플랫폼 추상화 (tauri/web 분기) | `src/platform/` |
+| 앱 라우팅 (main vs widget) | `src/main.tsx` |
+| 메인 앱 (탭 + status pill) | `src/App.tsx` |
+| 모니터 화면 | `src/views/MonitorView.tsx` |
+| 위젯 (플로팅) | `src/views/Widget.tsx` |
+| 캘리브레이션 | `src/views/CalibrationView.tsx` |
+| 설정 | `src/views/SettingsView.tsx` |
+| 검출 통합 hook | `src/hooks/useMonitoringEngine.ts` |
+| 4모델 검출 | `src/pose/detector.ts` |
+| 자세 6종 판정 | `src/pose/analyzer.ts` |
+| 점수 hook | `src/hooks/usePostureScore.ts` |
+| 정기 휴식 / 누적 부하 / 변동성 / 적응형 민감도 | `src/pose/breakTracker.ts`, `src/pose/cumulativeLoadTracker.ts`, `src/pose/variabilityTracker.ts`, `src/pose/adaptiveSensitivity.ts` |
+| 알림 디스패처 (4 카테고리) | `src/alertConfig.ts` |
+| WebView throttle 회피 / 자가복구 | `src/keepAwake.ts`, `src/watchdog.ts` |
+| 자동 업데이트 (hook + UI) | `src/updater.ts`, `src/components/UpdateNotice.tsx` |
+| 릴리스 워크플로우 | `.github/workflows/release.yml` |
+| Tauri 명령 + 이벤트 | `src/ipc.ts` |
+| Rust 메인 + 윈도우 라이프사이클 | `src-tauri/src/lib.rs` |
+| 트레이 | `src-tauri/src/tray.rs` |
+| LLM | `src-tauri/src/llm.rs` |
+| Tauri 윈도우 설정 | `src-tauri/tauri.conf.json` |
+| Tauri 권한 | `src-tauri/capabilities/default.json` |

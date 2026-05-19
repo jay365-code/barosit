@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSCameraUsageDescription</key>
+    <string>바르게앉자가 자세를 분석하기 위해 카메라를 사용합니다. 영상은 모든 처리가 이 컴퓨터 안에서만 이루어지며 외부로 절대 전송되지 않습니다.</string>
+    <key>LSUIElement</key>
+    <false/>
+</dict>
+</plist>
