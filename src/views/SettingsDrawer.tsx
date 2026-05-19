@@ -1041,7 +1041,7 @@ export function SettingsDrawer({ onClose, updater }: Props) {
               lineHeight: 1.6,
             }}
           >
-            <span>BaroSit · 버전 0.1.0</span>
+            <span>BaroSit · 버전 0.1.1</span>
             {platform.features.autoUpdate && (
               <button
                 className="b-btn b-btn-quiet"
