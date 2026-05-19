@@ -1052,6 +1052,33 @@ export function SettingsDrawer({ onClose, updater }: Props) {
               </button>
             )}
           </div>
+          <div
+            style={{
+              marginTop: 10,
+              fontSize: 11,
+              color: "var(--b-fg-4)",
+              display: "flex",
+              gap: 10,
+            }}
+          >
+            <a
+              href="https://github.com/jay365-code/barosit/blob/main/docs/privacy.md"
+              target="_blank"
+              rel="noreferrer noopener"
+              style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
+            >
+              개인정보 처리방침
+            </a>
+            <span style={{ color: "var(--b-line-2)" }}>·</span>
+            <a
+              href="https://github.com/jay365-code/barosit/blob/main/docs/terms.md"
+              target="_blank"
+              rel="noreferrer noopener"
+              style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
+            >
+              이용약관
+            </a>
+          </div>
         </Section>
       </aside>
     </>

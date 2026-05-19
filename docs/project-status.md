@@ -150,7 +150,8 @@
 - [x] 설정 "정보" 섹션 "업데이트 확인" 수동 버튼 (autoUpdate feature 일 때만)
 - [x] GitHub Actions [release.yml](../.github/workflows/release.yml) — `tauri-action` 매트릭스 (macOS universal + Windows), 자동 서명·Release 생성·`latest.json` 게시
 - [x] minisign 서명 키페어 생성 완료 (`~/.barosit-signing/`)
-- [ ] **사용자 셋업 대기**: git init/GitHub repo + Secrets 등록 + tauri.conf.json endpoints `__OWNER__/__REPO__` 치환
+- [x] **셋업 완료** (2026-05-19): [jay365-code/barosit](https://github.com/jay365-code/barosit) public repo + Secrets 등록 + endpoints 치환
+- [x] **풀 시연 검증 완료**: v0.1.0 → v0.1.1 자동 업데이트 흐름(체크 → 배너 → 다운로드 → 서명 검증 → 설치 → relaunch) 정상 동작
 
 ### 첫 실행 온보딩
 - [x] 3 페이지 모달 — 환영 → 작동 원리(자세 6종 안내) → 프라이버시(온디바이스 강조)
@@ -158,6 +159,14 @@
 - [x] 마지막 페이지 "카메라 권한 허용" → `platform.requestPermissionsForMonitoring()`
 - [x] 1페이지에 "건너뛰기" 옵션 (캘리브레이션으로 직행)
 - [x] 페이지 인디케이터 3 페이지 모두 일관
+- [x] 프라이버시 페이지에 [개인정보 처리방침](./privacy.md) / [이용약관](./terms.md) 외부 링크
+
+### 법적 문서 (초안)
+- [x] [개인정보 처리방침 (privacy.md)](./privacy.md) — KR 개인정보보호법 + GDPR 시야, localStorage 키별 명시
+- [x] [이용약관 (terms.md)](./terms.md) — 라이선스·의료기기 아님·면책·분쟁 해결
+- [x] Onboarding 3페이지 + SettingsDrawer "정보" 섹션에 GitHub 링크 노출
+- [ ] **변호사 검토** (출시 전 필수)
+- [ ] 사업자 등록 후 운영자 정보 확정
 
 ---
 
@@ -168,8 +177,8 @@
 ### 🔴 출시 블로커 (반드시)
 
 - [ ] **macOS 코드 서명 + 공증** — Apple Developer 계정 필요. 안 하면 사용자가 "확인되지 않은 개발자" 경고 뚫어야 함
-- [x] **자동 업데이트 (코드)** — `tauri-plugin-updater` + `plugin-process` 통합, useUpdater hook, UpdateNotice 배너, 설정 수동 확인 버튼, [release.yml](../.github/workflows/release.yml) CI. **사용자 셋업 필요**: git init/GitHub repo + Secrets 등록 + tauri.conf.json endpoints 치환 (changelog §18 절차 참조)
-- [ ] **프라이버시 정책 + 이용약관** — 카메라 처리 명시, 한국 개인정보보호법 / GDPR
+- [x] **자동 업데이트** — `tauri-plugin-updater` + `plugin-process` 통합, useUpdater hook, UpdateNotice 배너, [release.yml](../.github/workflows/release.yml) CI, jay365-code/barosit Releases + Secrets 셋업. **2026-05-19 v0.1.0 → v0.1.1 풀 시연 검증 완료**
+- [x] **프라이버시 정책 + 이용약관 (초안)** — [privacy.md](./privacy.md) + [terms.md](./terms.md). 카메라 온디바이스 처리·localStorage·LLM 옵션 명시. 한국 개인정보보호법 + GDPR 시야. Onboarding 3페이지·SettingsDrawer "정보" 섹션에 링크 노출. **최종 출시 전 변호사 검토 필요**
 - [x] **첫 실행 온보딩** — 3 페이지 (환영 / 작동 원리 / 프라이버시) + 카메라 권한 요청 통합 ([src/views/Onboarding.tsx](../src/views/Onboarding.tsx), [App.tsx:177](../src/App.tsx))
 
 ### 🟡 시장 진입
