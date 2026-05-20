@@ -569,6 +569,19 @@ GitHub 외부 링크로만 노출되던 것을 **앱 안 모달**로 옮김. 동
 - `MonitorView`가 언마운트되고 `CalibrationView`로 뷰가 전환되는 과정에서도 메인 창 자체가 화면에 노출되어 있다면 `main_visible`을 계속 `"true"` (보임)로 유지하게 했습니다.
 - 이를 통해 캘리브레이션 진입 시 미니바가 오작동하여 카메라를 빼앗아 가던 경쟁 문제를 해결하고, 캘리브레이션 뷰가 단독으로 카메라 장치를 아주 원활하고 완벽하게 획득할 수 있도록 수정했습니다.
 
+### 21-4. 적응형 민감도 실시간 보정치 라이브 시각화
+- [src/views/SettingsDrawer.tsx](../src/views/SettingsDrawer.tsx) — 적응형 민감도 활성화 시, 5초 단위로 실시간 피로 보정 상태를 렌더링하는 라이브 상태 인디케이터 및 설명 카드를 삽입했습니다.
+- [src/styles.css](../src/styles.css) — 실시간 모니터링이 원활히 동작 중임을 상징하는 초록색 인디케이터 구슬의 은은한 숨 쉬기 효과용 `@keyframes b-pulse` 애니메이션을 추가했습니다.
+- 보정이 활성화되어 있는 동안 임계 완화율(Multiplier)과 적용 사유(reason)가 실시간 시각화되어 사용자의 디버깅 편의성과 기능 신뢰도를 대폭 향상시켰습니다.
+
+### 21-5. 설정 화면 버전 라벨의 Tauri API 동적화 연동
+- [src/views/SettingsDrawer.tsx](../src/views/SettingsDrawer.tsx) — 푸터에 하드코딩되었던 `"0.1.2"` 문자열을 제거하고, `platform.getAppVersion()` 추상화 비동기 API와 바인딩했습니다.
+- [src/platform/tauri.ts](../src/platform/tauri.ts) & [src/platform/web.ts](../src/platform/web.ts) — Tauri v2의 `@tauri-apps/api/app.getVersion()` API를 각 플랫폼 계층에 구현하여, 향후 릴리스 배포 시 수동 버전 수정 없이 앱 버전과 설정창 표기가 영구히 자동 동화되도록 기능을 완성했습니다.
+
+### 21-6. 수동 업데이트 안내 배너 테마 분리
+- [src/updater.ts](../src/updater.ts) & [src/components/UpdateNotice.tsx](../src/components/UpdateNotice.tsx) — 수동으로 새 버전을 체크했을 때 "최신 버전입니다"라는 긍정적인 안내를 줄 때, 기존의 빨간색 에러 배너(`b-update-error`)에 묶여 출력되던 결함을 해결했습니다.
+- 일반적인 알림 안내를 위한 독자적인 `info` 및 `dismissInfo` 상태 필드와 파이프라인을 구축하고, 세이지 그린 톤의 `b-update-info` 테마 배너 스타일을 [src/styles.css](../src/styles.css)에 신설하여 UX의 시각적 일관성을 확보했습니다.
+
 ## 알려진 한계
 
 1. **macOS 전용 일부 동작** — 트레이 + Reopen 이벤트 + macOSPrivateApi

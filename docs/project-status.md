@@ -6,7 +6,7 @@
 
 **BaroSit** — 데스크톱 자세 모니터링 앱 (Tauri 2 + React + MediaPipe)
 **최신 release**: v0.1.1 (2026-05-19, 자동 업데이트 풀 시연 완료)
-**다음 release 대기**: v0.1.3 (약관 인앱 표시 + 사용자 프로필 Phase 0 + 가림 현상 자동 핸드오버 및 캘리브레이션 충돌 완벽 해결 — commit·push 대기)
+**다음 release 대기**: v0.1.3 (약관 인앱 표시 + 프로필 Phase 0 + 가림 핸드오버 + 적응형 민감도 시각화 등 — 개발 완료, 릴리스 태그 배포 대기)
 
 - ✅ macOS 핵심 기능 동작 (자세 6종 + 점수 + 스트레칭 7종 + 위젯 모드 + 장시간 사용성 보호)
 - ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
@@ -335,10 +335,10 @@
 > 출시 블로커는 아니지만 정리해 둘 작은 개선들. 시연·검증·실사용 중 발견.
 
 ### UX·UI 다듬기
-- [ ] **UpdateNotice "최신 버전입니다" 스타일** — 현재 빨간 에러(.b-update-error) 로 뜸 → info 스타일 분리 ([src/updater.ts](../src/updater.ts) `setError("최신 버전입니다")` → 별도 `setInfo()` 추가)
-- [ ] **SettingsDrawer 버전 라벨 동적화** — hard-code "0.1.x" → `@tauri-apps/api/app` 의 `getVersion()` 으로 동적 표시 (매 release 마다 손 안 대도 되게)
+- [x] **UpdateNotice "최신 버전입니다" 스타일** — 현재 빨간 에러(.b-update-error) 로 뜸 → info 스타일 분리 ([src/updater.ts](../src/updater.ts) `setError("최신 버전입니다")` → 별도 `setInfo()` 추가)
+- [x] **SettingsDrawer 버전 라벨 동적화** — hard-code "0.1.x" → `@tauri-apps/api/app` 의 `getVersion()` 으로 동적 표시 (매 release 마다 손 안 대도 되게)
 - [ ] **누적·변동성·적응형 미리보기 버튼** — 검증 효율 위해 휴식 알림처럼 mock 발사 버튼 추가
-- [ ] **적응형 민감도 보정값 라이브 표시** — 설정 패널에 `postureMultiplier` / `reason` 라이브 표시 (디버그·신뢰 개선)
+- [x] **적응형 민감도 보정값 라이브 표시** — 설정 패널에 `postureMultiplier` / `reason` 라이브 표시 (디버그·신뢰 개선)
 
 ### 정합성 확인
 - [ ] **"머리 좌우 기울임" 자세 종류** — MonitorView 자세 빈도 그래프에 7번째 항목이 보임. 정식 6종 외에 추가됐는지, [analyzer.ts](../src/pose/analyzer.ts) / [types.ts](../src/pose/types.ts) 확인 + 문서 일관성 맞추기
