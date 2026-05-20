@@ -164,6 +164,8 @@ export interface PlatformAPI {
       duration_secs: number;
     }) => void,
   ): Promise<Unsubscribe>;
+  /** 현재 실행 중인 앱의 버전을 반환 */
+  getAppVersion(): Promise<string>;
   /** 새 버전 확인. 없으면 null. 웹은 항상 null. */
   checkForUpdate(): Promise<UpdateInfo | null>;
   /** 업데이트 다운로드 + 설치 + 재시작. 진행 콜백으로 UI 갱신. */

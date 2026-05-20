@@ -259,6 +259,16 @@ const downloadAndInstallUpdate = async (
   await proc.relaunch();
 };
 
+const getAppVersion = async (): Promise<string> => {
+  try {
+    const app = await import("@tauri-apps/api/app");
+    return await app.getVersion();
+  } catch (e) {
+    console.warn("[barosit] getAppVersion failed", e);
+    return "0.0.0";
+  }
+};
+
 export const tauriPlatform: PlatformAPI = {
   features: {
     multiWindow: true,
@@ -268,6 +278,7 @@ export const tauriPlatform: PlatformAPI = {
     appQuit: true,
     autoUpdate: true,
   },
+  getAppVersion,
   showPostureAlert,
   updateStatus,
   showMainWindow,

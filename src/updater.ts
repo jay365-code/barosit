@@ -18,6 +18,8 @@ export interface UpdaterState {
   progress: number | null;
   /** 에러 메시지 — 표시 후 사용자가 닫으면 null */
   error: string | null;
+  /** 일반 정보 안내 메시지 — 에러가 아닌 최신 버전 알림 등 */
+  info: string | null;
   /** 수동 체크 — 결과는 available 에 반영 */
   checkNow(): Promise<void>;
   /** 사용자가 "적용" 클릭. 다운로드 + 설치 + 재시작까지 한 번에 */
@@ -26,12 +28,15 @@ export interface UpdaterState {
   snooze(): void;
   /** 에러 닫기 */
   dismissError(): void;
+  /** 정보 안내 닫기 */
+  dismissInfo(): void;
 }
 
 export function useUpdater(): UpdaterState {
   const [available, setAvailable] = useState<UpdateInfo | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   const runCheck = async (manual: boolean): Promise<UpdateInfo | null> => {
     if (!platform.features.autoUpdate) return null;
@@ -49,7 +54,10 @@ export function useUpdater(): UpdaterState {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn("[barosit][updater] check error", e);
-      if (manual) setError(`업데이트 확인 실패: ${msg}`);
+      if (manual) {
+        setInfo(null);
+        setError(`업데이트 확인 실패: ${msg}`);
+      }
       return null;
     }
   };
@@ -67,12 +75,15 @@ export function useUpdater(): UpdaterState {
   }, []);
 
   const checkNow = async (): Promise<void> => {
-    const info = await runCheck(true);
-    if (!info && !error) setError("최신 버전입니다");
+    setError(null);
+    setInfo(null);
+    const infoResult = await runCheck(true);
+    if (!infoResult && !error) setInfo("최신 버전입니다");
   };
 
   const applyUpdate = async (): Promise<void> => {
     setError(null);
+    setInfo(null);
     setProgress(0);
     let totalBytes: number | null = null;
     let downloaded = 0;
@@ -106,6 +117,17 @@ export function useUpdater(): UpdaterState {
   };
 
   const dismissError = (): void => setError(null);
+  const dismissInfo = (): void => setInfo(null);
 
-  return { available, progress, error, checkNow, applyUpdate, snooze, dismissError };
+  return {
+    available,
+    progress,
+    error,
+    info,
+    checkNow,
+    applyUpdate,
+    snooze,
+    dismissError,
+    dismissInfo,
+  };
 }

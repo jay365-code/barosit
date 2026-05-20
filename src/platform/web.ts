@@ -142,6 +142,7 @@ export const webPlatform: PlatformAPI = {
     appQuit: false,
     autoUpdate: false,
   },
+  getAppVersion: async () => "0.1.2",
   showPostureAlert,
   updateStatus,
   showMainWindow: noopAsync,

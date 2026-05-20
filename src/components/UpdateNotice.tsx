@@ -8,13 +8,33 @@ interface Props {
 }
 
 export function UpdateNotice({ state }: Props) {
-  const { available, progress, error, applyUpdate, snooze, dismissError } = state;
+  const {
+    available,
+    progress,
+    error,
+    info,
+    applyUpdate,
+    snooze,
+    dismissError,
+    dismissInfo,
+  } = state;
 
   if (error) {
     return (
       <div className="b-update-notice b-update-error">
         <div className="b-update-title">⚠ {error}</div>
         <button className="b-btn b-btn-quiet" onClick={dismissError}>
+          닫기
+        </button>
+      </div>
+    );
+  }
+
+  if (info) {
+    return (
+      <div className="b-update-notice b-update-info">
+        <div className="b-update-title">ℹ {info}</div>
+        <button className="b-btn b-btn-quiet" onClick={dismissInfo}>
           닫기
         </button>
       </div>

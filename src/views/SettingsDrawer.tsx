@@ -30,6 +30,7 @@ import {
   DEFAULT_ADAPTIVE_CONFIG,
   loadAdaptiveConfig,
   saveAdaptiveConfig,
+  computeSensitivityModifier,
   type AdaptiveSensitivityConfig,
 } from "../pose/adaptiveSensitivity";
 import { MAIN_SLOGAN, pickSubSlogan } from "../slogans";
@@ -83,6 +84,11 @@ const POSTURE_LABEL: Record<PostureType, string> = {
 };
 
 export function SettingsDrawer({ onClose, updater, onShowLegal }: Props) {
+  const [version, setVersion] = useState("0.1.2");
+  useEffect(() => {
+    platform.getAppVersion().then(setVersion);
+  }, []);
+
   const [thresholds, setThresholds] = useState<ThresholdMap>(() =>
     loadThresholds(),
   );
@@ -104,6 +110,14 @@ export function SettingsDrawer({ onClose, updater, onShowLegal }: Props) {
   const [cumulativeConfig, setCumulativeConfigState] = useState<CumulativeLoadConfig>(() => loadCumulativeConfig());
   const [variabilityConfig, setVariabilityConfigState] = useState<VariabilityConfig>(() => loadVariabilityConfig());
   const [adaptiveConfig, setAdaptiveConfigState] = useState<AdaptiveSensitivityConfig>(() => loadAdaptiveConfig());
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!adaptiveConfig.enabled) return;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [adaptiveConfig.enabled]);
   const [theme, setTheme] = useState<ThemeMode>(() => loadThemeMode());
 
   const updateBreakConfig = (next: BreakConfig) => {
@@ -745,6 +759,83 @@ export function SettingsDrawer({ onClose, updater, onShowLegal }: Props) {
               updateAdaptiveConfig({ ...adaptiveConfig, enabled: v })
             }
           />
+
+          {adaptiveConfig.enabled && (() => {
+            const modifier = computeSensitivityModifier(adaptiveConfig, now);
+            const hasActiveBonus = modifier.postureMultiplier > 1.0 || modifier.breakMultiplier < 1.0;
+            return (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "var(--b-sig-bg)",
+                  border: "1px solid var(--b-sig-soft)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--b-sig-deep)",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: "var(--b-sig)",
+                      animation: "b-pulse 1.5s infinite ease-in-out",
+                    }}
+                  />
+                  {hasActiveBonus ? "라이브 피로도 보정 적용 중" : "실시간 자동 보정 대기 중"}
+                </div>
+                
+                {hasActiveBonus ? (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--b-fg-2)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 3,
+                    }}
+                  >
+                    <div>
+                      • 자세 알림 감도:{" "}
+                      <strong style={{ color: "var(--b-sig-deep)" }}>
+                        {((modifier.postureMultiplier - 1) * 100).toFixed(0)}% 완화
+                      </strong>{" "}
+                      (덜 민감하게)
+                    </div>
+                    <div>
+                      • 권장 휴식 주기:{" "}
+                      <strong style={{ color: "var(--b-sig-deep)" }}>
+                        {((1 - modifier.breakMultiplier) * 100).toFixed(0)}% 단축
+                      </strong>{" "}
+                      (더 자주 쉬도록)
+                    </div>
+                    <div style={{ color: "var(--b-fg-3)", marginTop: 2, fontSize: 10 }}>
+                      원인: {modifier.reason}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: "var(--b-fg-3)", lineHeight: 1.4 }}>
+                    현재 컨디션이 양호한 상태입니다. 장시간 지속 작업(2시간 이상) 시점이나 오후 피로 시간대(13~15시, 16~18시)에 자동으로 알림 임계값을 부드럽게 보정합니다.
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <button
             className="b-btn b-btn-ghost"
             onClick={() =>
@@ -1043,7 +1134,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal }: Props) {
               lineHeight: 1.6,
             }}
           >
-            <span>BaroSit · 버전 0.1.2</span>
+            <span>BaroSit · 버전 {version}</span>
             {platform.features.autoUpdate && (
               <button
                 className="b-btn b-btn-quiet"

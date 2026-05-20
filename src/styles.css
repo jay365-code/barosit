@@ -611,6 +611,7 @@ input:focus {
   animation: updateNoticeIn 0.25s ease-out;
 }
 .b-update-notice.b-update-error { border-color: #c44; }
+.b-update-notice.b-update-info { border-color: var(--b-sig); }
 .b-update-title { font-weight: 700; font-size: 14px; }
 .b-update-body {
   color: var(--b-fg-3);
@@ -873,3 +874,10 @@ input:focus {
   color: var(--b-fg-4);
   margin-top: 6px;
 }
+
+@keyframes b-pulse {
+  0% { opacity: 0.4; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0.4; transform: scale(0.95); }
+}
+
