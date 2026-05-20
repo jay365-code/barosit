@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  barosit-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: barosit-web
+    ports:
+      - "1430:1430"
+    volumes:
+      # Mount current directory to /app for HMR (Hot Module Replacement)
+      - .:/app
+      # Keep container's node_modules isolated from the host
+      - /app/node_modules
+      # Mount local environment variables
+      - ./.env.local:/app/.env.local
+    environment:
+      - NODE_ENV=development
+      - VITE_PLATFORM=web

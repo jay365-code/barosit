@@ -82,10 +82,71 @@ export function useAuth() {
     if (error) throw error;
   }, []);
 
+  const signInWithApple = useCallback(async () => {
+    if (!IS_AUTH_CONFIGURED) {
+      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: {
+        redirectTo: authRedirectUrl(),
+      },
+    });
+    if (error) throw error;
+  }, []);
+
+  const signInWithKakao = useCallback(async () => {
+    if (!IS_AUTH_CONFIGURED) {
+      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "kakao",
+      options: {
+        redirectTo: authRedirectUrl(),
+      },
+    });
+    if (error) throw error;
+  }, []);
+
+  const signInWithNaver = useCallback(async () => {
+    if (!IS_AUTH_CONFIGURED) {
+      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "naver" as any,
+      options: {
+        redirectTo: authRedirectUrl(),
+      },
+    });
+    if (error) throw error;
+  }, []);
+
+  const signInWithLine = useCallback(async () => {
+    if (!IS_AUTH_CONFIGURED) {
+      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "line" as any,
+      options: {
+        redirectTo: authRedirectUrl(),
+      },
+    });
+    if (error) throw error;
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!IS_AUTH_CONFIGURED) return;
     await supabase.auth.signOut();
   }, []);
 
-  return { ...state, signInWithGoogle, signInWithMagicLink, signOut };
+  return {
+    ...state,
+    signInWithGoogle,
+    signInWithApple,
+    signInWithKakao,
+    signInWithNaver,
+    signInWithLine,
+    signInWithMagicLink,
+    signOut,
+  };
 }

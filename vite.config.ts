@@ -13,7 +13,15 @@ export default defineConfig(async () => ({
   // Tauri 전용 dev 서버 설정 — 웹 빌드에서는 기본값 사용
   clearScreen: IS_WEB ? true : false,
   server: IS_WEB
-    ? undefined
+    ? {
+        port: 1430,
+        strictPort: true,
+        host: "0.0.0.0",
+        watch: {
+          usePolling: true,
+          ignored: ["**/src-tauri/**"],
+        },
+      }
     : {
         port: 1420,
         strictPort: true,

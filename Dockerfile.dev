@@ -1,0 +1,16 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Dependency installation
+COPY package*.json ./
+RUN npm install
+
+# Copying all files
+COPY . .
+
+# Vite web dev server port
+EXPOSE 1430
+
+# Run in development mode for Web
+CMD ["npm", "run", "dev:web"]
