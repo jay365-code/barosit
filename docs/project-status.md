@@ -12,9 +12,12 @@
 - ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
 - ✅ **자동 업데이트** — `tauri-plugin-updater` + GitHub Releases + minisign 서명, v0.1.0 → v0.1.1 풀 시연 검증
 - ✅ **첫 실행 온보딩** + **약관·처리방침 (초안)** + **사용자 프로필 Phase 0**
+- ✅ **마케팅 사이트 라이브** — `https://barosit.com` (Cloudflare Pages, main push 시 자동 배포)
+- ✅ **Google OAuth 인증** — Supabase + Custom Domain `auth.barosit.com`, consent screen 에 BaroSit 로고
 - 🟡 Windows 빌드 — release.yml 매트릭스로 빌드됨, 실 사용 검증은 미진행
 - 🟡 일부 UX 다듬기 + 영문화 미진행
-- ❌ macOS 코드 서명·공증 안 됨 / 랜딩 페이지 안 만듦 / 인증·동기화 미구현
+- 🟡 매직링크 (Resend SMTP 셋업만 남음) · Kakao OAuth (Kakao Developers 검수 필요)
+- ❌ macOS 코드 서명·공증 안 됨 · 데스크탑 앱에 OAuth 미연결 · 클라우드 동기화 (profiles/posture_events 테이블) 미구현
 
 ### 🔴 출시 블로커 진행 상황
 
@@ -22,8 +25,10 @@
 |---|---|---|
 | 1 | 첫 실행 온보딩 | ✅ 완료 |
 | 2 | 자동 업데이트 | ✅ 완료 + 풀 시연 검증 |
-| 3 | 프라이버시 정책 + 이용약관 | ✅ 초안 + 인앱 모달 (변호사 검토 대기) |
+| 3 | 프라이버시 정책 + 이용약관 | ✅ 초안 + 인앱 모달 + 웹사이트 라우트 (변호사 검토 대기) |
 | 4 | macOS 코드 서명 + 공증 | ⬜ 미시작 (Apple Developer $99/년 필요) |
+| 5 | 랜딩 페이지 + 도메인 | ✅ `barosit.com` 라이브 (Cloudflare Pages, 자동 배포) |
+| 6 | 인증 (웹) | ✅ Google OAuth 동작. 매직링크·Kakao 는 별도 sprint |
 
 ## 핵심 문서 (먼저 읽기)
 
@@ -184,13 +189,17 @@
 - [ ] 사업자 등록 후 운영자 정보 확정
 - [ ] 인증·동기화 도입 시 전면 재작성 ([auth-sync-plan.md §4](./auth-sync-plan.md) 참조)
 
-### 사용자 프로필 — Phase 0 (로컬 stub)
+### 사용자 프로필 — Phase 0 (로컬 stub) + 웹 인증 (Phase 1 일부)
 - [x] [ProfileView](../src/views/ProfileView.tsx) 페이지 — 이름·아바타(이모지 10종)·작업환경(노트북/외장/혼합)
 - [x] localStorage `user_profile_v1` + `dataBackup` BACKUP_KEYS 포함
 - [x] MonitorView 헤더에 아바타 진입 버튼 (설정 아이콘 옆) — 클릭 시 ProfileView 전체 화면
 - [x] ProfileView 좌상단 "홈으로" 버튼 → MonitorView 복귀
-- [x] "로그인/회원가입" 버튼은 비활성 + "준비 중" 안내 (Phase 1 예정)
-- [ ] **Phase 1~4 (인증 + Supabase 동기화)** — [docs/auth-sync-plan.md](./auth-sync-plan.md) 참조, 사용자 검토 후 진행 (2-3주 작업)
+- [x] **웹 Google OAuth (2026-05-20)** — Supabase + Custom Domain `auth.barosit.com`. [src/auth/supabase.ts](../src/auth/supabase.ts) + [src/auth/useAuth.ts](../src/auth/useAuth.ts) + Marketing.tsx Login/AuthCallback/Profile 연결. 시크릿창 풀 흐름 검증 완료
+- [x] **마케팅 사이트의 Profile 페이지** Google 사용자 정보 실데이터 표시 (이름·이메일·아바타·가입일·로그인 방식)
+- [ ] **매직링크 (Supabase Email OTP)** — 코드는 완료 ([signInWithMagicLink](../src/auth/useAuth.ts), UI 완성). Resend Custom SMTP 셋업만 남음
+- [ ] **Kakao OAuth** — Supabase native 미지원. OIDC + Kakao Developers 검수 필요
+- [ ] **데스크탑 앱 OAuth (Tauri)** — deep link `barosit://auth/callback` + Rust `keyring` crate + ProfileView 의 "준비 중" 버튼 활성화. [auth-sync-plan.md Phase 1-3](./auth-sync-plan.md) 참조
+- [ ] **Phase 2 (DB 스키마 + 동기화 엔진)** — profiles · posture_events · daily_scores · user_settings 테이블 + RLS + sync engine
 
 ---
 
@@ -207,7 +216,7 @@
 
 ### 🟡 시장 진입
 
-- [ ] **랜딩 페이지** — 도메인 + 다운로드 + 데모 GIF (코드는 [src/web/Marketing.tsx](../src/web/Marketing.tsx) 에 mockup 완성. `/privacy`·`/terms`·`/contact` 라우트 추가됨. 남은 작업: 도메인 구매 + Cloudflare Pages 연동 + 데모 GIF 제작)
+- [x] **랜딩 페이지 + 도메인 + 배포** — `https://barosit.com` 라이브 (Cloudflare Pages 자동 배포). 남은 작업: 데모 GIF/스크린샷 추가, 다운로드 링크는 macOS 서명/공증 후 활성화
 - [ ] **앱 이름 + 로고 + 아이콘** 최종 결정
 - [ ] **가격 모델 결정** — 후보:
   - 완전 무료 + 오픈소스
@@ -297,6 +306,7 @@
 16. **사용자 프로필 Phase 0 (2026-05-19)**: 로컬 stub (이름·이모지 아바타·작업환경). 인증·동기화는 별도 메이저 sprint ([auth-sync-plan.md](./auth-sync-plan.md)) — **온디바이스 원칙 변경 + 처리방침 전면 재작성** 동반.
 17. **마케팅 사이트 호스팅 + 인증 스택 확정 (2026-05-20)**: 마케팅 사이트는 **Cloudflare Pages** (정적, 무료 무제한 대역폭, KR 엣지). 인증·DB 는 **Supabase** (서울 리전). 인증 방식은 **매직링크 + Google OAuth + Kakao OAuth** — 비밀번호 가입은 도입하지 않음 (재설정 흐름·해시 정책·보안 책임 절감). Apple OAuth 는 Mac App Store 출시 시점에 추가. Kakao 는 Supabase native 미지원이라 OIDC + Kakao Developers 검수 경로. [auth-sync-plan.md v2](./auth-sync-plan.md) 확정 — Phase 1 착수 가능.
 18. **마케팅 사이트 법적 페이지 (2026-05-20)**: `/privacy`, `/terms`, `/contact` 라우트 추가. privacy/terms 는 `docs/*.md` 를 `?raw` import 해서 react-markdown 으로 렌더 — 앱 내 [LegalDocument 모달](../src/components/LegalDocument.tsx) 과 단일 소스. 문의는 `jhlee@gubed.co.kr` mailto + GitHub Issues. 로그인 UI 는 매직링크+Google+Kakao 구조로 정리, Apple 버튼·비밀번호 필드 제거.
+19. **production 배포 + 인증 인프라 완성 (2026-05-20)**: 도메인 `barosit.com` 구매(hosting.kr) + DNS 를 Cloudflare 로 이전. **Cloudflare Pages** 에 GitHub 연동, main push 시 자동 배포 — `https://barosit.com` 라이브. **Supabase Pro** + **Custom Domain `auth.barosit.com`** 활성화 (Let's Encrypt SSL 자동), Google OAuth consent 에 BaroSit 로고 업로드 → Google 로그인 화면에 "auth.barosit.com(으)로 이동" 표시. Google Cloud Console 에 `https://barosit.com`/`https://barosit.pages.dev`/`http://localhost:1430` 3개 origin 등록, Supabase URL Configuration 의 Site URL = `https://barosit.com` + Redirect URLs 3개 허용 목록. 시크릿창에서 `barosit.com → Google → /landing` 풀 흐름 검증 완료. **외부 비용**: 도메인 ~₩18,000/년 (hosting.kr) + Supabase Pro $25/월. Cloudflare 는 Free 유지.
 
 ## 알려진 한계 / 제약
 
