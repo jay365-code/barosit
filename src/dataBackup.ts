@@ -20,6 +20,7 @@ const BACKUP_KEYS = [
   "variability",
   "adaptive_sensitivity",
   "updater_snoozed_version",
+  "user_profile_v1",
 ] as const;
 
 const BACKUP_VERSION = 1;

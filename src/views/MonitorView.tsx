@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  loadProfile,
+  PROFILE_CHANGED_EVENT,
+  type UserProfile,
+} from "../userProfile";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
@@ -99,6 +104,7 @@ interface Props {
   onTogglePause: () => void;
   onRecalibrate: () => void;
   onOpenSettings: () => void;
+  onOpenProfile: () => void;
   onStatusChange?: (status: PostureStatus) => void;
 }
 
@@ -147,12 +153,22 @@ export function MonitorView({
   onTogglePause,
   onRecalibrate,
   onOpenSettings,
+  onOpenProfile,
   onStatusChange,
 }: Props) {
   const [widgetEnabled, setWidgetEnabled] = useState<boolean>(
     () => localStorage.getItem("app_mode") === "widget",
   );
   const [minibarOn, setMinibarOn] = useState<boolean>(() => isMinibarVisible());
+  const [profile, setProfile] = useState<UserProfile>(() => loadProfile());
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<UserProfile>).detail;
+      if (detail) setProfile(detail);
+    };
+    window.addEventListener(PROFILE_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(PROFILE_CHANGED_EVENT, handler);
+  }, []);
 
   useEffect(() => {
     const sync = () =>
@@ -171,8 +187,39 @@ export function MonitorView({
     };
   }, []);
 
+  const lastPresentAtRef = useRef<number>(Date.now());
+
+  const [visible, setVisible] = useState<boolean>(
+    typeof document === "undefined" ? true : !document.hidden,
+  );
+
+  const [cameraActive, setCameraActive] = useState(false);
+
+  useEffect(() => {
+    if (widgetEnabled) {
+      setCameraActive(false);
+      return;
+    }
+    if (!visible) {
+      setCameraActive(false);
+    } else {
+      const id = setTimeout(() => {
+        setCameraActive(true);
+      }, 250);
+      return () => clearTimeout(id);
+    }
+  }, [widgetEnabled, visible]);
+
+
+
+  useEffect(() => {
+    if (cameraActive) {
+      lastPresentAtRef.current = Date.now();
+    }
+  }, [cameraActive]);
+
   const { videoRef, ready: cameraReady, error: cameraError } = useCamera(
-    !widgetEnabled,
+    cameraActive,
   );
 
   const scoreInputsRef = useRef<ScoreInputs>({
@@ -199,9 +246,7 @@ export function MonitorView({
   const [, setPersonPresent] = useState<boolean>(false);
   const [privacy, setPrivacy] = useState<boolean>(isPrivacyMode());
   const [lastAlarm, setLastAlarm] = useState<WidgetLastAlarm | null>(null);
-  const [visible, setVisible] = useState<boolean>(
-    typeof document === "undefined" ? true : !document.hidden,
-  );
+
   const [maxDurationSecs, setMaxDurationSecs] = useState<number>(0);
   const [breakStatus, setBreakStatus] = useState<BreakStatus | null>(null);
   const [stretchToast, setStretchToast] = useState<{
@@ -363,7 +408,7 @@ export function MonitorView({
   /** analyzer 가 프레임 간 캐리하는 내부 상태 (chin/resting hold 카운터). */
   const analyzerStateRef = useRef<AnalyzerState>({});
   const REST_MIN_HOLD_MS = 4000;
-  const lastPresentAtRef = useRef<number>(Date.now());
+
   const lastPosePublishAtRef = useRef<number>(0);
   const latestPoseRef = useRef<Landmarks | null>(null);
 
@@ -1040,6 +1085,15 @@ export function MonitorView({
                 </button>
               </>
             )}
+            <button
+              className="b-icon-btn b-tip"
+              aria-label="프로필 열기"
+              data-tip={profile.name ? `${profile.name} · 프로필` : "프로필"}
+              onClick={onOpenProfile}
+              style={{ fontSize: 18, lineHeight: 1 }}
+            >
+              <span aria-hidden>{profile.avatar}</span>
+            </button>
             <button
               className="b-icon-btn b-tip"
               aria-label="설정 열기"

@@ -195,6 +195,8 @@ export function useMonitoringEngine(opts: {
     logEvent("engine", "useMonitoringEngine enabled", {
       visible: opts.visible,
     });
+    // 엔진이 활성화되는 시점에 absence 타이머를 리셋하여 자리비움 오인 방지
+    lastPresentAtRef.current = Date.now();
     startKeepAwake();
     const onInteract = () => startKeepAwake();
     window.addEventListener("pointerdown", onInteract, { once: true });

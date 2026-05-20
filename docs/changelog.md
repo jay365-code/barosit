@@ -504,12 +504,75 @@ release.
 - 코드 변경 없음 — v0.1.0 production 앱에서 새 버전 감지 → 다운로드 → 설치 → relaunch 까지 흐름 검증이 목적
 
 ### 후속 작업 후보
-- [SettingsDrawer.tsx](../src/views/SettingsDrawer.tsx) 의 버전 라벨을 hard-code 대신 `@tauri-apps/api/app` 의 `getVersion()` 으로 동적 표시 — 매 release 마다 손 안 대도 되게
+— [project-status.md "📝 작은 후속 작업 (Backlog)"](../docs/project-status.md) 로 통합 이관.
+
+## 20. v0.1.2 — 약관 인앱 표시 + 사용자 프로필 Phase 0 (2026-05-19)
+
+### 배경
+출시 블로커 #3 에서 작성한 [privacy.md](../docs/privacy.md) / [terms.md](../docs/terms.md) 가
+GitHub 외부 링크로만 노출되던 것을 **앱 안 모달**로 옮김. 동시에 향후 인증·
+클라우드 동기화의 기반이 될 **사용자 프로필 페이지 골격** 을 도입(현재는 로컬 stub).
+
+### 20-1. 약관·처리방침 인앱 표시
+- 신규 [src/components/LegalDocument.tsx](../src/components/LegalDocument.tsx) — `b-overlay/b-modal` 패턴 + 헤더(제목·닫기) + 본문 스크롤
+- Vite `?raw` import 로 [docs/privacy.md](../docs/privacy.md) / [docs/terms.md](../docs/terms.md) 가져와 [react-markdown](https://github.com/remarkjs/react-markdown) + [remark-gfm](https://github.com/remarkjs/remark-gfm) 으로 렌더 (table·blockquote 지원)
+- [src/styles.css](../src/styles.css) — `.b-legal-modal` / `.b-legal-header` / `.b-legal-body` (h1-h3·table·a·code·blockquote·hr 마크다운 매핑)
+- [src/App.tsx](../src/App.tsx) — `legalDoc: LegalDocKind | null` state 일원화, Onboarding·SettingsDrawer 에 `onShowLegal` prop 전달
+- [Onboarding.tsx](../src/views/Onboarding.tsx) 3페이지·[SettingsDrawer.tsx](../src/views/SettingsDrawer.tsx) "정보" 섹션 — 외부 a 태그 → 버튼 onClick 으로 교체
+
+### 20-2. 사용자 프로필 — Phase 0 (로컬 stub)
+- 신규 [src/userProfile.ts](../src/userProfile.ts) — `UserProfile` 타입 + load/save + `PROFILE_CHANGED_EVENT` + 이모지 아바타 10종(`🪑🧘🌿🦴🪴🐢🦒🌱🦊🐰`)
+- 신규 [src/views/ProfileView.tsx](../src/views/ProfileView.tsx) — 풀스크린 페이지
+  - "로그인/회원가입" 섹션: 비활성 + "준비 중" 배지 (Phase 1 예정)
+  - 아바타 그리드(클릭 선택)·이름 input(max 24자)·작업환경 3개 라디오(노트북/외장/혼합)
+  - 변경 시 600ms debounce 자동 저장, "자동 저장됨" hint
+  - 좌상단 "홈으로" 버튼 → `onGoHome()` 콜백 (MonitorView 복귀)
+- [src/styles.css](../src/styles.css) — `.profile-view` / `.profile-card` / `.profile-avatar-grid` / `.profile-radio` 등
+- [src/dataBackup.ts](../src/dataBackup.ts) — `BACKUP_KEYS` 에 `user_profile_v1` 추가 (백업/복원 포함)
+
+### 20-3. MonitorView 헤더 통합
+- [MonitorView.tsx](../src/views/MonitorView.tsx) — 설정 톱니바퀴 옆에 **사용자 아바타 이모지 버튼** 추가, 클릭 시 ProfileView 전체 화면 전환
+- 헤더 표시는 `loadProfile()` + `PROFILE_CHANGED_EVENT` 리스너로 라이브 갱신 (다른 화면에서 프로필 변경해도 즉시 반영)
+- App.tsx 의 `profileOpen` state 분기 — ProfileView 표시 시 MonitorView 위에 z-index 30 으로 덮음
+
+### 20-4. Phase 1~4 계획 문서
+- 신규 [docs/auth-sync-plan.md](../docs/auth-sync-plan.md) — Supabase + OAuth + RLS + 동기화 엔진 + 법적 문서 재작성 단계별 계획
+- 사전 결정 사항 6개(백엔드·인증·동기화 범위·마이그레이션·토큰 저장·가격) 사용자 검토 대기
+- 총 2-3주 작업으로 추정. macOS 코드 서명(출시 블로커 #4) 과 병행 또는 v0.2 메이저 업데이트로 배포
+
+### 20-5. 의존성
+- `npm install react-markdown remark-gfm` — 약 100개 transitive 패키지 추가, gzip 약 60KB
+- Tauri 의존성 변경 없음 (Rust 재컴파일 불필요)
+
+### 검증
+- TypeScript `tsc --noEmit` — 0 errors
+
+## 21. v0.1.3 — 가림 현상 자동 핸드오버 및 캘리브레이션 충돌 해결 (2026-05-20)
+
+### 배경
+- macOS WKWebView는 메인 창이 다른 앱에 가려지면(Occluded) CPU 및 렌더링 절전 모드(Suspend)로 들어갑니다.
+- 기존 keepAwake(무음 오디오)만으로는 타이머 멈춤을 완벽하게 방어할 수 없어, 가려지는 즉시 미니바(Widget)가 감지 루프 및 카메라를 인계받고, 메인이 앞으로 나오면 안전하게 카메라를 반환하는 **가림 현상 자동 핸드오버 파이프라인**을 성공적으로 적용했습니다.
+- 구현 과정에서 "기준 자세 잡기" (Calibration) 모드로 진입 시 메인 창의 `MonitorView`가 언마운트되면서 미니바가 가림 현상으로 감지하고 백그라운드 엔진을 동시에 켜서 **카메라 점유 경쟁 충돌(검은 화면 멈춤)**을 발생시키는 문제를 발견하고 완벽하게 자가복구 처리했습니다.
+
+### 21-1. 메인 윈도우 가림 감지 및 250ms 지연 핸드오버
+- [src/views/MonitorView.tsx](../src/views/MonitorView.tsx) — `document.hidden`과 `visibilitychange` 이벤트를 구독하여 가림 여부를 실시간 판단.
+- 메인이 보일 때만 250ms의 지연 버퍼를 두고 카메라(`cameraActive`)를 가동함으로써 미니바가 카메라를 끄고 권한을 양도할 시간을 보장하여 하드웨어 충돌을 원천 차단했습니다.
+- 복귀 시점에 `lastPresentAtRef.current = Date.now()`로 타이머를 보정하여 핸드오버 지연 도중 '자리비움/일시정지' 상태로 오탐하는 것을 차단했습니다.
+
+### 21-2. 미니바의 영리한 백그라운드 감지 인수
+- [src/views/Widget.tsx](../src/views/Widget.tsx) — `localStorage`의 `main_visible` 상태를 관측하여 `mainVisible` 로컬 상태로 반영.
+- 위젯 백그라운드 분석 엔진(`useMonitoringEngine`) 활성화 조건(`engineActive`)을 가림 상태(`appMode === "main" && !mainVisible`)까지 안전하게 통합하여 위젯이 상시 끊김 없이 감지를 보조하도록 했습니다.
+- [src/hooks/useMonitoringEngine.ts](../src/hooks/useMonitoringEngine.ts) — 위젯 엔진이 기동하는 첫 프레임 시점에 `lastPresentAtRef`를 초기화하여 위젯의 자리비움 오동작을 원천 차단했습니다.
+
+### 21-3. 캘리브레이션 뷰 카메라 점유 충돌 차단 (State Lift-up)
+- [src/App.tsx](../src/App.tsx) — 메인 창의 가시성 상태(`main_visible`) 관리 책임을 개별 뷰(`MonitorView.tsx`)에서 공통 루트인 `App.tsx` 레벨로 격상(Lift-up)했습니다.
+- `MonitorView`가 언마운트되고 `CalibrationView`로 뷰가 전환되는 과정에서도 메인 창 자체가 화면에 노출되어 있다면 `main_visible`을 계속 `"true"` (보임)로 유지하게 했습니다.
+- 이를 통해 캘리브레이션 진입 시 미니바가 오작동하여 카메라를 빼앗아 가던 경쟁 문제를 해결하고, 캘리브레이션 뷰가 단독으로 카메라 장치를 아주 원활하고 완벽하게 획득할 수 있도록 수정했습니다.
 
 ## 알려진 한계
 
 1. **macOS 전용 일부 동작** — 트레이 + Reopen 이벤트 + macOSPrivateApi
-2. **카메라 충돌** — 두 윈도우 동시 접근 시 race condition (250ms 지연 + 재시도로 완화)
+2. **카메라 충돌 극복** — 메인 ↔ 위젯 전환 및 가림 핸드오버 시의 250ms 딜레이와 App.tsx 수준의 상태 격상(Lift-up)으로 카메라 장치 점유 충돌 문제를 안전하게 해결했습니다.
 3. **모델 외부 CDN 의존** — 첫 실행 시 ~20MB 다운로드 필요
 4. **dev 모드 메모리 부담** — 2.7GB+ (프로덕션 빌드는 1GB 이하)
 5. **빠른 움직임 시 검출 노이즈** — Image Segmenter 신뢰도 저하 가시화 (EMA로 완화)

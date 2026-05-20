@@ -3,9 +3,14 @@ import { CalibrationView } from "./views/CalibrationView";
 import { MonitorView } from "./views/MonitorView";
 import { SettingsDrawer } from "./views/SettingsDrawer";
 import { Onboarding } from "./views/Onboarding";
+import { ProfileView } from "./views/ProfileView";
 import { AlertOverlay } from "./components/AlertOverlay";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { useUpdater } from "./updater";
+import {
+  LegalDocument,
+  type LegalDocKind,
+} from "./components/LegalDocument";
 import { clearBaseline, loadBaseline } from "./pose/calibration";
 import type { CalibrationBaseline, PostureStatus } from "./pose/types";
 import {
@@ -101,6 +106,28 @@ export default function App() {
     () => localStorage.getItem(ONBOARDED_KEY) !== "1",
   );
   const updater = useUpdater();
+  const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [visible, setVisible] = useState<boolean>(
+    typeof document === "undefined" ? true : !document.hidden,
+  );
+
+  useEffect(() => {
+    const onVis = () => {
+      setVisible(!document.hidden);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("main_visible", visible ? "true" : "false");
+    return () => {
+      localStorage.setItem("main_visible", "false");
+    };
+  }, [visible]);
 
   useEffect(() => {
     let unsubPause: (() => void) | undefined;
@@ -170,21 +197,30 @@ export default function App() {
               onTogglePause={() => setPaused((p) => !p)}
               onRecalibrate={recalibrate}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenProfile={() => setProfileOpen(true)}
               onStatusChange={setStatus}
             />
           )}
         </main>
+        {profileOpen && (
+          <ProfileView onGoHome={() => setProfileOpen(false)} />
+        )}
         {settingsOpen && (
           <SettingsDrawer
             onClose={() => setSettingsOpen(false)}
             updater={updater}
+            onShowLegal={setLegalDoc}
           />
         )}
         {onboardingOpen && (
           <Onboarding
             onFinish={finishOnboarding}
             onSkip={finishOnboarding}
+            onShowLegal={setLegalDoc}
           />
+        )}
+        {legalDoc && (
+          <LegalDocument kind={legalDoc} onClose={() => setLegalDoc(null)} />
         )}
         <AlertOverlay />
         <UpdateNotice state={updater} />

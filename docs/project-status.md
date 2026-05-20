@@ -5,12 +5,25 @@
 ## 빠른 요약
 
 **BaroSit** — 데스크톱 자세 모니터링 앱 (Tauri 2 + React + MediaPipe)
+**최신 release**: v0.1.1 (2026-05-19, 자동 업데이트 풀 시연 완료)
+**다음 release 대기**: v0.1.3 (약관 인앱 표시 + 사용자 프로필 Phase 0 + 가림 현상 자동 핸드오버 및 캘리브레이션 충돌 완벽 해결 — commit·push 대기)
 
-- ✅ macOS 핵심 기능 동작 (자세 6종 감지 + 점수 + 스트레칭 7종 보너스 + 위젯 모드 + 장시간 사용성 보호)
+- ✅ macOS 핵심 기능 동작 (자세 6종 + 점수 + 스트레칭 7종 + 위젯 모드 + 장시간 사용성 보호)
 - ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
-- 🟡 Windows 빌드 호환성 작업 완료 (cfg 분기 + CI 워크플로우) — 실제 Windows 러너 검증 대기
+- ✅ **자동 업데이트** — `tauri-plugin-updater` + GitHub Releases + minisign 서명, v0.1.0 → v0.1.1 풀 시연 검증
+- ✅ **첫 실행 온보딩** + **약관·처리방침 (초안)** + **사용자 프로필 Phase 0**
+- 🟡 Windows 빌드 — release.yml 매트릭스로 빌드됨, 실 사용 검증은 미진행
 - 🟡 일부 UX 다듬기 + 영문화 미진행
-- ❌ 배포(서명·공증·랜딩) 안 됨
+- ❌ macOS 코드 서명·공증 안 됨 / 랜딩 페이지 안 만듦 / 인증·동기화 미구현
+
+### 🔴 출시 블로커 진행 상황
+
+| # | 항목 | 상태 |
+|---|---|---|
+| 1 | 첫 실행 온보딩 | ✅ 완료 |
+| 2 | 자동 업데이트 | ✅ 완료 + 풀 시연 검증 |
+| 3 | 프라이버시 정책 + 이용약관 | ✅ 초안 + 인앱 모달 (변호사 검토 대기) |
+| 4 | macOS 코드 서명 + 공증 | ⬜ 미시작 (Apple Developer $99/년 필요) |
 
 ## 핵심 문서 (먼저 읽기)
 
@@ -24,6 +37,8 @@
 | [ipc-reference.md](./ipc-reference.md) | Tauri 명령·이벤트·CustomEvent |
 | [development.md](./development.md) | dev/build, 디버깅, 폴더 구조 |
 | [changelog.md](./changelog.md) | 세션 변경 이력 카테고리별 요약 |
+| [privacy.md](./privacy.md) · [terms.md](./terms.md) | 개인정보 처리방침·이용약관 (초안) |
+| [auth-sync-plan.md](./auth-sync-plan.md) | 인증 + 클라우드 동기화 Phase 1~4 계획 (사용자 검토 대기) |
 
 ## 개발 완료 항목
 
@@ -164,9 +179,18 @@
 ### 법적 문서 (초안)
 - [x] [개인정보 처리방침 (privacy.md)](./privacy.md) — KR 개인정보보호법 + GDPR 시야, localStorage 키별 명시
 - [x] [이용약관 (terms.md)](./terms.md) — 라이선스·의료기기 아님·면책·분쟁 해결
-- [x] Onboarding 3페이지 + SettingsDrawer "정보" 섹션에 GitHub 링크 노출
+- [x] **앱 내 모달로 표시** — react-markdown + remark-gfm. Onboarding 3페이지·SettingsDrawer "정보" 섹션 → [LegalDocument](../src/components/LegalDocument.tsx) 모달 (외부 GitHub 이탈 없음)
 - [ ] **변호사 검토** (출시 전 필수)
 - [ ] 사업자 등록 후 운영자 정보 확정
+- [ ] 인증·동기화 도입 시 전면 재작성 ([auth-sync-plan.md §4](./auth-sync-plan.md) 참조)
+
+### 사용자 프로필 — Phase 0 (로컬 stub)
+- [x] [ProfileView](../src/views/ProfileView.tsx) 페이지 — 이름·아바타(이모지 10종)·작업환경(노트북/외장/혼합)
+- [x] localStorage `user_profile_v1` + `dataBackup` BACKUP_KEYS 포함
+- [x] MonitorView 헤더에 아바타 진입 버튼 (설정 아이콘 옆) — 클릭 시 ProfileView 전체 화면
+- [x] ProfileView 좌상단 "홈으로" 버튼 → MonitorView 복귀
+- [x] "로그인/회원가입" 버튼은 비활성 + "준비 중" 안내 (Phase 1 예정)
+- [ ] **Phase 1~4 (인증 + Supabase 동기화)** — [docs/auth-sync-plan.md](./auth-sync-plan.md) 참조, 사용자 검토 후 진행 (2-3주 작업)
 
 ---
 
@@ -268,6 +292,9 @@
 11. **카메라 핸드오버**: 250ms 지연 + 800ms 재시도
 12. **기획안.md** 는 코드 현재 상태 반영해 갱신됨. **코드가 진실의 원천**.
 13. **장시간 사용성 (2026-05-14)**: 자세 위반과 별개 카테고리로 (a) 정기 휴식, (b) 누적 부담, (c) 자세 변동성 3개 신호 + (d) 적응형 민감도 보정 추가. Phase 1~4 로 코드에 명시. **자세 점수에는 영향 안 주고 알림만 별도 발사** — alarm fatigue 방지.
+14. **자동 업데이트 (2026-05-19)**: `tauri-plugin-updater` + GitHub Releases. minisign 서명, latest.json 자동 메니페스트. v0.1.0 → v0.1.1 풀 사이클(자동 체크 → 배너 → 다운로드 → 서명 검증 → 설치 → relaunch) 검증 완료. **endpoint 의존성 때문에 GitHub repo 가 public 이어야 함**.
+15. **약관 인앱 모달 (2026-05-19)**: 외부 GitHub URL 이탈 없이 `react-markdown` + `remark-gfm` 으로 [privacy.md](./privacy.md) / [terms.md](./terms.md) 렌더. Onboarding · SettingsDrawer · 향후 ProfileView 모두 동일 trigger 패턴.
+16. **사용자 프로필 Phase 0 (2026-05-19)**: 로컬 stub (이름·이모지 아바타·작업환경). 인증·동기화는 별도 메이저 sprint ([auth-sync-plan.md](./auth-sync-plan.md)) — **온디바이스 원칙 변경 + 처리방침 전면 재작성** 동반.
 
 ## 알려진 한계 / 제약
 
@@ -281,11 +308,10 @@
 
 > 실사용 중 사용자 리포트. 재현·원인 파악·수정.
 
-- [ ] **메인 윈도우가 다른 앱에 가려져 있을 때 미니바 동작 안 함** (2026-05-19 리포트)
+- [x] **메인 윈도우가 다른 앱에 가려져 있을 때 미니바 동작 안 함** (2026-05-19 리포트)
   - 증상: BaroSit 메인 윈도우가 visible 이지만 다른 앱(에디터·브라우저 등) 뒤로 가려진 상태에서 미니바 상태/점수가 멈춤
-  - 추정: 메인 owner pose loop 가 WKWebView occluded throttle 로 슬립. 현재 [keepAwake.ts](../src/keepAwake.ts) + [watchdog.ts](../src/watchdog.ts) 는 메인이 hidden(트레이) 상태일 때 기준이라 단순 occluded 케이스가 안 잡힘
-  - 확인 필요: (a) 메인 hidden vs 다른 앱에 가려짐(occluded) vs minimize 세 케이스 구분, (b) watchdog 60s reload 가 발화되는지(발화 안 한다면 heartbeat 자체는 도는 중인데 무언가 다른 게 멈춘 것), (c) 메인이 owner 일 때 미니바도 동일 owner state 의존이므로 메인 throttle → 미니바 stale 가능성
-  - 가능한 수정 방향: 메인 occluded 감지(`document.visibilityState` 불충분 시 [Page Visibility API](https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API) 외에 focus/blur·`pagehide` 조합) + occluded 시 owner 를 위젯으로 자동 핸드오버 / 또는 keepAwake 가 occluded 에서도 동작하도록 확장
+  - 원인: 메인 owner pose loop가 macOS WKWebView occluded throttle로 슬립함.
+  - 해결 완료 (2026-05-20): 메인 창 가시성 감지(`main_visible`)를 루트 레벨(`App.tsx`)로 격상(Lift-up)하고 `document.hidden`을 활용해 감지하도록 설계. 가려지면 미니바(`Widget.tsx` / `useMonitoringEngine`)가 카메라 및 감지 주체를 안전하게 인계받음. 복귀 시에는 250ms의 핸드오버 지연 버퍼를 두어 카메라 장치 점유 충돌 없이 부드럽게 되돌아가도록 처리함. 이 과정에서 발생했던 캘리브레이션 뷰 진입 시의 카메라 먹통 충돌 현상까지 완벽히 해결함.
 
 ## QA 대기 — 5/14 4 Phase 동작 검증 체크리스트
 
@@ -302,8 +328,23 @@
 
 ### 발견 시 후속 작업 후보 (검증 효율·UX 개선)
 
-- [ ] 누적·변동성·적응형 섹션에도 **미리보기 발사 버튼** 추가 (현재는 휴식에만 있음)
-- [ ] 적응형 민감도 섹션에 **현재 보정값(`postureMultiplier` / `reason`) 라이브 표시**
+— 본 문서 "📝 작은 후속 작업 (Backlog)" 섹션 참조.
+
+## 📝 작은 후속 작업 (Backlog)
+
+> 출시 블로커는 아니지만 정리해 둘 작은 개선들. 시연·검증·실사용 중 발견.
+
+### UX·UI 다듬기
+- [ ] **UpdateNotice "최신 버전입니다" 스타일** — 현재 빨간 에러(.b-update-error) 로 뜸 → info 스타일 분리 ([src/updater.ts](../src/updater.ts) `setError("최신 버전입니다")` → 별도 `setInfo()` 추가)
+- [ ] **SettingsDrawer 버전 라벨 동적화** — hard-code "0.1.x" → `@tauri-apps/api/app` 의 `getVersion()` 으로 동적 표시 (매 release 마다 손 안 대도 되게)
+- [ ] **누적·변동성·적응형 미리보기 버튼** — 검증 효율 위해 휴식 알림처럼 mock 발사 버튼 추가
+- [ ] **적응형 민감도 보정값 라이브 표시** — 설정 패널에 `postureMultiplier` / `reason` 라이브 표시 (디버그·신뢰 개선)
+
+### 정합성 확인
+- [ ] **"머리 좌우 기울임" 자세 종류** — MonitorView 자세 빈도 그래프에 7번째 항목이 보임. 정식 6종 외에 추가됐는지, [analyzer.ts](../src/pose/analyzer.ts) / [types.ts](../src/pose/types.ts) 확인 + 문서 일관성 맞추기
+
+### CI / 빌드 정리
+- [ ] **build-windows.yml 중복 트리거 정리** — release.yml 이 Windows 도 빌드하므로 tag push 트리거 제거, `workflow_dispatch` 전용으로 (현재 매 v* push 마다 실패 1건 더 생성)
 
 ## 다음 작업 시작 시 체크리스트
 
@@ -357,6 +398,9 @@ Google CDN에서 자동 로드되므로 별도 작업 불필요.
 | WebView throttle 회피 / 자가복구 | `src/keepAwake.ts`, `src/watchdog.ts` |
 | 자동 업데이트 (hook + UI) | `src/updater.ts`, `src/components/UpdateNotice.tsx` |
 | 릴리스 워크플로우 | `.github/workflows/release.yml` |
+| 약관·처리방침 모달 | `src/components/LegalDocument.tsx`, `docs/privacy.md`, `docs/terms.md` |
+| 사용자 프로필 (Phase 0) | `src/userProfile.ts`, `src/views/ProfileView.tsx` |
+| 첫 실행 온보딩 | `src/views/Onboarding.tsx` |
 | Tauri 명령 + 이벤트 | `src/ipc.ts` |
 | Rust 메인 + 윈도우 라이프사이클 | `src-tauri/src/lib.rs` |
 | 트레이 | `src-tauri/src/tray.rs` |

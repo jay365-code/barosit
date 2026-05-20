@@ -58,10 +58,12 @@ import {
 import { platform } from "../platform";
 
 import type { UpdaterState } from "../updater";
+import type { LegalDocKind } from "../components/LegalDocument";
 
 interface Props {
   onClose: () => void;
   updater: UpdaterState;
+  onShowLegal: (kind: LegalDocKind) => void;
 }
 
 type Preset = "엄격" | "보통" | "관대";
@@ -80,7 +82,7 @@ const POSTURE_LABEL: Record<PostureType, string> = {
   head_roll: "머리 좌우 기울임",
 };
 
-export function SettingsDrawer({ onClose, updater }: Props) {
+export function SettingsDrawer({ onClose, updater, onShowLegal }: Props) {
   const [thresholds, setThresholds] = useState<ThresholdMap>(() =>
     loadThresholds(),
   );
@@ -1041,7 +1043,7 @@ export function SettingsDrawer({ onClose, updater }: Props) {
               lineHeight: 1.6,
             }}
           >
-            <span>BaroSit · 버전 0.1.1</span>
+            <span>BaroSit · 버전 0.1.2</span>
             {platform.features.autoUpdate && (
               <button
                 className="b-btn b-btn-quiet"
@@ -1061,23 +1063,39 @@ export function SettingsDrawer({ onClose, updater }: Props) {
               gap: 10,
             }}
           >
-            <a
-              href="https://github.com/jay365-code/barosit/blob/main/docs/privacy.md"
-              target="_blank"
-              rel="noreferrer noopener"
-              style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
+            <button
+              type="button"
+              onClick={() => onShowLegal("privacy")}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: "var(--b-fg-3)",
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily: "inherit",
+              }}
             >
               개인정보 처리방침
-            </a>
+            </button>
             <span style={{ color: "var(--b-line-2)" }}>·</span>
-            <a
-              href="https://github.com/jay365-code/barosit/blob/main/docs/terms.md"
-              target="_blank"
-              rel="noreferrer noopener"
-              style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
+            <button
+              type="button"
+              onClick={() => onShowLegal("terms")}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: "var(--b-fg-3)",
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily: "inherit",
+              }}
             >
               이용약관
-            </a>
+            </button>
           </div>
         </Section>
       </aside>

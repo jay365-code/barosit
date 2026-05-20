@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import { platform } from "../platform";
+import type { LegalDocKind } from "../components/LegalDocument";
 
 interface Props {
   onFinish: () => void;
   onSkip: () => void;
+  onShowLegal: (kind: LegalDocKind) => void;
 }
 
 const STEPS: Array<{ icon: IconName; t: string; d: string }> = [
@@ -32,7 +34,7 @@ const PRIVACY_POINTS = [
   "언제든 카메라를 끌 수 있어요",
 ];
 
-export function Onboarding({ onFinish, onSkip }: Props) {
+export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
   const [page, setPage] = useState<1 | 2 | 3>(1);
 
   const next = () => {
@@ -315,23 +317,39 @@ export function Onboarding({ onFinish, onSkip }: Props) {
                 gap: 12,
               }}
             >
-              <a
-                href="https://github.com/jay365-code/barosit/blob/main/docs/privacy.md"
-                target="_blank"
-                rel="noreferrer noopener"
-                style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
+              <button
+                type="button"
+                onClick={() => onShowLegal("privacy")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "var(--b-fg-3)",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontFamily: "inherit",
+                }}
               >
                 개인정보 처리방침
-              </a>
+              </button>
               <span style={{ color: "var(--b-line-2)" }}>·</span>
-              <a
-                href="https://github.com/jay365-code/barosit/blob/main/docs/terms.md"
-                target="_blank"
-                rel="noreferrer noopener"
-                style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
+              <button
+                type="button"
+                onClick={() => onShowLegal("terms")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "var(--b-fg-3)",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontFamily: "inherit",
+                }}
               >
                 이용약관
-              </a>
+              </button>
             </div>
             <div
               style={{

@@ -171,6 +171,9 @@ export function Widget() {
   const [appMode, setAppMode] = useState<string>(() =>
     localStorage.getItem("app_mode") === "widget" ? "widget" : "main",
   );
+  const [mainVisible, setMainVisible] = useState<boolean>(() => {
+    return localStorage.getItem("main_visible") !== "false";
+  });
   const showCameraIcon = appMode === "widget";
 
   useEffect(() => {
@@ -178,6 +181,8 @@ export function Widget() {
       if (e.key === "minibar_visible") setShowMinibar(isMinibarVisible());
       if (e.key === "app_mode")
         setAppMode(e.newValue === "widget" ? "widget" : "main");
+      if (e.key === "main_visible")
+        setMainVisible(e.newValue !== "false");
     };
     const onMode = (e: Event) => setAppMode((e as CustomEvent<string>).detail);
     window.addEventListener("storage", onStorage);
@@ -188,9 +193,11 @@ export function Widget() {
     };
   }, []);
 
-  // 위젯 엔진은 위젯 모드일 때만 동작
+  // 위젯 엔진은 위젯 모드이거나, 메인 모드인데 메인이 가려졌을 때 동작
+  const engineActive = appMode === "widget" || (appMode === "main" && !mainVisible);
+
   const engine = useMonitoringEngine({
-    enabled: appMode === "widget",
+    enabled: engineActive,
     paused: false,
     visible: true,
   });
