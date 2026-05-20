@@ -4,18 +4,17 @@
 > 실행 계획** 입니다. Phase 0 (로컬 프로필 UI 골격) 은 2026-05-19 완료. Phase
 > 1~4 는 사용자가 본 계획서를 검토·승인한 뒤 진행합니다.
 
-## ⚠️ 사전 결정 사항 (사용자 확정 필요)
+## ✅ 사전 결정 사항 (2026-05-20 확정)
 
-진행 전 다음을 사용자가 결정해야 합니다.
-
-| 항목 | 옵션 | 추천 |
+| 항목 | 결정 | 비고 |
 |---|---|---|
-| 백엔드 | (a) Supabase (b) Firebase (c) 자체 Node + Postgres | **(a) Supabase** — Postgres 기반·RLS 보안 모델 명확·Apple 심사 친화·무료 tier 충분 |
-| 인증 방식 | (a) 이메일+비밀번호 (b) 매직링크 (c) OAuth (Google/Apple/GitHub) | **(a)+(c)** — 이메일·구글 OAuth 기본, Apple OAuth 는 iOS 출시 시점 추가 |
-| 동기화 데이터 범위 | (a) 점수만 (b) 점수+이벤트 (c) 모든 사용자 설정 | **(b)** 시작 후 (c) 로 확장 — 캘리브레이션 베이스라인은 기기마다 다르므로 기기별 저장 |
-| 마이그레이션 정책 | (a) 신규 가입자만 (b) 기존 localStorage 데이터 한 번 업로드 옵션 | **(b)** — "이 컴퓨터 데이터를 클라우드에 백업할까요?" 안내 후 옵트인 |
-| 토큰 저장 위치 | (a) localStorage (b) OS 키체인 (`keyring` crate) | **(b)** — refresh token 누출 시 영구 계정 침해 위험 |
-| 가격 | 무료 vs 유료 (구독/일회성) | 추후 결정 — 우선 무료 출시 후 사용 추이 보고 결정 |
+| 백엔드 | **Supabase** | Postgres + RLS, region `ap-northeast-2` (서울). 무료 tier 충분 |
+| 인증 방식 | **매직링크 + Google + Kakao** | Apple 은 Mac App Store 출시 시점에 추가. **비밀번호 가입은 도입하지 않음** (재설정 흐름·해시 정책·보안 책임 절감). Kakao 는 Supabase native 미지원이라 "Sign in with OIDC" + Kakao Developers 앱 등록 경로로 연동 |
+| 동기화 데이터 범위 | **(b) 점수 + 이벤트** 부터 시작, 이후 (c) 사용자 설정까지 확장 | 캘리브레이션 베이스라인은 기기별 저장 유지 |
+| 마이그레이션 정책 | **(b) 기존 localStorage 옵트인 업로드** | 첫 로그인 시 "이 컴퓨터 데이터를 클라우드에 백업할까요?" 안내 모달 |
+| 토큰 저장 위치 | **OS 키체인 (`keyring` crate)** | refresh token 누출 시 영구 계정 침해 위험 회피. 웹 풀버전은 sessionStorage + 짧은 lifetime |
+| 가격 | **무료 출시** | 사용 추이 관찰 후 v0.3+ 에서 결정 |
+| 마케팅·호스팅 | **Cloudflare Pages** | `dist-web/` 정적 빌드. 추후 백엔드 프록시 필요 시 같은 계정의 Cloudflare Workers 사용 |
 
 ## 영향 받는 기존 문서·코드
 
@@ -34,9 +33,10 @@
 ### 1-2. 인증 통합
 - [ ] `npm install @supabase/supabase-js`
 - [ ] [src/auth/supabase.ts](../src/auth/supabase.ts) — client singleton (현재 디렉토리 없음, 신규 생성)
-- [ ] Email/Password 가입·로그인·비밀번호 재설정 (Supabase magic link 이메일 사용)
-- [ ] Google OAuth — Google Cloud Console 등록·redirect URI `barosit://auth/callback` (Tauri deep link)
-- [ ] Apple OAuth — iOS/Mac 출시 시점에 (Apple Developer 계정 필요, 출시 블로커 #4 와 동시 진행 가능)
+- [ ] Email Magic Link (`signInWithOtp`) — Supabase 이메일 템플릿 한글화, redirect `https://barosit.com/auth/callback` (web) + `barosit://auth/callback` (desktop deep link)
+- [ ] Google OAuth — Google Cloud Console 등록·redirect URI 동일 deep link
+- [ ] Kakao OAuth — Supabase 가 native provider 미지원. "Sign in with OIDC" + Kakao Developers 앱 등록 + Kakao 약관 검수. redirect URI 두 가지 등록 필요
+- [ ] Apple OAuth — Mac App Store 출시 시점에 (Apple Developer 계정 필요, 출시 블로커 #4 와 동시 진행)
 
 ### 1-3. 토큰 저장 (보안)
 - [ ] Rust 의존성 `keyring = "..."` 추가 — OS 키체인 사용
@@ -181,5 +181,6 @@ Phase 4: 1-2일
 ---
 
 **작성일**: 2026-05-19
+**최종 갱신**: 2026-05-20 (사전 결정 사항 확정 — Cloudflare Pages 호스팅 + Supabase + 매직링크/Google/Kakao)
 **작성자**: BaroSit dev (Claude assist)
-**버전**: v1 — 사용자 검토 대기
+**버전**: v2 — Phase 1 착수 가능

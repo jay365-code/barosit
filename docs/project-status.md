@@ -207,7 +207,7 @@
 
 ### 🟡 시장 진입
 
-- [ ] **랜딩 페이지** — 도메인 + 다운로드 + 데모 GIF
+- [ ] **랜딩 페이지** — 도메인 + 다운로드 + 데모 GIF (코드는 [src/web/Marketing.tsx](../src/web/Marketing.tsx) 에 mockup 완성. `/privacy`·`/terms`·`/contact` 라우트 추가됨. 남은 작업: 도메인 구매 + Cloudflare Pages 연동 + 데모 GIF 제작)
 - [ ] **앱 이름 + 로고 + 아이콘** 최종 결정
 - [ ] **가격 모델 결정** — 후보:
   - 완전 무료 + 오픈소스
@@ -295,6 +295,8 @@
 14. **자동 업데이트 (2026-05-19)**: `tauri-plugin-updater` + GitHub Releases. minisign 서명, latest.json 자동 메니페스트. v0.1.0 → v0.1.1 풀 사이클(자동 체크 → 배너 → 다운로드 → 서명 검증 → 설치 → relaunch) 검증 완료. **endpoint 의존성 때문에 GitHub repo 가 public 이어야 함**.
 15. **약관 인앱 모달 (2026-05-19)**: 외부 GitHub URL 이탈 없이 `react-markdown` + `remark-gfm` 으로 [privacy.md](./privacy.md) / [terms.md](./terms.md) 렌더. Onboarding · SettingsDrawer · 향후 ProfileView 모두 동일 trigger 패턴.
 16. **사용자 프로필 Phase 0 (2026-05-19)**: 로컬 stub (이름·이모지 아바타·작업환경). 인증·동기화는 별도 메이저 sprint ([auth-sync-plan.md](./auth-sync-plan.md)) — **온디바이스 원칙 변경 + 처리방침 전면 재작성** 동반.
+17. **마케팅 사이트 호스팅 + 인증 스택 확정 (2026-05-20)**: 마케팅 사이트는 **Cloudflare Pages** (정적, 무료 무제한 대역폭, KR 엣지). 인증·DB 는 **Supabase** (서울 리전). 인증 방식은 **매직링크 + Google OAuth + Kakao OAuth** — 비밀번호 가입은 도입하지 않음 (재설정 흐름·해시 정책·보안 책임 절감). Apple OAuth 는 Mac App Store 출시 시점에 추가. Kakao 는 Supabase native 미지원이라 OIDC + Kakao Developers 검수 경로. [auth-sync-plan.md v2](./auth-sync-plan.md) 확정 — Phase 1 착수 가능.
+18. **마케팅 사이트 법적 페이지 (2026-05-20)**: `/privacy`, `/terms`, `/contact` 라우트 추가. privacy/terms 는 `docs/*.md` 를 `?raw` import 해서 react-markdown 으로 렌더 — 앱 내 [LegalDocument 모달](../src/components/LegalDocument.tsx) 과 단일 소스. 문의는 `jhlee@gubed.co.kr` mailto + GitHub Issues. 로그인 UI 는 매직링크+Google+Kakao 구조로 정리, Apple 버튼·비밀번호 필드 제거.
 
 ## 알려진 한계 / 제약
 

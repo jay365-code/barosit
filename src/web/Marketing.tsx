@@ -1,4 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import privacyMd from "../../docs/privacy.md?raw";
+import termsMd from "../../docs/terms.md?raw";
+import { supabase } from "../auth/supabase";
+import { useAuth } from "../auth/useAuth";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import {
@@ -7,15 +13,26 @@ import {
   pickSubSlogan,
 } from "../slogans";
 
+const CONTACT_EMAIL = "jhlee@gubed.co.kr";
+const GITHUB_URL = "https://github.com/jay365-code/barosit";
+
 // ───────── Shared ─────────
 
 function TopNav({ active }: { active?: string }) {
+  const { user } = useAuth();
   const items = [
     { label: "기능", hash: "#/landing" },
     { label: "가격", hash: "#/pricing" },
     { label: "다운로드", hash: "#/download/mac" },
-    { label: "지원", hash: "#/landing" },
+    { label: "문의", hash: "#/contact" },
   ];
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const fullName =
+    (meta.full_name as string | undefined) ??
+    (meta.name as string | undefined) ??
+    "";
+  const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
+  const initial = (fullName || user?.email || "?").trim().charAt(0).toUpperCase();
   return (
     <div
       style={{
@@ -57,9 +74,41 @@ function TopNav({ active }: { active?: string }) {
         ))}
       </div>
       <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-        <a href="#/login" className="b-btn b-btn-quiet" style={{ textDecoration: "none" }}>
-          로그인
-        </a>
+        {user ? (
+          <a
+            href="#/profile"
+            title={user.email ?? ""}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "4px 10px 4px 4px",
+              borderRadius: 999,
+              border: "1px solid var(--b-line)",
+              background: "var(--b-surface)",
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <Avatar size={26} initial={initial} imageUrl={avatarUrl} />
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                maxWidth: 120,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {fullName || user.email}
+            </span>
+          </a>
+        ) : (
+          <a href="#/login" className="b-btn b-btn-quiet" style={{ textDecoration: "none" }}>
+            로그인
+          </a>
+        )}
         <a
           href="#/download/mac"
           className="b-btn b-btn-primary"
@@ -91,57 +140,24 @@ function Footer() {
         <span style={{ fontSize: 13, color: "var(--b-fg-3)" }}>© 2026 Barosit</span>
       </div>
       <div style={{ display: "flex", gap: 18, fontSize: 12, color: "var(--b-fg-3)" }}>
-        <a style={{ color: "inherit", textDecoration: "none" }}>프라이버시 정책</a>
-        <a style={{ color: "inherit", textDecoration: "none" }}>이용약관</a>
-        <a style={{ color: "inherit", textDecoration: "none" }}>오픈소스</a>
-        <a style={{ color: "inherit", textDecoration: "none" }}>support@barosit.com</a>
+        <a href="#/privacy" style={{ color: "inherit", textDecoration: "none" }}>
+          개인정보 처리방침
+        </a>
+        <a href="#/terms" style={{ color: "inherit", textDecoration: "none" }}>
+          이용약관
+        </a>
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: "inherit", textDecoration: "none" }}
+        >
+          오픈소스
+        </a>
+        <a href="#/contact" style={{ color: "inherit", textDecoration: "none" }}>
+          문의
+        </a>
       </div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  type = "text",
-  placeholder,
-  right,
-}: {
-  label: string;
-  type?: string;
-  placeholder?: string;
-  right?: ReactNode;
-}) {
-  return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 6,
-        }}
-      >
-        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--b-fg-2)" }}>
-          {label}
-        </label>
-        {right}
-      </div>
-      <input
-        type={type}
-        placeholder={placeholder}
-        style={{
-          width: "100%",
-          height: 42,
-          padding: "0 12px",
-          border: "1px solid var(--b-line-2)",
-          borderRadius: 8,
-          background: "var(--b-surface)",
-          color: "var(--b-fg-1)",
-          fontFamily: "inherit",
-          fontSize: 13,
-          outline: "none",
-        }}
-      />
     </div>
   );
 }
@@ -186,7 +202,31 @@ function MiniCard({
   );
 }
 
-function Avatar({ size = 80 }: { size?: number }) {
+function Avatar({
+  size = 80,
+  initial,
+  imageUrl,
+}: {
+  size?: number;
+  initial?: string;
+  imageUrl?: string | null;
+}) {
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        referrerPolicy="no-referrer"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover",
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
   return (
     <div
       style={{
@@ -204,7 +244,7 @@ function Avatar({ size = 80 }: { size?: number }) {
         flexShrink: 0,
       }}
     >
-      김
+      {initial ?? "김"}
     </div>
   );
 }
@@ -644,10 +684,476 @@ function Landing() {
   );
 }
 
+// ───────── Auth Callback ─────────
+
+function findAuthParam(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  const u = new URL(window.location.href);
+  const fromSearch = u.searchParams.get(key);
+  if (fromSearch) return fromSearch;
+  const hash = window.location.hash;
+  const q = hash.indexOf("?");
+  if (q !== -1) {
+    const hashParams = new URLSearchParams(hash.slice(q + 1));
+    return hashParams.get(key);
+  }
+  return null;
+}
+
+function AuthCallback() {
+  const { configured } = useAuth();
+  const [status, setStatus] = useState<"loading" | "error">("loading");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!configured) {
+        if (!cancelled) {
+          setStatus("error");
+          setErrorMsg(
+            "Supabase 가 아직 설정되지 않았어요. .env.local 의 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 확인하세요.",
+          );
+        }
+        return;
+      }
+      try {
+        const errorDesc =
+          findAuthParam("error_description") ?? findAuthParam("error");
+        if (errorDesc) throw new Error(decodeURIComponent(errorDesc));
+
+        // SDK 의 detectSessionInUrl 이 클라이언트 init 시 자동으로 code 를
+        // exchange 합니다. 먼저 그 결과를 확인하고, 못 잡았을 때만 수동 exchange.
+        let { data } = await supabase.auth.getSession();
+
+        if (!data.session) {
+          const code = findAuthParam("code");
+          if (code) {
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) throw error;
+            const result = await supabase.auth.getSession();
+            data = result.data;
+          }
+        }
+
+        if (cancelled) return;
+        if (!data.session) throw new Error("세션을 확인할 수 없어요.");
+        window.location.replace("#/landing");
+      } catch (e) {
+        if (cancelled) return;
+        setStatus("error");
+        setErrorMsg(
+          e instanceof Error ? e.message : "로그인을 완료할 수 없어요.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [configured]);
+
+  return (
+    <div
+      style={{
+        background: "var(--b-bg)",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 420,
+          width: "100%",
+          padding: 32,
+          borderRadius: 16,
+          background: "var(--b-surface)",
+          border: "1px solid var(--b-line)",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <Logo size={36} stroke="var(--b-sig)" />
+        </div>
+        {status === "loading" ? (
+          <>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                letterSpacing: "-0.018em",
+                marginBottom: 6,
+              }}
+            >
+              로그인 마무리 중…
+            </h2>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", margin: 0 }}>
+              계정 정보를 확인하고 있어요. 잠시만요.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                letterSpacing: "-0.018em",
+                marginBottom: 6,
+              }}
+            >
+              로그인을 완료하지 못했어요
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--b-fg-3)",
+                margin: 0,
+                marginBottom: 18,
+              }}
+            >
+              {errorMsg}
+            </p>
+            <a
+              href="#/login"
+              className="b-btn b-btn-primary"
+              style={{ textDecoration: "none" }}
+            >
+              로그인 화면으로 돌아가기
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ───────── Legal (Privacy / Terms) ─────────
+
+const LEGAL_TITLE: Record<"privacy" | "terms", string> = {
+  privacy: "개인정보 처리방침",
+  terms: "이용약관",
+};
+
+const LEGAL_SOURCE: Record<"privacy" | "terms", string> = {
+  privacy: privacyMd,
+  terms: termsMd,
+};
+
+function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
+  const md = useMemo(() => LEGAL_SOURCE[kind], [kind]);
+  const otherKind = kind === "privacy" ? "terms" : "privacy";
+  return (
+    <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
+      <TopNav />
+      <div
+        style={{
+          maxWidth: 820,
+          margin: "0 auto",
+          padding: "60px 56px 80px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--b-sig)",
+            letterSpacing: "0.1em",
+            marginBottom: 10,
+          }}
+        >
+          LEGAL
+        </div>
+        <h1
+          style={{
+            fontSize: 40,
+            fontWeight: 700,
+            letterSpacing: "-0.028em",
+            margin: 0,
+            marginBottom: 8,
+            lineHeight: 1.15,
+          }}
+        >
+          {LEGAL_TITLE[kind]}
+        </h1>
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--b-fg-3)",
+            margin: 0,
+            marginBottom: 32,
+          }}
+        >
+          본 문서는 앱과 동일한 소스(<code>docs/{kind}.md</code>)로 렌더됩니다.
+        </p>
+        <div
+          className="b-legal-body"
+          style={{
+            border: "1px solid var(--b-line)",
+            borderRadius: 14,
+            background: "var(--b-surface)",
+            padding: "28px 32px",
+          }}
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{md}</ReactMarkdown>
+        </div>
+        <div
+          style={{
+            marginTop: 28,
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <a
+            href={`#/${otherKind}`}
+            className="b-btn b-btn-ghost"
+            style={{ textDecoration: "none" }}
+          >
+            <Icon name="arrow-r" size={12} /> {LEGAL_TITLE[otherKind]} 보기
+          </a>
+          <a
+            href="#/contact"
+            className="b-btn b-btn-quiet"
+            style={{ textDecoration: "none" }}
+          >
+            문의하기
+          </a>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+// ───────── Contact ─────────
+
+function Contact() {
+  return (
+    <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
+      <TopNav active="문의" />
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "70px 56px 80px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--b-sig)",
+            letterSpacing: "0.1em",
+            marginBottom: 10,
+          }}
+        >
+          CONTACT
+        </div>
+        <h1
+          style={{
+            fontSize: 44,
+            fontWeight: 700,
+            letterSpacing: "-0.028em",
+            margin: 0,
+            marginBottom: 14,
+            lineHeight: 1.15,
+          }}
+        >
+          편하게 연락 주세요
+        </h1>
+        <p
+          style={{
+            fontSize: 16,
+            color: "var(--b-fg-2)",
+            lineHeight: 1.6,
+            marginBottom: 36,
+            maxWidth: 520,
+          }}
+        >
+          버그 제보, 기능 제안, 약관/처리방침 관련 문의 모두 같은 메일로 받습니다.
+          영업일 기준 7일 이내 답장 드려요.
+        </p>
+
+        <div
+          style={{
+            padding: 28,
+            borderRadius: 14,
+            background: "var(--b-surface)",
+            border: "1px solid var(--b-line)",
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--b-fg-3)",
+              letterSpacing: "0.08em",
+              marginBottom: 8,
+            }}
+          >
+            이메일
+          </div>
+          <div
+            className="b-num"
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: "-0.014em",
+              marginBottom: 18,
+            }}
+          >
+            {CONTACT_EMAIL}
+          </div>
+          <a
+            href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+              "[BaroSit] 문의",
+            )}`}
+            className="b-btn b-btn-primary"
+            style={{
+              height: 46,
+              padding: "0 22px",
+              fontSize: 14,
+              textDecoration: "none",
+            }}
+          >
+            <Icon name="arrow-r" size={13} /> 메일 보내기
+          </a>
+        </div>
+
+        <div
+          style={{
+            padding: 24,
+            borderRadius: 14,
+            background: "var(--b-surface)",
+            border: "1px solid var(--b-line)",
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              marginBottom: 6,
+            }}
+          >
+            GitHub Issues
+          </div>
+          <p style={{ fontSize: 13, color: "var(--b-fg-3)", margin: 0, marginBottom: 14 }}>
+            재현 가능한 버그·기능 제안은 공개 이슈가 가장 빠릅니다. 소스 코드도 같은
+            저장소에서 공개되어 있어요.
+          </p>
+          <a
+            href={`${GITHUB_URL}/issues`}
+            target="_blank"
+            rel="noreferrer"
+            className="b-btn b-btn-ghost"
+            style={{ textDecoration: "none" }}
+          >
+            GitHub 에서 이슈 열기 <Icon name="arrow-r" size={12} />
+          </a>
+        </div>
+
+        <div
+          style={{
+            padding: 24,
+            borderRadius: 14,
+            background: "var(--b-surface-2)",
+            border: "1px solid var(--b-line)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--b-fg-3)",
+              letterSpacing: "0.08em",
+              marginBottom: 10,
+            }}
+          >
+            운영자 정보
+          </div>
+          <div style={{ fontSize: 13, color: "var(--b-fg-2)", lineHeight: 1.8 }}>
+            <div>
+              서비스명 · <strong>BaroSit (바로씻)</strong>
+            </div>
+            <div>운영자 · (사업자 등록 후 기재)</div>
+            <div>
+              소스코드 ·{" "}
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "var(--b-sig-deep)", textDecoration: "underline" }}
+              >
+                {GITHUB_URL.replace("https://", "")}
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
 // ───────── Login / Signup ─────────
 
 function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
   const subSlogan = pickSubSlogan();
+  const { signInWithGoogle, signInWithMagicLink, configured, user, loading } =
+    useAuth();
+  const [oauthBusy, setOauthBusy] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  const [email, setEmail] = useState("");
+  const [magicBusy, setMagicBusy] = useState(false);
+  const [magicSentTo, setMagicSentTo] = useState<string | null>(null);
+  const [magicError, setMagicError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!loading && user) {
+      window.location.replace("#/landing");
+    }
+  }, [loading, user]);
+
+  const handleGoogle = async () => {
+    setOauthError(null);
+    if (!configured) {
+      setOauthError("아직 인증이 연결되지 않았습니다. .env.local 의 Supabase 설정을 확인하세요.");
+      return;
+    }
+    setOauthBusy(true);
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      setOauthBusy(false);
+      setOauthError(e instanceof Error ? e.message : "Google 로그인에 실패했어요.");
+    }
+  };
+
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMagicError(null);
+    if (!configured) {
+      setMagicError("아직 인증이 연결되지 않았습니다. .env.local 의 Supabase 설정을 확인하세요.");
+      return;
+    }
+    setMagicBusy(true);
+    try {
+      await signInWithMagicLink(email);
+      setMagicSentTo(email.trim().toLowerCase());
+    } catch (err) {
+      setMagicError(
+        err instanceof Error ? err.message : "메일을 보내지 못했어요.",
+      );
+    } finally {
+      setMagicBusy(false);
+    }
+  };
+
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh", display: "flex" }}>
       <div
@@ -756,27 +1262,97 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
             <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={oauthBusy}
               className="b-btn b-btn-ghost"
-              style={{ height: 42, justifyContent: "center", fontSize: 13 }}
+              style={{
+                height: 42,
+                justifyContent: "center",
+                fontSize: 13,
+                gap: 8,
+                opacity: oauthBusy ? 0.6 : 1,
+                cursor: oauthBusy ? "wait" : "pointer",
+              }}
             >
-              Apple로 계속하기
+              <svg
+                aria-hidden
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ flexShrink: 0 }}
+              >
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09 0-.72.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              {oauthBusy ? "Google 로 이동 중…" : "Google로 계속하기"}
             </button>
             <button
+              type="button"
+              disabled
+              title="카카오 로그인 준비 중"
               className="b-btn b-btn-ghost"
-              style={{ height: 42, justifyContent: "center", fontSize: 13, gap: 8 }}
+              style={{
+                height: 42,
+                justifyContent: "center",
+                fontSize: 13,
+                gap: 8,
+                background: "#FEE500",
+                borderColor: "#FEE500",
+                color: "#191919",
+                opacity: 0.55,
+                cursor: "not-allowed",
+              }}
             >
-              <span
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: 2,
-                  background:
-                    "linear-gradient(135deg, #4285f4, #ea4335 50%, #34a853)",
-                }}
-              />
-              Google로 계속하기
+              <svg
+                aria-hidden
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ flexShrink: 0 }}
+              >
+                <path
+                  fill="#191919"
+                  d="M12 3C6.48 3 2 6.48 2 10.8c0 2.75 1.85 5.16 4.63 6.55l-1.18 4.34c-.05.19.05.39.23.47.06.03.13.04.2.04.13 0 .26-.05.36-.13l5.07-3.36c.23.02.46.04.69.04 5.52 0 10-3.48 10-7.8S17.52 3 12 3z"
+                />
+              </svg>
+              카카오로 계속하기 (준비 중)
             </button>
           </div>
+          {oauthError && (
+            <div
+              role="alert"
+              style={{
+                marginTop: -8,
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 8,
+                background: "var(--b-warn-bg, #fff4f0)",
+                border: "1px solid var(--b-warn, #c4543a)",
+                color: "var(--b-warn, #c4543a)",
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}
+            >
+              {oauthError}
+            </div>
+          )}
 
           <div
             style={{
@@ -789,43 +1365,159 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
             }}
           >
             <div style={{ flex: 1, height: 1, background: "var(--b-line)" }} />
-            또는 이메일로
+            또는 이메일로 로그인 링크 받기
             <div style={{ flex: 1, height: 1, background: "var(--b-line)" }} />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <Field label="이메일" type="email" placeholder="you@example.com" />
-            <Field
-              label="비밀번호"
-              type="password"
-              placeholder="••••••••"
-              right={
-                <a
+          {magicSentTo ? (
+            <div
+              style={{
+                padding: 20,
+                borderRadius: 12,
+                background: "var(--b-sig-bg)",
+                border: "1px solid var(--b-sig-soft)",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  marginBottom: 6,
+                  color: "var(--b-sig-deep)",
+                }}
+              >
+                📩 메일을 보내드렸어요
+              </div>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "var(--b-fg-2)",
+                  lineHeight: 1.55,
+                  margin: 0,
+                  marginBottom: 12,
+                }}
+              >
+                <strong>{magicSentTo}</strong>
+                <br />
+                받은편지함에서 BaroSit 메일을 열고 로그인 링크를 클릭하세요. 같은
+                브라우저에서 열어야 합니다 (스팸함도 한 번 확인해주세요).
+              </p>
+              <button
+                type="button"
+                className="b-btn b-btn-quiet"
+                style={{ height: 34, fontSize: 12 }}
+                onClick={() => {
+                  setMagicSentTo(null);
+                  setMagicError(null);
+                }}
+              >
+                다른 이메일로 다시 보내기
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleMagicLink}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label
+                  htmlFor="magic-email"
                   style={{
-                    fontSize: 11,
-                    color: "var(--b-sig)",
+                    fontSize: 12,
                     fontWeight: 600,
-                    cursor: "pointer",
+                    color: "var(--b-fg-2)",
                   }}
                 >
-                  잊으셨나요?
-                </a>
-              }
-            />
-          </div>
+                  이메일
+                </label>
+                <input
+                  id="magic-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(ev) => setEmail(ev.target.value)}
+                  disabled={magicBusy}
+                  style={{
+                    width: "100%",
+                    height: 42,
+                    padding: "0 12px",
+                    border: "1px solid var(--b-line-2)",
+                    borderRadius: 8,
+                    background: "var(--b-surface)",
+                    color: "var(--b-fg-1)",
+                    fontFamily: "inherit",
+                    fontSize: 13,
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
 
-          <button
-            className="b-btn b-btn-primary"
+              <button
+                type="submit"
+                disabled={magicBusy || !email.trim()}
+                className="b-btn b-btn-primary"
+                style={{
+                  width: "100%",
+                  justifyContent: "center",
+                  height: 44,
+                  fontSize: 14,
+                  marginTop: 14,
+                  opacity: magicBusy ? 0.6 : 1,
+                  cursor: magicBusy ? "wait" : "pointer",
+                }}
+              >
+                {magicBusy ? "메일 보내는 중…" : "이메일로 로그인 링크 받기"}
+              </button>
+
+              {magicError && (
+                <div
+                  role="alert"
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    background: "var(--b-warn-bg, #fff4f0)",
+                    border: "1px solid var(--b-warn, #c4543a)",
+                    color: "var(--b-warn, #c4543a)",
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {magicError}
+                </div>
+              )}
+            </form>
+          )}
+
+          <p
             style={{
-              width: "100%",
-              justifyContent: "center",
-              height: 44,
-              fontSize: 14,
-              marginTop: 18,
+              fontSize: 11,
+              color: "var(--b-fg-4)",
+              lineHeight: 1.55,
+              textAlign: "center",
+              marginTop: 12,
+              marginBottom: 0,
             }}
           >
-            {mode === "signin" ? "로그인" : "가입하기"}
-          </button>
+            비밀번호 없이 이메일로 받은 링크를 클릭하면 로그인됩니다.
+            <br />
+            계속하시면{" "}
+            <a
+              href="#/terms"
+              style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
+            >
+              이용약관
+            </a>
+            과{" "}
+            <a
+              href="#/privacy"
+              style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
+            >
+              개인정보 처리방침
+            </a>
+            에 동의하게 됩니다.
+          </p>
 
           <div
             style={{
@@ -1204,7 +1896,59 @@ function Pricing() {
 
 // ───────── Profile ─────────
 
-function AccountTab() {
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: "var(--b-fg-3)",
+          letterSpacing: "0.04em",
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          padding: "10px 12px",
+          minHeight: 42,
+          border: "1px solid var(--b-line)",
+          borderRadius: 8,
+          background: "var(--b-surface-2)",
+          color: "var(--b-fg-1)",
+          fontSize: 13,
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        {value || <span style={{ color: "var(--b-fg-4)" }}>—</span>}
+      </div>
+    </div>
+  );
+}
+
+function AccountTab({
+  user,
+}: {
+  user: import("@supabase/supabase-js").User | null;
+}) {
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const fullName =
+    (meta.full_name as string | undefined) ??
+    (meta.name as string | undefined) ??
+    "";
+  const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
+  const provider =
+    ((user?.app_metadata as Record<string, unknown> | undefined)?.provider as
+      | string
+      | undefined) ?? "—";
+  const createdAt = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("ko-KR")
+    : "—";
+  const initial = (fullName || user?.email || "?").trim().charAt(0).toUpperCase();
+
   return (
     <>
       <h2
@@ -1218,7 +1962,7 @@ function AccountTab() {
         계정
       </h2>
       <p style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 28 }}>
-        프로필 정보와 비밀번호를 관리합니다.
+        소셜 로그인 정보를 보여드려요. 표시 이름·아바타 편집은 곧 지원할 예정이에요.
       </p>
 
       <div
@@ -1230,12 +1974,25 @@ function AccountTab() {
           marginBottom: 14,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 18 }}>
-          <Avatar size={72} />
-          <div>
-            <button className="b-btn b-btn-ghost">이미지 변경</button>
-            <div style={{ fontSize: 11, color: "var(--b-fg-4)", marginTop: 6 }}>
-              PNG · JPG · 최대 2MB
+        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 24 }}>
+          <Avatar size={72} initial={initial} imageUrl={avatarUrl} />
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 17,
+                fontWeight: 700,
+                letterSpacing: "-0.012em",
+                marginBottom: 4,
+              }}
+            >
+              {fullName || user?.email || "사용자"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--b-fg-3)" }}>
+              {provider === "google"
+                ? "Google 로 로그인됨"
+                : provider === "—"
+                  ? "로그인 정보 없음"
+                  : `${provider} 로 로그인됨`}
             </div>
           </div>
           <div style={{ marginLeft: "auto" }}>
@@ -1246,48 +2003,44 @@ function AccountTab() {
                 gap: 6,
                 padding: "6px 12px",
                 borderRadius: 999,
-                background: "var(--b-sig-soft)",
-                color: "var(--b-sig-deep)",
+                background: "var(--b-surface-2)",
+                color: "var(--b-fg-2)",
                 fontSize: 12,
                 fontWeight: 700,
               }}
             >
-              <Icon name="sparkle" size={11} /> PRO
+              FREE
             </span>
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <Field label="이름" placeholder="김자세" />
-          <Field label="사용자 ID" placeholder="@jaseh" />
-          <Field label="이메일" type="email" placeholder="jaseh@example.com" />
-          <Field label="시간대" placeholder="Asia/Seoul (UTC+9)" />
-        </div>
-        <div
-          style={{
-            marginTop: 18,
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 8,
-          }}
-        >
-          <button className="b-btn b-btn-ghost">취소</button>
-          <button className="b-btn b-btn-primary">변경사항 저장</button>
+          <ReadOnlyField label="표시 이름" value={fullName} />
+          <ReadOnlyField label="이메일" value={user?.email ?? ""} />
+          <ReadOnlyField label="로그인 방식" value={provider} />
+          <ReadOnlyField label="가입일" value={createdAt} />
         </div>
       </div>
 
       <div
         style={{
-          padding: 24,
+          padding: 20,
           borderRadius: 14,
-          background: "var(--b-surface)",
+          background: "var(--b-surface-2)",
           border: "1px solid var(--b-line)",
+          fontSize: 12,
+          color: "var(--b-fg-3)",
+          lineHeight: 1.6,
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>비밀번호</div>
-        <div style={{ fontSize: 12, color: "var(--b-fg-3)", marginBottom: 14 }}>
-          마지막 변경 · 2026년 2월 14일
-        </div>
-        <button className="b-btn b-btn-ghost">비밀번호 변경</button>
+        BaroSit 은 비밀번호 가입을 사용하지 않습니다. 소셜 로그인 또는 이메일 매직링크로
+        로그인하세요. 계정 삭제·데이터 내려받기는{" "}
+        <a
+          href="#/contact"
+          style={{ color: "var(--b-sig-deep)", textDecoration: "underline" }}
+        >
+          문의
+        </a>
+        로 요청 주시면 처리해드립니다.
       </div>
     </>
   );
@@ -1460,8 +2213,91 @@ function PlanTab() {
   );
 }
 
+function ProfileLoading() {
+  return (
+    <div
+      style={{
+        background: "var(--b-bg)",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 13,
+        color: "var(--b-fg-3)",
+      }}
+    >
+      불러오는 중…
+    </div>
+  );
+}
+
 function Profile() {
+  const { user, loading, configured, signOut } = useAuth();
   const [tab, setTab] = useState<"account" | "plan">("account");
+
+  useEffect(() => {
+    if (!loading && configured && !user) {
+      window.location.replace("#/login");
+    }
+  }, [loading, configured, user]);
+
+  if (!configured) {
+    return (
+      <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
+        <TopNav />
+        <div
+          style={{
+            maxWidth: 560,
+            margin: "0 auto",
+            padding: "80px 24px",
+            textAlign: "center",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: "-0.018em",
+              marginBottom: 8,
+            }}
+          >
+            인증이 아직 연결되지 않았어요
+          </h2>
+          <p style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 20 }}>
+            <code>.env.local</code> 의 <code>VITE_SUPABASE_URL</code> /{" "}
+            <code>VITE_SUPABASE_ANON_KEY</code> 를 채우고 다시 시작하세요. 자세한 셋업은{" "}
+            <code>docs/auth-google-setup.md</code> 참고.
+          </p>
+          <a
+            href="#/landing"
+            className="b-btn b-btn-ghost"
+            style={{ textDecoration: "none" }}
+          >
+            랜딩으로 돌아가기
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || !user) return <ProfileLoading />;
+
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const fullName =
+    (meta.full_name as string | undefined) ??
+    (meta.name as string | undefined) ??
+    "";
+  const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
+  const sidebarInitial = (fullName || user.email || "?")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.replace("#/landing");
+  };
+
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
       <TopNav />
@@ -1485,7 +2321,7 @@ function Profile() {
               padding: "8px 4px",
             }}
           >
-            <Avatar size={44} />
+            <Avatar size={44} initial={sidebarInitial} imageUrl={avatarUrl} />
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
@@ -1496,7 +2332,7 @@ function Profile() {
                   textOverflow: "ellipsis",
                 }}
               >
-                김자세
+                {fullName || user.email || "사용자"}
               </div>
               <div
                 style={{
@@ -1507,7 +2343,7 @@ function Profile() {
                   textOverflow: "ellipsis",
                 }}
               >
-                jaseh@example.com
+                {user.email}
               </div>
             </div>
           </div>
@@ -1547,6 +2383,8 @@ function Profile() {
           </div>
           <div style={{ marginTop: 24, padding: "0 4px" }}>
             <button
+              type="button"
+              onClick={handleSignOut}
               className="b-btn b-btn-quiet"
               style={{
                 width: "100%",
@@ -1560,7 +2398,7 @@ function Profile() {
         </div>
 
         <div>
-          {tab === "account" && <AccountTab />}
+          {tab === "account" && <AccountTab user={user} />}
           {tab === "plan" && <PlanTab />}
         </div>
       </div>
@@ -1578,10 +2416,14 @@ export type MarketingRoute =
   | "download-mac"
   | "download-win"
   | "pricing"
-  | "profile";
+  | "profile"
+  | "privacy"
+  | "terms"
+  | "contact"
+  | "auth-callback";
 
 export function routeFromHash(hash: string): MarketingRoute | null {
-  const h = hash.replace(/^#\/?/, "");
+  const h = hash.replace(/^#\/?/, "").split("?")[0];
   if (h === "landing") return "landing";
   if (h === "login") return "login";
   if (h === "signup") return "signup";
@@ -1589,6 +2431,10 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   if (h === "download/win") return "download-win";
   if (h === "pricing") return "pricing";
   if (h === "profile" || h === "account") return "profile";
+  if (h === "privacy") return "privacy";
+  if (h === "terms") return "terms";
+  if (h === "contact" || h === "support") return "contact";
+  if (h === "auth/callback") return "auth-callback";
   return null;
 }
 
@@ -1608,6 +2454,14 @@ function routeBody(route: MarketingRoute) {
       return <Pricing />;
     case "profile":
       return <Profile />;
+    case "privacy":
+      return <LegalPage kind="privacy" />;
+    case "terms":
+      return <LegalPage kind="terms" />;
+    case "contact":
+      return <Contact />;
+    case "auth-callback":
+      return <AuthCallback />;
   }
 }
 
