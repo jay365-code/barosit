@@ -3198,11 +3198,15 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
         try {
           const { data } = await supabase
             .from("user_subscriptions")
-            .select("plan_id, status")
+            .select("plan_id, status, current_period_end")
             .eq("user_id", user.id)
             .maybeSingle();
-          if (data && data.status === "active") {
-            setUserPlan(data.plan_id === "pro" ? "pro" : "free");
+          if (data) {
+            const isPro = data.plan_id === "pro" && (
+              data.status === "active" ||
+              (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
+            );
+            setUserPlan(isPro ? "pro" : "free");
           }
         } catch (e) {
           console.error(e);
@@ -3469,13 +3473,17 @@ function Pricing() {
           // 구독 조회
           const { data, error } = await supabase
             .from("user_subscriptions")
-            .select("plan_id, status")
+            .select("plan_id, status, current_period_end")
             .eq("user_id", userObj.id)
             .maybeSingle();
 
           let actualPlan: "free" | "pro" = "free";
-          if (!error && data && data.status === "active") {
-            actualPlan = data.plan_id === "pro" ? "pro" : "free";
+          if (!error && data) {
+            const isPro = data.plan_id === "pro" && (
+              data.status === "active" ||
+              (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
+            );
+            actualPlan = isPro ? "pro" : "free";
             setCurrentPlan(actualPlan);
           } else {
             // 로컬스토리지 백업 체크
@@ -3512,13 +3520,22 @@ function Pricing() {
             setTimeout(async () => {
               try {
                 if (userObj) {
-                  // DB 업데이트
+                  // DB 업데이트 (결제 주기에 따라 만료 기한 연장 설정)
+                  const periodEnd = new Date();
+                  const pendingCycle = localStorage.getItem("barosit:pending_subscription_cycle") || "monthly";
+                  if (pendingCycle === "yearly") {
+                    periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+                  } else {
+                    periodEnd.setMonth(periodEnd.getMonth() + 1);
+                  }
+
                   const { error } = await supabase
                     .from("user_subscriptions")
                     .upsert({
                       user_id: userObj.id,
                       plan_id: "pro",
                       status: "active",
+                      current_period_end: periodEnd.toISOString(),
                       updated_at: new Date().toISOString()
                     }, { onConflict: "user_id" });
                   if (error) {
@@ -4224,8 +4241,103 @@ function AccountTab({
   );
 }
 
-function PlanTab({ subPlan }: { subPlan: "free" | "pro" }) {
+function PlanTab({
+  subPlan,
+  subStatus,
+  periodEnd,
+  onUpdateSubscription,
+}: {
+  subPlan: "free" | "pro";
+  subStatus: "active" | "canceled" | "none";
+  periodEnd: string | null;
+  onUpdateSubscription: () => void;
+}) {
+  const { user } = useAuth();
+
+  // 플랜 취소 신청
+  const handleCancelSubscription = async () => {
+    if (!user) return;
+    
+    const formattedDate = periodEnd ? new Date(periodEnd).toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }) : "다음 결제일";
+
+    const confirmCancel = window.confirm(
+      `구독을 취소하시겠습니까?\n\n취소하시더라도 이번 결제 주기 만료일인 ${formattedDate}까지는 PRO 플랜의 모든 프리미엄 기능(데스크톱 앱 백그라운드 무정지 모니터링, AI 코칭 등)을 계속 정상 이용하실 수 있습니다.\n이후 추가 결제 없이 FREE 플랜으로 안전하게 자동 전환됩니다.`
+    );
+
+    if (confirmCancel) {
+      try {
+        const { error } = await supabase
+          .from("user_subscriptions")
+          .update({
+            status: "canceled",
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", user.id);
+
+        if (!error) {
+          window.alert("구독 취소(해지) 신청이 성공적으로 완료되었습니다. 남은 기간 동안은 PRO 혜택이 정상 유지됩니다.");
+          onUpdateSubscription();
+        } else {
+          console.error("Cancel subscription error:", error);
+          window.alert("구독 취소 중 오류가 발생했습니다. 고객센터(support@barosit.com)로 문의주시면 신속히 처리해 드리겠습니다.");
+        }
+      } catch (err) {
+        console.error(err);
+        window.alert("구독 취소 중 오류가 발생했습니다.");
+      }
+    }
+  };
+
+  // 구독 취소 철회 (구독 계속 유지)
+  const handleResumeSubscription = async () => {
+    if (!user) return;
+
+    const confirmResume = window.confirm(
+      "구독 취소 신청을 철회하고 PRO 플랜 구독을 계속 유지하시겠습니까?\n이전과 동일하게 만료일에 자동으로 결제 및 기간 연장이 수행됩니다."
+    );
+
+    if (confirmResume) {
+      try {
+        const { error } = await supabase
+          .from("user_subscriptions")
+          .update({
+            status: "active",
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", user.id);
+
+        if (!error) {
+          window.alert("구독 취소 신청이 성공적으로 철회되었습니다. PRO 플랜 구독을 계속 유지합니다!");
+          onUpdateSubscription();
+        } else {
+          console.error("Resume subscription error:", error);
+          window.alert("구독 재개 중 오류가 발생했습니다.");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  // 모의 테스트 결제 수단 / 주기 변경 알림
+  const handleMockNotice = () => {
+    window.alert(
+      "현재 결제 연동은 통합 모의 테스트 상태입니다.\n결제수단 변경 및 결제 주기 전환은 고객센터(support@barosit.com)를 통해 수동으로 즉시 안전하게 처리해 드리고 있습니다. 메일 주시면 신속히 도와드리겠습니다!"
+    );
+  };
+
   if (subPlan === "pro") {
+    const isCanceled = subStatus === "canceled";
+    const formattedDate = periodEnd ? new Date(periodEnd).toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }) : "2026년 6월 11일";
+
     return (
       <>
         <h2
@@ -4247,23 +4359,42 @@ function PlanTab({ subPlan }: { subPlan: "free" | "pro" }) {
             padding: 24,
             borderRadius: 14,
             marginBottom: 14,
-            background: "linear-gradient(135deg, var(--b-sig-bg) 0%, var(--b-bg) 100%)",
-            border: "1px solid var(--b-sig-soft)",
+            background: isCanceled
+              ? "linear-gradient(135deg, var(--b-surface-2) 0%, var(--b-bg) 100%)"
+              : "linear-gradient(135deg, var(--b-sig-bg) 0%, var(--b-bg) 100%)",
+            border: isCanceled
+              ? "1px solid var(--b-line)"
+              : "1px solid var(--b-sig-soft)",
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
             <div>
-              <span
-                className="b-chip"
-                style={{
-                  background: "var(--b-sig)",
-                  color: "#fff",
-                  borderColor: "transparent",
-                  marginBottom: 12,
-                }}
-              >
-                현재 플랜 · PRO
-              </span>
+              {isCanceled ? (
+                <span
+                  className="b-chip"
+                  style={{
+                    background: "rgba(224, 102, 102, 0.1)",
+                    color: "rgb(224, 102, 102)",
+                    borderColor: "rgba(224, 102, 102, 0.2)",
+                    marginBottom: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  구독 해지 대기 중 (PRO 혜택 활성)
+                </span>
+              ) : (
+                <span
+                  className="b-chip"
+                  style={{
+                    background: "var(--b-sig)",
+                    color: "#fff",
+                    borderColor: "transparent",
+                    marginBottom: 12,
+                  }}
+                >
+                  현재 플랜 · PRO
+                </span>
+              )}
               <div
                 style={{
                   fontSize: 28,
@@ -4275,19 +4406,40 @@ function PlanTab({ subPlan }: { subPlan: "free" | "pro" }) {
               >
                 연 36,000원
               </div>
-              <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
-                다음 결제일 · 2026년 6월 11일 (연간 결제 - 월 3,000원 꼴)
+              <div style={{ fontSize: 13, color: isCanceled ? "rgb(224, 102, 102)" : "var(--b-fg-3)" }}>
+                {isCanceled
+                  ? `구독 해지 예정일 · ${formattedDate} (만료 후 FREE 등급 자동 전환)`
+                  : `다음 결제일 · ${formattedDate} (연간 결제 - 월 3,000원 꼴)`}
               </div>
             </div>
-            <button className="b-btn b-btn-ghost">결제수단 변경</button>
+            {!isCanceled && (
+              <button onClick={handleMockNotice} className="b-btn b-btn-ghost">결제수단 변경</button>
+            )}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-            <button className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
-              월간으로 변경 (월 4,900원)
-            </button>
-            <button className="b-btn b-btn-quiet" style={{ color: "var(--b-warn)" }}>
-              플랜 취소
-            </button>
+            {isCanceled ? (
+              <button
+                onClick={handleResumeSubscription}
+                className="b-btn b-btn-primary"
+                style={{
+                  background: "linear-gradient(135deg, var(--b-sig) 0%, var(--b-sig-deep) 100%)",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 700,
+                }}
+              >
+                구독 계속 유지하기 (해지 철회)
+              </button>
+            ) : (
+              <>
+                <button onClick={handleMockNotice} className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
+                  월간으로 변경 (월 4,900원)
+                </button>
+                <button onClick={handleCancelSubscription} className="b-btn b-btn-quiet" style={{ color: "var(--b-warn)" }}>
+                  플랜 취소
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -4539,6 +4691,8 @@ function Profile() {
   const { user, loading, configured, signOut } = useAuth();
   const [tab, setTab] = useState<"account" | "plan">("account");
   const [subPlan, setSubPlan] = useState<"free" | "pro">("free");
+  const [subStatus, setSubStatus] = useState<"active" | "canceled" | "none">("none");
+  const [periodEnd, setPeriodEnd] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && configured && !user) {
@@ -4546,30 +4700,42 @@ function Profile() {
     }
   }, [loading, configured, user]);
 
+  const fetchSub = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from("user_subscriptions")
+        .select("plan_id, status, current_period_end")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!error && data) {
+        const isPro = data.plan_id === "pro" && (
+          data.status === "active" ||
+          (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
+        );
+        setSubPlan(isPro ? "pro" : "free");
+        setSubStatus(data.status as any);
+        setPeriodEnd(data.current_period_end);
+        return;
+      }
+      const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+      setSubPlan(localPlan || "free");
+      setSubStatus(localPlan === "pro" ? "active" : "none");
+      setPeriodEnd(null);
+    } catch (err) {
+      console.error("Failed to load user subscription:", err);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-    const fetchSub = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user_subscriptions")
-          .select("plan_id, status")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (!error && data && data.status === "active") {
-          setSubPlan(data.plan_id === "pro" ? "pro" : "free");
-          return;
-        }
-        const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
-        setSubPlan(localPlan || "free");
-      } catch (err) {
-        console.error("Failed to load user subscription:", err);
-      }
-    };
     fetchSub();
 
     const handleSubChanged = () => {
       const p = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
       setSubPlan(p || "free");
+      setSubStatus(p === "pro" ? "active" : "none");
+      setPeriodEnd(null);
     };
     window.addEventListener("barosit:subscription-changed", handleSubChanged);
     window.addEventListener("storage", handleSubChanged);
@@ -4737,7 +4903,14 @@ function Profile() {
 
         <div>
           {tab === "account" && <AccountTab user={user} subPlan={subPlan} />}
-          {tab === "plan" && <PlanTab subPlan={subPlan} />}
+          {tab === "plan" && (
+            <PlanTab 
+              subPlan={subPlan} 
+              subStatus={subStatus} 
+              periodEnd={periodEnd} 
+              onUpdateSubscription={fetchSub} 
+            />
+          )}
         </div>
       </div>
       <Footer />
