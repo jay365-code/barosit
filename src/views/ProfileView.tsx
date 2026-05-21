@@ -26,6 +26,9 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [subPlan, setSubPlan] = useState<"free" | "pro">("free");
+  const [subStatus, setSubStatus] = useState<string>("active");
+  const [subUpdatedAt, setSubUpdatedAt] = useState<string | null>(null);
+  const [subPeriodEnd, setSubPeriodEnd] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -53,21 +56,66 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     const fetchSub = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        let actualPlan: "free" | "pro" = "free";
+
         if (session?.user) {
           const { data, error } = await supabase
             .from("user_subscriptions")
-            .select("plan_id, status")
+            .select("plan_id, status, current_period_end, updated_at")
             .eq("user_id", session.user.id)
             .maybeSingle();
-          if (!error && data && data.status === "active") {
-            setSubPlan(data.plan_id === "pro" ? "pro" : "free");
-            return;
+
+          if (!error && data) {
+            const isPro = data.plan_id === "pro" && (
+              data.status === "active" ||
+              (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
+            );
+            actualPlan = isPro ? "pro" : "free";
+            setSubStatus(data.status);
+            setSubUpdatedAt(data.updated_at);
+            setSubPeriodEnd(data.current_period_end);
+          } else {
+            const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+            actualPlan = localPlan || "free";
           }
+
+          const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+
+          // [보안 위변조 감지] DB 플랜은 free인데 로컬 캐시가 pro인 경우
+          if (actualPlan === "free" && localPlan === "pro") {
+            console.warn("Security Warning: Subscription plan tampering detected!");
+
+            // 1. 즉각 admin_notifications 테이블에 critical 경보 적재
+            await supabase.from("admin_notifications").insert({
+              event_type: "tampering_detected",
+              severity: "critical",
+              message: `보안 침해 감지: 사용자 ${session.user.email} 님이 로컬 요금제 캐시를 PRO로 불법 변조한 정황이 포착되어, 시스템이 즉각 권한을 격하하고 로그를 기록했습니다.`,
+              payload: {
+                user_id: session.user.id,
+                email: session.user.email,
+                local_plan: "pro",
+                db_plan: "free",
+                detected_at: new Date().toISOString()
+              }
+            });
+
+            // 2. 강제 롤백 처리
+            localStorage.setItem("barosit:subscription_plan", "free");
+            setSubPlan("free");
+            window.dispatchEvent(new Event("barosit:subscription-changed"));
+          } else {
+            localStorage.setItem("barosit:subscription_plan", actualPlan);
+            setSubPlan(actualPlan);
+          }
+        } else {
+          // 비로그인 Guest일 시 로컬스토리지를 강제로 'free'로 롤백
+          localStorage.setItem("barosit:subscription_plan", "free");
+          setSubPlan("free");
         }
-        const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
-        setSubPlan(localPlan || "free");
       } catch (err) {
         console.error("Failed to load user subscription:", err);
+        const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+        setSubPlan(localPlan || "free");
       }
     };
     fetchSub();
@@ -92,6 +140,129 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     }, 600);
     return () => clearTimeout(t);
   }, [profile]);
+
+  const handleRefund = async () => {
+    if (!window.confirm("정말로 즉시 환불을 신청하시겠습니까?\n환불 완료 즉시 데스크톱 PRO 다운로드 권한이 회수되며 FREE 플랜으로 전환됩니다.")) return;
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      // 1. user_subscriptions DB 업데이트
+      const { error: subError } = await supabase
+        .from("user_subscriptions")
+        .update({
+          plan_id: "free",
+          status: "refunded",
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", session.user.id);
+
+      if (subError) throw subError;
+
+      // 2. admin_notifications에 warning 알림 즉석 적재
+      await supabase.from("admin_notifications").insert({
+        event_type: "refund_requested",
+        severity: "warning",
+        message: `환불 접수: 사용자 ${session.user.email} 님이 7일 이내 즉시 환불(금액 반환)을 정상 접수했습니다.`,
+        payload: {
+          user_id: session.user.id,
+          email: session.user.email,
+          action: "instant_refund",
+          refunded_at: new Date().toISOString()
+        }
+      });
+
+      // 3. 로컬 캐시 업데이트 및 상태 싱크
+      localStorage.setItem("barosit:subscription_plan", "free");
+      setSubPlan("free");
+      setSubStatus("refunded");
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
+      alert("성공적으로 환불 및 정기 구독 취소가 완료되었습니다. 무료 버전으로 전환됩니다.");
+    } catch (err) {
+      console.error("Refund failed:", err);
+      alert("환불 처리 도중 오류가 발생했습니다. 고객센터에 문의바랍니다.");
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!window.confirm("정말로 정기 구독을 취소하시겠습니까?\n구독을 해지하셔도 이번 달 남은 약정 만료일까지는 계속 이용이 가능합니다.")) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { error: subError } = await supabase
+        .from("user_subscriptions")
+        .update({
+          status: "canceled",
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", session.user.id);
+
+      if (subError) throw subError;
+
+      await supabase.from("admin_notifications").insert({
+        event_type: "cancellation",
+        severity: "info",
+        message: `정기 해지: 사용자 ${session.user.email} 님이 정기 구독 갱신 해지를 접수했습니다. (남은 기간 제공)`,
+        payload: {
+          user_id: session.user.id,
+          email: session.user.email,
+          action: "cancel_subscription",
+          canceled_at: new Date().toISOString()
+        }
+      });
+
+      setSubStatus("canceled");
+      alert("정기 구독 갱신이 해지되었습니다. 남은 기간 만료일까지 혜택은 유지됩니다.");
+    } catch (err) {
+      console.error("Cancellation failed:", err);
+      alert("해지 신청 도중 에러가 발생했습니다.");
+    }
+  };
+
+  const handleResumeSubscription = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { error: subError } = await supabase
+        .from("user_subscriptions")
+        .update({
+          status: "active",
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", session.user.id);
+
+      if (subError) throw subError;
+
+      await supabase.from("admin_notifications").insert({
+        event_type: "signup",
+        severity: "info",
+        message: `구독 복구: 사용자 ${session.user.email} 님이 취소 해지 처리했던 정기 구독을 다시 철회하고 복구했습니다.`,
+        payload: {
+          user_id: session.user.id,
+          email: session.user.email,
+          action: "resume_subscription",
+          resumed_at: new Date().toISOString()
+        }
+      });
+
+      setSubStatus("active");
+      alert("정기 구독 갱신이 성공적으로 복구되었습니다! 계속 PRO 혜택이 이어집니다.");
+    } catch (err) {
+      console.error("Resume failed:", err);
+      alert("구독 복구 처리 도중 에러가 발생했습니다.");
+    }
+  };
+
+  const isRefundable = () => {
+    if (!subUpdatedAt) return false;
+    const diffTime = Math.abs(new Date().getTime() - new Date(subUpdatedAt).getTime());
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    return diffDays <= 7;
+  };
 
   const update = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) =>
     setProfile((p) => ({ ...p, [k]: v }));
@@ -154,7 +325,88 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
               <p className="profile-card-sub" style={{ color: "var(--b-fg-2)" }}>
                 <strong>데스크톱 전용 네이티브 앱 설치 권한</strong>이 활성화되어 있으며, 백그라운드 무자각 관제와 AI 맞춤 피드백 코칭을 완벽히 지원받고 있습니다.
               </p>
-              <div className="profile-card-actions">
+
+              {/* 결제 및 해지/환불 관리 영역 */}
+              <div className="profile-subscription-management" style={{
+                marginTop: "16px",
+                padding: "16px",
+                borderRadius: "14px",
+                background: "rgba(255, 255, 255, 0.02)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                fontSize: "12px"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", color: "var(--b-fg-3)" }}>
+                  <span>구독 상태: 
+                    <strong style={{ 
+                      color: subStatus === "active" ? "#7eb09c" : "#e08866", 
+                      marginLeft: "6px" 
+                    }}>
+                      {subStatus === "active" ? "갱신 활성화 중" : subStatus === "canceled" ? "해지 예약됨" : "구독 중"}
+                    </strong>
+                  </span>
+                  {subPeriodEnd && (
+                    <span>만료 예정일: {new Date(subPeriodEnd).toLocaleDateString()}</span>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {subStatus === "active" && (
+                    <>
+                      {isRefundable() ? (
+                        <button
+                          type="button"
+                          className="b-btn"
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: "11px",
+                            height: "auto",
+                            background: "rgba(224, 136, 102, 0.1)",
+                            color: "#e08866",
+                            border: "1px solid rgba(224, 136, 102, 0.2)"
+                          }}
+                          onClick={handleRefund}
+                        >
+                          7일 이내 즉시 환불 신청
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="b-btn b-btn-ghost"
+                        style={{
+                          padding: "6px 12px",
+                          fontSize: "11px",
+                          height: "auto",
+                          color: "var(--b-fg-3)",
+                          border: "1px solid rgba(255, 255, 255, 0.1)"
+                        }}
+                        onClick={handleCancelSubscription}
+                      >
+                        구독 취소 (해지 예약)
+                      </button>
+                    </>
+                  )}
+
+                  {subStatus === "canceled" && (
+                    <button
+                      type="button"
+                      className="b-btn"
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: "11px",
+                        height: "auto",
+                        background: "rgba(126, 176, 156, 0.1)",
+                        color: "#7eb09c",
+                        border: "1px solid rgba(126, 176, 156, 0.2)"
+                      }}
+                      onClick={handleResumeSubscription}
+                    >
+                      구독 복구 (해지 취소)
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="profile-card-actions" style={{ marginTop: "16px" }}>
                 <button
                   type="button"
                   className="b-btn b-btn-primary"

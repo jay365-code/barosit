@@ -28,8 +28,27 @@ function loadTossPayments(): Promise<any> {
   });
 }
 
-const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+export const trackPaymentEvent = (
+  eventName:
+    | "pricing_view_loaded"
+    | "checkout_initiated"
+    | "checkout_completed"
+    | "checkout_failed"
+    | "subscription_cancel_initiated"
+    | "subscription_cancel_confirmed"
+    | "subscription_resume_confirmed",
+  params?: Record<string, any>
+) => {
+  const payload = {
+    event: eventName,
+    timestamp: new Date().toISOString(),
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+    ...params,
+  };
+  console.log(`[Analytics]`, JSON.stringify(payload, null, 2));
+};
 
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
 
 interface Props {
   onClose: () => void;
@@ -46,27 +65,64 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string; delay: number }[]>([]);
 
   useEffect(() => {
+    // 요금제 페이지 뷰 노출 분석 이벤트 트리거
+    trackPaymentEvent("pricing_view_loaded", { billingCycle });
+  }, [billingCycle]);
+
+  useEffect(() => {
     const fetchUserAndPlan = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const userObj = session?.user || null;
+        let actualPlan: "free" | "pro" = "free";
+
         if (userObj) {
           setCurrentUser(userObj);
           // 구독 조회
           const { data, error } = await supabase
             .from("user_subscriptions")
-            .select("plan_id, status")
+            .select("plan_id, status, current_period_end")
             .eq("user_id", userObj.id)
             .maybeSingle();
 
-          let actualPlan: "free" | "pro" = "free";
-          if (!error && data && data.status === "active") {
-            actualPlan = data.plan_id === "pro" ? "pro" : "free";
-            setCurrentPlan(actualPlan);
+          if (!error && data) {
+            const isPro = data.plan_id === "pro" && (
+              data.status === "active" ||
+              (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
+            );
+            actualPlan = isPro ? "pro" : "free";
           } else {
-            // 로컬스토리지 백업 체크
+            // RLS 에러 등으로 조회 불가능하거나 없는 경우 안전하게 로컬 캐시 기준 판단하되 free가 기본값
             const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
             actualPlan = localPlan || "free";
+          }
+
+          const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+
+          // [보안강화] DB 분석 상태 기준 로컬스토리지를 강제 Overwrite 및 위변조 감지
+          if (actualPlan === "free" && localPlan === "pro") {
+            console.warn("Security Warning: Subscription plan tampering detected in PricingView!");
+            
+            // 1. admin_notifications 테이블에 critical 경보 적재
+            await supabase.from("admin_notifications").insert({
+              event_type: "tampering_detected",
+              severity: "critical",
+              message: `보안 침해 감지 (요금제): 사용자 ${userObj.email} 님이 요금제 화면 진입 시 로컬 요금제 캐시를 PRO로 불법 변조한 정황이 포착되어, 시스템이 권한을 격하하고 로그를 기록했습니다.`,
+              payload: {
+                user_id: userObj.id,
+                email: userObj.email,
+                local_plan: "pro",
+                db_plan: "free",
+                detected_at: new Date().toISOString()
+              }
+            });
+
+            // 2. 강제 롤백
+            localStorage.setItem("barosit:subscription_plan", "free");
+            setCurrentPlan("free");
+            window.dispatchEvent(new Event("barosit:subscription-changed"));
+          } else {
+            localStorage.setItem("barosit:subscription_plan", actualPlan);
             setCurrentPlan(actualPlan);
           }
 
@@ -84,33 +140,68 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
             }, 150);
           }
         } else {
-          // 비로그인 Guest용 로컬 계획 조회
-          const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
-          setCurrentPlan(localPlan || "free");
+          // [보안강화] 비로그인 Guest일 시 로컬스토리지를 강제로 'free'로 격하하여 우회 공격 완전 차단
+          localStorage.setItem("barosit:subscription_plan", "free");
+          setCurrentPlan("free");
         }
 
         // Toss Payments 결제 복원 핸들링
         if (typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
           const paymentStatus = params.get("payment");
+          const authKey = params.get("authKey");
           if (paymentStatus === "success") {
             setPaymentState("checkout");
+            const cycleParam = params.get("cycle") as "monthly" | "yearly" || "monthly";
+            const finalAmount = cycleParam === "yearly" ? 36000 : 4900;
+
             setTimeout(async () => {
               try {
                 if (userObj) {
                   // DB 업데이트
+                  const periodEnd = new Date();
+                  if (cycleParam === "yearly") {
+                    periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+                  } else {
+                    periodEnd.setMonth(periodEnd.getMonth() + 1);
+                  }
+
                   const { error } = await supabase
                     .from("user_subscriptions")
                     .upsert({
                       user_id: userObj.id,
                       plan_id: "pro",
                       status: "active",
+                      billing_key: authKey || `mock_billing_key_${Date.now()}`,
+                      current_period_end: periodEnd.toISOString(),
                       updated_at: new Date().toISOString()
                     }, { onConflict: "user_id" });
                   if (error) {
                     console.warn("DB subscription upsert failed (possibly RLS), activating locally.", error);
                   }
+
+                  // 결제 완료 이력 기입
+                  const mockOrderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+                  const mockPaymentKey = authKey || `mock_pay_key_${Date.now()}`;
+                  const { error: historyError } = await supabase
+                    .from("billing_history")
+                    .insert({
+                      user_id: userObj.id,
+                      kind: "payment",
+                      order_id: mockOrderId,
+                      payment_key: mockPaymentKey,
+                      amount: finalAmount,
+                      plan: "pro",
+                      billing_cycle: cycleParam,
+                      status: "completed",
+                      cash_receipt_issued: false,
+                      created_at: new Date().toISOString()
+                    });
+                  if (historyError) {
+                    console.warn("DB billing_history insert failed:", historyError);
+                  }
                 }
+
                 localStorage.setItem("barosit:subscription_plan", "pro");
                 setCurrentPlan("pro");
                 setPaymentState("success");
@@ -118,7 +209,15 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                 if (onPlanUpdated) {
                   onPlanUpdated("pro");
                 }
-                const cleanUrl = window.location.pathname + window.location.hash;
+
+                // 결제 성공 분석 이벤트 전송
+                trackPaymentEvent("checkout_completed", {
+                  billingCycle: cycleParam,
+                  amount: finalAmount,
+                  user: userObj?.email
+                });
+
+                const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
                 window.history.replaceState({}, document.title, cleanUrl);
               } catch (e) {
                 console.error("DB update error", e);
@@ -129,13 +228,40 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                 if (onPlanUpdated) {
                   onPlanUpdated("pro");
                 }
-                const cleanUrl = window.location.pathname + window.location.hash;
+
+                trackPaymentEvent("checkout_completed", {
+                  billingCycle: cycleParam,
+                  amount: finalAmount,
+                  user: userObj?.email,
+                  error: "DB sync exception but local activated"
+                });
+
+                const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
                 window.history.replaceState({}, document.title, cleanUrl);
               }
             }, 1200);
           } else if (paymentStatus === "fail") {
+            // 결제 실패 분석 이벤트 전송
+            trackPaymentEvent("checkout_failed", {
+              reason: "paymentStatus is fail from query param",
+              user: userObj?.email
+            });
+
+            // admin_notifications 테이블에 warning 알림 적재
+            await supabase.from("admin_notifications").insert({
+              event_type: "payment_failed",
+              severity: "warning",
+              message: `결제 실패: 사용자 ${userObj?.email || "비회원"} 님의 토스페이 결제 승인이 거절되거나 실패했습니다. (쿼리 파라미터 오류 수신)`,
+              payload: {
+                user_id: userObj?.id || null,
+                email: userObj?.email || null,
+                reason: "paymentStatus is fail from redirect query",
+                failed_at: new Date().toISOString()
+              }
+            });
+
             alert("결제에 실패하였습니다. 다시 시도해주세요.");
-            const cleanUrl = window.location.pathname + window.location.hash;
+            const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
             window.history.replaceState({}, document.title, cleanUrl);
             setPaymentState("idle");
           }
@@ -179,33 +305,59 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
     await handleTossPayment("카드");
   };
 
-  // 실제 토스페이먼츠 결제 요청 실행
+  // 실제 토스페이먼츠 카드 등록 및 빌링 요청 실행
   const handleTossPayment = async (
-    method: "카드" | "토스페이",
+    _method: "카드" | "토스페이",
     userOverride?: any,
     cycleOverride?: "monthly" | "yearly"
   ) => {
     setPaymentState("checkout");
+    const activeUser = userOverride || currentUser;
+    const activeCycle = cycleOverride || billingCycle;
+    const amount = activeCycle === "yearly" ? 36000 : 4900;
+
+    // 정기 결제 카드 등록 시도 로깅
+    trackPaymentEvent("checkout_initiated", {
+      billingCycle: activeCycle,
+      amount,
+      method: "카드(정기결제)",
+      user: activeUser?.email
+    });
+
     try {
       const TossPaymentsLib = await loadTossPayments();
       const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
       
-      const activeUser = userOverride || currentUser;
-      const activeCycle = cycleOverride || billingCycle;
-      
-      const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      const amount = activeCycle === "yearly" ? 36000 : 4900;
-      const orderName = activeCycle === "yearly" ? "BaroSit PRO 연간 구독" : "BaroSit PRO 월간 구독";
+      const customerKey = activeUser
+        ? `cust-${activeUser.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`
+        : `cust-guest-${Math.random().toString(36).substring(2, 10)}`;
 
-      await toss.requestPayment(method, {
-        amount,
-        orderId,
-        orderName,
-        customerName: activeUser?.email || "BaroSit 회원",
+      // 정기 구독 결제를 위한 카드 등록 창(requestBillingAuth) 실행
+      await toss.requestBillingAuth("카드", {
+        customerKey,
         successUrl: window.location.origin + window.location.pathname + `?redirect_route=app&payment=success&cycle=${activeCycle}`,
         failUrl: window.location.origin + window.location.pathname + `?redirect_route=app&payment=fail`,
       });
     } catch (err: any) {
+      // 결제창 실행 오류 분석 이벤트 로깅
+      trackPaymentEvent("checkout_failed", {
+        reason: err.message,
+        user: activeUser?.email
+      });
+
+      // admin_notifications 테이블에 warning 알림 적재
+      await supabase.from("admin_notifications").insert({
+        event_type: "payment_failed",
+        severity: "warning",
+        message: `결제 실패 (SDK): 사용자 ${activeUser?.email || "비회원"} 님의 결제창 호출 혹은 진행 중 오류가 발생했습니다: ${err.message}`,
+        payload: {
+          user_id: activeUser?.id || null,
+          email: activeUser?.email || null,
+          reason: err.message,
+          failed_at: new Date().toISOString()
+        }
+      });
+
       alert("결제창을 실행하는 중 오류가 발생했습니다: " + err.message);
       setPaymentState("idle");
     }

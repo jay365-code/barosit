@@ -9,7 +9,25 @@ interface UserProfileData {
   work_env: string;
   is_admin: boolean;
   created_at: string;
-  email?: string; // supabase auth에서 가입 시 바인딩할 수 있음
+  email?: string;
+}
+
+interface AdminNotificationData {
+  id: string;
+  event_type: string; // 'signup', 'cancellation', 'refund_requested', 'payment_failed', 'tampering_detected', 'system_error'
+  severity: string; // 'info', 'warning', 'critical'
+  message: string;
+  payload: any;
+  created_at: string;
+  read_at: string | null;
+}
+
+interface ToastItem {
+  id: string;
+  event_type: string;
+  severity: string;
+  message: string;
+  created_at: string;
 }
 
 interface SubscriptionData {
@@ -60,7 +78,7 @@ interface Props {
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts">("dashboard");
   const [loading, setLoading] = useState(true);
   
   // 데이터 상태
@@ -70,7 +88,15 @@ export function AdminDashboardView({ onClose }: Props) {
   const [dailyScores, setDailyScores] = useState<DailyScoreData[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
   const [comments, setComments] = useState<CommentData[]>([]);
+  const [notifications, setNotifications] = useState<AdminNotificationData[]>([]);
   
+  // 실시간 토스트 상태
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  
+  // 알림 필터 상태
+  const [severityFilter, setSeverityFilter] = useState<"all" | "info" | "warning" | "critical">("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+
   // 시스템 관리 상태
   const [cleanLog, setCleanLog] = useState<string[]>([]);
   const [isCleaning, setIsCleaning] = useState(false);
@@ -102,12 +128,16 @@ export function AdminDashboardView({ onClose }: Props) {
       // 6. Q&A 댓글 조회
       const { data: commentData } = await supabase.from("comments").select("*").order("created_at", { ascending: true });
 
+      // 7. 실시간 어드민 알림 조회 (최신 100건 제한)
+      const { data: notifData } = await supabase.from("admin_notifications").select("*").order("created_at", { ascending: false }).limit(100);
+
       setProfiles(profData || []);
       setSubscriptions(subData || []);
       setEvents(evtData || []);
       setDailyScores(scoreData || []);
       setPosts(postData || []);
       setComments(commentData || []);
+      setNotifications(notifData || []);
     } catch (err) {
       console.error("[AdminDashboard] Failed to fetch data:", err);
     } finally {
@@ -115,9 +145,136 @@ export function AdminDashboardView({ onClose }: Props) {
     }
   };
 
+  // Web Audio API를 활용한 효과음 실시간 합성 재생 헬퍼
+  const playNotificationSound = (severity: string) => {
+    try {
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtxClass) return;
+      const ctx = new AudioCtxClass();
+      
+      const playTone = (freq: number, type: OscillatorType, duration: number, delay: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        
+        gain.gain.setValueAtTime(0.12, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + duration);
+      };
+
+      if (severity === "critical") {
+        // 날카롭고 강렬한 3-Tone 사이렌 (보안 우회 등)
+        playTone(880.00, "sawtooth", 0.15, 0.0);
+        playTone(987.77, "sawtooth", 0.15, 0.15);
+        playTone(1046.50, "sawtooth", 0.35, 0.30);
+      } else if (severity === "warning") {
+        // 긴장감을 제공하는 2-Tone 마이너 비프음 (결제 실패 등)
+        playTone(440.00, "triangle", 0.12, 0.0);
+        playTone(349.23, "triangle", 0.25, 0.12);
+      } else {
+        // 맑고 부드러운 2-Tone 비프음 (가입, 일반 정보)
+        playTone(523.25, "sine", 0.10, 0.0);
+        playTone(659.25, "sine", 0.20, 0.08);
+      }
+    } catch (err) {
+      console.warn("[AdminDashboard] Web Audio API blocked or failed:", err);
+    }
+  };
+
   useEffect(() => {
     fetchAllData();
+
+    // Supabase Realtime 채널을 이용한 실시간 알림 테이블 INSERT 구독
+    const channel = supabase
+      .channel("admin_notifications_realtime_dashboard")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "admin_notifications" },
+        (payload) => {
+          const newNotif = payload.new as AdminNotificationData;
+          
+          // 1. 목록 상태 최상단에 리액티브 적재
+          setNotifications(prev => [newNotif, ...prev]);
+          
+          // 2. 위험도별 Web Audio 효과음 즉각 재생
+          playNotificationSound(newNotif.severity);
+          
+          // 3. 실시간 토스트 팝업 스택에 삽입
+          const toastId = newNotif.id || Math.random().toString();
+          setToasts(prev => [...prev, {
+            id: toastId,
+            event_type: newNotif.event_type,
+            severity: newNotif.severity,
+            message: newNotif.message,
+            created_at: newNotif.created_at
+          }]);
+          
+          // 4.5초 뒤 토스트 팝업 자동 디스미스 소멸
+          setTimeout(() => {
+            setToasts(prev => prev.filter(t => t.id !== toastId));
+          }, 4500);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  // 알림 개별 읽음 처리 핸들러
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("admin_notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("id", id);
+      
+      if (error) throw error;
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n))
+      );
+    } catch (err: any) {
+      alert("알림 읽음 처리 실패: " + err.message);
+    }
+  };
+
+  // 알림 일괄 읽음 처리 핸들러
+  const handleMarkAllAsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.read_at).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from("admin_notifications")
+        .update({ read_at: new Date().toISOString() })
+        .in("id", unreadIds);
+      
+      if (error) throw error;
+      setNotifications(prev =>
+        prev.map(n => (unreadIds.includes(n.id) ? { ...n, read_at: new Date().toISOString() } : n))
+      );
+    } catch (err: any) {
+      alert("알림 일괄 읽음 처리 실패: " + err.message);
+    }
+  };
+
+  // 알림 개별 삭제 핸들러
+  const handleDeleteNotification = async (id: string) => {
+    if (!confirm("이 알림 기록을 영구 삭제하시겠습니까?")) return;
+    try {
+      const { error } = await supabase.from("admin_notifications").delete().eq("id", id);
+      if (error) throw error;
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (err: any) {
+      alert("알림 삭제 실패: " + err.message);
+    }
+  };
 
   // 1. 구독 플랜 변경 핸들러
   const handleUpdatePlan = async (userId: string, planId: string, status: string) => {
@@ -450,46 +607,73 @@ export function AdminDashboardView({ onClose }: Props) {
               { id: "dashboard", label: "실시간 대시보드", icon: "target" as const },
               { id: "users", label: "가입자 관리", icon: "shield" as const },
               { id: "qna", label: "Q&A 문의 제어", icon: "info" as const },
+              { id: "alerts", label: "실시간 알림", icon: "bell" as const },
               { id: "system", label: "시스템 제어판", icon: "settings" as const },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id as any);
-                  fetchAllData();
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "12px 16px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: activeTab === tab.id ? "rgba(91, 140, 122, 0.2)" : "transparent",
-                  color: activeTab === tab.id ? "#5b8c7a" : "#ccc",
-                  fontWeight: activeTab === tab.id ? 700 : 500,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={e => {
-                  if (activeTab !== tab.id) {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-                    e.currentTarget.style.color = "#fff";
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (activeTab !== tab.id) {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "#ccc";
-                  }
-                }}
-              >
-                <Icon name={tab.icon} size={16} />
-                {tab.label}
-              </button>
-            ))}
+            ].map(tab => {
+              const isAlerts = tab.id === "alerts";
+              const unreadCount = notifications.filter(n => !n.read_at).length;
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    fetchAllData();
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "12px 16px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: activeTab === tab.id ? "rgba(91, 140, 122, 0.2)" : "transparent",
+                    color: activeTab === tab.id ? "#5b8c7a" : "#ccc",
+                    fontWeight: activeTab === tab.id ? 700 : 500,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "all 0.2s",
+                    width: "100%",
+                  }}
+                  onMouseEnter={e => {
+                    if (activeTab !== tab.id) {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+                      e.currentTarget.style.color = "#fff";
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (activeTab !== tab.id) {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "#ccc";
+                    }
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <Icon name={tab.icon} size={16} />
+                    <span>{tab.label}</span>
+                  </div>
+                  {isAlerts && unreadCount > 0 && (
+                    <span
+                      style={{
+                        background: "#c95c5c",
+                        color: "#fff",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "2px 6px",
+                        borderRadius: 10,
+                        minWidth: 16,
+                        textAlign: "center",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* 우측 메인 콘텐츠 */}
@@ -502,6 +686,274 @@ export function AdminDashboardView({ onClose }: Props) {
               </div>
             ) : (
               <>
+                {/* 5. 실시간 알림 탭 */}
+                {activeTab === "alerts" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    {/* 상단 제어 바 */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        background: "rgba(255, 255, 255, 0.02)",
+                        border: "1px solid rgba(255, 255, 255, 0.05)",
+                        borderRadius: 14,
+                        padding: "16px 24px",
+                      }}
+                    >
+                      {/* 필터 그룹 */}
+                      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 12, opacity: 0.5 }}>위험도:</span>
+                          <select
+                            value={severityFilter}
+                            onChange={e => setSeverityFilter(e.target.value as any)}
+                            style={{
+                              background: "#222",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              color: "#fff",
+                              borderRadius: 8,
+                              padding: "6px 12px",
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <option value="all">전체 (All)</option>
+                            <option value="info">정보 (Info)</option>
+                            <option value="warning">경고 (Warning)</option>
+                            <option value="critical">심각 (Critical)</option>
+                          </select>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 12, opacity: 0.5 }}>이벤트 종류:</span>
+                          <select
+                            value={typeFilter}
+                            onChange={e => setTypeFilter(e.target.value)}
+                            style={{
+                              background: "#222",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              color: "#fff",
+                              borderRadius: 8,
+                              padding: "6px 12px",
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <option value="all">전체 종류</option>
+                            <option value="signup">회원 가입 (signup)</option>
+                            <option value="cancellation">구독 해지 (cancellation)</option>
+                            <option value="refund_requested">환불 요청 (refund)</option>
+                            <option value="payment_failed">결제 실패 (failed)</option>
+                            <option value="tampering_detected">보안 변조 감지 (tampering)</option>
+                            <option value="system_error">장애/시스템 오류 (error)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* 모두 읽음 버튼 */}
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        disabled={notifications.filter(n => !n.read_at).length === 0}
+                        style={{
+                          background: "rgba(91, 140, 122, 0.15)",
+                          color: "#5b8c7a",
+                          border: "1px solid rgba(91, 140, 122, 0.3)",
+                          borderRadius: 8,
+                          padding: "8px 16px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          opacity: notifications.filter(n => !n.read_at).length === 0 ? 0.5 : 1,
+                        }}
+                        onMouseEnter={e => {
+                          if (notifications.filter(n => !n.read_at).length > 0) {
+                            e.currentTarget.style.background = "#5b8c7a";
+                            e.currentTarget.style.color = "#fff";
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = "rgba(91, 140, 122, 0.15)";
+                          e.currentTarget.style.color = "#5b8c7a";
+                        }}
+                      >
+                        ✓ 미확인 알림 모두 읽음
+                      </button>
+                    </div>
+
+                    {/* 알림 피드 리스트 */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: "50vh", overflowY: "auto", paddingRight: 6 }}>
+                      {(() => {
+                        const filtered = notifications.filter(n => {
+                          const matchesSev = severityFilter === "all" || n.severity === severityFilter;
+                          const matchesType = typeFilter === "all" || n.event_type === typeFilter;
+                          return matchesSev && matchesType;
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div style={{ textAlign: "center", padding: "60px 0", opacity: 0.4, fontSize: 13 }}>
+                              해당 조건에 만족하는 알림 내역이 없습니다.
+                            </div>
+                          );
+                        }
+
+                        return filtered.map(notif => {
+                          const isRead = !!notif.read_at;
+                          
+                          // 중요도별 프리미엄 스타일링 HSL Harmonies
+                          const styleConfig = {
+                            critical: {
+                              border: "rgba(201, 92, 92, 0.3)",
+                              borderHover: "rgba(201, 92, 92, 0.7)",
+                              bg: "rgba(201, 92, 92, 0.03)",
+                              bgHover: "rgba(201, 92, 92, 0.06)",
+                              accent: "#c95c5c",
+                              label: "위험(Critical)",
+                              icon: "lock" as const,
+                            },
+                            warning: {
+                              border: "rgba(217, 167, 82, 0.3)",
+                              borderHover: "rgba(217, 167, 82, 0.7)",
+                              bg: "rgba(217, 167, 82, 0.03)",
+                              bgHover: "rgba(217, 167, 82, 0.06)",
+                              accent: "#d9a752",
+                              label: "경고(Warning)",
+                              icon: "info" as const,
+                            },
+                            info: {
+                              border: "rgba(91, 140, 122, 0.3)",
+                              borderHover: "rgba(91, 140, 122, 0.7)",
+                              bg: "rgba(91, 140, 122, 0.03)",
+                              bgHover: "rgba(91, 140, 122, 0.06)",
+                              accent: "#5b8c7a",
+                              label: "정보(Info)",
+                              icon: "bell" as const,
+                            }
+                          }[notif.severity as "critical"|"warning"|"info"] || {
+                            border: "rgba(255, 255, 255, 0.1)",
+                            borderHover: "rgba(255, 255, 255, 0.3)",
+                            bg: "transparent",
+                            bgHover: "rgba(255, 255, 255, 0.02)",
+                            accent: "#ccc",
+                            label: "알림",
+                            icon: "info" as const,
+                          };
+
+                          return (
+                            <div
+                              key={notif.id}
+                              style={{
+                                background: isRead ? "rgba(255, 255, 255, 0.01)" : styleConfig.bg,
+                                border: `1px solid ${isRead ? "rgba(255, 255, 255, 0.05)" : styleConfig.border}`,
+                                borderRadius: 14,
+                                padding: "16px 20px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 16,
+                                opacity: isRead ? 0.6 : 1,
+                                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                                cursor: "default",
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.border = `1px solid ${isRead ? "rgba(255, 255, 255, 0.15)" : styleConfig.borderHover}`;
+                                e.currentTarget.style.background = isRead ? "rgba(255, 255, 255, 0.02)" : styleConfig.bgHover;
+                                e.currentTarget.style.transform = "translateY(-1px)";
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.border = `1px solid ${isRead ? "rgba(255, 255, 255, 0.05)" : styleConfig.border}`;
+                                e.currentTarget.style.background = isRead ? "rgba(255, 255, 255, 0.01)" : styleConfig.bg;
+                                e.currentTarget.style.transform = "none";
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
+                                {/* 중요도 라벨 및 아이콘 */}
+                                <div
+                                  style={{
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: 10,
+                                    background: isRead ? "rgba(255, 255, 255, 0.03)" : `rgba(${notif.severity === "critical" ? "201, 92, 92" : notif.severity === "warning" ? "217, 167, 82" : "91, 140, 122"}, 0.15)`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: isRead ? "#888" : styleConfig.accent,
+                                  }}
+                                >
+                                  <Icon name={styleConfig.icon} size={18} />
+                                </div>
+
+                                {/* 내용 및 시간 */}
+                                <div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 4, background: isRead ? "rgba(255,255,255,0.06)" : `rgba(${notif.severity === "critical" ? "201, 92, 92" : notif.severity === "warning" ? "217, 167, 82" : "91, 140, 122"}, 0.1)`, color: isRead ? "#888" : styleConfig.accent, border: `1px solid ${isRead ? "rgba(255,255,255,0.1)" : styleConfig.border}` }}>
+                                      {styleConfig.label}
+                                    </span>
+                                    <span style={{ fontSize: 11, opacity: 0.4 }}>
+                                      {new Date(notif.created_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", marginTop: 6, lineHeight: 1.4 }}>
+                                    {notif.message}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* 액션 제어 그룹 */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                {!isRead && (
+                                  <button
+                                    onClick={() => handleMarkAsRead(notif.id)}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#5b8c7a",
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                      padding: "4px 8px",
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+                                    onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
+                                  >
+                                    읽음 처리
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteNotification(notif.id)}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "rgba(201, 92, 92, 0.7)",
+                                    cursor: "pointer",
+                                    padding: 4,
+                                    borderRadius: 6,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    transition: "background 0.2s",
+                                  }}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = "rgba(201, 92, 92, 0.1)";
+                                    e.currentTarget.style.color = "#c95c5c";
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = "none";
+                                    e.currentTarget.style.color = "rgba(201, 92, 92, 0.7)";
+                                  }}
+                                >
+                                  <Icon name="trash" size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+
                 {/* 1. 대시보드 탭 */}
                 {activeTab === "dashboard" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -1026,6 +1478,98 @@ export function AdminDashboardView({ onClose }: Props) {
               </>
             )}
           </div>
+        </div>
+
+        {/* 실시간 알림 토스트 스택 (Top Layer 포지셔닝) */}
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 9999,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            maxWidth: 360,
+            width: "100%",
+            pointerEvents: "none",
+          }}
+        >
+          {toasts.map(toast => {
+            const colors = {
+              critical: { border: "rgba(201, 92, 92, 0.8)", bg: "rgba(20, 10, 10, 0.95)", glow: "0 0 15px rgba(201, 92, 92, 0.4)", accent: "#c95c5c" },
+              warning: { border: "rgba(217, 167, 82, 0.8)", bg: "rgba(20, 18, 10, 0.95)", glow: "0 0 10px rgba(217, 167, 82, 0.2)", accent: "#d9a752" },
+              info: { border: "rgba(91, 140, 122, 0.8)", bg: "rgba(10, 20, 15, 0.95)", glow: "0 0 10px rgba(91, 140, 122, 0.2)", accent: "#5b8c7a" },
+            }[toast.severity as "critical"|"warning"|"info"] || { border: "rgba(255,255,255,0.2)", bg: "rgba(20,20,20,0.95)", glow: "none", accent: "#ccc" };
+
+            const severityLabel = {
+              critical: "🚨 CRITICAL WARNING",
+              warning: "⚠️ WARNING",
+              info: "📢 NOTICE"
+            }[toast.severity as "critical"|"warning"|"info"] || "ALERT";
+
+            return (
+              <div
+                key={toast.id}
+                style={{
+                  pointerEvents: "auto",
+                  background: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 14,
+                  padding: "16px 20px",
+                  boxShadow: `0 10px 30px rgba(0,0,0,0.5), ${colors.glow}`,
+                  backdropFilter: "blur(12px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  color: "#fff",
+                  fontFamily: "'Inter', sans-serif",
+                  animation: "toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                {/* 상단 라벨 */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: colors.accent, letterSpacing: "0.5px" }}>
+                    {severityLabel}
+                  </span>
+                  <button
+                    onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#fff",
+                      opacity: 0.5,
+                      cursor: "pointer",
+                      padding: 0,
+                      lineHeight: 1,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                    onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}
+                  >
+                    <Icon name="x" size={14} />
+                  </button>
+                </div>
+                {/* 본문 */}
+                <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, opacity: 0.95 }}>
+                  {toast.message}
+                </div>
+                {/* 시간 정보 */}
+                <div style={{ fontSize: 10, opacity: 0.35, textAlign: "right" }}>
+                  {new Date(toast.created_at).toLocaleTimeString()}
+                </div>
+                
+                {/* 토스트 진입 키프레임 스타일용 인라인 style 정의 */}
+                <style>{`
+                  @keyframes toastSlideIn {
+                    from { transform: translateX(120%) scale(0.9); opacity: 0; }
+                    to { transform: translateX(0) scale(1); opacity: 1; }
+                  }
+                `}</style>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

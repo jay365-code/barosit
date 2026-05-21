@@ -55,21 +55,91 @@ BaroSit은 사용자의 인지적 부하를 최소화하고 결제 전환율을 
 
 국내 전자상거래 등에서의 소비자보호에 관한 법률 및 콘텐츠산업 진흥법을 엄격히 준수하여 정밀하고 신뢰할 수 있는 환불 조항을 제공합니다.
 
-### 4.1. 청약철회 (결제 후 7일 이내)
-- **조건**: PRO 구독 결제일로부터 **7일 이내**에 서비스 이용 이력(데스크톱 앱 설치 후 실제 모니터링 분석 가동 기록 등)이 없는 경우.
-- **환불 비율**: 결제 수수료 공제 없이 **100% 전액 환불**을 보장합니다.
+### 4.1. 청약철회 및 즉시 환불 (결제 완료 후 7일 이내 & 미사용 시)
+- **조건**: 유료 PRO 구독 결제 완료일로부터 **7일(168시간) 이내**이고, 유료 서비스의 **이용 이력(데스크톱 앱 모니터링 가동 이력)**이 전혀 존재하지 않는 상태인 경우.
+  - *미사용 판단*: 결제 시점 이후 데스크톱 앱을 통한 수집 모니터링 누적 시간이 0분인 경우 (자세 감지 이벤트 및 일별 점수 기록이 단 1회도 생성되지 않은 상태).
+- **정책**: 상기 조건을 충족할 경우 **100% 무조건 전액 환불(결제 취소)**을 완벽히 보장합니다.
+- **처리 방식**: 프로필 결제 탭에서 셀프로 `[즉시 환불 및 결제 취소]` 버튼을 클릭하여 즉각 모의 취소 처리를 완료할 수 있으며, 실제 Production 환경에서는 카드 결제가 자동 취소됩니다.
 
-### 4.2. 중도 환불 및 해지 (결제 후 7일 경과 혹은 이용 이력이 있는 경우)
-SaaS 라이선스 제공 및 데이터 인프라 유지 비용을 감안하여 합리적인 일할 계산 방식을 적용합니다.
+### 4.2. 중도 환불 불가 및 구독 해지 (결제 후 7일 경과 또는 사용 이력 존재)
+- **조건**: 결제 후 **7일이 경과**했거나, 결제 시점 이후 단 1회라도 **서비스 이용 이력(모니터링 동작 및 기록)**이 발생한 경우.
+- **정책**: 이 경우 데이터 보존 및 서버 인프라 유지 비용 등을 감안하여 중도 즉시 환불 및 결제 취소는 **원천적으로 불가**합니다.
+- **대안 (구독 해지)**: 사용자는 언제든지 프로필 영역에서 `[플랜 취소 (구독 해지)]`를 신청할 수 있으며, 이 경우 이미 결제된 이용 기간의 만료일(Grace Period)까지 PRO 플랜의 모든 혜택을 추가 비용 없이 누릴 수 있습니다. 만료일에 추가 청구 없이 FREE 등급으로 안전하게 자동 전환됩니다.
 
-- **월간 구독 환불**:
-  - 중도 해지 신청 시 즉시 사용이 정지되지 않으며, 이미 결제된 해당 월의 잔여 기간까지 PRO 권한이 유지된 후 다음 결제일에 자동 해지됩니다. (중도 즉시 환불 시에는 `결제 금액 - (이용 일수 * 일회성 일일 단가 300원) - 위약금(결제 대금의 10%)`을 공제한 잔액이 환불됩니다.)
-- **연간 구독 환불**:
-  - 중도 즉시 환불 신청 시, 연간 결제로 체결된 할인가(월 3,000원 꼴) 혜택이 상실됩니다.
-  - 환불금 산정식: `연 결제 금액 (36,000원) - (이용 일수 * 정가 기준 일일 단가 [4,900원 / 30일 = 약 163.3원]) - 해지 대행 위약금(결제 대금의 10%)`
-  - 계산 결과가 마이너스(`-`)이거나 잔액이 위약금보다 적을 경우 환불이 불가할 수 있으며, 이 경우 잔여 연간 이용 기간 동안 서비스를 마저 이용하는 것을 권장합니다.
+### 4.3. 수동/예외 환불 처리 프로세스
+1. 결제 도중 시스템 오작동, 중복 결제 등 특별한 귀책사유로 예외 환불을 희망할 경우, 공식 CS 대표 이메일(`support@barosit.com`)로 결제 영수증 정보와 계정을 첨부하여 수동 접수합니다.
+2. 운영팀에서 해당 사유 검증 및 승인 처리 시 어드민 콘솔을 통해 사용자의 유료 멤버십을 즉각 안전하게 회수하고, PG사 결제 승인을 수동으로 취소 처리합니다.
 
-### 4.3. 환불 신청 및 처리 프로세스
-1. 사용자는 BaroSit 프로필 메뉴 내 [구독 관리 -> 환불/구독 해지 신청]을 누르거나 CS 이메일(`support@barosit.com`)로 결제 영수증 번호와 계정을 전달합니다.
-2. 시스템 어드민 센터에서 해당 유저의 자세 감지 서버 API 호출 이력 검증 후 환불 가능 등급을 판단합니다.
-3. 승인 완료 시 결제 대행사(PG)를 통해 3영업일 이내에 카드 승인 취소 혹은 계좌 입금 처리가 실행됩니다.
+---
+
+## 5. 실 서비스(Production) 전환을 위한 Toss Payments 결제 취소 API 연동 가이드
+
+추후 테스트 모드를 끝내고 상용 릴리즈로 전환 시, 보안 규정을 엄수하여 안전한 취소 프로세스를 구성해야 합니다.
+
+### 5.1. 보안 프록시(Supabase Edge Function) 아키텍처
+결제 취소 API는 가맹점의 `Secret Key`(비밀 키)를 헤더에 포함하므로 절대 프론트엔드 코드에서 직접 호출해서는 안 되며, 반드시 다음과 같이 백엔드 중계 API를 생성해 처리해야 합니다.
+
+#### Supabase Edge Function 예시 코드 (`supabase/functions/cancel-subscription/index.ts`)
+```typescript
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const TOSS_SECRET_KEY = Deno.env.get("TOSS_SECRET_KEY")!;
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+serve(async (req) => {
+  const { paymentKey, cancelReason } = await req.json();
+  
+  // 1. 유저 토큰 인증 및 RLS 우회용 Service Client 생성
+  const authHeader = req.headers.get("Authorization")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+  
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  // 2. 취소 자격 확인 (결제 7일 이내 여부 DB 조회)
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("created_at, plan_id")
+    .eq("user_id", user.id)
+    .single();
+
+  const isWithin7Days = (new Date().getTime() - new Date(subscription.created_at).getTime()) <= 7 * 24 * 60 * 60 * 1000;
+  if (!isWithin7Days) {
+    return new Response(JSON.stringify({ error: "Refund window closed" }), { status: 400 });
+  }
+
+  // 3. Toss Payments 취소 API 호출
+  const basicAuth = btoa(TOSS_SECRET_KEY + ":");
+  const response = await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${basicAuth}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ cancelReason })
+  });
+
+  const tossResult = await response.json();
+  if (!response.ok) {
+    return new Response(JSON.stringify({ error: tossResult.message }), { status: response.status });
+  }
+
+  // 4. DB 상태 강등 처리
+  await supabase
+    .from("user_subscriptions")
+    .update({ plan_id: "free", status: "active", current_period_end: null })
+    .eq("user_id", user.id);
+
+  // 5. 결제 이력 환불 완료로 변경
+  await supabase
+    .from("billing_history")
+    .update({ status: "refunded", refunded_amount: tossResult.cancelAmount, refunded_at: new Date().toISOString() })
+    .eq("payment_key", paymentKey);
+
+  return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
+});
+```
