@@ -2,7 +2,9 @@
 -- This permits the client-side card renewal flow to save the new authKey (billing_key)
 -- while using a DB trigger to block unauthorized tampering of subscription tiers (plan_id, status).
 
--- 1. Enable UPDATE policy on user_subscriptions for the owner
+-- 1. Enable UPDATE policy on user_subscriptions for the owner (Drop first if exists for idempotency)
+DROP POLICY IF EXISTS "Users can update their own subscription billing key" ON public.user_subscriptions;
+
 CREATE POLICY "Users can update their own subscription billing key" ON public.user_subscriptions
     FOR UPDATE TO authenticated
     USING (auth.uid() = user_id)
@@ -23,7 +25,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- 3. Bind trigger to user_subscriptions table
+-- 3. Bind trigger to user_subscriptions table (Drop first if exists for idempotency)
+DROP TRIGGER IF EXISTS check_subscription_tampering ON public.user_subscriptions;
+
 CREATE OR REPLACE TRIGGER check_subscription_tampering
     BEFORE UPDATE ON public.user_subscriptions
     FOR EACH ROW EXECUTE FUNCTION public.prevent_subscription_tampering();
