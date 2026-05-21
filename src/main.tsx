@@ -16,6 +16,8 @@ if (typeof window !== "undefined") {
     window.location.hash = "#/pricing";
   } else if (redirectRoute === "app") {
     window.location.hash = "#/app";
+  } else if (redirectRoute === "profile") {
+    window.location.hash = "#/profile";
   }
 }
 

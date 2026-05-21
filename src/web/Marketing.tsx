@@ -24,7 +24,9 @@ export const trackPaymentEvent = (
     | "checkout_failed"
     | "subscription_cancel_initiated"
     | "subscription_cancel_confirmed"
-    | "subscription_resume_confirmed",
+    | "subscription_resume_confirmed"
+    | "card_update_initiated"
+    | "card_update_failed",
   params?: Record<string, any>
 ) => {
   const payload = {
@@ -4458,6 +4460,119 @@ function PlanTab({
     fetchHistoryAndRefundStatus();
   }, [user, subPlan, subStatus]);
 
+  // 결제 정보 변경 감지 및 카드 갱신 결과 처리
+  useEffect(() => {
+    const checkCardUpdateResult = async () => {
+      if (typeof window === "undefined" || !user) return;
+      const params = new URLSearchParams(window.location.search);
+      const paymentStatus = params.get("payment");
+      const action = params.get("action");
+      const authKey = params.get("authKey");
+
+      if (action === "update_card") {
+        // Clean query parameters to avoid double processing on page refresh
+        const cleanUrl = window.location.origin + window.location.pathname + "#/profile";
+        window.history.replaceState({}, document.title, cleanUrl);
+
+        if (paymentStatus === "success" && authKey) {
+          try {
+            // 1. user_subscriptions 테이블의 billing_key 업데이트
+            const { error: subError } = await supabase
+              .from("user_subscriptions")
+              .update({
+                billing_key: authKey,
+                updated_at: new Date().toISOString()
+              })
+              .eq("user_id", user.id);
+
+            if (subError) throw subError;
+
+            // 2. billing_history 테이블에 결제수단 변경(card_updated) 이력 기록
+            const mockOrderId = `card-update-${Date.now()}`;
+            const { error: historyError } = await supabase
+              .from("billing_history")
+              .insert({
+                user_id: user.id,
+                kind: "card_updated",
+                order_id: mockOrderId,
+                payment_key: authKey,
+                amount: 0,
+                plan: "pro",
+                billing_cycle: planId === "pro_yearly" ? "yearly" : "monthly",
+                status: "completed",
+                cash_receipt_issued: false,
+                created_at: new Date().toISOString()
+              });
+
+            if (historyError) throw historyError;
+
+            // 3. admin_notifications 테이블에 관리자 공지 적재
+            await supabase.from("admin_notifications").insert({
+              event_type: "signup",
+              severity: "info",
+              message: `결제 정보 변경: 사용자 ${user.email} 님이 대표 청구용 신용카드를 신규 카드로 성공적으로 갱신/변경하였습니다.`,
+              payload: {
+                user_id: user.id,
+                email: user.email,
+                action: "card_renewal",
+                updated_at: new Date().toISOString()
+              }
+            });
+
+            window.alert("🎉 결제 카드가 성공적으로 변경 및 갱신되었습니다!");
+            onUpdateSubscription();
+          } catch (err) {
+            console.error("Failed to update card:", err);
+            window.alert("결제 카드 정보 변경 중 문제가 발생했습니다.");
+          }
+        } else if (paymentStatus === "fail") {
+          // 결제수단 변경 실패 알림 적재
+          await supabase.from("admin_notifications").insert({
+            event_type: "payment_failed",
+            severity: "warning",
+            message: `결제수단 변경 실패: 사용자 ${user.email} 님의 신규 결제 카드 등록이 실패하거나 본인 인증이 중단되었습니다.`,
+            payload: {
+              user_id: user.id,
+              email: user.email,
+              action: "card_renewal_failed",
+              failed_at: new Date().toISOString()
+            }
+          });
+          window.alert("결제 카드 등록이 중단되었거나 실패했습니다. 다시 시도해 주세요.");
+        }
+      }
+    };
+
+    checkCardUpdateResult();
+  }, [user, subPlan, subStatus]);
+
+  // 실제 결제 수단 변경 및 카드 갱신 신청 로직
+  const handleUpdatePaymentCard = async () => {
+    if (!user) return;
+    try {
+      const TossPaymentsLib = await loadTossPayments();
+      const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
+      
+      const customerKey = `cust-${user.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
+      
+      trackPaymentEvent("card_update_initiated", {
+        user: user.email
+      });
+
+      await toss.requestBillingAuth("카드", {
+        customerKey,
+        successUrl: window.location.origin + window.location.pathname + `?redirect_route=profile&payment=success&action=update_card`,
+        failUrl: window.location.origin + window.location.pathname + `?redirect_route=profile&payment=fail&action=update_card`,
+      });
+    } catch (err: any) {
+      trackPaymentEvent("card_update_failed", {
+        reason: err.message,
+        user: user.email
+      });
+      alert("카드 등록창을 호출하는 중 오류가 발생했습니다: " + err.message);
+    }
+  };
+
   // 플랜 취소 신청
   const handleCancelSubscription = async () => {
     if (!user) return;
@@ -4590,7 +4705,7 @@ function PlanTab({
   // 모의 테스트 결제 수단 / 주기 변경 알림
   const handleMockNotice = () => {
     window.alert(
-      "현재 결제 연동은 통합 모의 테스트 상태입니다.\n결제수단 변경 및 결제 주기 전환은 고객센터(support@barosit.com)를 통해 수동으로 즉시 안전하게 처리해 드리고 있습니다. 메일 주시면 신속히 도와드리겠습니다!"
+      "현재 결제 연동은 통합 모의 테스트 상태입니다.\n결제 주기 전환은 고객센터(support@barosit.com)를 통해 수동으로 즉시 안전하게 처리해 드리고 있습니다. 메일 주시면 신속히 도와드리겠습니다!"
     );
   };
 
@@ -4683,7 +4798,7 @@ function PlanTab({
               </div>
             </div>
             {!isCanceled && (
-              <button onClick={handleMockNotice} className="b-btn b-btn-ghost">결제수단 변경</button>
+              <button onClick={handleUpdatePaymentCard} className="b-btn b-btn-ghost">결제수단 변경</button>
             )}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 18, alignItems: "center" }}>
