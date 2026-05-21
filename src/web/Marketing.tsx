@@ -4100,8 +4100,10 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 
 function AccountTab({
   user,
+  subPlan,
 }: {
   user: import("@supabase/supabase-js").User | null;
+  subPlan: "free" | "pro";
 }) {
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   const fullName =
@@ -4172,13 +4174,20 @@ function AccountTab({
                 gap: 6,
                 padding: "6px 12px",
                 borderRadius: 999,
-                background: "var(--b-surface-2)",
-                color: "var(--b-fg-2)",
+                background:
+                  subPlan === "pro"
+                    ? "linear-gradient(135deg, #7eb09c 0%, #5b8c7a 100%)"
+                    : "var(--b-surface-2)",
+                color: subPlan === "pro" ? "#fff" : "var(--b-fg-2)",
                 fontSize: 12,
                 fontWeight: 700,
+                boxShadow:
+                  subPlan === "pro"
+                    ? "0 2px 8px rgba(126, 176, 156, 0.25)"
+                    : "none",
               }}
             >
-              FREE
+              {subPlan === "pro" ? "PRO" : "FREE"}
             </span>
           </div>
         </div>
@@ -4215,7 +4224,174 @@ function AccountTab({
   );
 }
 
-function PlanTab() {
+function PlanTab({ subPlan }: { subPlan: "free" | "pro" }) {
+  if (subPlan === "pro") {
+    return (
+      <>
+        <h2
+          style={{
+            fontSize: 24,
+            fontWeight: 700,
+            letterSpacing: "-0.022em",
+            marginBottom: 6,
+          }}
+        >
+          플랜과 결제
+        </h2>
+        <p style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 28 }}>
+          구독 상태와 결제 수단을 관리합니다.
+        </p>
+
+        <div
+          style={{
+            padding: 24,
+            borderRadius: 14,
+            marginBottom: 14,
+            background: "linear-gradient(135deg, var(--b-sig-bg) 0%, var(--b-bg) 100%)",
+            border: "1px solid var(--b-sig-soft)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+            <div>
+              <span
+                className="b-chip"
+                style={{
+                  background: "var(--b-sig)",
+                  color: "#fff",
+                  borderColor: "transparent",
+                  marginBottom: 12,
+                }}
+              >
+                현재 플랜 · PRO
+              </span>
+              <div
+                style={{
+                  fontSize: 28,
+                  fontWeight: 700,
+                  letterSpacing: "-0.024em",
+                  marginBottom: 4,
+                  marginTop: 12,
+                }}
+              >
+                연 36,000원
+              </div>
+              <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
+                다음 결제일 · 2026년 6월 11일 (연간 결제 - 월 3,000원 꼴)
+              </div>
+            </div>
+            <button className="b-btn b-btn-ghost">결제수단 변경</button>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+            <button className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
+              월간으로 변경 (월 4,900원)
+            </button>
+            <button className="b-btn b-btn-quiet" style={{ color: "var(--b-warn)" }}>
+              플랜 취소
+            </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: 24,
+            borderRadius: 14,
+            background: "var(--b-surface)",
+            border: "1px solid var(--b-line)",
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>이번 달 사용</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            {[
+              { k: "모니터링 시간", v: "128h", s: "+12% 지난 달" },
+              { k: "활성 일수", v: "24일", s: "한 달 중" },
+              { k: "평균 점수", v: "78", s: "+6 지난 달" },
+            ].map((u, i) => (
+              <div key={i}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "var(--b-fg-3)",
+                    letterSpacing: "0.04em",
+                    marginBottom: 6,
+                  }}
+                >
+                  {u.k}
+                </div>
+                <div
+                  className="b-num"
+                  style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.022em" }}
+                >
+                  {u.v}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--b-sig)",
+                    fontWeight: 600,
+                    marginTop: 2,
+                  }}
+                >
+                  {u.s}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: "0 4px" }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--b-fg-3)",
+              letterSpacing: "0.08em",
+              marginBottom: 10,
+            }}
+          >
+            결제 내역
+          </div>
+          {[
+            { d: "2026.05.11", a: "3,000원", s: "결제 완료" },
+            { d: "2026.04.11", a: "3,000원", s: "결제 완료" },
+            { d: "2026.03.11", a: "3,000원", s: "결제 완료" },
+          ].map((r, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                padding: "12px 4px",
+                borderBottom: "1px solid var(--b-line)",
+              }}
+            >
+              <span className="b-num" style={{ fontSize: 13, color: "var(--b-fg-2)" }}>
+                {r.d}
+              </span>
+              <span
+                className="b-num"
+                style={{ fontSize: 13, marginLeft: "auto", marginRight: 18, fontWeight: 600 }}
+              >
+                {r.a}
+              </span>
+              <span
+                className="b-chip"
+                style={{
+                  background: "var(--b-sig-bg)",
+                  color: "var(--b-sig-deep)",
+                  borderColor: "var(--b-sig-soft)",
+                }}
+              >
+                {r.s}
+              </span>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <h2
@@ -4237,8 +4413,8 @@ function PlanTab() {
           padding: 24,
           borderRadius: 14,
           marginBottom: 14,
-          background: "linear-gradient(135deg, var(--b-sig-bg) 0%, var(--b-bg) 100%)",
-          border: "1px solid var(--b-sig-soft)",
+          background: "var(--b-surface)",
+          border: "1px solid var(--b-line)",
         }}
       >
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -4246,37 +4422,44 @@ function PlanTab() {
             <span
               className="b-chip"
               style={{
-                background: "var(--b-sig)",
-                color: "#fff",
+                background: "var(--b-surface-2)",
+                color: "var(--b-fg-2)",
                 borderColor: "transparent",
                 marginBottom: 12,
               }}
             >
-              현재 플랜 · PRO
+              현재 플랜 · FREE
             </span>
             <div
               style={{
                 fontSize: 28,
                 fontWeight: 700,
                 letterSpacing: "-0.024em",
-                marginBottom: 4,
+                marginBottom: 6,
                 marginTop: 12,
               }}
             >
-              연 36,000원
+              기본 무료 플랜
             </div>
-            <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
-              다음 결제일 · 2026년 6월 11일 (연간 결제 - 월 3,000원 꼴)
-            </div>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.5, maxWidth: 500, margin: "8px 0 0 0" }}>
+              현재 웹 브라우저 전용 기본 무료 체험 요금제를 이용 중입니다. 데스크톱 설치형 앱을 다운로드하고 백그라운드 무자각 관제 및 실시간 AI 코칭 피드백 혜택을 누리시려면 PRO 요금제로 업그레이드하세요!
+            </p>
           </div>
-          <button className="b-btn b-btn-ghost">결제수단 변경</button>
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-          <button className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
-            월간으로 변경 (월 4,900원)
-          </button>
-          <button className="b-btn b-btn-quiet" style={{ color: "var(--b-warn)" }}>
-            플랜 취소
+        <div style={{ display: "flex", gap: 8, marginTop: 24 }}>
+          <button
+            onClick={() => { window.location.hash = "#/pricing"; }}
+            className="b-btn b-btn-primary"
+            style={{
+              background: "linear-gradient(135deg, #e08866, #c2613f)",
+              color: "#fff",
+              boxShadow: "0 4px 15px rgba(224, 136, 102, 0.25)",
+              border: "none",
+              fontWeight: 700,
+              padding: "10px 20px",
+            }}
+          >
+            PRO 플랜으로 업그레이드하기
           </button>
         </div>
       </div>
@@ -4287,15 +4470,16 @@ function PlanTab() {
           borderRadius: 14,
           background: "var(--b-surface)",
           border: "1px solid var(--b-line)",
-          marginBottom: 14,
+          opacity: 0.6,
+          pointerEvents: "none",
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>이번 달 사용</div>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>이번 달 사용 (PRO 기능)</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {[
-            { k: "모니터링 시간", v: "128h", s: "+12% 지난 달" },
-            { k: "활성 일수", v: "24일", s: "한 달 중" },
-            { k: "평균 점수", v: "78", s: "+6 지난 달" },
+            { k: "모니터링 시간", v: "0h", s: "PRO 전용" },
+            { k: "활성 일수", v: "0일", s: "PRO 전용" },
+            { k: "평균 점수", v: "—", s: "PRO 전용" },
           ].map((u, i) => (
             <div key={i}>
               <div
@@ -4318,7 +4502,7 @@ function PlanTab() {
               <div
                 style={{
                   fontSize: 11,
-                  color: "var(--b-sig)",
+                  color: "var(--b-fg-3)",
                   fontWeight: 600,
                   marginTop: 2,
                 }}
@@ -4328,55 +4512,6 @@ function PlanTab() {
             </div>
           ))}
         </div>
-      </div>
-
-      <div style={{ padding: "0 4px" }}>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: "var(--b-fg-3)",
-            letterSpacing: "0.08em",
-            marginBottom: 10,
-          }}
-        >
-          결제 내역
-        </div>
-        {[
-          { d: "2026.05.11", a: "3,000원", s: "결제 완료" },
-          { d: "2026.04.11", a: "3,000원", s: "결제 완료" },
-          { d: "2026.03.11", a: "3,000원", s: "결제 완료" },
-        ].map((r, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "12px 4px",
-              borderBottom: "1px solid var(--b-line)",
-            }}
-          >
-            <span className="b-num" style={{ fontSize: 13, color: "var(--b-fg-2)" }}>
-              {r.d}
-            </span>
-            <span
-              className="b-num"
-              style={{ fontSize: 13, marginLeft: "auto", marginRight: 18, fontWeight: 600 }}
-            >
-              {r.a}
-            </span>
-            <span
-              className="b-chip"
-              style={{
-                background: "var(--b-sig-bg)",
-                color: "var(--b-sig-deep)",
-                borderColor: "var(--b-sig-soft)",
-              }}
-            >
-              {r.s}
-            </span>
-          </div>
-        ))}
       </div>
     </>
   );
@@ -4403,12 +4538,46 @@ function ProfileLoading() {
 function Profile() {
   const { user, loading, configured, signOut } = useAuth();
   const [tab, setTab] = useState<"account" | "plan">("account");
+  const [subPlan, setSubPlan] = useState<"free" | "pro">("free");
 
   useEffect(() => {
     if (!loading && configured && !user) {
       window.location.replace("#/login");
     }
   }, [loading, configured, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchSub = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("user_subscriptions")
+          .select("plan_id, status")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!error && data && data.status === "active") {
+          setSubPlan(data.plan_id === "pro" ? "pro" : "free");
+          return;
+        }
+        const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+        setSubPlan(localPlan || "free");
+      } catch (err) {
+        console.error("Failed to load user subscription:", err);
+      }
+    };
+    fetchSub();
+
+    const handleSubChanged = () => {
+      const p = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+      setSubPlan(p || "free");
+    };
+    window.addEventListener("barosit:subscription-changed", handleSubChanged);
+    window.addEventListener("storage", handleSubChanged);
+    return () => {
+      window.removeEventListener("barosit:subscription-changed", handleSubChanged);
+      window.removeEventListener("storage", handleSubChanged);
+    };
+  }, [user]);
 
   if (!configured) {
     return (
@@ -4567,8 +4736,8 @@ function Profile() {
         </div>
 
         <div>
-          {tab === "account" && <AccountTab user={user} />}
-          {tab === "plan" && <PlanTab />}
+          {tab === "account" && <AccountTab user={user} subPlan={subPlan} />}
+          {tab === "plan" && <PlanTab subPlan={subPlan} />}
         </div>
       </div>
       <Footer />

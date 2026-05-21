@@ -41,7 +41,7 @@ DECLARE
     is_admin_user BOOLEAN := false;
 BEGIN
     -- Check email metadata to assign admin role to authorized emails
-    IF new.email = 'jhlee@gubed.co.kr' OR new.email = 'leejonhyun88@gmail.com' THEN
+    IF new.email = 'jhlee@gubed.co.kr' OR new.email = 'leejonghyun88@gmail.com' THEN
         is_admin_user := true;
     END IF;
 
