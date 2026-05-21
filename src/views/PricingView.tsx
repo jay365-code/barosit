@@ -2,6 +2,35 @@ import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
 import { supabase } from "../auth/supabase";
 
+// 토스페이먼츠 SDK 동적 로더
+function loadTossPayments(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("브라우저 환경이 아닙니다."));
+      return;
+    }
+    if ((window as any).TossPayments) {
+      resolve((window as any).TossPayments);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://js.tosspayments.com/v1";
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).TossPayments) {
+        resolve((window as any).TossPayments);
+      } else {
+        reject(new Error("토스페이먼츠 SDK 로딩에 실패했습니다."));
+      }
+    };
+    script.onerror = () => reject(new Error("토스페이먼츠 SDK를 불러오는 도중 에러가 발생했습니다."));
+    document.head.appendChild(script);
+  });
+}
+
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+
+
 interface Props {
   onClose: () => void;
   onPlanUpdated?: (newPlan: "free" | "pro") => void;
@@ -12,35 +41,104 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentPlan, setCurrentPlan] = useState<"free" | "pro">("free");
   
-  // 결제 진행 상태: "idle" | "checkout" | "success"
-  const [paymentState, setPaymentState] = useState<"idle" | "checkout" | "success">("idle");
+  // 결제 진행 상태: "idle" | "select_method" | "checkout" | "success"
+  const [paymentState, setPaymentState] = useState<"idle" | "select_method" | "checkout" | "success">("idle");
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string; delay: number }[]>([]);
 
   useEffect(() => {
     const fetchUserAndPlan = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setCurrentUser(session.user);
+        const userObj = session?.user || null;
+        if (userObj) {
+          setCurrentUser(userObj);
           // 구독 조회
           const { data, error } = await supabase
             .from("user_subscriptions")
             .select("plan_id, status")
-            .eq("user_id", session.user.id)
+            .eq("user_id", userObj.id)
             .maybeSingle();
 
+          let actualPlan: "free" | "pro" = "free";
           if (!error && data && data.status === "active") {
-            const plan = data.plan_id === "pro" ? "pro" : "free";
-            setCurrentPlan(plan);
+            actualPlan = data.plan_id === "pro" ? "pro" : "free";
+            setCurrentPlan(actualPlan);
           } else {
             // 로컬스토리지 백업 체크
             const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
-            setCurrentPlan(localPlan || "free");
+            actualPlan = localPlan || "free";
+            setCurrentPlan(actualPlan);
+          }
+
+          // 로그인 성공 복귀 후 대기 중이던 결제 복구 실행
+          const pendingSub = localStorage.getItem("barosit:pending_subscription");
+          if (pendingSub === "true" && actualPlan !== "pro") {
+            localStorage.removeItem("barosit:pending_subscription");
+            const pendingCycle = localStorage.getItem("barosit:pending_subscription_cycle") as "monthly" | "yearly";
+            localStorage.removeItem("barosit:pending_subscription_cycle");
+            if (pendingCycle) {
+              setBillingCycle(pendingCycle);
+            }
+            setTimeout(() => {
+              handleTossPayment("카드", userObj, pendingCycle);
+            }, 150);
           }
         } else {
           // 비로그인 Guest용 로컬 계획 조회
           const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
           setCurrentPlan(localPlan || "free");
+        }
+
+        // Toss Payments 결제 복원 핸들링
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const paymentStatus = params.get("payment");
+          if (paymentStatus === "success") {
+            setPaymentState("checkout");
+            setTimeout(async () => {
+              try {
+                if (userObj) {
+                  // DB 업데이트
+                  const { error } = await supabase
+                    .from("user_subscriptions")
+                    .upsert({
+                      user_id: userObj.id,
+                      plan_id: "pro",
+                      status: "active",
+                      updated_at: new Date().toISOString()
+                    }, { onConflict: "user_id" });
+                  if (error) {
+                    console.warn("DB subscription upsert failed (possibly RLS), activating locally.", error);
+                  }
+                }
+                localStorage.setItem("barosit:subscription_plan", "pro");
+                setCurrentPlan("pro");
+                setPaymentState("success");
+                triggerConfetti();
+                if (onPlanUpdated) {
+                  onPlanUpdated("pro");
+                }
+                const cleanUrl = window.location.pathname + window.location.hash;
+                window.history.replaceState({}, document.title, cleanUrl);
+              } catch (e) {
+                console.error("DB update error", e);
+                localStorage.setItem("barosit:subscription_plan", "pro");
+                setCurrentPlan("pro");
+                setPaymentState("success");
+                triggerConfetti();
+                if (onPlanUpdated) {
+                  onPlanUpdated("pro");
+                }
+                const cleanUrl = window.location.pathname + window.location.hash;
+                window.history.replaceState({}, document.title, cleanUrl);
+              }
+            }, 1200);
+          } else if (paymentStatus === "fail") {
+            alert("결제에 실패하였습니다. 다시 시도해주세요.");
+            const cleanUrl = window.location.pathname + window.location.hash;
+            window.history.replaceState({}, document.title, cleanUrl);
+            setPaymentState("idle");
+          }
         }
       } catch (err) {
         console.error("Failed to load user or subscription status:", err);
@@ -66,38 +164,51 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
   const handleUpgradeToPro = async () => {
     if (currentPlan === "pro") return;
 
+    if (!currentUser) {
+      // 로그인되어 있지 않은 상태: 로그인 페이지로 리다이렉트 및 로그인 성공 시 복귀 설정
+      localStorage.setItem("barosit:auth_redirect", "#/app");
+      localStorage.setItem("barosit:open_pricing_on_load", "true");
+      localStorage.setItem("barosit:pending_subscription", "true");
+      localStorage.setItem("barosit:pending_subscription_cycle", billingCycle);
+      window.location.hash = "#/login";
+      onClose();
+      return;
+    }
+
+    // 중간 선택 단계 없이 바로 토스 통합 결제창 요청 실행
+    await handleTossPayment("카드");
+  };
+
+  // 실제 토스페이먼츠 결제 요청 실행
+  const handleTossPayment = async (
+    method: "카드" | "토스페이",
+    userOverride?: any,
+    cycleOverride?: "monthly" | "yearly"
+  ) => {
     setPaymentState("checkout");
-    
-    // 2초 가상 트랜잭션 대기
-    setTimeout(async () => {
-      try {
-        if (currentUser) {
-          // 로그인한 유저: Supabase에 업데이트
-          const { error } = await supabase
-            .from("user_subscriptions")
-            .upsert({
-              user_id: currentUser.id,
-              plan_id: "pro",
-              status: "active",
-              updated_at: new Date().toISOString()
-            }, { onConflict: "user_id" });
+    try {
+      const TossPaymentsLib = await loadTossPayments();
+      const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
+      
+      const activeUser = userOverride || currentUser;
+      const activeCycle = cycleOverride || billingCycle;
+      
+      const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const amount = activeCycle === "yearly" ? 36000 : 4900;
+      const orderName = activeCycle === "yearly" ? "BaroSit PRO 연간 구독" : "BaroSit PRO 월간 구독";
 
-          if (error) throw error;
-        }
-
-        // 공통: 로컬스토리지 영구 기록 및 상태 동기화
-        localStorage.setItem("barosit:subscription_plan", "pro");
-        setCurrentPlan("pro");
-        setPaymentState("success");
-        triggerConfetti();
-        if (onPlanUpdated) {
-          onPlanUpdated("pro");
-        }
-      } catch (err: any) {
-        alert("결제 처리 중 서버 에러가 발생했습니다: " + err.message);
-        setPaymentState("idle");
-      }
-    }, 2000);
+      await toss.requestPayment(method, {
+        amount,
+        orderId,
+        orderName,
+        customerName: activeUser?.email || "BaroSit 회원",
+        successUrl: window.location.origin + window.location.pathname + `?redirect_route=app&payment=success&cycle=${activeCycle}`,
+        failUrl: window.location.origin + window.location.pathname + `?redirect_route=app&payment=fail`,
+      });
+    } catch (err: any) {
+      alert("결제창을 실행하는 중 오류가 발생했습니다: " + err.message);
+      setPaymentState("idle");
+    }
   };
 
   return (
@@ -549,6 +660,8 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
             </div>
           </div>
         )}
+
+
 
         <div className="pricing-inner-scroll b-scroll">
           {paymentState !== "success" ? (

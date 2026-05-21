@@ -8,11 +8,23 @@ import { applyThemeMode, watchOsTheme } from "./themeConfig";
 applyThemeMode();
 watchOsTheme();
 
+// 토스페이먼츠 결제 완료 후 돌아왔을 때 query string의 redirect_route를 감지하여 해시 라우트 복원
+if (typeof window !== "undefined") {
+  const params = new URLSearchParams(window.location.search);
+  const redirectRoute = params.get("redirect_route");
+  if (redirectRoute === "pricing") {
+    window.location.hash = "#/pricing";
+  } else if (redirectRoute === "app") {
+    window.location.hash = "#/app";
+  }
+}
+
 const IS_WEB = (import.meta.env.VITE_PLATFORM as string | undefined) === "web";
 const isWidget = !IS_WEB && window.location.hash === "#widget";
 const isAlert = !IS_WEB && window.location.hash === "#alert";
 // 웹은 마케팅 페이지가 기본 진입점. 모니터링 앱은 #/app 으로 명시 진입.
 const isWebAppRoute = IS_WEB && window.location.hash === "#/app";
+
 
 function MarketingHost({ initial }: { initial: MarketingRoute }) {
   const [route, setRoute] = useState<MarketingRoute>(initial);

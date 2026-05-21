@@ -111,7 +111,19 @@ export default function App() {
   const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [pricingOpen, setPricingOpen] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("payment") === "success" || params.get("payment") === "fail") {
+        return true;
+      }
+      if (localStorage.getItem("barosit:open_pricing_on_load") === "true") {
+        localStorage.removeItem("barosit:open_pricing_on_load");
+        return true;
+      }
+    }
+    return false;
+  });
   const [visible, setVisible] = useState<boolean>(
     typeof document === "undefined" ? true : !document.hidden,
   );

@@ -11,7 +11,7 @@ export const LEGAL_METADATA = {
   ADDRESS: "서울특별시 송파구 오금로15길 5-12, 3층 3425호 (방이동, 정환빌딩)",
   PRIVACY_OFFICER: "이종현 (대표)",
   REFUND_WINDOW: "7일",
-  CONTACT_EMAIL: "jhlee@gubed.co.kr",
+  CONTACT_EMAIL: "support@barosit.com",
   RELEASE_DATE: "2026년 5월 21일",
 };
 

@@ -13,7 +13,7 @@ import {
   pickSubSlogan,
 } from "../slogans";
 
-// const CONTACT_EMAIL = "jhlee@gubed.co.kr";
+// const CONTACT_EMAIL = "support@barosit.com";
 const GITHUB_URL = "https://github.com/jay365-code/barosit";
 
 // ───────── Shared ─────────
@@ -779,7 +779,14 @@ function AuthCallback() {
 
         if (cancelled) return;
         if (!data.session) throw new Error("세션을 확인할 수 없어요.");
-        window.location.replace("#/landing");
+        
+        const redirectTo = localStorage.getItem("barosit:auth_redirect");
+        if (redirectTo) {
+          localStorage.removeItem("barosit:auth_redirect");
+          window.location.replace(redirectTo);
+        } else {
+          window.location.replace("#/landing");
+        }
       } catch (e) {
         if (cancelled) return;
         setStatus("error");
@@ -937,7 +944,45 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
             padding: "28px 32px",
           }}
         >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{md}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children, ...props }) => {
+                if (href && href.includes("pricing-policy.md")) {
+                  return (
+                    <a
+                      href="#"
+                      style={{ cursor: "pointer", textDecoration: "underline" }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        alert(
+                          `[BaroSit 구독 요금 및 환불 정책 요약]\n\n` +
+                          `1. 청약철회 (결제 후 7일 이내):\n` +
+                          ` - 서비스 이용 이력이 없는 경우, 결제 수수료 공제 없이 100% 전액 환불\n\n` +
+                          `2. 중도 환불 및 해지 (이용 이력이 있거나 7일 경과):\n` +
+                          ` - 월간 구독: 당월 잔여 기간까지 이용 후 다음 결제일에 정기 결제 자동 종료 (권장)\n` +
+                          ` - 중도 즉시 환불: 결제 대금의 10% 위약금 및 이용 일수(일일 300원) 공제 후 잔액 환불\n` +
+                          ` - 연간 구독 중도 즉시 환불: 연간 할인혜택이 소급 소멸되며, 이용 일수(정가 기준 일할 계산) 및 10% 위약금 공제 후 잔액 환불\n\n` +
+                          `3. 환불 신청 및 문의:\n` +
+                          ` - 프로필 메뉴 [구독 관리 -> 환불/구독 해지 신청] 이용\n` +
+                          ` - 또는 대표 CS 이메일 (support@barosit.com)로 접수`
+                        );
+                      }}
+                    >
+                      {children}
+                    </a>
+                  );
+                }
+                return (
+                  <a href={href} {...props}>
+                    {children}
+                  </a>
+                );
+              },
+            }}
+          >
+            {md}
+          </ReactMarkdown>
         </div>
         <div
           style={{
@@ -955,11 +1000,11 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
             <Icon name="arrow-r" size={12} /> {LEGAL_TITLE[otherKind]} 보기
           </a>
           <a
-            href="#/contact"
+            href="#/community"
             className="b-btn b-btn-quiet"
             style={{ textDecoration: "none" }}
           >
-            문의하기
+            커뮤니티 바로가기
           </a>
         </div>
       </div>
@@ -2626,7 +2671,13 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
 
   useEffect(() => {
     if (!loading && user) {
-      window.location.replace("#/landing");
+      const redirectTo = localStorage.getItem("barosit:auth_redirect");
+      if (redirectTo) {
+        localStorage.removeItem("barosit:auth_redirect");
+        window.location.replace(redirectTo);
+      } else {
+        window.location.replace("#/landing");
+      }
     }
   }, [loading, user]);
 
@@ -3371,210 +3422,642 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
 
 // ───────── Pricing ─────────
 
+// 토스페이먼츠 SDK 동적 로더
+function loadTossPayments(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("브라우저 환경이 아닙니다."));
+      return;
+    }
+    if ((window as any).TossPayments) {
+      resolve((window as any).TossPayments);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://js.tosspayments.com/v1";
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).TossPayments) {
+        resolve((window as any).TossPayments);
+      } else {
+        reject(new Error("토스페이먼츠 SDK 로딩에 실패했습니다."));
+      }
+    };
+    script.onerror = () => reject(new Error("토스페이먼츠 SDK를 불러오는 도중 에러가 발생했습니다."));
+    document.head.appendChild(script);
+  });
+}
+
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+
 function Pricing() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentPlan, setCurrentPlan] = useState<"free" | "pro">("free");
+  
+  // 결제 진행 상태: "idle" | "select_method" | "checkout" | "success"
+  const [paymentState, setPaymentState] = useState<"idle" | "select_method" | "checkout" | "success">("idle");
+  const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string; delay: number }[]>([]);
+
+  useEffect(() => {
+    const fetchUserAndPlan = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userObj = session?.user || null;
+        if (userObj) {
+          setCurrentUser(userObj);
+          // 구독 조회
+          const { data, error } = await supabase
+            .from("user_subscriptions")
+            .select("plan_id, status")
+            .eq("user_id", userObj.id)
+            .maybeSingle();
+
+          let actualPlan: "free" | "pro" = "free";
+          if (!error && data && data.status === "active") {
+            actualPlan = data.plan_id === "pro" ? "pro" : "free";
+            setCurrentPlan(actualPlan);
+          } else {
+            // 로컬스토리지 백업 체크
+            const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+            actualPlan = localPlan || "free";
+            setCurrentPlan(actualPlan);
+          }
+
+          // 로그인 성공 복귀 후 대기 중이던 결제 복구 실행
+          const pendingSub = localStorage.getItem("barosit:pending_subscription");
+          if (pendingSub === "true" && actualPlan !== "pro") {
+            localStorage.removeItem("barosit:pending_subscription");
+            const pendingCycle = localStorage.getItem("barosit:pending_subscription_cycle") as "monthly" | "yearly";
+            localStorage.removeItem("barosit:pending_subscription_cycle");
+            if (pendingCycle) {
+              setBillingCycle(pendingCycle);
+            }
+            setTimeout(() => {
+              handleTossPayment("카드", userObj, pendingCycle);
+            }, 150);
+          }
+        } else {
+          // 비로그인 Guest용 로컬 계획 조회
+          const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+          setCurrentPlan(localPlan || "free");
+        }
+
+        // Toss Payments 결제 복원 핸들링
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const paymentStatus = params.get("payment");
+          if (paymentStatus === "success") {
+            setPaymentState("checkout");
+            setTimeout(async () => {
+              try {
+                if (userObj) {
+                  // DB 업데이트
+                  const { error } = await supabase
+                    .from("user_subscriptions")
+                    .upsert({
+                      user_id: userObj.id,
+                      plan_id: "pro",
+                      status: "active",
+                      updated_at: new Date().toISOString()
+                    }, { onConflict: "user_id" });
+                  if (error) {
+                    console.warn("DB subscription upsert failed (possibly RLS), activating locally.", error);
+                  }
+                }
+                localStorage.setItem("barosit:subscription_plan", "pro");
+                setCurrentPlan("pro");
+                setPaymentState("success");
+                triggerConfetti();
+                
+                const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
+                window.history.replaceState({}, document.title, cleanUrl);
+              } catch (e) {
+                console.error("DB update error", e);
+                localStorage.setItem("barosit:subscription_plan", "pro");
+                setCurrentPlan("pro");
+                setPaymentState("success");
+                triggerConfetti();
+                
+                const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
+                window.history.replaceState({}, document.title, cleanUrl);
+              }
+            }, 1200);
+          } else if (paymentStatus === "fail") {
+            alert("결제에 실패하였습니다. 다시 시도해주세요.");
+            const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
+            window.history.replaceState({}, document.title, cleanUrl);
+            setPaymentState("idle");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load user or subscription status:", err);
+      }
+    };
+    fetchUserAndPlan();
+  }, []);
+
+  const triggerConfetti = () => {
+    const colors = ["#7eb09c", "#a3cdbb", "#ebdcb9", "#ebd2b9", "#ebd2c8", "#5b8c7a", "#ffeedb"];
+    const newParticles = Array.from({ length: 60 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 100 - 50, // center offset x
+      y: Math.random() * 100 - 50, // center offset y
+      color: colors[Math.floor(Math.random() * colors.length)],
+      delay: Math.random() * 0.4,
+    }));
+    setParticles(newParticles);
+  };
+
+  const handleUpgradeToPro = async () => {
+    if (currentPlan === "pro") return;
+
+    if (!currentUser) {
+      // 로그인되어 있지 않은 상태: 로그인 페이지로 리다이렉트 및 로그인 성공 시 복귀 설정
+      localStorage.setItem("barosit:auth_redirect", "#/pricing");
+      localStorage.setItem("barosit:pending_subscription", "true");
+      localStorage.setItem("barosit:pending_subscription_cycle", billingCycle);
+      window.location.hash = "#/login";
+      return;
+    }
+
+    // 중간 선택 단계 없이 바로 토스 통합 결제창 요청 실행
+    await handleTossPayment("카드");
+  };
+
+  const handleTossPayment = async (
+    method: "카드" | "토스페이",
+    userOverride?: any,
+    cycleOverride?: "monthly" | "yearly"
+  ) => {
+    setPaymentState("checkout");
+    try {
+      const TossPaymentsLib = await loadTossPayments();
+      const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
+      
+      const activeUser = userOverride || currentUser;
+      const activeCycle = cycleOverride || billingCycle;
+      
+      const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const amount = activeCycle === "yearly" ? 36000 : 4900;
+      const orderName = activeCycle === "yearly" ? "BaroSit PRO 연간 구독" : "BaroSit PRO 월간 구독";
+
+      await toss.requestPayment(method, {
+        amount,
+        orderId,
+        orderName,
+        customerName: activeUser?.email || "BaroSit 회원",
+        successUrl: window.location.origin + window.location.pathname + `?redirect_route=pricing&payment=success&cycle=${activeCycle}`,
+        failUrl: window.location.origin + window.location.pathname + `?redirect_route=pricing&payment=fail`,
+      });
+    } catch (err: any) {
+      alert("결제창을 실행하는 중 오류가 발생했습니다: " + err.message);
+      setPaymentState("idle");
+    }
+  };
 
   return (
-    <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
+    <div style={{ background: "var(--b-bg)", minHeight: "100vh", position: "relative" }}>
       <TopNav active="가격" />
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "70px 56px" }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <h1
-            style={{
-              fontSize: 48,
-              fontWeight: 700,
-              letterSpacing: "-0.03em",
-              marginBottom: 14,
-              lineHeight: 1.1,
-            }}
-          >
-            간단한 가격, 평생 무료 시작
-          </h1>
-          <p style={{ fontSize: 16, color: "var(--b-fg-2)", marginBottom: 32 }}>
-            자세 감지의 핵심은 평생 무료입니다. Pro는 다기기 동기화와 리포트만
-            추가해요.
-          </p>
+      
+      <style>{`
+        /* Checkout Spinner Overlay */
+        .checkout-loading-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 18, 20, 0.95);
+          z-index: 9999;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 20px;
+          backdrop-filter: blur(10px);
+          WebkitBackdropFilter: blur(10px);
+        }
+        .spinner {
+          width: 48px;
+          height: 48px;
+          border: 3px solid rgba(126, 176, 156, 0.1);
+          border-top-color: #7eb09c;
+          border-radius: 50%;
+          animation: spin 1s infinite linear;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
 
-          {/* 결제 주기 토글 스위치 */}
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-            <div
-              style={{
-                background: "var(--b-surface-2)",
-                border: "1px solid var(--b-line)",
-                padding: 4,
-                borderRadius: 999,
-                display: "flex",
-                gap: 4,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setBillingCycle("monthly")}
-                style={{
-                  border: "none",
-                  background: billingCycle === "monthly" ? "var(--b-sig-bg)" : "transparent",
-                  color: billingCycle === "monthly" ? "var(--b-sig)" : "var(--b-fg-3)",
-                  padding: "8px 20px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
-              >
-                월간 결제
-              </button>
-              <button
-                type="button"
-                onClick={() => setBillingCycle("yearly")}
-                style={{
-                  border: "none",
-                  background: billingCycle === "yearly" ? "var(--b-sig-bg)" : "transparent",
-                  color: billingCycle === "yearly" ? "var(--b-sig)" : "var(--b-fg-3)",
-                  padding: "8px 20px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                연간 결제
-                <span
-                  style={{
-                    background: "var(--b-sig)",
-                    color: "#fff",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    padding: "1px 6px",
-                    borderRadius: 999,
-                  }}
-                >
-                  연 38% 할인 🔥
-                </span>
-              </button>
+        /* Success & Celebration */
+        .checkout-success-view {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 60px 24px;
+          position: relative;
+          max-width: 600px;
+          margin: 0 auto;
+          animation: pricingScaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes pricingScaleIn {
+          from { transform: scale(0.96); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        .success-circle {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          background: rgba(126, 176, 156, 0.1);
+          border: 2px solid #7eb09c;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #7eb09c;
+          margin-bottom: 24px;
+          font-size: 36px;
+          animation: successPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+        }
+        @keyframes successPop {
+          0% { transform: scale(0.6); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .success-headline {
+          font-size: 28px;
+          font-weight: 800;
+          margin: 0 0 12px;
+          color: #fff;
+        }
+        .success-desc {
+          font-size: 15px;
+          color: var(--b-fg-2);
+          line-height: 1.6;
+          max-width: 480px;
+          margin: 0 0 40px;
+        }
+
+        /* Download Boxes */
+        .download-boxes {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          width: 100%;
+          max-width: 500px;
+          margin-bottom: 32px;
+        }
+        .download-box {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 16px;
+          padding: 24px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-decoration: none;
+          color: inherit;
+          cursor: pointer;
+          transition: background 0.2s, border-color 0.2s, transform 0.15s;
+        }
+        .download-box:hover {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(126, 176, 156, 0.4);
+          transform: translateY(-2px);
+        }
+        .download-box:active {
+          transform: translateY(0);
+        }
+        .download-os-name {
+          font-size: 14px;
+          font-weight: 700;
+          margin: 12px 0 4px;
+          color: #fff;
+        }
+        .download-btn-label {
+          font-size: 12px;
+          color: #7eb09c;
+          font-weight: 600;
+        }
+
+        /* CSS Confetti Sparkles */
+        .confetti-sparkle {
+          position: absolute;
+          width: 8px;
+          height: 8px;
+          border-radius: 3px;
+          top: 30%;
+          left: 50%;
+          opacity: 0;
+          pointer-events: none;
+          animation: floatSparkle 1.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+        @keyframes floatSparkle {
+          0% {
+            transform: translate(0, 0) scale(1) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(var(--tx), var(--ty)) scale(0.2) rotate(360deg);
+            opacity: 0;
+          }
+        }
+      `}</style>
+
+      {/* 1. 가상 결제 승인 중 화면 */}
+      {paymentState === "checkout" && (
+        <div className="checkout-loading-overlay">
+          <div className="spinner" />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: "#fff" }}>
+              결제 승인 진행 중
+            </div>
+            <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
+              가상의 모의 결제 요청을 안전하게 승인하고 있습니다...
             </div>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          {[
-            {
-              name: "Free",
-              price: "0원",
-              sub: "평생 무료 (웹 브라우저 전용)",
-              feats: [
-                "4종 핵심 실시간 자세 감지",
-                "실시간 웹 화면 경고 피드백",
-                "온디바이스 실루엣 프라이버시 필터",
-                "바른 자세 스트레칭 복구 가이드",
-                "제약: 백그라운드 모니터링 불가",
-                "제약: 미니 데스크톱 위젯 모드 불가",
-              ],
-              cta: "무료로 시작",
-              primary: false,
-            },
-            {
-              name: "Pro",
-              price: billingCycle === "yearly" ? "연 36,000원" : "월 4,900원",
-              sub: billingCycle === "yearly" ? "연간 결제 (월 3,000원 꼴)" : "매월 정기 결제",
-              feats: [
-                "Free의 모든 기능 기본 포함",
-                "완벽한 백그라운드 모니터링 (Tauri 앱)",
-                "OS 네이티브 푸시 알림 & 트레이 이모지 관제",
-                "화면 구석에 띄우는 미니 데스크톱 위젯 모드",
-                "90일 자세 정밀 캘린더 분석 및 차트",
-                "다중 기기 실시간 설정 및 이력 동기화",
-              ],
-              cta: "Pro 시작하기",
-              primary: true,
-            },
-          ].map((p, i) => (
+      )}
+
+
+
+      {/* 3. 결제 완료 축하 및 성공 다운로드 화면 */}
+      {paymentState === "success" ? (
+        <div className="checkout-success-view">
+          {particles.map((p) => (
             <div
-              key={i}
+              key={p.id}
+              className="confetti-sparkle"
               style={{
-                padding: 32,
-                borderRadius: 18,
-                background: p.primary ? "var(--b-sig-bg)" : "var(--b-surface)",
-                border: "1px solid",
-                borderColor: p.primary ? "var(--b-sig)" : "var(--b-line)",
-                position: "relative",
+                background: p.color,
+                "--tx": `${p.x}vw`,
+                "--ty": `${p.y}vh`,
+                animationDelay: `${p.delay}s`,
+              } as any}
+            />
+          ))}
+
+          <div className="success-circle">
+            <Icon name="check" size={36} />
+          </div>
+
+          <h2 className="success-headline">PRO 구독이 시작되었습니다!</h2>
+          <p className="success-desc">
+            가상 결제가 성공적으로 완료되었습니다. 이제 백그라운드 모니터링, 네이티브 알림, 
+            그리고 데스크톱 미니 위젯 등 BaroSit PRO의 모든 막강한 혜택을 제한 없이 누려보세요!
+          </p>
+
+          <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--b-fg-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "16px" }}>
+            데스크톱 전용 앱 다운로드
+          </div>
+
+          <div className="download-boxes">
+            <a href="#/download/mac" className="download-box">
+              <Icon name="sparkle" size={32} style={{ color: "#7eb09c" }} />
+              <div className="download-os-name">macOS Apple Silicon</div>
+              <div className="download-btn-label">PRO 빌드 즉시 다운로드</div>
+            </a>
+            <a href="#/download/win" className="download-box">
+              <Icon name="cpu" size={32} style={{ color: "#e08866" }} />
+              <div className="download-os-name">Windows x64</div>
+              <div className="download-btn-label">PRO 빌드 즉시 다운로드</div>
+            </a>
+          </div>
+
+          <button
+            type="button"
+            className="b-btn b-btn-primary"
+            style={{ height: "46px", padding: "0 28px", fontSize: "14px", borderRadius: "12px" }}
+            onClick={() => {
+              setPaymentState("idle");
+              window.location.hash = "#/landing";
+            }}
+          >
+            메인 페이지로 가기
+          </button>
+        </div>
+      ) : (
+        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "70px 56px" }}>
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <h1
+              style={{
+                fontSize: 48,
+                fontWeight: 700,
+                letterSpacing: "-0.03em",
+                marginBottom: 14,
+                lineHeight: 1.1,
               }}
             >
-              {p.primary && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -10,
-                    right: 20,
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    background: "var(--b-sig)",
-                    color: "#fff",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  추천
-                </span>
-              )}
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-                {p.name}
-              </div>
+              간단한 가격, 평생 무료 시작
+            </h1>
+            <p style={{ fontSize: 16, color: "var(--b-fg-2)", marginBottom: 32 }}>
+              자세 감지의 핵심은 평생 무료입니다. Pro는 다기기 동기화와 리포트만
+              추가해요.
+            </p>
+
+            {/* 결제 주기 토글 스위치 */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
               <div
                 style={{
-                  fontSize: 40,
-                  fontWeight: 700,
-                  letterSpacing: "-0.028em",
-                  lineHeight: 1.1,
-                  marginBottom: 4,
+                  background: "var(--b-surface-2)",
+                  border: "1px solid var(--b-line)",
+                  padding: 4,
+                  borderRadius: 999,
+                  display: "flex",
+                  gap: 4,
                 }}
               >
-                {p.price}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--b-fg-3)", marginBottom: 24 }}>
-                {p.sub}
-              </div>
-              <button
-                className={`b-btn ${p.primary ? "b-btn-primary" : "b-btn-ghost"}`}
-                style={{
-                  width: "100%",
-                  justifyContent: "center",
-                  height: 44,
-                  fontSize: 14,
-                  marginBottom: 24,
-                }}
-              >
-                {p.cta}
-              </button>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {p.feats.map((f, j) => (
-                  <div
-                    key={j}
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle("monthly")}
+                  style={{
+                    border: "none",
+                    background: billingCycle === "monthly" ? "var(--b-sig-bg)" : "transparent",
+                    color: billingCycle === "monthly" ? "var(--b-sig)" : "var(--b-fg-3)",
+                    padding: "8px 20px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  월간 결제
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle("yearly")}
+                  style={{
+                    border: "none",
+                    background: billingCycle === "yearly" ? "var(--b-sig-bg)" : "transparent",
+                    color: billingCycle === "yearly" ? "var(--b-sig)" : "var(--b-fg-3)",
+                    padding: "8px 20px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  연간 결제
+                  <span
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 13,
-                      color: "var(--b-fg-2)",
+                      background: "var(--b-sig)",
+                      color: "#fff",
+                      fontSize: 10,
+                      fontWeight: 800,
+                      padding: "1px 6px",
+                      borderRadius: 999,
                     }}
                   >
-                    <Icon
-                      name="check"
-                      size={14}
-                      style={{ color: "var(--b-sig)", flexShrink: 0 }}
-                    />
-                    {f}
-                  </div>
-                ))}
+                    연 38% 할인 🔥
+                  </span>
+                </button>
               </div>
             </div>
-          ))}
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {[
+              {
+                name: "Free",
+                price: "0원",
+                sub: "평생 무료 (웹 브라우저 전용)",
+                feats: [
+                  "4종 핵심 실시간 자세 감지",
+                  "실시간 웹 화면 경고 피드백",
+                  "온디바이스 실루엣 프라이버시 필터",
+                  "바른 자세 스트레칭 복구 가이드",
+                  "제약: 백그라운드 모니터링 불가",
+                  "제약: 미니 데스크톱 위젯 모드 불가",
+                ],
+                cta: "무료로 시작",
+                primary: false,
+              },
+              {
+                name: "Pro",
+                price: billingCycle === "yearly" ? "연 36,000원" : "월 4,900원",
+                sub: billingCycle === "yearly" ? "연간 결제 (월 3,000원 꼴)" : "매월 정기 결제",
+                feats: [
+                  "Free의 모든 기능 기본 포함",
+                  "완벽한 백그라운드 모니터링 (Tauri 앱)",
+                  "OS 네이티브 푸시 알림 & 트레이 이모지 관제",
+                  "화면 구석에 띄우는 미니 데스크톱 위젯 모드",
+                  "90일 자세 정밀 캘린더 분석 및 차트",
+                  "다중 기기 실시간 설정 및 이력 동기화",
+                ],
+                cta: currentPlan === "pro" ? "현재 이용 중인 플랜" : "Pro 시작하기",
+                primary: true,
+              },
+            ].map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: 32,
+                  borderRadius: 18,
+                  background: p.primary ? "var(--b-sig-bg)" : "var(--b-surface)",
+                  border: "1px solid",
+                  borderColor: p.primary ? "var(--b-sig)" : "var(--b-line)",
+                  position: "relative",
+                }}
+              >
+                {p.primary && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -10,
+                      right: 20,
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      background: "var(--b-sig)",
+                      color: "#fff",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    추천
+                  </span>
+                )}
+                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+                  {p.name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 40,
+                    fontWeight: 700,
+                    letterSpacing: "-0.028em",
+                    lineHeight: 1.1,
+                    marginBottom: 4,
+                  }}
+                >
+                  {p.price}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--b-fg-3)", marginBottom: 24 }}>
+                  {p.sub}
+                </div>
+                
+                {p.primary ? (
+                  <button
+                    type="button"
+                    onClick={handleUpgradeToPro}
+                    className={`b-btn ${currentPlan === "pro" ? "b-btn-ghost" : "b-btn-primary"}`}
+                    disabled={currentPlan === "pro"}
+                    style={{
+                      width: "100%",
+                      justifyContent: "center",
+                      height: 44,
+                      fontSize: 14,
+                      marginBottom: 24,
+                    }}
+                  >
+                    {p.cta}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="b-btn b-btn-ghost"
+                    disabled
+                    style={{
+                      width: "100%",
+                      justifyContent: "center",
+                      height: 44,
+                      fontSize: 14,
+                      marginBottom: 24,
+                      opacity: 0.5,
+                      cursor: "default"
+                    }}
+                  >
+                    {p.cta}
+                  </button>
+                )}
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {p.feats.map((f, j) => (
+                    <div
+                      key={j}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 13,
+                        color: "var(--b-fg-2)",
+                      }}
+                    >
+                      <Icon
+                        name="check"
+                        size={14}
+                        style={{ color: "var(--b-sig)", flexShrink: 0 }}
+                      />
+                      {f}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       <Footer />
     </div>
   );

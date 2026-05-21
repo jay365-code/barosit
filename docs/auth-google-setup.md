@@ -51,10 +51,10 @@
 2. **User Type**: External (Google Workspace 사용자만 대상이라면 Internal)
 3. **App information**:
    - **App name**: `BaroSit`
-   - **User support email**: `jhlee@gubed.co.kr`
+   - **User support email**: `support@barosit.com`
    - **App logo**: 선택. 없으면 생략
 4. **App domain** (Publishing 단계에서 필요. 도메인 없으면 일단 비워둠)
-5. **Developer contact**: `jhlee@gubed.co.kr`
+5. **Developer contact**: `support@barosit.com`
 6. **Scopes**: 기본 (email · profile · openid) 만 추가. 추가 scope 불필요
 7. **Test users**: 자기 본인 Gmail 추가 (배포 전까지 테스트 모드면 등록된 사용자만 로그인 가능)
 8. **Save and continue**
