@@ -3134,6 +3134,33 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
 // ───────── Download ─────────
 
 function Download({ os = "mac" }: { os?: "mac" | "win" }) {
+  const { user } = useAuth();
+  const [userPlan, setUserPlan] = useState<"free" | "pro">("free");
+
+  useEffect(() => {
+    const checkPlan = async () => {
+      const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+      if (localPlan) {
+        setUserPlan(localPlan);
+      }
+      if (user) {
+        try {
+          const { data } = await supabase
+            .from("user_subscriptions")
+            .select("plan_id, status")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (data && data.status === "active") {
+            setUserPlan(data.plan_id === "pro" ? "pro" : "free");
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    checkPlan();
+  }, [user]);
+
   const m =
     os === "mac"
       ? {
@@ -3154,6 +3181,22 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
           otherUrl: "#/download/mac",
           installSecond: "안내에 따라 설치해요",
         };
+
+  const handleDownloadClick = () => {
+    if (userPlan !== "pro") {
+      alert(
+        "💡 데스크톱 전용 설치형 앱(Tauri)은 PRO 플랜 전용 혜택입니다.\n\n" +
+        "현재 회원님은 FREE 플랜(웹 브라우저 전용)을 이용 중이십니다.\n" +
+        "Free 회원은 언제든 웹 버전에서 평생 무료로 감지를 진행하실 수 있으며, " +
+        "PRO 플랜으로 즉시 업그레이드하여 백그라운드 무정지 감지와 미니 위젯, 시스템 트레이 관제 혜택을 누릴 수 있습니다.\n\n" +
+        "확인을 누르시면 가격/플랜 안내 페이지로 이동합니다."
+      );
+      window.location.hash = "#/pricing";
+    } else {
+      alert(`🎉 PRO 회원 인증 성공! ${m.name} 설치 프로그램(${m.file}) 다운로드를 시작합니다.`);
+    }
+  };
+
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
       <TopNav active="다운로드" />
@@ -3203,6 +3246,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
         </div>
 
         <button
+          onClick={handleDownloadClick}
           className="b-btn b-btn-primary"
           style={{ height: 52, padding: "0 28px", fontSize: 15, marginBottom: 14 }}
         >
@@ -3328,11 +3372,13 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
 // ───────── Pricing ─────────
 
 function Pricing() {
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
       <TopNav active="가격" />
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "70px 56px" }}>
-        <div style={{ textAlign: "center", marginBottom: 50 }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
           <h1
             style={{
               fontSize: 48,
@@ -3344,39 +3390,103 @@ function Pricing() {
           >
             간단한 가격, 평생 무료 시작
           </h1>
-          <p style={{ fontSize: 16, color: "var(--b-fg-2)" }}>
+          <p style={{ fontSize: 16, color: "var(--b-fg-2)", marginBottom: 32 }}>
             자세 감지의 핵심은 평생 무료입니다. Pro는 다기기 동기화와 리포트만
             추가해요.
           </p>
+
+          {/* 결제 주기 토글 스위치 */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+            <div
+              style={{
+                background: "var(--b-surface-2)",
+                border: "1px solid var(--b-line)",
+                padding: 4,
+                borderRadius: 999,
+                display: "flex",
+                gap: 4,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setBillingCycle("monthly")}
+                style={{
+                  border: "none",
+                  background: billingCycle === "monthly" ? "var(--b-sig-bg)" : "transparent",
+                  color: billingCycle === "monthly" ? "var(--b-sig)" : "var(--b-fg-3)",
+                  padding: "8px 20px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                월간 결제
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle("yearly")}
+                style={{
+                  border: "none",
+                  background: billingCycle === "yearly" ? "var(--b-sig-bg)" : "transparent",
+                  color: billingCycle === "yearly" ? "var(--b-sig)" : "var(--b-fg-3)",
+                  padding: "8px 20px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                연간 결제
+                <span
+                  style={{
+                    background: "var(--b-sig)",
+                    color: "#fff",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    padding: "1px 6px",
+                    borderRadius: 999,
+                  }}
+                >
+                  연 38% 할인 🔥
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           {[
             {
               name: "Free",
               price: "0원",
-              sub: "평생 무료",
+              sub: "평생 무료 (웹 브라우저 전용)",
               feats: [
-                "자세 4종 감지",
-                "0–100 점수",
-                "위젯 모드",
-                "오늘의 통계",
-                "실루엣/영상 모드",
-                "온디바이스 100%",
+                "4종 핵심 실시간 자세 감지",
+                "실시간 웹 화면 경고 피드백",
+                "온디바이스 실루엣 프라이버시 필터",
+                "바른 자세 스트레칭 복구 가이드",
+                "제약: 백그라운드 모니터링 불가",
+                "제약: 미니 데스크톱 위젯 모드 불가",
               ],
               cta: "무료로 시작",
               primary: false,
             },
             {
               name: "Pro",
-              price: "월 5,900원",
-              sub: "연간 결제 시 월 4,900원",
+              price: billingCycle === "yearly" ? "연 36,000원" : "월 4,900원",
+              sub: billingCycle === "yearly" ? "연간 결제 (월 3,000원 꼴)" : "매월 정기 결제",
               feats: [
-                "Free의 모든 기능",
-                "다기기 점수 동기화",
-                "주간/월간 리포트 이메일",
-                "AI 코칭 메시지 (한 줄)",
-                "90일 → 무제한 기록",
-                "우선 지원",
+                "Free의 모든 기능 기본 포함",
+                "완벽한 백그라운드 모니터링 (Tauri 앱)",
+                "OS 네이티브 푸시 알림 & 트레이 이모지 관제",
+                "화면 구석에 띄우는 미니 데스크톱 위젯 모드",
+                "90일 자세 정밀 캘린더 분석 및 차트",
+                "다중 기기 실시간 설정 및 이력 동기화",
               ],
               cta: "Pro 시작하기",
               primary: true,
@@ -3670,17 +3780,17 @@ function PlanTab() {
                 marginTop: 12,
               }}
             >
-              월 5,900원
+              연 36,000원
             </div>
             <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
-              다음 결제일 · 2026년 6월 11일
+              다음 결제일 · 2026년 6월 11일 (연간 결제 - 월 3,000원 꼴)
             </div>
           </div>
           <button className="b-btn b-btn-ghost">결제수단 변경</button>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
           <button className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
-            연간으로 변경 (2개월 무료)
+            월간으로 변경 (월 4,900원)
           </button>
           <button className="b-btn b-btn-quiet" style={{ color: "var(--b-warn)" }}>
             플랜 취소
@@ -3750,9 +3860,9 @@ function PlanTab() {
           결제 내역
         </div>
         {[
-          { d: "2026.05.11", a: "5,900원", s: "결제 완료" },
-          { d: "2026.04.11", a: "5,900원", s: "결제 완료" },
-          { d: "2026.03.11", a: "5,900원", s: "결제 완료" },
+          { d: "2026.05.11", a: "3,000원", s: "결제 완료" },
+          { d: "2026.04.11", a: "3,000원", s: "결제 완료" },
+          { d: "2026.03.11", a: "3,000원", s: "결제 완료" },
         ].map((r, i) => (
           <div
             key={i}

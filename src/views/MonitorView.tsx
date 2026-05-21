@@ -90,6 +90,7 @@ import {
   loadEvents,
   startOfToday,
 } from "../pose/eventLog";
+import { triggerAutoSync } from "../lib/syncService";
 import { fetchCoachingMessage } from "../llmConfig";
 import { Icon } from "../components/Icon";
 import { ScoreRing } from "../components/ScoreRing";
@@ -437,6 +438,25 @@ export function MonitorView({
       onStatusChange?.("good");
     }
   }, [paused, onStatusChange]);
+
+  // 백그라운드 서버 데이터 동기화 연동
+  useEffect(() => {
+    // 상태 변경 시점 즉시 동기화 트리거
+    triggerAutoSync();
+
+    if (paused) return;
+
+    // 5분 간격 주기적 백그라운드 동기화 (5 * 60 * 1000 = 300,000ms)
+    const intervalId = setInterval(() => {
+      triggerAutoSync();
+    }, 300000);
+
+    return () => {
+      clearInterval(intervalId);
+      // 일시정지 진입 시 최종 동기화 트리거
+      triggerAutoSync();
+    };
+  }, [paused]);
 
   // 휴식 알림 설정 변경 시 즉시 반영
   useEffect(() => {

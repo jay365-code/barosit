@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
+import { supabase } from "../auth/supabase";
 import {
   DEFAULT_AVATAR_OPTIONS,
   WORK_ENV_LABEL,
@@ -16,11 +17,72 @@ import {
 
 interface Props {
   onGoHome: () => void;
+  onOpenAdmin?: () => void;
+  onOpenPricing?: () => void;
 }
 
-export function ProfileView({ onGoHome }: Props) {
+export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [profile, setProfile] = useState<UserProfile>(() => loadProfile());
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [subPlan, setSubPlan] = useState<"free" | "pro">("free");
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("is_admin")
+            .eq("id", session.user.id)
+            .single();
+          
+          if (!error && data?.is_admin) {
+            setIsAdmin(true);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check admin status:", err);
+      }
+    };
+    checkAdminStatus();
+  }, []);
+
+  useEffect(() => {
+    const fetchSub = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data, error } = await supabase
+            .from("user_subscriptions")
+            .select("plan_id, status")
+            .eq("user_id", session.user.id)
+            .maybeSingle();
+          if (!error && data && data.status === "active") {
+            setSubPlan(data.plan_id === "pro" ? "pro" : "free");
+            return;
+          }
+        }
+        const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+        setSubPlan(localPlan || "free");
+      } catch (err) {
+        console.error("Failed to load user subscription:", err);
+      }
+    };
+    fetchSub();
+
+    const handleSubChanged = () => {
+      const p = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+      setSubPlan(p || "free");
+    };
+    window.addEventListener("barosit:subscription-changed", handleSubChanged);
+    window.addEventListener("storage", handleSubChanged); // 로컬스토리지 타탭 싱크용
+    return () => {
+      window.removeEventListener("barosit:subscription-changed", handleSubChanged);
+      window.removeEventListener("storage", handleSubChanged);
+    };
+  }, []);
 
   // 자동 저장 — 입력 후 600ms debounce
   useEffect(() => {
@@ -51,6 +113,83 @@ export function ProfileView({ onGoHome }: Props) {
       </header>
 
       <div className="profile-body">
+        {/* 요금제 구독 정보 카드 */}
+        <section
+          className="profile-card"
+          style={
+            subPlan === "pro"
+              ? {
+                  background:
+                    "linear-gradient(135deg, rgba(126, 176, 156, 0.12) 0%, rgba(21, 24, 26, 0.4) 100%)",
+                  borderColor: "rgba(126, 176, 156, 0.4)",
+                  boxShadow: "0 0 25px rgba(126, 176, 156, 0.08)",
+                }
+              : undefined
+          }
+        >
+          <div className="profile-card-head">
+            <Icon
+              name="sparkle"
+              size={16}
+              style={subPlan === "pro" ? { color: "#7eb09c" } : undefined}
+            />
+            <span>나의 구독 요금제</span>
+            <span
+              className="profile-pill"
+              style={
+                subPlan === "pro"
+                  ? {
+                      background: "linear-gradient(135deg, #7eb09c, #5b8c7a)",
+                      color: "#fff",
+                      fontWeight: 800,
+                    }
+                  : undefined
+              }
+            >
+              {subPlan === "pro" ? "PRO MEMBER" : "FREE EXPERIENCE"}
+            </span>
+          </div>
+          {subPlan === "pro" ? (
+            <>
+              <p className="profile-card-sub" style={{ color: "var(--b-fg-2)" }}>
+                <strong>데스크톱 전용 네이티브 앱 설치 권한</strong>이 활성화되어 있으며, 백그라운드 무자각 관제와 AI 맞춤 피드백 코칭을 완벽히 지원받고 있습니다.
+              </p>
+              <div className="profile-card-actions">
+                <button
+                  type="button"
+                  className="b-btn b-btn-primary"
+                  onClick={onOpenPricing}
+                  style={{ background: "linear-gradient(135deg, #7eb09c, #5b8c7a)" }}
+                >
+                  데스크톱 앱 다운로드 / 요금제 정보
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="profile-card-sub">
+                현재 웹 브라우저 전용 기본 무료 플랜을 이용하고 있습니다. 화면을 최소화하거나 가려도 카메라 센서가 멈춤 없이 작동하는 데스크톱 전용 앱을 경험해보세요!
+              </p>
+              <div className="profile-card-actions">
+                <button
+                  type="button"
+                  className="b-btn b-btn-primary"
+                  onClick={onOpenPricing}
+                  style={{
+                    background: "linear-gradient(135deg, #e08866, #c2613f)",
+                    color: "#fff",
+                    boxShadow: "0 4px 15px rgba(224, 136, 102, 0.25)",
+                    border: "none",
+                    fontWeight: 700,
+                  }}
+                >
+                  PRO 업그레이드하고 데스크톱 앱 받기
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+
         {/* 인증 안내 — Phase 1 예정 */}
         <section className="profile-card profile-auth-soon">
           <div className="profile-card-head">
@@ -71,6 +210,30 @@ export function ProfileView({ onGoHome }: Props) {
             </button>
           </div>
         </section>
+
+        {/* 어드민 시스템 제어 센터 */}
+        {isAdmin && (
+          <section className="profile-card" style={{ border: "1px dashed var(--b-sig, #5b8c7a)", background: "rgba(91, 140, 122, 0.04)" }}>
+            <div className="profile-card-head" style={{ color: "var(--b-sig, #5b8c7a)" }}>
+              <Icon name="settings" size={16} />
+              <span>어드민 시스템 제어</span>
+              <span className="profile-pill" style={{ background: "rgba(91, 140, 122, 0.2)", color: "#5b8c7a" }}>ADMIN</span>
+            </div>
+            <p className="profile-card-sub" style={{ marginBottom: 12 }}>
+              관리자 권한 계정으로 감지되었습니다. 아래 버튼을 눌러 실시간 가입자 요금 플랜 변경, Q&A 관리, SVG 사용 통계 분석이 포함된 종합 어드민 대시보드를 엽니다.
+            </p>
+            <div className="profile-card-actions">
+              <button
+                type="button"
+                className="b-btn b-btn-primary"
+                style={{ background: "linear-gradient(135deg, #5b8c7a, #3c5e52)" }}
+                onClick={onOpenAdmin}
+              >
+                어드민 대시보드 구동
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* 아바타 선택 */}
         <section className="profile-card">

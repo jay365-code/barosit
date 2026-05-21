@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import privacyMd from "../../docs/privacy.md?raw";
 import termsMd from "../../docs/terms.md?raw";
 import { Icon } from "./Icon";
+import { interpolateLegalTemplate } from "../lib/legal";
 
 export type LegalDocKind = "privacy" | "terms";
 
@@ -27,7 +28,7 @@ const SOURCE: Record<LegalDocKind, string> = {
 };
 
 export function LegalDocument({ kind, onClose }: Props) {
-  const md = useMemo(() => SOURCE[kind], [kind]);
+  const md = useMemo(() => interpolateLegalTemplate(SOURCE[kind]), [kind]);
 
   return (
     <div className="b-overlay" onClick={onClose}>

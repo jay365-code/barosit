@@ -4,6 +4,8 @@ import { MonitorView } from "./views/MonitorView";
 import { SettingsDrawer } from "./views/SettingsDrawer";
 import { Onboarding } from "./views/Onboarding";
 import { ProfileView } from "./views/ProfileView";
+import { AdminDashboardView } from "./views/AdminDashboardView";
+import { PricingView } from "./views/PricingView";
 import { AlertOverlay } from "./components/AlertOverlay";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { useUpdater } from "./updater";
@@ -108,6 +110,8 @@ export default function App() {
   const updater = useUpdater();
   const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const [visible, setVisible] = useState<boolean>(
     typeof document === "undefined" ? true : !document.hidden,
   );
@@ -203,7 +207,19 @@ export default function App() {
           )}
         </main>
         {profileOpen && (
-          <ProfileView onGoHome={() => setProfileOpen(false)} />
+          <ProfileView 
+            onGoHome={() => setProfileOpen(false)} 
+            onOpenAdmin={() => setAdminOpen(true)}
+            onOpenPricing={() => setPricingOpen(true)}
+          />
+        )}
+        {pricingOpen && (
+          <PricingView 
+            onClose={() => {
+              setPricingOpen(false);
+              window.dispatchEvent(new Event("barosit:subscription-changed"));
+            }} 
+          />
         )}
         {settingsOpen && (
           <SettingsDrawer
@@ -221,6 +237,9 @@ export default function App() {
         )}
         {legalDoc && (
           <LegalDocument kind={legalDoc} onClose={() => setLegalDoc(null)} />
+        )}
+        {adminOpen && (
+          <AdminDashboardView onClose={() => setAdminOpen(false)} />
         )}
         <AlertOverlay />
         <UpdateNotice state={updater} />
