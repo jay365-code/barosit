@@ -2066,7 +2066,7 @@ export function MonitorView({
             const cards = [
               {
                 label: "좋은 자세 유지율",
-                value: `${Math.round(todayGoodRatio)}%`,
+                value: `${todayGoodRatio.toFixed(1)}%`,
                 badge: {
                   text: `${todayGradeInfo.grade} ${todayGradeInfo.label}`,
                   color: todayGradeInfo.color,
@@ -3498,6 +3498,8 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
 }
 
 function PostureBars() {
+  const [hoveredType, setHoveredType] = useState<PostureType | null>(null);
+
   const stats = (() => {
     try {
       return computeDailyStats(loadEvents(), startOfToday(), Date.now());
@@ -3515,6 +3517,7 @@ function PostureBars() {
       };
     }
   })();
+
   const items: Array<{ label: string; count: number; type: PostureType }> = [
     { label: "거북목", count: stats.byType.forward_head, type: "forward_head" },
     { label: "등 구부정", count: stats.byType.slouching, type: "slouching" },
@@ -3524,53 +3527,162 @@ function PostureBars() {
     { label: "어깨 비대칭", count: stats.byType.shoulder_asymmetry, type: "shoulder_asymmetry" },
     { label: "머리 좌우 기울임", count: stats.byType.head_roll, type: "head_roll" },
   ];
+
   const max = Math.max(1, ...items.map((i) => i.count));
+
+  function getPostureTip(type: PostureType): string {
+    switch (type) {
+      case "forward_head":
+        return "경추가 전방으로 변위되면 목뼈 관절에 4.5kg 상당의 추가 부하가 발생하여 만성 거북목 증후군을 유발합니다.";
+      case "slouching":
+        return "구부정한 척추 정렬은 요추의 수직 디스크 내압을 평소의 150% 이상 폭증시켜 요통 및 디스크 손상을 유도합니다.";
+      case "shoulder_tilt":
+        return "편측 어깨 하강은 쇄골 비대칭 및 양측 승모근의 극심한 불균형 긴장(Myofascial Pain)을 초래합니다.";
+      case "chin_resting":
+        return "턱관절(TMJ)에 불균형한 전단력을 가해 추간판 이탈 및 비대칭 안면 변위 문제를 일으킬 수 있습니다.";
+      case "monitor_too_close":
+        return "모니터와의 과근접은 안구 조절근의 지속 긴장을 야기하여 안구건조 및 조절성 근시를 유발합니다.";
+      case "shoulder_asymmetry":
+        return "골반 정렬 불균형과 연계된 요선관절 편측 압축 응력을 유발하는 대표적인 골격 비대칭 경고입니다.";
+      case "head_roll":
+        return "목 뒤쪽 판상근 및 경추 주위 소근육의 불균형을 야기하여 경추 관절염 위험도를 가중시킵니다.";
+      default:
+        return "인체공학적 의자 높이와 모니터 높낮이 조정을 통해 척추 중립 정렬을 유지하는 것을 권장합니다.";
+    }
+  }
+
   return (
     <div>
       {items.map((p) => (
         <div
           key={p.type}
+          onMouseEnter={() => setHoveredType(p.type)}
+          onMouseLeave={() => setHoveredType(null)}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 12,
+            cursor: "pointer",
             marginBottom: 8,
           }}
         >
-          <span style={{ fontSize: 12, color: "var(--b-fg-2)", width: 80 }}>
-            {p.label}
-          </span>
           <div
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
               flex: 1,
-              height: 6,
-              borderRadius: 3,
-              background: "var(--b-surface-2)",
-              overflow: "hidden",
+              transform: hoveredType === p.type ? "translateX(4px)" : "none",
+              transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           >
+            <span
+              style={{
+                fontSize: 12,
+                color: hoveredType === p.type ? "var(--b-warn)" : "var(--b-fg-2)",
+                width: 80,
+                fontWeight: hoveredType === p.type ? 800 : 500,
+                transition: "all 0.2s ease",
+              }}
+            >
+              {p.label}
+            </span>
             <div
               style={{
-                width: `${(p.count / max) * 100}%`,
-                height: "100%",
-                background: "var(--b-warn)",
-                opacity: 0.65,
+                flex: 1,
+                height: 6,
                 borderRadius: 3,
-                transition: "width .3s ease",
+                background: "var(--b-surface-2)",
+                overflow: "visible", // 툴팁 노출을 위해 visible로 설정
+                position: "relative",
               }}
-            />
+            >
+              <div
+                style={{
+                  width: `${(p.count / max) * 100}%`,
+                  height: "100%",
+                  background: "var(--b-warn)",
+                  opacity: hoveredType === p.type ? 0.95 : 0.65,
+                  borderRadius: 3,
+                  transition: "width .3s ease, opacity .2s ease",
+                  boxShadow: hoveredType === p.type ? "0 0 8px var(--b-warn)" : "none",
+                }}
+              />
+
+              {/* 🌟 마우스 호버 시 떠오르는 인체공학 코멘트 말풍선 툴팁 */}
+              {hoveredType === p.type && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "100%",
+                    left: `${Math.min(100, Math.max(0, ((p.count / max) * 100) / 2))}%`, // 바 중간 위치 조준
+                    transform: "translateX(-50%) translateY(-8px)",
+                    background: "var(--b-elev)",
+                    backdropFilter: "blur(12px)",
+                    border: "1px solid var(--b-line-2)",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    boxShadow: "var(--b-shadow-elev)",
+                    zIndex: 100,
+                    pointerEvents: "none",
+                    whiteSpace: "nowrap",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 4,
+                    animation: "b-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--b-fg-1)" }}>
+                    {p.label}: <span className="b-num" style={{ color: "var(--b-warn)", fontWeight: 900 }}>{p.count}회 감지</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--b-fg-3)", maxWidth: 220, whiteSpace: "normal", lineHeight: "1.4" }}>
+                    {getPostureTip(p.type)}
+                  </div>
+
+                  {/* 말풍선 꼬리 핀 */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      width: 0,
+                      height: 0,
+                      borderLeft: "6px solid transparent",
+                      borderRight: "6px solid transparent",
+                      borderTop: "6px solid var(--b-line-2)",
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: "50%",
+                      transform: "translateX(-50%) translateY(-1px)",
+                      width: 0,
+                      height: 0,
+                      borderLeft: "5px solid transparent",
+                      borderRight: "5px solid transparent",
+                      borderTop: "5px solid var(--b-elev)",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+            <span
+              className="b-num"
+              style={{
+                fontSize: 12,
+                color: hoveredType === p.type ? "var(--b-warn)" : "var(--b-fg-3)",
+                width: 24,
+                textAlign: "right",
+                fontWeight: hoveredType === p.type ? 800 : 500,
+                transition: "all 0.2s ease",
+              }}
+            >
+              {p.count}
+            </span>
           </div>
-          <span
-            className="b-num"
-            style={{
-              fontSize: 12,
-              color: "var(--b-fg-3)",
-              width: 24,
-              textAlign: "right",
-            }}
-          >
-            {p.count}
-          </span>
         </div>
       ))}
     </div>
