@@ -351,6 +351,7 @@ export function useMonitoringEngine(opts: {
           false,
           false,
           false,
+          false,
           breakConfigRef.current,
         );
         // 윈도우가 가려진 동안의 frame.pose=null 은 브라우저 throttling 영향일
@@ -442,6 +443,7 @@ export function useMonitoringEngine(opts: {
           false,
           false,
           false,
+          false,
           breakConfigRef.current,
         );
         if (status !== "paused") {
@@ -474,6 +476,17 @@ export function useMonitoringEngine(opts: {
           amount: stretchFired.amount,
           at: Date.now(),
         });
+        try {
+          const nextCount = Number(localStorage.getItem("stretches_today") || "0") + stretchFired.amount;
+          localStorage.setItem("stretches_today", String(nextCount));
+          // 다른 창(메인 창 등)과 상태 동기화를 위해 storage 이벤트 수동 디스패치
+          window.dispatchEvent(new StorageEvent("storage", {
+            key: "stretches_today",
+            newValue: String(nextCount),
+          }));
+        } catch (e) {
+          console.error("Failed to increment stretches count in engine:", e);
+        }
       }
 
       // Phase 1 + 4 결합 — 휴식 임계에 breakMultiplier 적용 (피로 시 단축)
@@ -490,6 +503,7 @@ export function useMonitoringEngine(opts: {
         Date.now(),
         result.personPresent,
         result.isResting,
+        !!result.isStanding,
         !!stretchFired,
         adjustedBreakConfig,
       );
@@ -621,11 +635,13 @@ export function useMonitoringEngine(opts: {
       // 상태 갱신
       const next: PostureStatus = result.isResting
         ? "resting"
-        : stableViolations.size > 0
-          ? trackerRef.current.hasAlertedActive()
-            ? "bad"
-            : "warning"
-          : "good";
+        : result.isStanding
+          ? "standing"
+          : stableViolations.size > 0
+            ? trackerRef.current.hasAlertedActive()
+              ? "bad"
+              : "warning"
+            : "good";
       if (next !== status) {
         setStatus(next);
         updateStatus(next).catch(() => undefined);

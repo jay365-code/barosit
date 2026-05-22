@@ -31,6 +31,7 @@ const STATUS_TONE: Record<
   bad: { color: "var(--b-warn)", ring: "rgba(210,119,88,0.32)", label: "어깨를 펴볼까요" },
   paused: { color: "var(--b-fg-4)", ring: "rgba(127,127,127,0.18)", label: "쉬는 중" },
   resting: { color: "var(--b-fg-4)", ring: "rgba(127,127,127,0.18)", label: "잠깐 쉬는 중" },
+  standing: { color: "var(--b-sig)", ring: "rgba(91,140,122,0.25)", label: "가볍게 서 있어요" },
 };
 
 const POSTURE_LABEL: Record<PostureType, string> = {
@@ -653,7 +654,7 @@ export function Widget() {
                   padding: "5px 11px",
                   borderRadius: 999,
                   background:
-                    state.violations.length === 0
+                    state.status === "standing" || state.violations.length === 0
                       ? "rgba(126,176,156,0.18)"
                       : state.stage >= 3
                         ? "rgba(224,136,102,0.18)"
@@ -666,11 +667,13 @@ export function Widget() {
               >
                 {state.away
                   ? "자리비움"
-                  : state.violations.length === 0
-                    ? "바른 자세"
-                    : primaryViolation
-                      ? POSTURE_LABEL[primaryViolation]
-                      : "주의"}
+                  : state.status === "standing"
+                    ? "서서 일하는 중"
+                    : state.violations.length === 0
+                      ? "바른 자세"
+                      : primaryViolation
+                        ? POSTURE_LABEL[primaryViolation]
+                        : "주의"}
               </span>
             </div>
 
@@ -687,11 +690,13 @@ export function Widget() {
             >
               {state.away
                 ? "자리에 돌아오면 자동으로 다시 시작해요"
-                : state.violations.length === 0
-                  ? "잘 유지하고 있어요"
-                  : primaryViolation
-                    ? `${formatDuration(state.maxDurationSecs)}째 ${COACHING[primaryViolation]}`
-                    : ""}
+                : state.status === "standing"
+                  ? "선 자세는 척추를 곧게 펴줍니다. 가볍게 양손을 위로 올려 스트레칭을 해볼까요?"
+                  : state.violations.length === 0
+                    ? "잘 유지하고 있어요"
+                    : primaryViolation
+                      ? `${formatDuration(state.maxDurationSecs)}째 ${COACHING[primaryViolation]}`
+                      : ""}
             </div>
 
             {/* 메타 — 마지막 알람 */}

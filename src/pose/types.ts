@@ -53,7 +53,7 @@ export interface PostureViolation {
   durationSecs: number;
 }
 
-export type PostureStatus = "good" | "warning" | "bad" | "paused" | "resting";
+export type PostureStatus = "good" | "warning" | "bad" | "paused" | "resting" | "standing";
 
 export interface FaceData {
   /** Euler angles in radians, extracted from facial transformation matrix. */

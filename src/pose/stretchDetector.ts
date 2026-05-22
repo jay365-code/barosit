@@ -31,16 +31,38 @@ export function isOverheadStretch(lm: Landmarks): boolean {
   const lw = lm[LANDMARK_INDEX.LEFT_WRIST];
   const rw = lm[LANDMARK_INDEX.RIGHT_WRIST];
   const nose = lm[LANDMARK_INDEX.NOSE];
-  if (!vis(ls, 0.5) || !vis(rs, 0.5) || !vis(le) || !vis(re)) return false;
+
+  // 어깨와 코는 명확히 보여야 기준점이 잡힘
+  if (!vis(ls, 0.5) || !vis(rs, 0.5)) return false;
   if (!vis(nose, 0.4)) return false;
+
   const sw = Math.abs(ls.x - rs.x);
-  const t = sw * 0.20;
-  const elbowsUp = le.y < ls.y - t && re.y < rs.y - t;
-  if (!elbowsUp) return false;
-  const elbowsAboveNose = le.y < nose.y && re.y < nose.y;
-  const bothWristsAboveNose =
-    vis(lw) && vis(rw) && lw.y < nose.y && rw.y < nose.y;
-  return bothWristsAboveNose || elbowsAboveNose;
+  // 자연스러운 기지개를 위해 가중치를 0.20 -> 0.15로 약간 완화
+  const t = sw * 0.15;
+
+  // 팔꿈치/손목이 위로 올라갔는지 판단하는 헬퍼
+  // 카메라 화면 위쪽(y=0) 밖으로 나가 visibility가 낮아지더라도, 
+  // 좌표상 화면 위쪽(y < 0.20)에 머물며 어깨보다 충분히 위에 있다면 스트레칭 중인 것으로 판단
+  const isUp = (p: Landmark | undefined, shoulder: Landmark): boolean => {
+    if (!p) return false;
+    if (p.visibility >= 0.15) {
+      return p.y < shoulder.y - t;
+    }
+    return p.y < 0.20 && p.y < shoulder.y - t;
+  };
+
+  // 양팔 중 어느 하나의 관절(팔꿈치 혹은 손목)이 어깨보다 높이 올라갔는지 검증
+  // 사용자가 기지개를 켤 때 팔꿈치가 화면 좌우 바깥으로 나가거나 손목이 상단 경계 밖으로 나가
+  // visibility가 급격히 하락하는 경우를 완벽하게 보완합니다.
+  const leftArmUp = isUp(le, ls) || isUp(lw, ls);
+  const rightArmUp = isUp(re, rs) || isUp(rw, rs);
+  if (!leftArmUp || !rightArmUp) return false;
+
+  // 양팔 각각 코나 눈보다 위에 위치한 관절이 최소한 하나 이상 존재해야 머리 위로 올린 "기지개"로 판정
+  const leftAboveNose = (le && le.y < nose.y) || (lw && lw.y < nose.y);
+  const rightAboveNose = (re && re.y < nose.y) || (rw && rw.y < nose.y);
+
+  return leftAboveNose && rightAboveNose;
 }
 
 /**
@@ -263,10 +285,10 @@ export class StretchTracker {
   };
 
   constructor(
-    private readonly minHoldMs = 2000,
-    private readonly cooldownMs = 60 * 1000,
+    private readonly minHoldMs = 1000,
+    private readonly cooldownMs = 5 * 1000,
     /** 검출이 끊기더라도 이 시간 안에 다시 잡히면 같은 동작으로 본다 */
-    private readonly gapToleranceMs = 600,
+    private readonly gapToleranceMs = 1000,
   ) {}
 
   push(

@@ -19,6 +19,14 @@ port = 54334
 enabled = true
 port = 54335
 
+[analytics]
+enabled = true
+port = 54337
+
+[edge_runtime]
+enabled = true
+inspector_port = 8084
+
 [auth]
 site_url = "http://localhost:1430"
 additional_redirect_urls = ["http://localhost:1430/#/auth/callback"]

@@ -4,7 +4,7 @@
 // - 커스텀 인앱 카드 입력 폼 및 토스 비인증 빌링키 발급 시뮬레이션
 // - "홈으로" 버튼 → 메인 모니터 화면 복귀
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Icon } from "../components/Icon";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
@@ -18,6 +18,7 @@ import {
   WORK_ENV_LABEL,
   loadProfile,
   saveProfile,
+  PROFILE_CHANGED_EVENT,
   type UserProfile,
   type WorkEnv,
 } from "../userProfile";
@@ -58,6 +59,76 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [cardFormError, setCardFormError] = useState("");
   const [cardRegistering, setCardRegistering] = useState(false);
 
+  // 커스텀 외부 아바타 추가 관련 상태
+  const [customAvatarFormOpen, setCustomAvatarFormOpen] = useState(false);
+  const [customAvatarTab, setCustomAvatarTab] = useState<"upload" | "url">("upload");
+  const [customAvatarUrl, setCustomAvatarUrl] = useState("");
+  const [customAvatarError, setCustomAvatarError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomAvatarError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setCustomAvatarError("이미지 파일만 선택해 주세요.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 128;
+        const MAX_HEIGHT = 128;
+        let width = img.width;
+        let height = img.height;
+
+        const size = Math.min(width, height);
+        canvas.width = MAX_WIDTH;
+        canvas.height = MAX_HEIGHT;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          const sx = (width - size) / 2;
+          const sy = (height - size) / 2;
+          ctx.drawImage(img, sx, sy, size, size, 0, 0, MAX_WIDTH, MAX_HEIGHT);
+          
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+          update("avatar", dataUrl);
+          setSavedAt(Date.now());
+        }
+      };
+      img.onerror = () => {
+        setCustomAvatarError("이미지를 로드하는 중 오류가 발생했습니다.");
+      };
+      if (event.target?.result) {
+        img.src = event.target.result as string;
+      }
+    };
+    reader.onerror = () => {
+      setCustomAvatarError("파일을 읽는 중 오류가 발생했습니다.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAvatarUrlSubmit = () => {
+    setCustomAvatarError("");
+    if (!customAvatarUrl) {
+      setCustomAvatarError("URL을 입력해 주세요.");
+      return;
+    }
+    const cleanUrl = customAvatarUrl.trim();
+    if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://") && !cleanUrl.startsWith("data:image/")) {
+      setCustomAvatarError("올바른 이미지 주소(http/https/data:image)를 입력해 주세요.");
+      return;
+    }
+    update("avatar", cleanUrl);
+    setSavedAt(Date.now());
+  };
+
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -88,6 +159,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       pullSettingsFromServer();
     }
   }, [session]);
+
+  // 프로필 실시간 변경 이벤트 감지 및 반영
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<UserProfile>).detail;
+      if (detail) setProfile(detail);
+    };
+    window.addEventListener(PROFILE_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(PROFILE_CHANGED_EVENT, handler);
+  }, []);
 
   useEffect(() => {
     const fetchSub = async () => {
@@ -401,6 +482,50 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     }
   };
 
+  // 결제 정보 삭제
+  const handleDeleteCardInfo = async () => {
+    if (!window.confirm("등록된 결제 카드 정보를 삭제하시겠습니까?\n정기 구독 중인 경우 다음 결제일에 갱신 실패로 구독이 정지될 수 있습니다.")) return;
+
+    try {
+      if (!session?.user) return;
+
+      // 1. Supabase DB user_subscriptions 갱신 (billing_key, card_info를 null로 설정)
+      const { error: subError } = await supabase
+        .from("user_subscriptions")
+        .update({
+          billing_key: null,
+          card_info: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", session.user.id);
+
+      if (subError) throw subError;
+
+      // 2. 관리자 알림 전송 (보안 및 감사용)
+      await supabase.from("admin_notifications").insert({
+        event_type: "cancellation",
+        severity: "info",
+        message: `결제 수단 삭제: 사용자 ${session.user.email} 님이 등록된 결제 카드 정보를 완전히 삭제했습니다.`,
+        payload: {
+          user_id: session.user.id,
+          email: session.user.email,
+          action: "delete_payment_method",
+          deleted_at: new Date().toISOString()
+        }
+      });
+
+      // 3. 상태 갱신
+      setCardInfo(null);
+      alert("결제 카드 정보가 안전하게 삭제되었습니다.");
+      
+      // 상태 변경 알림
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
+    } catch (err: any) {
+      console.error("Failed to delete card info:", err);
+      alert(`결제 정보 삭제 중 오류가 발생했습니다: ${err.message || err}`);
+    }
+  };
+
   const isRefundable = () => {
     if (!subUpdatedAt) return false;
     const diffTime = Math.abs(new Date().getTime() - new Date(subUpdatedAt).getTime());
@@ -411,20 +536,51 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const update = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) =>
     setProfile((p) => ({ ...p, [k]: v }));
 
+  const isCustomAvatar = 
+    profile.avatar &&
+    !DEFAULT_AVATAR_OPTIONS.includes(profile.avatar) &&
+    (!session?.user?.user_metadata?.avatar_url || profile.avatar !== session.user.user_metadata.avatar_url);
+
   return (
     <div className="profile-view">
-      <header className="profile-header">
-        <button
-          type="button"
-          className="b-btn b-btn-ghost"
-          onClick={onGoHome}
-          aria-label="홈으로"
-        >
-          <Icon name="chev-l" size={14} />
-          홈으로
-        </button>
-        <h1 className="profile-title">{!session ? "로그인" : "프로필"}</h1>
-        <div style={{ minWidth: 80 }} />
+      <header className="profile-header" style={{ width: "100%", display: "flex", justifyContent: "center", padding: "16px 0" }}>
+        <div style={{
+          maxWidth: "720px",
+          width: "100%",
+          padding: "0 24px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between"
+        }}>
+          <button
+            type="button"
+            className="b-btn b-btn-ghost"
+            onClick={onGoHome}
+            aria-label="돌아가기"
+          >
+            <Icon name="chev-l" size={14} />
+            돌아가기
+          </button>
+          <h1 className="profile-title" style={{ margin: 0 }}>{!session ? "로그인" : "프로필"}</h1>
+          <button
+            type="button"
+            className="b-icon-btn b-tip"
+            data-tip="돌아가기"
+            onClick={onGoHome}
+            aria-label="돌아가기"
+            style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <Icon name="x" size={16} />
+          </button>
+        </div>
       </header>
 
       <div className="profile-body">
@@ -674,6 +830,24 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       >
                         {cardFormOpen ? "카드 등록 닫기" : "결제 카드 정보 변경"}
                       </button>
+
+                      {cardInfo && (
+                        <button
+                          type="button"
+                          className="b-btn b-btn-ghost"
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: "11px",
+                            height: "auto",
+                            color: "#f87171",
+                            border: "1px solid rgba(248, 113, 113, 0.3)",
+                            background: "rgba(248, 113, 113, 0.04)"
+                          }}
+                          onClick={handleDeleteCardInfo}
+                        >
+                          결제 수단 삭제
+                        </button>
+                      )}
 
                       {subStatus === "active" && (
                         <>
@@ -943,9 +1117,60 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
               {session?.user && (
                 <>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "16px",
+                    background: "rgba(255, 255, 255, 0.02)",
+                    borderRadius: "12px",
+                    padding: "16px",
+                    border: "1px solid var(--b-line)",
+                    marginBottom: "16px",
+                    marginTop: "8px"
+                  }}>
+                    {session.user.user_metadata?.avatar_url ? (
+                      <div style={{
+                        width: "56px",
+                        height: "56px",
+                        borderRadius: "50%",
+                        overflow: "hidden",
+                        border: "2px solid var(--b-sig)",
+                        boxShadow: "0 4px 12px rgba(126,176,156,0.3)",
+                        flexShrink: 0
+                      }}>
+                        <img
+                          src={session.user.user_metadata.avatar_url}
+                          alt="Social Profile"
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      </div>
+                    ) : (
+                      <div style={{
+                        width: "56px",
+                        height: "56px",
+                        borderRadius: "50%",
+                        background: "var(--b-surface-2)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "24px",
+                        border: "2px solid var(--b-line-2)",
+                        flexShrink: 0
+                      }}>
+                        👤
+                      </div>
+                    )}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                      <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--b-fg-1)" }}>
+                        {session.user.user_metadata?.full_name || session.user.user_metadata?.name || profile.name || "사용자"}
+                      </span>
+                      <span style={{ fontSize: "12px", color: "var(--b-fg-3)" }}>
+                        {session.user.email}
+                      </span>
+                    </div>
+                  </div>
                   <p className="profile-card-sub" style={{ marginBottom: "16px" }}>
-                    현재 <strong>{session.user.email}</strong> 계정으로 완벽히 동기화 중입니다. 
-                    모든 자세 위반 로그와 민감도 설정이 실시간으로 안전하게 원격 백업됩니다.
+                    현재 소셜 계정으로 연결되어 있습니다. 모든 디바이스 설정 및 바른자세 측정 로그가 클라우드 서버와 실시간으로 원격 백업 및 동기화됩니다.
                   </p>
                   <div className="profile-card-actions">
                     <button
@@ -999,7 +1224,44 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
               <div className="profile-card-head">
                 <span>아바타</span>
               </div>
-              <div className="profile-avatar-grid">
+              <div className="profile-avatar-grid" style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
+                {session?.user?.user_metadata?.avatar_url && (
+                  <button
+                    type="button"
+                    className={`profile-avatar-cell ${
+                      profile.avatar === session.user.user_metadata.avatar_url ? "is-selected" : ""
+                    }`}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      padding: 0,
+                      border: profile.avatar === session.user.user_metadata.avatar_url 
+                        ? "2px solid #5b8c7a" 
+                        : "2px solid var(--b-border-translucent, rgba(255,255,255,0.1))",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "transform 0.2s, border-color 0.2s"
+                    }}
+                    onClick={() => update("avatar", session.user.user_metadata.avatar_url)}
+                    aria-label="소셜 프로필 이미지"
+                  >
+                    <img
+                      src={session.user.user_metadata.avatar_url}
+                      alt="Social Avatar"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        borderRadius: "50%"
+                      }}
+                    />
+                  </button>
+                )}
                 {DEFAULT_AVATAR_OPTIONS.map((a) => (
                   <button
                     key={a}
@@ -1011,7 +1273,208 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     {a}
                   </button>
                 ))}
+                {isCustomAvatar && (
+                  <button
+                    type="button"
+                    className="profile-avatar-cell is-selected"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      padding: 0,
+                      border: "2px solid #5b8c7a",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: "initial"
+                    }}
+                    onClick={() => update("avatar", profile.avatar)}
+                    aria-label="커스텀 이미지 아바타"
+                  >
+                    <img
+                      src={profile.avatar}
+                      alt="Custom Avatar"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        borderRadius: "50%"
+                      }}
+                    />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={`profile-avatar-cell ${customAvatarFormOpen ? "is-selected" : ""}`}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "12px",
+                    border: customAvatarFormOpen ? "2px solid #5b8c7a" : "1px dashed var(--b-line)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    background: customAvatarFormOpen ? "var(--b-sig-bg)" : "transparent"
+                  }}
+                  onClick={() => setCustomAvatarFormOpen(prev => !prev)}
+                  aria-label="외부 이미지 추가"
+                  title="외부 이미지 추가"
+                >
+                  ➕
+                </button>
               </div>
+
+              {/* 외부 이미지 추가 폼 */}
+              {customAvatarFormOpen && (
+                <div style={{
+                  marginTop: "16px",
+                  padding: "16px",
+                  borderRadius: "16px",
+                  background: "rgba(255, 255, 255, 0.02)",
+                  border: "1px solid var(--b-line)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "14px"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <h4 style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "var(--b-fg-2)" }}>
+                      🖼️ 외부 이미지 아바타 설정
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setCustomAvatarFormOpen(false)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--b-fg-4)",
+                        cursor: "pointer",
+                        fontSize: "12px"
+                      }}
+                    >
+                      닫기
+                    </button>
+                  </div>
+
+                  {/* 탭 구조: 1. 파일 업로드, 2. 이미지 URL */}
+                  <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--b-line)", paddingBottom: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setCustomAvatarTab("upload")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: customAvatarTab === "upload" ? "var(--b-sig)" : "var(--b-fg-3)",
+                        fontSize: "12px",
+                        fontWeight: customAvatarTab === "upload" ? 700 : 500,
+                        cursor: "pointer",
+                        padding: "4px 8px",
+                        borderBottom: customAvatarTab === "upload" ? "2px solid var(--b-sig)" : "none",
+                        marginBottom: "-9px"
+                      }}
+                    >
+                      이미지 파일 업로드
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomAvatarTab("url")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: customAvatarTab === "url" ? "var(--b-sig)" : "var(--b-fg-3)",
+                        fontSize: "12px",
+                        fontWeight: customAvatarTab === "url" ? 700 : 500,
+                        cursor: "pointer",
+                        padding: "4px 8px",
+                        borderBottom: customAvatarTab === "url" ? "2px solid var(--b-sig)" : "none",
+                        marginBottom: "-9px"
+                      }}
+                    >
+                      웹 이미지 주소(URL)
+                    </button>
+                  </div>
+
+                  {customAvatarTab === "upload" ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                          border: "2px dashed var(--b-line-2)",
+                          borderRadius: "12px",
+                          padding: "20px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          background: "rgba(255, 255, 255, 0.01)",
+                          transition: "all 0.2s"
+                        }}
+                      >
+                        <span style={{ fontSize: "24px", display: "block", marginBottom: "6px" }}>📤</span>
+                        <span style={{ fontSize: "12px", color: "var(--b-fg-2)", fontWeight: 600 }}>
+                          클릭하여 이미지 업로드
+                        </span>
+                        <span style={{ fontSize: "11px", color: "var(--b-fg-4)", display: "block", marginTop: "4px" }}>
+                          PNG, JPG, WEBP 지원 (자동 최적화 압축 적용)
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleAvatarFileChange}
+                        accept="image/*"
+                        style={{ display: "none" }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <input
+                          type="url"
+                          placeholder="https://example.com/avatar.png"
+                          value={customAvatarUrl}
+                          onChange={(e) => setCustomAvatarUrl(e.target.value)}
+                          style={{
+                            flex: 1,
+                            height: "36px",
+                            borderRadius: "8px",
+                            border: "1px solid var(--b-line)",
+                            background: "var(--b-bg)",
+                            padding: "0 12px",
+                            fontSize: "12px",
+                            color: "var(--b-fg-1)"
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAvatarUrlSubmit}
+                          className="b-btn b-btn-primary"
+                          style={{
+                            height: "36px",
+                            fontSize: "12px",
+                            padding: "0 14px",
+                            background: "linear-gradient(135deg, #7eb09c, #5b8c7a)",
+                            border: "none"
+                          }}
+                        >
+                          적용
+                        </button>
+                      </div>
+                      <span style={{ fontSize: "10px", color: "var(--b-fg-4)" }}>
+                        웹에 업로드된 투명 PNG나 프로필 사진 주소를 붙여넣어주세요.
+                      </span>
+                    </div>
+                  )}
+
+                  {customAvatarError && (
+                    <div style={{ fontSize: "11px", color: "#f87171" }}>
+                      ⚠️ {customAvatarError}
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
 
             {/* 이름 */}
@@ -1056,6 +1519,30 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
             <div className="profile-saved-hint">
               {savedAt ? "자동 저장됨" : "변경 사항이 자동 저장됩니다"}
+            </div>
+
+            <div style={{ marginTop: "24px", marginBottom: "12px", display: "flex", justifyContent: "center" }}>
+              <button
+                type="button"
+                className="b-btn b-btn-ghost"
+                onClick={onGoHome}
+                style={{
+                  padding: "10px 24px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  borderRadius: "10px",
+                  border: "1px solid var(--b-line-2)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: "rgba(255, 255, 255, 0.02)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  transition: "all 0.2s"
+                }}
+              >
+                <Icon name="chev-l" size={14} />
+                이전 화면으로 돌아가기
+              </button>
             </div>
           </>
         )}

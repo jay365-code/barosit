@@ -1,5 +1,6 @@
 import { supabase } from "../auth/supabase";
 import { loadEvents, type PostureEvent } from "../pose/eventLog";
+import { DEFAULT_AVATAR_OPTIONS } from "../userProfile";
 
 interface SyncableEvent extends PostureEvent {
   uploaded?: boolean;
@@ -300,14 +301,39 @@ export async function syncProfileToServer(): Promise<void> {
 
   try {
     const profile = JSON.parse(raw);
+
+    // Safety Guard: 만약 로컬 아바타가 기본 이모지(🪑 등)이고,
+    // 이미 서버의 아바타 정보가 소셜 이미지 URL(http/https)이라면
+    // 서버의 소셜 프로필 사진이 초기 게스트 이모지로 덮어씌워지는 경쟁 상황(Race Condition)을 방지합니다.
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("avatar")
+      .eq("id", userId)
+      .maybeSingle();
+
+    let shouldUpdateAvatar = true;
+    if (existingProfile?.avatar) {
+      const isLocalDefault = DEFAULT_AVATAR_OPTIONS.includes(profile.avatar) || profile.avatar === "😊";
+      const isServerSocialUrl = existingProfile.avatar.startsWith("http://") || existingProfile.avatar.startsWith("https://");
+      if (isLocalDefault && isServerSocialUrl) {
+        shouldUpdateAvatar = false;
+        console.log("[syncService] Guarded server social avatar from being overwritten by guest default emoji.");
+      }
+    }
+
+    const updatePayload: any = {
+      name: profile.name,
+      work_env: profile.workEnv,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (shouldUpdateAvatar) {
+      updatePayload.avatar = profile.avatar;
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({
-        name: profile.name,
-        avatar: profile.avatar,
-        work_env: profile.workEnv,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", userId);
 
     if (error) {
@@ -342,15 +368,34 @@ export async function pullProfileFromServer(): Promise<void> {
     }
 
     if (data) {
+      // 만약 DB의 아바타가 기본 이모지(🪑 또는 😊 등)이고,
+      // Supabase Auth 세션의 user_metadata에 소셜 이미지(avatar_url)가 존재한다면 복원해줍니다!
+      let avatar = data.avatar || "😊";
+      const isDbAvatarDefault = avatar === "🪑" || avatar === "😊" || !avatar;
+      const socialAvatarUrl = session.user.user_metadata?.avatar_url;
+      
+      if (isDbAvatarDefault && socialAvatarUrl && (socialAvatarUrl.startsWith("http://") || socialAvatarUrl.startsWith("https://"))) {
+        avatar = socialAvatarUrl;
+        console.log("[syncService] Restored social avatar URL from user metadata:", avatar);
+        
+        // 서버 DB의 profiles 테이블도 다시 올바른 소셜 이미지로 복원 업데이트해줍니다.
+        await supabase
+          .from("profiles")
+          .update({ avatar })
+          .eq("id", userId);
+      }
+
       const localProfile = {
-        name: data.name || "사용자",
-        avatar: data.avatar || "😊",
+        name: data.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || "사용자",
+        avatar: avatar,
         workEnv: data.work_env || "mixed",
       };
       localStorage.setItem("user_profile_v1", JSON.stringify(localProfile));
       
-      // 프로필 변경 통지용 이벤트 발송
-      window.dispatchEvent(new Event("barosit:profile-changed"));
+      // 프로필 변경 통지용 이벤트 발송 (CustomEvent로 디테일 전달)
+      window.dispatchEvent(
+        new CustomEvent("barosit:profile-changed", { detail: localProfile })
+      );
       console.log("[syncService] Profile pulled from cloud and restored locally.");
     }
   } catch (err) {

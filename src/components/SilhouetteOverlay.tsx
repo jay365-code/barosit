@@ -45,6 +45,11 @@ const STATUS_RGB: Record<
     dot: "rgba(225, 232, 245, 0.8)",
     stroke: "rgba(190, 205, 225, 0.85)",
   },
+  standing: {
+    fill: [91, 140, 122],
+    dot: "rgba(220, 235, 230, 0.9)",
+    stroke: "rgba(91, 140, 122, 0.95)",
+  },
 };
 
 // 마스크 EMA — 트레일을 줄이려고 새 신호 비중을 크게 (≈85%/15%).
@@ -150,50 +155,12 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status }: Props) {
     const h = canvas.height;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "rgba(15, 18, 24, 1)";
-    ctx.fillRect(0, 0, w, h);
 
     if (maskReadyRef.current && offRef.current) {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
-      // 포즈 랜드마크 기반 클리핑 — 의자·주변 사물 같은 떨어진 블롭 제거
       ctx.save();
-      let clipped = false;
-      if (pose) {
-        const ls = pose[LANDMARK_INDEX.LEFT_SHOULDER];
-        const rs = pose[LANDMARK_INDEX.RIGHT_SHOULDER];
-        const nose = pose[LANDMARK_INDEX.NOSE];
-        const lEar = pose[LANDMARK_INDEX.LEFT_EAR];
-        const rEar = pose[LANDMARK_INDEX.RIGHT_EAR];
-        const lh = pose[LANDMARK_INDEX.LEFT_HIP];
-        const rh = pose[LANDMARK_INDEX.RIGHT_HIP];
-        if (
-          ls && rs && nose &&
-          ls.visibility >= 0.4 && rs.visibility >= 0.4 && nose.visibility >= 0.4
-        ) {
-          const sw = Math.abs(ls.x - rs.x);
-          const xs: number[] = [ls.x, rs.x, nose.x];
-          const ys: number[] = [ls.y, rs.y, nose.y];
-          for (const p of [lEar, rEar, lh, rh]) {
-            if (p && p.visibility >= 0.4) {
-              xs.push(p.x);
-              ys.push(p.y);
-            }
-          }
-          // 좌우는 어깨너비 만큼 여유(팔 포함), 위는 어깨너비×0.8(머리 위)
-          const marginX = sw * 0.6;
-          const marginTop = sw * 0.8;
-          const xMin = (Math.min(...xs) - marginX) * w;
-          const xMax = (Math.max(...xs) + marginX) * w;
-          const yMin = (Math.min(...ys) - marginTop) * h;
-          ctx.beginPath();
-          ctx.rect(xMin, yMin, xMax - xMin, h - yMin);
-          ctx.clip();
-          clipped = true;
-        }
-      }
-
       ctx.globalAlpha = 0.45;
       ctx.filter = "blur(18px)";
       ctx.drawImage(offRef.current, 0, 0, w, h);
@@ -205,7 +172,6 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status }: Props) {
       ctx.globalAlpha = 1;
       ctx.filter = "none";
       ctx.restore();
-      void clipped;
     }
 
     // 어깨 + 팔 라인 — 자세 신호를 사용자가 시각적으로 확인할 수 있도록
@@ -271,5 +237,17 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status }: Props) {
     }
   }, [pose, smoothedFace, hands, mask, status, color]);
 
-  return <canvas ref={canvasRef} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        display: "block",
+        pointerEvents: "none",
+      }}
+    />
+  );
 }

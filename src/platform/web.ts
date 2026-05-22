@@ -22,6 +22,7 @@ const STATUS_EMOJI: Record<PostureStatus, string> = {
   bad: "🔴",
   paused: "⚪",
   resting: "🌙",
+  standing: "🧍",
 };
 
 const STATUS_COLOR: Record<PostureStatus, string> = {
@@ -30,6 +31,7 @@ const STATUS_COLOR: Record<PostureStatus, string> = {
   bad: "#ef4444",
   paused: "#9ca3af",
   resting: "#94a3b8",
+  standing: "#5b8c7a",
 };
 
 const BASE_TITLE = "BaroSit";

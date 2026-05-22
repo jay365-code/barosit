@@ -72,6 +72,7 @@ export interface AnalysisResult {
   personPresent: boolean;
   /** 의자 등받이에 기대 휴식 중인 상태 — 모든 위반 알람 보류 + 점수 동결 권장 */
   isResting: boolean;
+  isStanding?: boolean;
   /** 다음 프레임 분석에 전달할 내부 상태 — 시간 게이트·히스테리시스용. */
   state: AnalyzerState;
   debug?: AnalysisDebug;
@@ -84,6 +85,7 @@ export interface AnalyzerState {
   chinHoldFrames?: number;
   /** isResting 진입 조건 충족 연속 프레임 수. */
   restingHoldFrames?: number;
+  standingHoldFrames?: number;
 }
 
 /** chin_resting 가 violations 로 승격되기 위한 최소 연속 프레임 수.
@@ -594,6 +596,21 @@ export function analyzeFrame(
     result.violations.clear();
   }
   result.state.isResting = result.isResting;
+
+  // -- 9. Standing posture detection (선 자세 감지) --
+  // 사용자가 일어서면 카메라 화면 대비 머리와 어깨가 위로 올라가 Y 좌표가 감소함.
+  // 캘리브레이션 앉은 자세 기준(baseline.shoulderMidY)보다 실시간 어깨 높이가 12% 이상 상승 시 서 있는 상태로 판단.
+  // 5프레임 이상 연속 유지될 때만 최종 선 자세로 전환하여 노이즈 차단.
+  const prevStandingHold = prevState?.standingHoldFrames ?? 0;
+  const standingConditionMet = result.personPresent && (baseline.shoulderMidY - shoulderMidY > 0.12);
+  const standingHoldFrames = standingConditionMet ? prevStandingHold + 1 : 0;
+  result.state.standingHoldFrames = standingHoldFrames;
+
+  const isStanding = standingHoldFrames >= 5;
+  if (isStanding) {
+    result.isStanding = true;
+    result.violations.clear();
+  }
 
   result.debug = {
     vis: {

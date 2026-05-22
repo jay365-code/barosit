@@ -274,6 +274,9 @@ export function MonitorView({
     amount: number;
     at: number;
   } | null>(null);
+  const [stretchesTodayCount, setStretchesTodayCount] = useState<number>(() => {
+    return Number(localStorage.getItem("stretches_today") || "0");
+  });
   const [externalScore, setExternalScore] = useState<number | null>(null);
   const [, setExternalStatus] = useState<PostureStatus | null>(null);
   const [externalViolations, setExternalViolations] = useState<PostureType[]>(
@@ -314,6 +317,9 @@ export function MonitorView({
     if (init) apply(init);
     const onStorage = (e: StorageEvent) => {
       if (e.key === "widget_state" && e.newValue) apply(e.newValue);
+      if (e.key === "stretches_today") {
+        setStretchesTodayCount(Number(e.newValue || "0"));
+      }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -325,7 +331,11 @@ export function MonitorView({
       setVisible(!document.hidden);
       // 윈도우가 다시 보이게 되었을 때 absence 타이머 리셋 — hidden 동안 누적된
       // 시간으로 즉시 paused 진입하는 것 차단.
-      if (!document.hidden) lastPresentAtRef.current = Date.now();
+      if (!document.hidden) {
+        lastPresentAtRef.current = Date.now();
+        // 윈도우로 복귀 시 백그라운드 엔진이 누적한 최신 스트레칭 횟수 즉각 동기화
+        setStretchesTodayCount(Number(localStorage.getItem("stretches_today") || "0"));
+      }
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
@@ -540,6 +550,7 @@ export function MonitorView({
           false,
           false,
           false,
+          false,
           breakConfigRef.current,
         );
         // 윈도우가 가려진 동안의 frame.pose=null 은 브라우저 throttling/video 일시정지
@@ -626,6 +637,7 @@ export function MonitorView({
           false,
           false,
           false,
+          false,
           breakConfigRef.current,
         );
         if (status !== "paused") {
@@ -655,6 +667,13 @@ export function MonitorView({
           amount: stretchFired.amount,
           at: Date.now(),
         });
+        try {
+          const nextCount = Number(localStorage.getItem("stretches_today") || "0") + stretchFired.amount;
+          localStorage.setItem("stretches_today", String(nextCount));
+          setStretchesTodayCount(nextCount);
+        } catch (e) {
+          console.error("Failed to increment stretches count:", e);
+        }
       }
 
       // Phase 1 + 4 결합 — 휴식 임계에 breakMultiplier 적용 (피로 시 단축)
@@ -671,6 +690,7 @@ export function MonitorView({
         Date.now(),
         result.personPresent,
         result.isResting,
+        !!result.isStanding,
         !!stretchFired,
         adjustedBreakConfig,
       );
@@ -798,11 +818,13 @@ export function MonitorView({
 
       const next: PostureStatus = result.isResting
         ? "resting"
-        : result.violations.size > 0
-          ? trackerRef.current.hasAlertedActive()
-            ? "bad"
-            : "warning"
-          : "good";
+        : result.isStanding
+          ? "standing"
+          : result.violations.size > 0
+            ? trackerRef.current.hasAlertedActive()
+              ? "bad"
+              : "warning"
+            : "good";
       if (next !== status) {
         setStatus(next);
         updateStatus(next).catch(() => undefined);
@@ -821,17 +843,20 @@ export function MonitorView({
   const away =
     !paused && !widgetEnabled && cameraReady && sinceAbsence > ABSENCE_GRACE_MS;
   const resting = status === "resting";
+  const standing = status === "standing";
   const tone: "good" | "amber" | "warn" | "dim" = paused
     ? "dim"
     : away
       ? "dim"
       : resting
         ? "dim"
-        : status === "bad"
-          ? "warn"
-          : status === "warning"
-            ? "amber"
-            : "good";
+        : standing
+          ? "good"
+          : status === "bad"
+            ? "warn"
+            : status === "warning"
+              ? "amber"
+              : "good";
   const toneColor =
     tone === "good"
       ? "var(--b-sig)"
@@ -846,11 +871,13 @@ export function MonitorView({
       ? "자리비움"
       : resting
         ? "쉬는 중"
-        : tone === "good"
-          ? "양호"
-          : tone === "amber"
-            ? "주의"
-            : "교정 필요";
+        : standing
+          ? "서 있는 중"
+          : tone === "good"
+            ? "양호"
+            : tone === "amber"
+              ? "주의"
+              : "교정 필요";
 
   // 메인 카피
   const primaryViolation = displayViolations[0];
@@ -860,13 +887,15 @@ export function MonitorView({
       ? "잠깐 자리를 비웠어요"
       : resting
         ? "잠깐 등받이에 기대어 쉬세요"
-        : tone === "good"
-          ? "잘 앉아 있어요"
-          : tone === "amber"
-            ? "조금만 더 바르게"
-            : primaryViolation
-              ? COACHING_BY_TYPE[primaryViolation]
-              : "잠깐, 어깨를 펴볼까요";
+        : standing
+          ? "가볍게 서서 일하고 있어요"
+          : tone === "good"
+            ? "잘 앉아 있어요"
+            : tone === "amber"
+              ? "조금만 더 바르게"
+              : primaryViolation
+                ? COACHING_BY_TYPE[primaryViolation]
+                : "잠깐, 어깨를 펴볼까요";
 
   const subline = paused
     ? "재개하면 자세 살피기를 다시 시작합니다"
@@ -874,11 +903,13 @@ export function MonitorView({
       ? "자리에 돌아오면 자동으로 다시 시작해요"
       : resting
         ? "다시 똑바로 앉으면 자동으로 다시 살펴드릴게요"
-        : tone === "good"
-          ? "지금은 모두 양호해요"
-          : primaryViolation
-          ? `${POSTURE_LABELS[primaryViolation]} · ${formatDuration(maxDurationSecs)}째 지속`
-          : "자세를 부드럽게 살피고 있어요";
+        : standing
+          ? "선 자세는 척추를 곧게 펴줍니다. 가볍게 양손을 위로 올려 스트레칭을 해볼까요?"
+          : tone === "good"
+            ? "지금은 모두 양호해요"
+            : primaryViolation
+            ? `${POSTURE_LABELS[primaryViolation]} · ${formatDuration(maxDurationSecs)}째 지속`
+            : "자세를 부드럽게 살피고 있어요";
 
   // 자세 fig 매핑
   const postureFigState: PostureFigureState = primaryViolation
@@ -895,7 +926,22 @@ export function MonitorView({
       const yesterday = computeDailyStats(events, startYesterday, startToday);
       const todayTotal = today.total;
       const yesterdayTotal = yesterday.total;
-      const stretches = Number(localStorage.getItem("stretches_today") || "0");
+
+      // Day transition check for stretches
+      const todayDateStr = new Date(startToday).toDateString();
+      const lastActiveDateStr = localStorage.getItem("last_active_date");
+      let stretches = stretchesTodayCount;
+      if (lastActiveDateStr && lastActiveDateStr !== todayDateStr) {
+        const prevStretches = localStorage.getItem("stretches_today") || "0";
+        localStorage.setItem("stretches_yesterday", prevStretches);
+        localStorage.setItem("stretches_today", "0");
+        localStorage.setItem("last_active_date", todayDateStr);
+        stretches = 0;
+        setTimeout(() => setStretchesTodayCount(0), 0);
+      } else if (!lastActiveDateStr) {
+        localStorage.setItem("last_active_date", todayDateStr);
+      }
+
       const stretchesYesterday = Number(
         localStorage.getItem("stretches_yesterday") || "0",
       );
@@ -1278,15 +1324,6 @@ export function MonitorView({
             )}
             <button
               className="b-icon-btn b-tip"
-              aria-label="프로필 열기"
-              data-tip={profile.name ? `${profile.name} · 프로필` : "프로필"}
-              onClick={onOpenProfile}
-              style={{ fontSize: 18, lineHeight: 1 }}
-            >
-              <span aria-hidden>{profile.avatar}</span>
-            </button>
-            <button
-              className="b-icon-btn b-tip"
               aria-label="설정 열기"
               data-tip="설정 열기"
               onClick={onOpenSettings}
@@ -1309,6 +1346,42 @@ export function MonitorView({
                 홈
               </a>
             )}
+            <button
+              className="b-icon-btn b-tip"
+              aria-label="프로필 열기"
+              data-tip={profile.name ? `${profile.name} · 프로필` : "프로필"}
+              onClick={onOpenProfile}
+              style={{
+                fontSize: 18,
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                padding: 0,
+                borderRadius: "50%",
+                overflow: "hidden",
+                border: "2px solid var(--b-border-translucent, rgba(255,255,255,0.1))",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                transition: "transform 0.2s, border-color 0.2s"
+              }}
+            >
+              {profile.avatar && (profile.avatar.startsWith("http://") || profile.avatar.startsWith("https://")) ? (
+                <img
+                  src={profile.avatar}
+                  alt="User Profile"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: "50%"
+                  }}
+                />
+              ) : (
+                <span aria-hidden>{profile.avatar || "🪑"}</span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -1327,7 +1400,7 @@ export function MonitorView({
               position: "relative",
               borderRadius: 14,
               overflow: "hidden",
-              background: privacy ? "var(--b-surface-2)" : "#0a0a0a",
+              background: "#0a0a0a",
               border: "1px solid var(--b-line)",
               aspectRatio: "4 / 3",
               display: "flex",
@@ -1795,7 +1868,7 @@ export function MonitorView({
                 deltaGood: deltas.violations <= 0,
               },
               {
-                label: "스트레칭",
+                label: "스트레칭 점수",
                 value: String(todayStats.stretches),
                 delta: fmtDelta(deltas.stretches),
                 deltaGood: deltas.stretches >= 0,
@@ -1946,6 +2019,8 @@ export function MonitorView({
 function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
   // 09:00 ~ 20:00 (12개 슬롯). 각 슬롯의 위반 수를 색·높이로 표시.
   // 데이터가 적을 때는 어제 데이터를 옅게 함께 보여 비교 가능하게.
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
   const stats = (() => {
     try {
       return computeDailyStats(loadEvents(), startOfToday(), Date.now());
@@ -2004,6 +2079,8 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
           return (
             <div
               key={i}
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(null)}
               style={{
                 flex: 1,
                 position: "relative",
@@ -2011,8 +2088,12 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
                 display: "flex",
                 alignItems: "flex-end",
                 gap: 2,
+                cursor: "pointer",
+                transform: hoveredIdx === i ? "scaleY(1.05) scaleX(1.05)" : "none",
+                filter: hoveredIdx === i ? "brightness(1.08)" : "none",
+                transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease",
+                zIndex: hoveredIdx === i ? 10 : 1,
               }}
-              title={`${START + i}시 · 오늘 ${v}회 · 어제 ${yesterdayBuckets[i]}회`}
             >
               <div
                 style={{
@@ -2034,6 +2115,86 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
                     borderRadius: 1,
                   }}
                 />
+              )}
+
+              {/* Elegant floating tooltip on hover */}
+              {hoveredIdx === i && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "100%",
+                    left: "50%",
+                    transform: "translateX(-50%) translateY(-8px)",
+                    background: "var(--b-elev)",
+                    border: "1px solid var(--b-line-2)",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    boxShadow: "var(--b-shadow-elev)",
+                    zIndex: 100,
+                    pointerEvents: "none",
+                    whiteSpace: "nowrap",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 4,
+                    animation: "b-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--b-fg-1)" }}>
+                    {START + i}:00 ~ {START + i + 1}:00
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: v > 0 ? color : "var(--b-sig-soft)",
+                      }}
+                    />
+                    오늘: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{v}회</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)" }}>
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: "var(--b-fg-4)",
+                        opacity: 0.6,
+                      }}
+                    />
+                    어제: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{yesterdayBuckets[i]}회</span>
+                  </div>
+
+                  {/* Caret / Arrow */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      width: 0,
+                      height: 0,
+                      borderLeft: "6px solid transparent",
+                      borderRight: "6px solid transparent",
+                      borderTop: "6px solid var(--b-line-2)",
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: "50%",
+                      transform: "translateX(-50%) translateY(-1px)",
+                      width: 0,
+                      height: 0,
+                      borderLeft: "5px solid transparent",
+                      borderRight: "5px solid transparent",
+                      borderTop: "5px solid var(--b-elev)",
+                    }}
+                  />
+                </div>
               )}
             </div>
           );

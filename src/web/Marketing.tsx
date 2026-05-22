@@ -2911,10 +2911,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
   const subSlogan = pickSubSlogan();
   const {
     signInWithGoogle,
-    signInWithApple,
     signInWithKakao,
-    signInWithNaver,
-    signInWithLine,
     configured,
     user,
     loading
@@ -2934,7 +2931,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
     }
   }, [loading, user]);
 
-  const handleOAuth = async (provider: "google" | "apple" | "kakao" | "naver" | "line", signInFn: () => Promise<void>) => {
+  const handleOAuth = async (provider: "google" | "kakao", signInFn: () => Promise<void>) => {
     setOauthError(null);
     if (!configured) {
       setOauthError("아직 인증이 연결되지 않았습니다. .env.local 의 Supabase 설정을 확인하세요.");
@@ -2947,20 +2944,14 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
       setOauthBusy(null);
       const provName = {
         google: "Google",
-        apple: "Apple",
         kakao: "카카오",
-        naver: "네이버",
-        line: "라인",
       }[provider];
       setOauthError(e instanceof Error ? e.message : `${provName} 로그인에 실패했어요.`);
     }
   };
 
   const handleGoogle = () => handleOAuth("google", signInWithGoogle);
-  const handleApple = () => handleOAuth("apple", signInWithApple);
   const handleKakao = () => handleOAuth("kakao", signInWithKakao);
-  const handleNaver = () => handleOAuth("naver", signInWithNaver);
-  const handleLine = () => handleOAuth("line", signInWithLine);
 
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh", display: "flex" }}>
@@ -3069,7 +3060,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
           </p>
 
           {/* 메인 소셜 로그인 세트 */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
             {/* Google */}
             <button
               type="button"
@@ -3135,18 +3126,18 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
               {oauthBusy === "google" ? "Google 로 이동 중…" : "Google로 계속하기"}
             </button>
 
-            {/* Apple */}
+            {/* Kakao */}
             <button
               type="button"
-              onClick={handleApple}
+              onClick={handleKakao}
               disabled={oauthBusy !== null}
               className="b-btn"
               style={{
                 height: 46,
                 borderRadius: 24,
-                border: "1px solid #050505",
-                background: "#050505",
-                color: "#ffffff",
+                border: "none",
+                background: "#fee500",
+                color: "#191919",
                 fontWeight: 600,
                 fontSize: 14,
                 display: "flex",
@@ -3155,101 +3146,27 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
                 gap: 10,
                 cursor: oauthBusy ? "wait" : "pointer",
                 transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-                transform: oauthBusy === "apple" ? "scale(0.98)" : "none",
-                opacity: oauthBusy && oauthBusy !== "apple" ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!oauthBusy) {
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                  e.currentTarget.style.background = "#151515";
-                  e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.08)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!oauthBusy) {
-                  e.currentTarget.style.transform = "none";
-                  e.currentTarget.style.background = "#050505";
-                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)";
-                }
-              }}
-            >
-              <svg
-                aria-hidden
-                width="15"
-                height="18"
-                viewBox="0 0 170 170"
-                fill="currentColor"
-                style={{ flexShrink: 0 }}
-              >
-                <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.13-1.92-14.34-6.15-3.23-2.63-7.11-7.25-11.64-13.86-9.74-14.28-14.62-28.77-14.62-43.49 0-14.88 4.41-26.9 13.23-36.05 8.82-9.15 19.34-13.73 31.54-13.73 5.48 0 11.28 1.44 17.41 4.31 6.13 2.88 10.22 4.31 12.27 4.31 1.76 0 5.61-1.33 11.54-3.99 7.42-3.29 13.79-4.7 19.11-4.22 15.62 1.34 27.24 7.21 34.88 17.59-13.54 8.24-20.19 19.5-19.93 33.77.26 11.22 4.54 20.67 12.83 28.36 8.3 7.68 18.06 11.83 29.27 12.44-.73 2.53-1.63 5.26-2.71 8.2zM119.22 30.13c0-7.85 2.76-15.11 8.28-21.78 5.53-6.67 12.28-10.43 20.26-11.27.13.91.2 1.79.2 2.64 0 7.55-2.82 14.75-8.48 21.61-5.66 6.85-12.44 10.66-20.36 11.42-.39-1.04-.62-1.95-.62-2.62z" />
-              </svg>
-              {oauthBusy === "apple" ? "Apple 로 이동 중…" : "Apple로 계속하기"}
-            </button>
-          </div>
-
-          {/* 구분 분할 선 */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              margin: "24px 0",
-              fontSize: 12,
-              color: "var(--b-fg-4)",
-            }}
-          >
-            <div style={{ flex: 1, height: 1, background: "var(--b-line)" }} />
-            <span>또는 다른 서비스로 계속하기</span>
-            <div style={{ flex: 1, height: 1, background: "var(--b-line)" }} />
-          </div>
-
-          {/* 보조 소셜 로그인 서클 버튼 세트 */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: 18,
-              marginBottom: 24,
-            }}
-          >
-            {/* Kakao */}
-            <button
-              type="button"
-              onClick={handleKakao}
-              disabled={oauthBusy !== null}
-              title="카카오 계정으로 계속하기"
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: "#FEE500",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: oauthBusy ? "wait" : "pointer",
-                transition: "all 0.2s ease",
-                boxShadow: "0 2px 10px rgba(254, 229, 0, 0.15)",
+                boxShadow: "0 2px 8px rgba(254, 229, 0, 0.15)",
+                transform: oauthBusy === "kakao" ? "scale(0.98)" : "none",
                 opacity: oauthBusy && oauthBusy !== "kakao" ? 0.6 : 1,
               }}
               onMouseEnter={(e) => {
                 if (!oauthBusy) {
-                  e.currentTarget.style.transform = "translateY(-2px) scale(1.05)";
-                  e.currentTarget.style.boxShadow = "0 4px 16px rgba(254, 229, 0, 0.35)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 4px 14px rgba(254, 229, 0, 0.3)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!oauthBusy) {
                   e.currentTarget.style.transform = "none";
-                  e.currentTarget.style.boxShadow = "0 2px 10px rgba(254, 229, 0, 0.15)";
+                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(254, 229, 0, 0.15)";
                 }
               }}
             >
               <svg
                 aria-hidden
-                width="18"
-                height="18"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 xmlns="http://www.w3.org/2000/svg"
                 style={{ flexShrink: 0 }}
@@ -3259,98 +3176,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
                   d="M12 3C6.48 3 2 6.48 2 10.8c0 2.75 1.85 5.16 4.63 6.55l-1.18 4.34c-.05.19.05.39.23.47.06.03.13.04.2.04.13 0 .26-.05.36-.13l5.07-3.36c.23.02.46.04.69.04 5.52 0 10-3.48 10-7.8S17.52 3 12 3z"
                 />
               </svg>
-            </button>
-
-            {/* Naver */}
-            <button
-              type="button"
-              onClick={handleNaver}
-              disabled={oauthBusy !== null}
-              title="네이버 계정으로 계속하기"
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: "#03C75A",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ffffff",
-                cursor: oauthBusy ? "wait" : "pointer",
-                transition: "all 0.2s ease",
-                boxShadow: "0 2px 10px rgba(3, 199, 90, 0.15)",
-                opacity: oauthBusy && oauthBusy !== "naver" ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!oauthBusy) {
-                  e.currentTarget.style.transform = "translateY(-2px) scale(1.05)";
-                  e.currentTarget.style.boxShadow = "0 4px 16px rgba(3, 199, 90, 0.35)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!oauthBusy) {
-                  e.currentTarget.style.transform = "none";
-                  e.currentTarget.style.boxShadow = "0 2px 10px rgba(3, 199, 90, 0.15)";
-                }
-              }}
-            >
-              <svg
-                aria-hidden
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                style={{ fill: "currentColor", flexShrink: 0 }}
-              >
-                <path d="M16.2 2H22v20h-5.8L7.8 8.6V22H2V2h5.8l8.4 13.4V2z" />
-              </svg>
-            </button>
-
-            {/* LINE */}
-            <button
-              type="button"
-              onClick={handleLine}
-              disabled={oauthBusy !== null}
-              title="라인 계정으로 계속하기"
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: "#06C755",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ffffff",
-                cursor: oauthBusy ? "wait" : "pointer",
-                transition: "all 0.2s ease",
-                boxShadow: "0 2px 10px rgba(6, 199, 85, 0.15)",
-                opacity: oauthBusy && oauthBusy !== "line" ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!oauthBusy) {
-                  e.currentTarget.style.transform = "translateY(-2px) scale(1.05)";
-                  e.currentTarget.style.boxShadow = "0 4px 16px rgba(6, 199, 85, 0.35)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!oauthBusy) {
-                  e.currentTarget.style.transform = "none";
-                  e.currentTarget.style.boxShadow = "0 2px 10px rgba(6, 199, 85, 0.15)";
-                }
-              }}
-            >
-              <svg
-                aria-hidden
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                style={{ fill: "currentColor", flexShrink: 0 }}
-              >
-                <path d="M12 2C6.48 2 2 5.58 2 10c0 3.96 3.6 7.26 8.5 7.82l-1.1 3.88c-.06.2.04.4.24.48.06.02.12.02.18.02.14 0 .28-.06.36-.16l4.62-4.66C19.78 16.56 22 13.5 22 10c0-4.42-4.48-8-10-8zm-2.8 11.2H7.6V6.8h1.6v6.4zm4.4 0h-1.6v-3.2h-1.2v3.2H9.2v-6.4h1.6v1.6h1.2v-1.6h1.6v6.4zm4.8-4.8h-1.6v3.2h-1.2v-3.2H14v6.4h4.4v-1.6h-2.8v-1.6h2.8v-3.2z" />
-              </svg>
+              {oauthBusy === "kakao" ? "카카오로 이동 중…" : "카카오로 계속하기"}
             </button>
           </div>
 

@@ -46,11 +46,14 @@ export interface BreakFiredEvent {
 const ABSENCE_RESET_SECS = 5 * 60;
 /** 깊은 휴식(isResting) 누적이 이 이상이면 secsSeated 리셋 (충분한 휴식으로 간주) */
 const RESTING_RESET_SECS = 5 * 60;
+/** 선 자세(isStanding) 누적이 이 이상이면 secsSeated 리셋 (완전한 일어서기 휴식으로 간주) */
+const STANDING_RESET_SECS = 5 * 60;
 
 export class BreakTracker {
   private secsSeated = 0;
   private secsAbsent = 0;
   private secsResting = 0;
+  private secsStanding = 0;
   private stage: BreakStage = "none";
   private stageFiredAt: number | null = null;
   private lastPushAt: number | null = null;
@@ -67,6 +70,7 @@ export class BreakTracker {
     now: number,
     personPresent: boolean,
     isResting: boolean,
+    isStanding: boolean,
     stretchFired: boolean,
     config: BreakConfig,
   ): { status: BreakStatus; fired: BreakFiredEvent | null } {
@@ -83,19 +87,27 @@ export class BreakTracker {
     if (!personPresent) {
       this.secsAbsent += safeDt;
       this.secsResting = 0;
+      this.secsStanding = 0;
+    } else if (isStanding) {
+      this.secsStanding += safeDt;
+      this.secsAbsent = 0;
+      this.secsResting = 0;
     } else if (isResting) {
       this.secsResting += safeDt;
       this.secsAbsent = 0;
+      this.secsStanding = 0;
     } else {
       this.secsAbsent = 0;
       this.secsResting = 0;
+      this.secsStanding = 0;
       this.secsSeated += safeDt;
     }
 
-    // 자리비움/장시간 휴식 → 누적 리셋. 일어났다 본 것으로 간주.
+    // 자리비움/장시간 휴식/선 자세 → 누적 리셋. 일어났다 본 것으로 간주.
     if (
       this.secsAbsent >= ABSENCE_RESET_SECS ||
-      this.secsResting >= RESTING_RESET_SECS
+      this.secsResting >= RESTING_RESET_SECS ||
+      this.secsStanding >= STANDING_RESET_SECS
     ) {
       this.reset();
       return {
@@ -158,6 +170,7 @@ export class BreakTracker {
     this.secsSeated = 0;
     this.secsAbsent = 0;
     this.secsResting = 0;
+    this.secsStanding = 0;
     this.stage = "none";
     this.stageFiredAt = null;
     // lastPushAt 은 의도적으로 유지 — dt 연속성 보존
