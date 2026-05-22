@@ -1,0 +1,43 @@
+# Supabase Local Configuration for BaroSit
+
+project_id = "barosit"
+
+[api]
+port = 54331
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54332
+shadow_port = 54333
+
+[studio]
+port = 54334
+
+[inbucket]
+enabled = true
+port = 54335
+
+[auth]
+site_url = "http://localhost:1430"
+additional_redirect_urls = ["http://localhost:1430/#/auth/callback"]
+jwt_expiry = 3600
+enable_signup = true
+
+# 🔐 Google 소셜 로그인 설정 (로컬 개발용)
+[auth.external.google]
+enabled = true
+client_id = "GOOGLE_CLIENT_ID_PLACEHOLDER"
+# TODO: GCP 콘솔에서 복사한 Client Secret(보안 비밀번호)을 아래 따옴표 안에 직접 넣어주세요.
+secret = "GOOGLE_CLIENT_SECRET_PLACEHOLDER"
+redirect_uri = "http://127.0.0.1:54331/auth/v1/callback"
+
+# 🔐 Kakao 소셜 로그인 설정 (로컬 개발용)
+[auth.external.kakao]
+enabled = true
+# TODO: Kakao Developers 콘솔에서 복사한 REST API 키를 아래 client_id에 넣어주세요.
+client_id = "KAKAO_REST_API_KEY_PLACEHOLDER"
+# TODO: Kakao Developers 콘솔에서 복사한 Client Secret(보안 비밀번호)을 아래 secret에 넣어주세요.
+secret = "KAKAO_CLIENT_SECRET_PLACEHOLDER"
+redirect_uri = "http://127.0.0.1:54331/auth/v1/callback"
