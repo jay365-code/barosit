@@ -3551,140 +3551,145 @@ function PostureBars() {
     }
   }
 
+  const totalCount = items.reduce((acc, curr) => acc + curr.count, 0);
+
   return (
     <div>
-      {items.map((p) => (
-        <div
-          key={p.type}
-          onMouseEnter={() => setHoveredType(p.type)}
-          onMouseLeave={() => setHoveredType(null)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            cursor: "pointer",
-            marginBottom: 8,
-          }}
-        >
+      {items.map((p) => {
+        const percent = totalCount > 0 ? ((p.count / totalCount) * 100).toFixed(1) : "0.0";
+        return (
           <div
+            key={p.type}
+            onMouseEnter={() => setHoveredType(p.type)}
+            onMouseLeave={() => setHoveredType(null)}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              flex: 1,
-              transform: hoveredType === p.type ? "translateX(4px)" : "none",
-              transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+              cursor: "pointer",
+              marginBottom: 8,
             }}
           >
-            <span
-              style={{
-                fontSize: 12,
-                color: hoveredType === p.type ? "var(--b-warn)" : "var(--b-fg-2)",
-                width: 80,
-                fontWeight: hoveredType === p.type ? 800 : 500,
-                transition: "all 0.2s ease",
-              }}
-            >
-              {p.label}
-            </span>
             <div
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
                 flex: 1,
-                height: 6,
-                borderRadius: 3,
-                background: "var(--b-surface-2)",
-                overflow: "visible", // 툴팁 노출을 위해 visible로 설정
-                position: "relative",
+                transform: hoveredType === p.type ? "translateX(4px)" : "none",
+                transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
               }}
             >
+              <span
+                style={{
+                  fontSize: 12,
+                  color: hoveredType === p.type ? "var(--b-warn)" : "var(--b-fg-2)",
+                  width: 80,
+                  fontWeight: hoveredType === p.type ? 800 : 500,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {p.label}
+              </span>
               <div
                 style={{
-                  width: `${(p.count / max) * 100}%`,
-                  height: "100%",
-                  background: "var(--b-warn)",
-                  opacity: hoveredType === p.type ? 0.95 : 0.65,
+                  flex: 1,
+                  height: 6,
                   borderRadius: 3,
-                  transition: "width .3s ease, opacity .2s ease",
-                  boxShadow: hoveredType === p.type ? "0 0 8px var(--b-warn)" : "none",
+                  background: "var(--b-surface-2)",
+                  overflow: "visible", // 툴팁 노출을 위해 visible로 설정
+                  position: "relative",
                 }}
-              />
-
-              {/* 🌟 마우스 호버 시 떠오르는 인체공학 코멘트 말풍선 툴팁 */}
-              {hoveredType === p.type && (
+              >
                 <div
                   style={{
-                    position: "absolute",
-                    bottom: "100%",
-                    left: `${Math.min(100, Math.max(0, ((p.count / max) * 100) / 2))}%`, // 바 중간 위치 조준
-                    transform: "translateX(-50%) translateY(-8px)",
-                    background: "var(--b-elev)",
-                    backdropFilter: "blur(12px)",
-                    border: "1px solid var(--b-line-2)",
-                    borderRadius: 8,
-                    padding: "8px 12px",
-                    boxShadow: "var(--b-shadow-elev)",
-                    zIndex: 100,
-                    pointerEvents: "none",
-                    whiteSpace: "nowrap",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: 4,
-                    animation: "b-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
+                    width: `${(p.count / max) * 100}%`,
+                    height: "100%",
+                    background: "var(--b-warn)",
+                    opacity: hoveredType === p.type ? 0.95 : 0.65,
+                    borderRadius: 3,
+                    transition: "width .3s ease, opacity .2s ease",
+                    boxShadow: hoveredType === p.type ? "0 0 8px var(--b-warn)" : "none",
                   }}
-                >
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--b-fg-1)" }}>
-                    {p.label}: <span className="b-num" style={{ color: "var(--b-warn)", fontWeight: 900 }}>{p.count}회 감지</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: "var(--b-fg-3)", maxWidth: 220, whiteSpace: "normal", lineHeight: "1.4" }}>
-                    {getPostureTip(p.type)}
-                  </div>
+                />
 
-                  {/* 말풍선 꼬리 핀 */}
+                {/* 🌟 마우스 호버 시 떠오르는 인체공학 코멘트 말풍선 툴팁 */}
+                {hoveredType === p.type && (
                   <div
                     style={{
                       position: "absolute",
-                      top: "100%",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      width: 0,
-                      height: 0,
-                      borderLeft: "6px solid transparent",
-                      borderRight: "6px solid transparent",
-                      borderTop: "6px solid var(--b-line-2)",
+                      bottom: "100%",
+                      left: `${Math.min(100, Math.max(0, ((p.count / max) * 100) / 2))}%`, // 바 중간 위치 조준
+                      transform: "translateX(-50%) translateY(-8px)",
+                      background: "var(--b-elev)",
+                      backdropFilter: "blur(12px)",
+                      border: "1px solid var(--b-line-2)",
+                      borderRadius: 8,
+                      padding: "8px 12px",
+                      boxShadow: "var(--b-shadow-elev)",
+                      zIndex: 100,
+                      pointerEvents: "none",
+                      whiteSpace: "nowrap",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 4,
+                      animation: "b-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
                     }}
-                  />
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: "50%",
-                      transform: "translateX(-50%) translateY(-1px)",
-                      width: 0,
-                      height: 0,
-                      borderLeft: "5px solid transparent",
-                      borderRight: "5px solid transparent",
-                      borderTop: "5px solid var(--b-elev)",
-                    }}
-                  />
-                </div>
-              )}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--b-fg-1)" }}>
+                      {p.label}: <span className="b-num" style={{ color: "var(--b-warn)", fontWeight: 900 }}>{p.count}회 감지 ({percent}%)</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--b-fg-3)", maxWidth: 220, whiteSpace: "normal", lineHeight: "1.4" }}>
+                      {getPostureTip(p.type)}
+                    </div>
+
+                    {/* 말풍선 꼬리 핀 */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: 0,
+                        height: 0,
+                        borderLeft: "6px solid transparent",
+                        borderRight: "6px solid transparent",
+                        borderTop: "6px solid var(--b-line-2)",
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: "50%",
+                        transform: "translateX(-50%) translateY(-1px)",
+                        width: 0,
+                        height: 0,
+                        borderLeft: "5px solid transparent",
+                        borderRight: "5px solid transparent",
+                        borderTop: "5px solid var(--b-elev)",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <span
+                className="b-num"
+                style={{
+                  fontSize: 12,
+                  color: hoveredType === p.type ? "var(--b-warn)" : "var(--b-fg-3)",
+                  width: 24,
+                  textAlign: "right",
+                  fontWeight: hoveredType === p.type ? 800 : 500,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {p.count}
+              </span>
             </div>
-            <span
-              className="b-num"
-              style={{
-                fontSize: 12,
-                color: hoveredType === p.type ? "var(--b-warn)" : "var(--b-fg-3)",
-                width: 24,
-                textAlign: "right",
-                fontWeight: hoveredType === p.type ? 800 : 500,
-                transition: "all 0.2s ease",
-              }}
-            >
-              {p.count}
-            </span>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
