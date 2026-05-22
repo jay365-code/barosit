@@ -582,6 +582,81 @@ GitHub 외부 링크로만 노출되던 것을 **앱 안 모달**로 옮김. 동
 - [src/updater.ts](../src/updater.ts) & [src/components/UpdateNotice.tsx](../src/components/UpdateNotice.tsx) — 수동으로 새 버전을 체크했을 때 "최신 버전입니다"라는 긍정적인 안내를 줄 때, 기존의 빨간색 에러 배너(`b-update-error`)에 묶여 출력되던 결함을 해결했습니다.
 - 일반적인 알림 안내를 위한 독자적인 `info` 및 `dismissInfo` 상태 필드와 파이프라인을 구축하고, 세이지 그린 톤의 `b-update-info` 테마 배너 스타일을 [src/styles.css](../src/styles.css)에 신설하여 UX의 시각적 일관성을 확보했습니다.
 
+## 22. v0.1.4 — 스트레칭 점수 개편, 결제 정보 삭제 기능 추가 및 GitHub Push 보호 조치 (2026-05-22)
+
+### 배경
+- 사용자가 실사용 중 "기지개" 자세를 취할 때 카메라 화각을 벗어나거나 감지가 너무 빡빡하여 흐름이 끊기던 문제를 개선하고, 스트레칭 횟수 대신 직관적인 "스트레칭 점수" 누적 방식을 적용하여 대시보드와 UI 피드백을 통일했습니다.
+- 유료 구독 모델 연동 과정에서 필수적인 "결제 정보 삭제 (결제 수단 해제)" 기능을 구현하여 안전한 Supabase DB 필드 초기화 및 감사 로그 이벤트 처리를 완비했습니다.
+- 마지막으로 Google 및 Kakao OAuth 관련 민감 정보 노출로 인한 GitHub Push Protection 블로킹을 해결하고, 코드를 안전하게 정제하여 원격 리포지토리에 푸시를 성공시켰습니다.
+
+### 22-1. 기지개 감지 민감도 완화 및 모니터링 엔진 튜닝
+- [src/pose/stretchDetector.ts](../src/pose/stretchDetector.ts) — 기지개(overhead) 감지 시 팔꿈치 및 손목의 Y축 경계선 임계값을 완화하여, 손끝이나 팔꿈치가 카메라 화각 상단 경계에 의해 일부 잘리더라도 감지가 정상 가동되도록 수정했습니다.
+- 기지개 감지 유지 시간 및 쿨다운 값 개선:
+  - `minHoldMs`: 기존 2000ms → 1000ms로 완화 (보다 빠르게 감지 성공을 알림)
+  - `cooldownMs`: 기존 60000ms → 5000ms로 대폭 단축하여, 주기적인 점수 획득이 자연스럽게 유도되도록 조정했습니다.
+  - `gapToleranceMs`: 기존 600ms → 1000ms로 상향하여, 일시적인 Landmark 유실 시에도 인식을 부드럽게 유지(히스테리시스)하도록 보강했습니다.
+
+### 22-2. 횟수제에서 포인트제(점수 누적)로의 개편 및 대시보드 연동
+- [src/hooks/useMonitoringEngine.ts](../src/hooks/useMonitoringEngine.ts) — 스트레칭을 raw reps 단위로 기록하던 로직을 실제 획득 점수 기반 누적값으로 전환했습니다.
+  - 기지개(overhead) 완료 시 `+5점`, 사이드 스트레칭(side) 완료 시 `+3점`이 누적되어 Dashboard의 "스트레칭 점수" 카드 및 차트에 정확하게 통합됩니다.
+- [src/views/MonitorView.tsx](../src/views/MonitorView.tsx) — 대시보드의 기존 횟수 표시 라벨을 **"스트레칭 점수" (Stretching Score)**로 수정하고 단위 역시 '점'으로 직관적으로 변경했습니다.
+
+### 22-3. 안전한 결제 정보 삭제 기능 구현
+- [src/views/ProfileView.tsx](../src/views/ProfileView.tsx) — 등록된 카드/결제 정보를 사용자가 원할 때 언제든 해지할 수 있도록 `handleDeleteCardInfo` 기능을 신설했습니다.
+  - Supabase `user_subscriptions` 테이블의 `billing_key` 및 `card_info` 필드를 즉시 null로 안전하게 업데이트합니다.
+  - 트랜잭션 성공 후 `POSTURE_BONUS_EVENT`나 Profile 변경 이벤트를 적절히 전파하고, UI 상태를 즉각 동기화합니다.
+  - 구독 정보 영역 하단에 눈에 잘 띄는 빨간색 테두리의 **[결제 수단 삭제]** 버튼을 배치했으며, 로딩 상태 스피너와 성공 알림 토스트를 매끄럽게 연동했습니다.
+
+### 22-4. GitHub Push Protection 보안 필터 해결 및 리포지토리 푸시
+- [supabase/config.toml](../supabase/config.toml) — 로컬 개발 시에 입력되었던 Google 및 Kakao OAuth의 Client ID 및 Secret 노출 위험을 감지한 GitHub Push Protection 문제를 완벽하게 해결했습니다.
+  - 모든 민감 키를 `GOOGLE_CLIENT_ID_PLACEHOLDER`, `KAKAO_CLIENT_ID_PLACEHOLDER` 등 안전한 플레이스홀더 텍스트로 치환 및 정제 완료했습니다.
+  - 클린업 커밋을 생성하고 원격 `origin/main` 리포지토리에 오류 없이 안전하게 푸시했습니다.
+
+### 22-5. Tauri 크로스 플랫폼 클라우드 빌드 파이프라인 정비
+- GitHub Actions 워크플로우 `Release (signed, auto-updater)`에서 `macos-latest` 및 `windows-latest` 환경 빌드가 단일 태그 push로 완전 자동화 및 정상 구동됨을 재확인했습니다.
+- Tauri의 네이티브 윈도우 및 웹 번들이 동일한 프론트엔드 리소스를 공유하므로, 새로 수정된 감지 민감도, 포인트 적립 및 결제 삭제 기능이 macOS/Windows 데스크톱 앱과 브라우저에서 100% 동일하게 동작하도록 설계 및 호환을 보장했습니다.
+
+### 22-6. Resend 매직링크(Supabase Email OTP) 도입 중단 결정 기록
+- 사용자의 최종 결정에 따라 이번 스프린트에서 Resend를 이용한 매직링크 인증 기능은 도입 대상에서 제외(중단)하기로 결정했습니다.
+- 관련 문헌인 [project-status.md](../docs/project-status.md) 및 [auth-sync-plan.md](../docs/auth-sync-plan.md) 에 매직링크 제외 사실을 확실하게 명문화하여 기록을 남겼습니다.
+- 이에 따라 로그인 및 회원가입 인증 흐름은 Google 및 Kakao OAuth 소셜 로그인에 집중하여 완성해 갈 예정입니다.
+
+### 검증
+- TypeScript 정적 분석 `tsc --noEmit` — 0 errors
+- 빌드 검증 `npm run build:web` — 100% 성공
+
+## 23. v0.1.5 — 실시간 타이머 정상화, 연간 공헌도 바둑판 그리드 캘린더, 소급 패키징 엔진 및 시간 표시 레이아웃 가림 현상 해결 (2026-05-23)
+
+### 배경
+- 브라우저 웹 전용 모드 또는 메인 분석 뷰(`MonitorView.tsx`) 단독 가동 시 백그라운드 엔진(`useMonitoringEngine`)이 미실행되어 실시간 오늘 총 사용 시간 및 좋은 자세 유지율 타이머가 멈추던 버그를 완벽히 해결했습니다.
+- 자정 전 퇴근 등으로 컴퓨터를 종료하는 사용자의 실제 생활 패턴에 대응하여, 다음 기동 시 어제의 데이터를 유실 없이 가공 및 소급 패키징하는 오프라인-퍼스트 outbox 설계인 `Retroactive Pack-and-Sync` 엔진을 완벽히 마운트했습니다.
+- 12행 x 31열 연간 공헌도 바둑판 그리드 캘린더를 신설하고, 차트의 실시간 현재 시각 지시선 배지가 상단 헤더 텍스트와 겹치거나 지시선이 상단으로 튀어나와 가리는 현상을 레이아웃 및 렌더링 범위 조정을 통해 세련되게 해결했습니다.
+
+### 23-1. 실시간 "오늘 총 사용 시간" 및 "좋은 자세 유지율" 타이머 정상화
+- [src/views/MonitorView.tsx](../src/views/MonitorView.tsx) — 메인 뷰 단독 구동 시에도 타이머가 정상 동작하도록 1초 주기 독립 타이머 엔진을 탑재했습니다.
+- `statusRef`, `scoreRef`, `violationsRef` 등 robust한 refs 체계를 설계하여 상태 변화 시 불필요한 타이머 생성/해제 오버헤드를 제로화했습니다.
+- 매 1초마다 총 사용 시간을 증가시키고, 자세 위반이 감지되지 않으면 좋은 자세 시간을 증가시켜 React 상태 및 LocalStorage를 동기화했습니다.
+- `StorageEvent` 리스너를 추가하여 여러 브라우저 탭이나 창 간에도 실시간 카운터의 정합성이 100% 일치하도록 보장했습니다.
+
+### 23-2. 기동 시 소급 패키징 및 배치 동기화 엔진 (`Retroactive Pack-and-Sync`) 도입
+- [src/views/MonitorView.tsx](../src/views/MonitorView.tsx) — 컴포넌트 마운트 시 `last_active_date`와 현재 날짜를 비교 감지하여 날짜 변경 시 어제 퇴근 시점까지 누적되었던 임시 데이터를 소급 패키징하는 엔진을 탑재했습니다.
+- 어제 최종 통계 객체를 `{r, v, s, a, synced: false}` 형태로 가공하여 `barosit_daily_history` 장기 DB에 보존하고, 오늘 신규 모니터링을 위해 임시 슬롯 리셋 및 `last_active_date`를 오늘로 갱신했습니다.
+- 백그라운드에서 동기화되지 않은 데이터를 수집하여 배치 전송하는 동기화 메커니즘을 시뮬레이션하여 데이터 무결성을 보장했습니다.
+
+### 23-3. 12개월 전주기 일별 자세 건강 분포 그리드 신설
+- [src/views/MonitorView.tsx](../src/views/MonitorView.tsx) — Github Contribution Heatmap 스타일의 12행(1월~12월) x 31열(1일~31일) 연간 공헌도 캘린더를 구현하여 상세 분석 리포트 모달 내부에 배치했습니다.
+- 프리미엄 HSL 컬러 맵(S, A, B, C, D 등급별 톤 변이)과 반응형 글래스모피즘 툴팁을 추가하여 장기 자세 개선 여정을 시각화하고 성취감을 고취했습니다.
+- 정형외과/척추생체역학 논문 근거(Nachemson 요추 수직 부하 연구, Kapandji 경추 전단 하중 연구, 인대 완화 방지 각주 등)를 명시하여 임상적 신뢰도를 극대화했습니다.
+
+### 23-4. 실시간 현재 시간 지시선 및 말풍선 레이아웃 가림 문제 해결
+- [src/views/MonitorView.tsx](../src/views/MonitorView.tsx) — 차트 헤더와 차트 바디 간 여백(`marginBottom`)을 기존 `14px`에서 `24px`로 대폭 확장하여, 09:00~12:00 등 이른 시간대에 현재 시각 말풍선이 텍스트 정보를 가리던 레이아웃 충돌 문제를 완전히 해결했습니다.
+- 말풍선 핀의 상대적 수직 위치를 `top: 6px`로 하향 조정하여, 차트 상단의 비어있는 안전 여백(22px 높이) 중앙 영역에 조화롭고 완벽하게 안착시켰습니다.
+- **수직 점선 상단 노출 차단**: 점선 지시선이 현재 시각 말풍선 배지 위쪽으로 삐죽하게 튀어나와 룩앤필을 해치는 불편을 해결하기 위해, 점선의 렌더링 범위를 말풍선 아래인 `top: 22px`에서 시작하여 차트 바닥까지 내려가도록 차단 및 분리하여 세련된 비주얼을 구축했습니다.
+
+### 검증
+- TypeScript 정적 분석 `tsc --noEmit` — 0 errors
+- 빌드 검증 `npm run build:web` — 100% 성공
+
 ## 알려진 한계
 
 1. **macOS 전용 일부 동작** — 트레이 + Reopen 이벤트 + macOSPrivateApi

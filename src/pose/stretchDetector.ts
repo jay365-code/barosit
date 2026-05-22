@@ -117,25 +117,30 @@ export function isCrossBody(lm: Landmarks): boolean {
 
   const sw = Math.abs(ls.x - rs.x);
   const midY = (ls.y + rs.y) / 2;
+
+  // 1. 손목이 반대쪽 어깨에 확실하게 접근해야 함 (sw * 0.45 -> sw * 0.32 타이트화)
   const close = (w: Landmark, opp: Landmark): boolean =>
-    Math.hypot(w.x - opp.x, w.y - opp.y) < sw * 0.45;
-  const aroundChest = (w: Landmark) => Math.abs(w.y - midY) < sw * 0.45;
-  const elbowAcross = (elbow: Landmark | undefined, sameShoulder: Landmark): boolean =>
-    !!elbow && vis(elbow) && elbow.y > sameShoulder.y - sw * 0.15;
-  // 어깨 컨벤션(LS.x vs RS.x 대소)에 무관하게 동작 — wrist가 어깨 중점을
-  // 반대편 어깨 방향으로 sw*0.15 이상 넘어가면 "건너감".
+    Math.hypot(w.x - opp.x, w.y - opp.y) < sw * 0.32;
+
+  const aroundChest = (w: Landmark) => Math.abs(w.y - midY) < sw * 0.40;
+
+  // 2. 팔꿈치가 아래로 축 처지지 않고, 가슴/어깨 높이 수준에서 수평으로 들어올려져 반대편으로 뻗어 있어야 함
+  const elbowActive = (elbow: Landmark | undefined, sameShoulder: Landmark): boolean =>
+    !!elbow && vis(elbow) && Math.abs(elbow.y - sameShoulder.y) < sw * 0.30;
+
+  // 3. 손목이 단순히 가슴 중앙이 아니라, 반대편 가슴 영역 깊숙이 넘어가야 함 (sw * 0.15 -> sw * 0.28 이상으로 가로지름 확장)
   const midX = (ls.x + rs.x) / 2;
   const dirL = Math.sign(rs.x - ls.x); // ls→rs 방향 부호
-  const lCrossed = (w: Landmark) => dirL * (w.x - midX) > sw * 0.15;
-  const rCrossed = (w: Landmark) => -dirL * (w.x - midX) > sw * 0.15;
+  const lCrossed = (w: Landmark) => dirL * (w.x - midX) > sw * 0.28;
+  const rCrossed = (w: Landmark) => -dirL * (w.x - midX) > sw * 0.28;
 
   if (
     vis(lw, 0.5) && lCrossed(lw) && close(lw, rs) && aroundChest(lw) &&
-    elbowAcross(le, ls)
+    elbowActive(le, ls)
   ) return true;
   if (
     vis(rw, 0.5) && rCrossed(rw) && close(rw, ls) && aroundChest(rw) &&
-    elbowAcross(re, rs)
+    elbowActive(re, rs)
   ) return true;
   return false;
 }

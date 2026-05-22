@@ -6,7 +6,7 @@
 
 **BaroSit** — 데스크톱 자세 모니터링 앱 (Tauri 2 + React + MediaPipe)
 **최신 release**: v0.1.1 (2026-05-19, 자동 업데이트 풀 시연 완료)
-**다음 release 대기**: v0.1.3 (약관 인앱 표시 + 프로필 Phase 0 + 가림 핸드오버 + 적응형 민감도 시각화 등 — 개발 완료, 릴리스 태그 배포 대기)
+**다음 release 대기**: v0.1.5 (약관 인앱 표시 + 프로필 Phase 0 + 가림 핸드오버 + 적응형 민감도 시각화 + 스트레칭 점수 누적제 개편 및 기지개 감지 완화 + 결제 정보 삭제 기능 추가 + 실시간 사용시간/자세유지율 타이머 정상화 + 연간 공헌도 잔디 그리드 + 소급 패키징 및 배치 동기화 엔진 + 시간 표시 가림 및 점선 튀어나옴 현상 완벽 해결 — 개발 완료, 배포 대기)
 
 - ✅ macOS 핵심 기능 동작 (자세 6종 + 점수 + 스트레칭 7종 + 위젯 모드 + 장시간 사용성 보호)
 - ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
@@ -16,7 +16,7 @@
 - ✅ **Google OAuth 인증** — Supabase + Custom Domain `auth.barosit.com`, consent screen 에 BaroSit 로고
 - 🟡 Windows 빌드 — release.yml 매트릭스로 빌드됨, 실 사용 검증은 미진행
 - 🟡 일부 UX 다듬기 + 영문화 미진행
-- 🟡 매직링크 (Resend SMTP 셋업만 남음) · Kakao OAuth (Kakao Developers 검수 필요)
+- 🟡 Kakao OAuth (Kakao Developers 검수 필요) (※ Resend 매직링크는 도입하지 않기로 최종 결정)
 - ❌ macOS 코드 서명·공증 안 됨 · 데스크탑 앱에 OAuth 미연결 · 클라우드 동기화 (profiles/posture_events 테이블) 미구현
 
 ### 🔴 출시 블로커 진행 상황
@@ -72,7 +72,7 @@
 - [x] 어깨 으쓱 shoulder_shrug (+3) — baseline 대비 양 어깨 sw*0.20 위로
 - [x] 목 좌우 풀기 neck_side (+4) — face roll Δ 0.25 rad + 어깨 수평 유지
 - [x] 상체 앞 숙이기 forward_fold (+5) — 코 sw*0.30 아래 + 어깨 sw*0.15 아래
-- [x] 2.0초 hold + 60초 쿨다운 + 600ms 갭 허용
+- [x] 기지개(Overhead)의 경우 1.0초 hold / 5초 쿨다운 / 1000ms 갭 허용으로 완화 및 카메라 상단 화각 잘림 극복 (나머지 스트레칭은 2.0초 hold + 60초 쿨다운 + 600ms 갭 허용)
 
 ### 안정화 알고리즘
 - [x] ViolationSmoother (EMA α=0.15 + 히스테리시스 0.6/0.3 + 최소 3초 hold)
@@ -84,7 +84,7 @@
 - [x] 지속 시간 가속 패널티 (0/2/10/30/60초 구간)
 - [x] 연속 좋은 자세 회복 가속 (5분/15분 구간)
 - [x] 빠른 회복 보너스 +2
-- [x] 스트레칭 보너스 (CustomEvent `posture-bonus`)
+- [x] 스트레칭 보너스 누적 방식 개편 (raw 횟수 단위에서 실제 획득 점수 기반으로 변경: 기지개 +5점 / 사이드 +3점 등) 및 대시보드 연동 ("스트레칭 점수" 카드로 통합)
 - [x] 윈도우 간 storage 이벤트 동기화
 - [x] visibilitychange/focus 시 localStorage 재로드 (suspend 보상)
 - [x] frozen 조건 (비활성 owner / paused / cameraReady=false / baseline=null)
@@ -196,7 +196,8 @@
 - [x] ProfileView 좌상단 "홈으로" 버튼 → MonitorView 복귀
 - [x] **웹 Google OAuth (2026-05-20)** — Supabase + Custom Domain `auth.barosit.com`. [src/auth/supabase.ts](../src/auth/supabase.ts) + [src/auth/useAuth.ts](../src/auth/useAuth.ts) + Marketing.tsx Login/AuthCallback/Profile 연결. 시크릿창 풀 흐름 검증 완료
 - [x] **마케팅 사이트의 Profile 페이지** Google 사용자 정보 실데이터 표시 (이름·이메일·아바타·가입일·로그인 방식)
-- [ ] **매직링크 (Supabase Email OTP)** — 코드는 완료 ([signInWithMagicLink](../src/auth/useAuth.ts), UI 완성). Resend Custom SMTP 셋업만 남음
+- [x] **결제 정보 삭제 (결제 수단 해제) 기능 구현 (2026-05-22)** — ProfileView 내에 `billing_key` 및 `card_info` 필드를 Supabase에서 즉시 null로 리셋하고 상태 동기화 처리하는 [결제 수단 삭제] 경고 버튼 추가
+- [❌] **매직링크 (Supabase Email OTP)** — 이번 빌드에서 도입하지 않기로 결정 (Resend SMTP 셋업 취소)
 - [ ] **Kakao OAuth** — Supabase native 미지원. OIDC + Kakao Developers 검수 필요
 - [ ] **데스크탑 앱 OAuth (Tauri)** — deep link `barosit://auth/callback` + Rust `keyring` crate + ProfileView 의 "준비 중" 버튼 활성화. [auth-sync-plan.md Phase 1-3](./auth-sync-plan.md) 참조
 - [ ] **Phase 2 (DB 스키마 + 동기화 엔진)** — profiles · posture_events · daily_scores · user_settings 테이블 + RLS + sync engine
@@ -304,9 +305,18 @@
 14. **자동 업데이트 (2026-05-19)**: `tauri-plugin-updater` + GitHub Releases. minisign 서명, latest.json 자동 메니페스트. v0.1.0 → v0.1.1 풀 사이클(자동 체크 → 배너 → 다운로드 → 서명 검증 → 설치 → relaunch) 검증 완료. **endpoint 의존성 때문에 GitHub repo 가 public 이어야 함**.
 15. **약관 인앱 모달 (2026-05-19)**: 외부 GitHub URL 이탈 없이 `react-markdown` + `remark-gfm` 으로 [privacy.md](./privacy.md) / [terms.md](./terms.md) 렌더. Onboarding · SettingsDrawer · 향후 ProfileView 모두 동일 trigger 패턴.
 16. **사용자 프로필 Phase 0 (2026-05-19)**: 로컬 stub (이름·이모지 아바타·작업환경). 인증·동기화는 별도 메이저 sprint ([auth-sync-plan.md](./auth-sync-plan.md)) — **온디바이스 원칙 변경 + 처리방침 전면 재작성** 동반.
-17. **마케팅 사이트 호스팅 + 인증 스택 확정 (2026-05-20)**: 마케팅 사이트는 **Cloudflare Pages** (정적, 무료 무제한 대역폭, KR 엣지). 인증·DB 는 **Supabase** (서울 리전). 인증 방식은 **매직링크 + Google OAuth + Kakao OAuth** — 비밀번호 가입은 도입하지 않음 (재설정 흐름·해시 정책·보안 책임 절감). Apple OAuth 는 Mac App Store 출시 시점에 추가. Kakao 는 Supabase native 미지원이라 OIDC + Kakao Developers 검수 경로. [auth-sync-plan.md v2](./auth-sync-plan.md) 확정 — Phase 1 착수 가능.
-18. **마케팅 사이트 법적 페이지 (2026-05-20)**: `/privacy`, `/terms`, `/contact` 라우트 추가. privacy/terms 는 `docs/*.md` 를 `?raw` import 해서 react-markdown 으로 렌더 — 앱 내 [LegalDocument 모달](../src/components/LegalDocument.tsx) 과 단일 소스. 문의는 `jhlee@gubed.co.kr` mailto + GitHub Issues. 로그인 UI 는 매직링크+Google+Kakao 구조로 정리, Apple 버튼·비밀번호 필드 제거.
+17. **마케팅 사이트 호스팅 + 인증 스택 확정 (2026-05-20)**: 마케팅 사이트는 **Cloudflare Pages** (정적, 무료 무제한 대역폭, KR 엣지). 인증·DB 는 **Supabase** (서울 리전). 인증 방식은 **Google OAuth + Kakao OAuth** (Resend 매직링크는 도입하지 않기로 최종 결정) — 비밀번호 가입은 도입하지 않음 (재설정 흐름·해시 정책·보안 책임 절감). Apple OAuth 는 Mac App Store 출시 시점에 추가. Kakao 는 Supabase native 미지원이라 OIDC + Kakao Developers 검수 경로. [auth-sync-plan.md v2](./auth-sync-plan.md) 확정 — Phase 1 착수 가능.
+18. **마케팅 사이트 법적 페이지 (2026-05-20)**: `/privacy`, `/terms`, `/contact` 라우트 추가. privacy/terms 는 `docs/*.md` 를 `?raw` import 해서 react-markdown 으로 렌더 — 앱 내 [LegalDocument 모달](../src/components/LegalDocument.tsx) 과 단일 소스. 문의는 `jhlee@gubed.co.kr` mailto + GitHub Issues. 로그인 UI 는 Google+Kakao 구조로 정리 (매직링크 제거), Apple 버튼·비밀번호 필드 제거.
 19. **production 배포 + 인증 인프라 완성 (2026-05-20)**: 도메인 `barosit.com` 구매(hosting.kr) + DNS 를 Cloudflare 로 이전. **Cloudflare Pages** 에 GitHub 연동, main push 시 자동 배포 — `https://barosit.com` 라이브. **Supabase Pro** + **Custom Domain `auth.barosit.com`** 활성화 (Let's Encrypt SSL 자동), Google OAuth consent 에 BaroSit 로고 업로드 → Google 로그인 화면에 "auth.barosit.com(으)로 이동" 표시. Google Cloud Console 에 `https://barosit.com`/`https://barosit.pages.dev`/`http://localhost:1430` 3개 origin 등록, Supabase URL Configuration 의 Site URL = `https://barosit.com` + Redirect URLs 3개 허용 목록. 시크릿창에서 `barosit.com → Google → /landing` 풀 흐름 검증 완료. **외부 비용**: 도메인 ~₩18,000/년 (hosting.kr) + Supabase Pro $25/월. Cloudflare 는 Free 유지.
+20. **기지개 감지 완화 및 포인트제 개편 (2026-05-22)**: 기지개 스트레칭(overhead) 동작 시 Y축 임계 경계값을 낮추어 카메라 뷰 위로 팔이 살짝 넘치더라도 감지가 잘 되도록 수정. 감지 쿨다운을 60초에서 5초로 대폭 낮추고, 최소 유지 시간을 2초에서 1초로, 연속 프레임 이탈 허용(gapToleranceMs)을 600ms에서 1000ms로 조율하여 반응성을 끌어올림. 아울러 기존의 누적 횟수(reps) 단위를 획득 점수 기반(기지개 +5점 / 사이드 +3점)의 "스트레칭 점수"로 개편하고 대시보드와 UI 토스트 표시의 점수를 일치시킴.
+21. **Supabase 결제 정보 삭제 수단 신설 (2026-05-22)**: ProfileView에 [결제 수단 삭제] 경고 버튼을 신설하여 Supabase `user_subscriptions` 테이블에 연결된 카드 billing_key와 card_info 정보를 즉시 null로 해제 및 UI 반영.
+22. **GitHub Push Protection 대응 (2026-05-22)**: `supabase/config.toml`에 포함되어 노출될 뻔한 Google / Kakao OAuth API secrets를 플레이스홀더로 전부 격리·보호 조치하여 Git Push 차단 문제를 안전하게 자가 해결 후 origin/main으로 원격 Push 완료.
+23. **실시간 타이머, 연간 공헌도 그리드 및 소급 패키징 동기화 엔진 완성 (2026-05-23)**:
+    - **타이머 멈춤 복구**: 브라우저 웹 전용 및 태우리 단독 뷰 가동 시 타이머가 동작하지 않던 버그를 1초 주기 refs 기반 실시간 엔진 장착으로 완벽 복구하고 `StorageEvent`로 다중 탭 연동.
+    - **Retroactive Pack-and-Sync**: 자정 전 컴퓨터 종료 시 잔존 임시 데이터를 기동 시 소급 패키징하여 로컬 장기 통계 역사 DB에 저장하고 백그라운드 일괄 배치 동기화하는 엔진 구축.
+    - **연간 캘린더 그리드**: 12행 x 31열의 Github contribution heatmap 스타일 잔디밭 그리드 신설 및 정형외과 척추생체역학 논문 근거 명시.
+    - **시간 표시 레이아웃 개선**: 말풍선 배지를 `top: 6px`로 배치하고 헤더 `marginBottom`을 `24px`로 늘려 텍스트 가림을 해결하고, 점선 지시선을 말풍선 하단(`top: 22px`)에서만 출발하도록 리팩토링하여 지시선 상단 돌출을 미적으로 해결.
+
 
 ## 알려진 한계 / 제약
 

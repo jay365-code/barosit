@@ -193,6 +193,7 @@ export function useMonitoringEngine(opts: {
   const latestPoseRef = useRef<Landmarks | null>(null);
   const lastAlarmRef = useRef<{ type: PostureType; at: number } | null>(null);
   const debugRef = useRef<AnalysisDebug | null>(null);
+  const violationsRef = useRef<Set<PostureType>>(new Set());
 
   // 실제 검출이 안 되는 모든 경우 점수 변동 중단
   // (비활성, 일시정지, 카메라 미준비, 베이스라인 없음)
@@ -567,6 +568,7 @@ export function useMonitoringEngine(opts: {
       setMaxDurationSecs(maxDur);
 
       setViolations(stableViolations);
+      violationsRef.current = stableViolations;
 
       // 알람 트래킹 — 휴식 중이면 트래커 리셋해서 누적 시간 0부터 다시
       if (result.isResting) {
@@ -682,6 +684,66 @@ export function useMonitoringEngine(opts: {
       publishWidgetState(widgetState).catch(() => undefined);
     },
   });
+
+  const statusRef = useRef<PostureStatus>(status);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  const scoreRef = useRef<number>(score);
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+
+  // 오늘 총 사용 시간, 좋은 자세 시간, 점수 누적 타이머 (옵션 A)
+  useEffect(() => {
+    if (!opts.enabled || opts.paused) return;
+
+    const id = window.setInterval(() => {
+      // 자리비움(paused) 상태가 아닐 때만 카운팅
+      if (statusRef.current === "paused") return;
+
+      try {
+        // 1. 총 사용 시간 누적
+        const currentActive = Number(localStorage.getItem("active_duration_today") || "0");
+        const nextActive = currentActive + 1;
+        localStorage.setItem("active_duration_today", String(nextActive));
+
+        // 2. 점수 누적합 가산
+        const currentScoreSum = Number(localStorage.getItem("score_sum_today") || "0");
+        const nextScoreSum = currentScoreSum + scoreRef.current;
+        localStorage.setItem("score_sum_today", String(nextScoreSum));
+
+        // 3. 좋은 자세 시간 누적 (위반이 없을 때)
+        const currentGood = Number(localStorage.getItem("good_duration_today") || "0");
+        let nextGood = currentGood;
+        if (violationsRef.current.size === 0) {
+          nextGood = currentGood + 1;
+          localStorage.setItem("good_duration_today", String(nextGood));
+        }
+
+        // 다중 윈도우 동기화를 위한 스토리지 이벤트 디스패치
+        window.dispatchEvent(new StorageEvent("storage", {
+          key: "active_duration_today",
+          newValue: String(nextActive),
+        }));
+        window.dispatchEvent(new StorageEvent("storage", {
+          key: "score_sum_today",
+          newValue: String(nextScoreSum),
+        }));
+        if (violationsRef.current.size === 0) {
+          window.dispatchEvent(new StorageEvent("storage", {
+            key: "good_duration_today",
+            newValue: String(nextGood),
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to accumulate monitoring stats in engine:", e);
+      }
+    }, 1000);
+
+    return () => window.clearInterval(id);
+  }, [opts.enabled, opts.paused]);
 
   return {
     cameraReady,
