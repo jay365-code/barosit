@@ -66,6 +66,7 @@ import type {
   PostureStatus,
   PostureType,
 } from "../pose/types";
+import { triggerAutoSync } from "../lib/syncService";
 
 const ABSENCE_GRACE_MS = 8000;
 
@@ -110,6 +111,42 @@ export function useMonitoringEngine(opts: {
     at: number;
   } | null>(null);
   const [, setMaxDurationSecs] = useState<number>(0);
+
+  // 구독 등급(free/pro) 실시간 스토리지 트래킹 및 캐싱 정책
+  const [subPlan, setSubPlan] = useState<"free" | "pro">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free";
+    }
+    return "free";
+  });
+
+  useEffect(() => {
+    const handleSubChanged = () => {
+      const plan = (localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free";
+      setSubPlan(plan);
+    };
+    window.addEventListener("barosit:subscription-changed", handleSubChanged);
+    window.addEventListener("storage", handleSubChanged);
+    return () => {
+      window.removeEventListener("barosit:subscription-changed", handleSubChanged);
+      window.removeEventListener("storage", handleSubChanged);
+    };
+  }, []);
+
+  // 5분 주기 백그라운드 자동 동기화 타이머 (모니터링 활성화 중일 때만 동작)
+  useEffect(() => {
+    if (!opts.enabled || opts.paused) return;
+
+    // 세션 활성화 직후 최초 1회 즉시 동기화 실행
+    triggerAutoSync();
+
+    const intervalId = setInterval(() => {
+      console.log("[useMonitoringEngine] 5-minute background auto-sync executing...");
+      triggerAutoSync();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [opts.enabled, opts.paused]);
 
   const scoreInputsRef = useRef<ScoreInputs>({
     durations: [],
@@ -291,7 +328,9 @@ export function useMonitoringEngine(opts: {
 
   const { error: detectorError, retry: detectorRetry } = usePoseLoop({
     videoRef,
-    enabled: opts.enabled && cameraReady && !opts.paused && !!baseline,
+    // FREE 플랜 기능 격하(Degradation) 정책: 창이 최소화되거나 비활성화(opts.visible=false)되면 백그라운드 모니터링 강제 차단.
+    // PRO 플랜일 때는 창이 백그라운드에 감춰져도 지속 관제 기능 보장.
+    enabled: opts.enabled && cameraReady && !opts.paused && !!baseline && (subPlan === "pro" || opts.visible),
     // 윈도우가 다른 앱 뒤로 가려져도 (Tauri/macOS occlusion → document.hidden)
     // 모니터링은 계속해야 함. face/hands 는 자리비움/턱괴임 판정에 필수라 항상 ON.
     // segmentation 만 보이지 않을 때 끔. fps는 약간만 낮춤 (브라우저 throttling이
@@ -550,6 +589,12 @@ export function useMonitoringEngine(opts: {
           severity: "bad",
           coaching_message: null,
         }).catch(() => undefined);
+        // FREE 플랜인 경우 AI 맞춤 코칭 피드백 잠금 (PRO 전용 기능)
+        if (subPlan !== "pro") {
+          console.log("[useMonitoringEngine] AI Coaching locked for FREE plan.");
+          continue;
+        }
+
         fetchCoachingMessage({
           postureType: event.type,
           durationSecs: event.durationSecs,

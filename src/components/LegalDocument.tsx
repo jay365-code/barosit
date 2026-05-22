@@ -52,7 +52,8 @@ export function LegalDocument({ kind, onClose }: Props) {
             remarkPlugins={[remarkGfm]}
             components={{
               a: ({ href, children, ...props }) => {
-                if (href && href.includes("pricing-policy.md")) {
+                if (!href) return <>{children}</>;
+                if (href.includes("pricing-policy.md")) {
                   return (
                     <a
                       href="#"
@@ -77,8 +78,63 @@ export function LegalDocument({ kind, onClose }: Props) {
                     </a>
                   );
                 }
+                if (href.includes("changelog.md")) {
+                  return (
+                    <a
+                      href="https://github.com/jay365-code/barosit/blob/main/docs/changelog.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: "underline" }}
+                    >
+                      {children}
+                    </a>
+                  );
+                }
+                if (href.includes("settings.md")) {
+                  return (
+                    <a
+                      href="https://github.com/jay365-code/barosit/blob/main/docs/settings.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: "underline" }}
+                    >
+                      {children}
+                    </a>
+                  );
+                }
+                if (href.includes("privacy.md")) {
+                  return (
+                    <a
+                      href="https://github.com/jay365-code/barosit/blob/main/docs/privacy.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: "underline" }}
+                    >
+                      {children}
+                    </a>
+                  );
+                }
+                if (href.includes("terms.md")) {
+                  return (
+                    <a
+                      href="https://github.com/jay365-code/barosit/blob/main/docs/terms.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: "underline" }}
+                    >
+                      {children}
+                    </a>
+                  );
+                }
+                const isExternal = href.startsWith("http") || href.startsWith("//");
                 return (
-                  <a href={href} {...props}>
+                  <a
+                    href={href}
+                    target={isExternal ? "_blank" : undefined}
+                    rel={isExternal ? "noopener noreferrer" : undefined}
+                    style={{ textDecoration: "underline" }}
+                    {...props}
+                  >
                     {children}
                   </a>
                 );

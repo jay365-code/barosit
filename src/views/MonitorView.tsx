@@ -4,6 +4,7 @@ import {
   PROFILE_CHANGED_EVENT,
   type UserProfile,
 } from "../userProfile";
+import { useAuth } from "../auth/useAuth";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
@@ -106,6 +107,7 @@ interface Props {
   onRecalibrate: () => void;
   onOpenSettings: () => void;
   onOpenProfile: () => void;
+  onOpenPricing: () => void;
   onStatusChange?: (status: PostureStatus) => void;
 }
 
@@ -155,8 +157,25 @@ export function MonitorView({
   onRecalibrate,
   onOpenSettings,
   onOpenProfile,
+  onOpenPricing,
   onStatusChange,
 }: Props) {
+  const { user } = useAuth();
+  const [subPlan, setSubPlan] = useState<"free" | "pro">(() => {
+    return (localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free";
+  });
+
+  useEffect(() => {
+    const syncPlan = () => {
+      setSubPlan((localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free");
+    };
+    window.addEventListener("barosit:subscription-changed", syncPlan);
+    window.addEventListener("storage", syncPlan);
+    return () => {
+      window.removeEventListener("barosit:subscription-changed", syncPlan);
+      window.removeEventListener("storage", syncPlan);
+    };
+  }, []);
   const [widgetEnabled, setWidgetEnabled] = useState<boolean>(
     () => localStorage.getItem("app_mode") === "widget",
   );
@@ -937,6 +956,158 @@ export function MonitorView({
         <DebugOverlay debugRef={debugRef} violationsRef={violationsRef} />
       )}
       <div style={{ padding: "22px 40px 20px", maxWidth: 1100, margin: "0 auto" }}>
+        {/* Nudge Alert Banner for Guest / Free Users */}
+        {(!user || subPlan === "free") && (
+          <div
+            className="barosit-nudge-banner"
+            onClick={!user ? onOpenProfile : onOpenPricing}
+            style={{
+              cursor: "pointer",
+              position: "relative",
+              borderRadius: "16px",
+              padding: "16px 24px",
+              marginBottom: "28px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "20px",
+              background: !user
+                ? "linear-gradient(135deg, rgba(30, 27, 75, 0.45) 0%, rgba(15, 23, 42, 0.6) 100%)"
+                : "linear-gradient(135deg, rgba(30, 41, 59, 0.45) 0%, rgba(15, 23, 42, 0.6) 100%)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              border: !user
+                ? "1px solid rgba(99, 102, 241, 0.15)"
+                : "1px solid rgba(234, 179, 8, 0.15)",
+              boxShadow: !user
+                ? "0 8px 32px 0 rgba(99, 102, 241, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.05)"
+                : "0 8px 32px 0 rgba(234, 179, 8, 0.08), inset 0 1px 1px 0 rgba(255, 255, 255, 0.05)",
+              overflow: "hidden",
+              transition: "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+          >
+            {/* Glow effect decor */}
+            <div
+              style={{
+                position: "absolute",
+                top: "-50%",
+                left: "-20%",
+                width: "60%",
+                height: "200%",
+                background: !user
+                  ? "radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 70%)"
+                  : "radial-gradient(circle, rgba(234, 179, 8, 0.12) 0%, rgba(234, 179, 8, 0) 70%)",
+                pointerEvents: "none",
+                zIndex: 0,
+                transform: "rotate(-15deg)",
+              }}
+            />
+
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", zIndex: 1, flex: 1 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "12px",
+                  background: !user
+                    ? "rgba(99, 102, 241, 0.12)"
+                    : "rgba(234, 179, 8, 0.12)",
+                  border: !user
+                    ? "1px solid rgba(99, 102, 241, 0.2)"
+                    : "1px solid rgba(234, 179, 8, 0.2)",
+                  color: !user ? "#818cf8" : "#fbbf24",
+                  fontSize: "20px",
+                  flexShrink: 0,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                }}
+              >
+                {!user ? "☁️" : "⚡"}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                <span
+                  style={{
+                    fontSize: "14.5px",
+                    fontWeight: 600,
+                    color: "rgba(255, 255, 255, 0.95)",
+                    letterSpacing: "-0.01em",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {!user
+                    ? "게스트 모드로 감지 중입니다. 브라우저 캐시 삭제 시 통계 기록이 유실될 수 있으니 간편 로그인하여 클라우드에 평생 백업하세요."
+                    : "현재 웹 전용 FREE 플랜입니다. 백그라운드 무정지 감지, 미니 위젯 등 풍부한 네이티브 기능이 포함된 데스크톱 설치형 앱 다운로드(PRO 전용)를 이용해보세요."}
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: !user ? "rgba(129, 140, 248, 0.85)" : "rgba(251, 191, 36, 0.85)",
+                    letterSpacing: "-0.005em",
+                  }}
+                >
+                  {!user
+                    ? "🔒 3초 만에 소셜 로그인하고 소중한 거북목 분석 데이터 지키기"
+                    : "💻 Windows / macOS 무정지 백그라운드 구동 & 실시간 플로팅 위젯 지원"}
+                </span>
+              </div>
+            </div>
+
+            <button
+              style={{
+                zIndex: 1,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "10px 18px",
+                borderRadius: "10px",
+                background: !user
+                  ? "linear-gradient(135deg, rgba(99, 102, 241, 0.85) 0%, rgba(79, 70, 229, 0.9) 100%)"
+                  : "linear-gradient(135deg, rgba(245, 158, 11, 0.85) 0%, rgba(217, 119, 6, 0.9) 100%)",
+                color: "#ffffff",
+                fontSize: "13px",
+                fontWeight: 700,
+                border: "none",
+                cursor: "pointer",
+                boxShadow: !user
+                  ? "0 4px 14px 0 rgba(99, 102, 241, 0.3)"
+                  : "0 4px 14px 0 rgba(245, 158, 11, 0.3)",
+                transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+                whiteSpace: "nowrap",
+                fontFamily: "inherit",
+              }}
+              className="nudge-action-btn"
+            >
+              {!user ? "평생 백업하기" : "PRO 혜택 확인"}
+              <Icon name="chev-r" size={11} />
+            </button>
+
+            {/* Inline CSS styling helper to support advanced hover effects beautifully */}
+            <style>{`
+              .barosit-nudge-banner {
+                position: relative;
+              }
+              .barosit-nudge-banner:hover {
+                transform: translateY(-2px);
+                border-color: ${!user ? "rgba(99, 102, 241, 0.3)" : "rgba(234, 179, 8, 0.3)"} !important;
+                box-shadow: ${
+                  !user
+                    ? "0 12px 36px 0 rgba(99, 102, 241, 0.15), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08)"
+                    : "0 12px 36px 0 rgba(234, 179, 8, 0.15), inset 0 1px 1px 0 rgba(255, 255, 255, 0.08)"
+                } !important;
+              }
+              .barosit-nudge-banner:active {
+                transform: translateY(0);
+              }
+              .barosit-nudge-banner:hover .nudge-action-btn {
+                transform: scale(1.03);
+                filter: brightness(1.1);
+              }
+            `}</style>
+          </div>
+        )}
         {/* HEADER: ScoreRing + 상태 + 빠른 액션 */}
         <div
           style={{

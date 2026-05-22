@@ -26,6 +26,7 @@ const isWidget = !IS_WEB && window.location.hash === "#widget";
 const isAlert = !IS_WEB && window.location.hash === "#alert";
 // 웹은 마케팅 페이지가 기본 진입점. 모니터링 앱은 #/app 으로 명시 진입.
 const isWebAppRoute = IS_WEB && window.location.hash === "#/app";
+const isQaRoute = window.location.hash === "#/qa" || window.location.hash === "#/qa-checklist";
 
 
 function MarketingHost({ initial }: { initial: MarketingRoute }) {
@@ -42,9 +43,9 @@ function MarketingHost({ initial }: { initial: MarketingRoute }) {
   return <Marketing route={route} />;
 }
 
-// 웹에선 #/app 외에는 marketing route 우선. hash 비어 있으면 landing 강제.
+// 웹에선 #/app 이나 #/qa 외에는 marketing route 우선. hash 비어 있으면 landing 강제.
 const rawMarketingRoute = routeFromHash(window.location.hash);
-const marketingRoute: MarketingRoute | null = isWebAppRoute
+const marketingRoute: MarketingRoute | null = (isWebAppRoute || isQaRoute)
   ? null
   : IS_WEB && !rawMarketingRoute
     ? "landing"
@@ -89,6 +90,14 @@ if (isWidget) {
     root.render(
       <React.StrictMode>
         <AlertWindow />
+      </React.StrictMode>,
+    );
+  });
+} else if (isQaRoute) {
+  import("./views/QaDashboardView").then(({ QaDashboardView }) => {
+    root.render(
+      <React.StrictMode>
+        <QaDashboardView />
       </React.StrictMode>,
     );
   });

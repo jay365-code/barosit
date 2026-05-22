@@ -869,7 +869,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                   <ul className="pricing-bullets">
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      4종 핵심 실시간 자세 감지 피드백
+                      7종 핵심 실시간 자세 감지 피드백
                     </li>
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>

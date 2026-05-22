@@ -30,6 +30,13 @@ export async function syncEventsToServer(): Promise<void> {
     return;
   }
 
+  // FREE 플랜 사용자의 고주파 데이터 서버 전송 원천 차단 (서버 트래픽 및 DB 저장 비용 최적화)
+  const userPlan = localStorage.getItem("barosit:subscription_plan") || "free";
+  if (userPlan !== "pro") {
+    console.log("[syncService] Skipping high-frequency event sync for FREE plan user to minimize server costs.");
+    return;
+  }
+
   const userId = session.user.id;
   const events: SyncableEvent[] = loadEvents();
   
@@ -106,6 +113,13 @@ export async function syncDailyScoreToServer(): Promise<void> {
     return;
   }
 
+  // FREE 플랜 사용자의 일일 스코어 히스토리 서버 저장 차단 (로컬 저장소 우선 활용)
+  const userPlan = localStorage.getItem("barosit:subscription_plan") || "free";
+  if (userPlan !== "pro") {
+    console.log("[syncService] Skipping daily score sync for FREE plan user to minimize server costs.");
+    return;
+  }
+
   const userId = session.user.id;
   const events = loadEvents();
   
@@ -169,4 +183,186 @@ export function triggerAutoSync(): void {
   runOnIdle(() => {
     syncEventsToServer().catch(err => console.error(err));
   });
+
+  runOnIdle(() => {
+    syncSettingsToServer().catch(err => console.error(err));
+  });
+
+  runOnIdle(() => {
+    syncProfileToServer().catch(err => console.error(err));
+  });
 }
+
+/**
+ * 4. 로컬 설정을 Supabase user_settings 테이블에 동기화 (Last-Write-Wins)
+ */
+export async function syncSettingsToServer(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+
+  const userId = session.user.id;
+
+  const getJSON = (key: string) => {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  };
+
+  const payload = {
+    user_id: userId,
+    thresholds: getJSON("thresholds"),
+    alert_modes: getJSON("alert_modes"),
+    break_config: getJSON("break_config"),
+    cumulative_load: getJSON("cumulative_load_config"),
+    variability: getJSON("variability_config"),
+    adaptive_sensitivity: getJSON("adaptive_sensitivity"),
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const { error } = await supabase
+      .from("user_settings")
+      .upsert(payload, { onConflict: "user_id" });
+
+    if (error) {
+      console.error("[syncService] Settings upload failed:", error.message);
+    } else {
+      console.log("[syncService] User settings synced to cloud successfully.");
+    }
+  } catch (err) {
+    console.error("[syncService] Exception in settings sync:", err);
+  }
+}
+
+/**
+ * 5. Supabase 서버에서 설정을 받아 로컬 스토리지에 복원
+ */
+export async function pullSettingsFromServer(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+
+  const userId = session.user.id;
+
+  try {
+    const { data, error } = await supabase
+      .from("user_settings")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[syncService] Failed to pull settings from server:", error.message);
+      return;
+    }
+
+    if (data) {
+      const setItem = (key: string, val: any) => {
+        if (val) localStorage.setItem(key, JSON.stringify(val));
+      };
+
+      setItem("thresholds", data.thresholds);
+      setItem("alert_modes", data.alert_modes);
+      setItem("break_config", data.break_config);
+      setItem("cumulative_load_config", data.cumulative_load);
+      setItem("variability_config", data.variability);
+      setItem("adaptive_sensitivity", data.adaptive_sensitivity);
+
+      // 설정 변경 사항 전파용 커스텀 스토리지 이벤트 디스패치
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "alert_modes",
+          newValue: JSON.stringify(data.alert_modes),
+        })
+      );
+      // thresholds 변경 통보
+      window.dispatchEvent(new CustomEvent("barosit:thresholds-changed", { detail: data.thresholds }));
+
+      console.log("[syncService] Settings pulled from cloud and restored locally.");
+    } else {
+      // 서버에 데이터가 없으면 최초 가입자로 간주하고 현재 로컬 설정을 서버로 즉시 업로드
+      console.log("[syncService] No settings found on server. Uploading current local settings...");
+      await syncSettingsToServer();
+    }
+  } catch (err) {
+    console.error("[syncService] Exception in pulling settings:", err);
+  }
+}
+
+/**
+ * 6. 로컬 프로필을 Supabase profiles 테이블에 업로드
+ */
+export async function syncProfileToServer(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+
+  const userId = session.user.id;
+  const raw = localStorage.getItem("user_profile_v1");
+  if (!raw) return;
+
+  try {
+    const profile = JSON.parse(raw);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        name: profile.name,
+        avatar: profile.avatar,
+        work_env: profile.workEnv,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    if (error) {
+      console.error("[syncService] Profile upload failed:", error.message);
+    } else {
+      console.log("[syncService] User profile synced to cloud successfully.");
+    }
+  } catch (err) {
+    console.error("[syncService] Exception in profile sync:", err);
+  }
+}
+
+/**
+ * 7. Supabase 서버에서 프로필을 조회하여 로컬 복원
+ */
+export async function pullProfileFromServer(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return;
+
+  const userId = session.user.id;
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("name, avatar, work_env")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[syncService] Failed to pull profile from server:", error.message);
+      return;
+    }
+
+    if (data) {
+      const localProfile = {
+        name: data.name || "사용자",
+        avatar: data.avatar || "😊",
+        workEnv: data.work_env || "mixed",
+      };
+      localStorage.setItem("user_profile_v1", JSON.stringify(localProfile));
+      
+      // 프로필 변경 통지용 이벤트 발송
+      window.dispatchEvent(new Event("barosit:profile-changed"));
+      console.log("[syncService] Profile pulled from cloud and restored locally.");
+    }
+  } catch (err) {
+    console.error("[syncService] Exception in pulling profile:", err);
+  }
+}
+
+// 8. 오프라인에서 온라인 상태로 전환 감지 시 백그라운드 자동 벌크 싱크 바인딩
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    console.log("[syncService] Network connection restored. Triggering cloud auto-sync...");
+    triggerAutoSync();
+  });
+}
+

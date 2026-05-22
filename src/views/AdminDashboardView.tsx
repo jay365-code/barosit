@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../auth/supabase";
 import { Icon } from "../components/Icon";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface UserProfileData {
   id: string;
@@ -73,13 +75,31 @@ interface CommentData {
   created_at: string;
 }
 
+interface ReleaseData {
+  id: string;
+  version: string;
+  released_at: string;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface Props {
   onClose: () => void;
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "releases">("dashboard");
   const [loading, setLoading] = useState(true);
+  
+  // 릴리즈 관리 상태
+  const [releases, setReleases] = useState<ReleaseData[]>([]);
+  const [selectedRelease, setSelectedRelease] = useState<ReleaseData | null>(null);
+  const [releaseVersion, setReleaseVersion] = useState("");
+  const [releaseReleasedAt, setReleaseReleasedAt] = useState("");
+  const [releaseContent, setReleaseContent] = useState("");
+  const [savingRelease, setSavingRelease] = useState(false);
+  const [releaseError, setReleaseError] = useState<string | null>(null);
   
   // 데이터 상태
   const [profiles, setProfiles] = useState<UserProfileData[]>([]);
@@ -131,6 +151,15 @@ export function AdminDashboardView({ onClose }: Props) {
       // 7. 실시간 어드민 알림 조회 (최신 100건 제한)
       const { data: notifData } = await supabase.from("admin_notifications").select("*").order("created_at", { ascending: false }).limit(100);
 
+      // 8. 릴리즈 정보 조회 (최신 정보 순 정렬)
+      let relData: any[] = [];
+      try {
+        const { data } = await supabase.from("releases").select("*").order("released_at", { ascending: false });
+        relData = data || [];
+      } catch (err) {
+        console.warn("Failed to fetch releases. releases table might not exist yet.", err);
+      }
+
       setProfiles(profData || []);
       setSubscriptions(subData || []);
       setEvents(evtData || []);
@@ -138,6 +167,7 @@ export function AdminDashboardView({ onClose }: Props) {
       setPosts(postData || []);
       setComments(commentData || []);
       setNotifications(notifData || []);
+      setReleases(relData);
     } catch (err) {
       console.error("[AdminDashboard] Failed to fetch data:", err);
     } finally {
@@ -355,6 +385,96 @@ export function AdminDashboardView({ onClose }: Props) {
     } catch (err: any) {
       alert("답변 등록 실패: " + err.message);
     }
+  };
+
+  // 4-2. 릴리즈 노트 관리 핸들러 및 헬퍼
+  const getLocalDateTimeString = (d: Date = new Date()) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const handleSaveRelease = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!releaseVersion.trim() || !releaseContent.trim()) {
+      setReleaseError("버전명과 마크다운 내용을 입력해주세요.");
+      return;
+    }
+
+    setSavingRelease(true);
+    setReleaseError(null);
+    try {
+      const payload = {
+        version: releaseVersion.trim(),
+        released_at: releaseReleasedAt ? new Date(releaseReleasedAt).toISOString() : new Date().toISOString(),
+        content: releaseContent,
+        updated_at: new Date().toISOString()
+      };
+
+      let res;
+      if (selectedRelease) {
+        // UPDATE
+        res = await supabase
+          .from("releases")
+          .update(payload)
+          .eq("id", selectedRelease.id);
+      } else {
+        // INSERT
+        res = await supabase
+          .from("releases")
+          .insert([payload]);
+      }
+
+      if (res.error) throw res.error;
+
+      // 성공! 릴리즈 데이터를 다시 불러온 후 폼을 초기화합니다.
+      await fetchAllData();
+      handleResetForm();
+    } catch (err: any) {
+      console.error("Failed to save release:", err);
+      setReleaseError(`저장에 실패했습니다: ${err.message || err.details || JSON.stringify(err)}`);
+    } finally {
+      setSavingRelease(false);
+    }
+  };
+
+  const handleDeleteRelease = async (id: string) => {
+    if (!window.confirm("정말로 이 업데이트 내역을 영구히 삭제하시겠습니까?")) return;
+
+    setSavingRelease(true);
+    try {
+      const { error } = await supabase
+        .from("releases")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      await fetchAllData();
+      if (selectedRelease?.id === id) {
+        handleResetForm();
+      }
+    } catch (err: any) {
+      console.error("Failed to delete release:", err);
+      setReleaseError(`삭제에 실패했습니다: ${err.message || err.details || JSON.stringify(err)}`);
+    } finally {
+      setSavingRelease(false);
+    }
+  };
+
+  const handleSelectRelease = (rel: ReleaseData) => {
+    setSelectedRelease(rel);
+    setReleaseVersion(rel.version);
+    setReleaseReleasedAt(getLocalDateTimeString(new Date(rel.released_at)));
+    setReleaseContent(rel.content);
+    setReleaseError(null);
+  };
+
+  const handleResetForm = () => {
+    setSelectedRelease(null);
+    setReleaseVersion("");
+    setReleaseReleasedAt(getLocalDateTimeString());
+    setReleaseContent("");
+    setReleaseError(null);
   };
 
   // 5. 90일 미활동 데이터 만료 청소 (수동 실행)
@@ -608,6 +728,7 @@ export function AdminDashboardView({ onClose }: Props) {
               { id: "users", label: "가입자 관리", icon: "shield" as const },
               { id: "qna", label: "Q&A 문의 제어", icon: "info" as const },
               { id: "alerts", label: "실시간 알림", icon: "bell" as const },
+              { id: "releases", label: "업데이트/공지 관리", icon: "sparkle" as const },
               { id: "system", label: "시스템 제어판", icon: "settings" as const },
             ].map(tab => {
               const isAlerts = tab.id === "alerts";
@@ -1472,6 +1593,235 @@ export function AdminDashboardView({ onClose }: Props) {
                           cleanLog.map((log, idx) => <div key={idx}>{log}</div>)
                         )}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. 업데이트 및 공지사항 관리자 화면 UI */}
+                {activeTab === "releases" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24, height: "calc(100vh - 200px)", overflow: "hidden" }}>
+                    {/* 좌측 릴리즈 목록 */}
+                    <div style={{ borderRight: "1px solid rgba(255,255,255,0.08)", paddingRight: 20, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontSize: 16, fontWeight: 700 }}>릴리즈 목록</div>
+                        <button
+                          onClick={handleResetForm}
+                          style={{
+                            background: "#5b8c7a",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 8,
+                            padding: "6px 12px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <Icon name="plus" size={14} />
+                          신규 작성
+                        </button>
+                      </div>
+
+                      {releases.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: "40px 0", opacity: 0.4, fontSize: 13 }}>
+                          등록된 업데이트 내역이 없습니다.
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                          {releases.map(rel => (
+                            <div
+                              key={rel.id}
+                              onClick={() => handleSelectRelease(rel)}
+                              style={{
+                                background: selectedRelease?.id === rel.id ? "rgba(91, 140, 122, 0.15)" : "rgba(255, 255, 255, 0.02)",
+                                border: selectedRelease?.id === rel.id ? "1px solid #5b8c7a" : "1px solid rgba(255, 255, 255, 0.05)",
+                                borderRadius: 10,
+                                padding: "12px 14px",
+                                cursor: "pointer",
+                                transition: "all 0.2s",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 6,
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ background: "#5b8c7a", color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                                  {rel.version}
+                                </span>
+                                <span style={{ fontSize: 11, opacity: 0.4 }}>
+                                  {new Date(rel.released_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 12, opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {rel.content.substring(0, 50)}...
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 우측 편집 폼 & 라이브 프리뷰 */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20, overflowY: "auto", paddingRight: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontSize: 16, fontWeight: 700 }}>
+                          {selectedRelease ? "릴리즈 노트 편집" : "새로운 릴리즈 등록"}
+                        </div>
+                        {selectedRelease && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRelease(selectedRelease.id)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#c95c5c",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <Icon name="trash" size={14} />
+                            이 릴리즈 삭제하기
+                          </button>
+                        )}
+                      </div>
+
+                      {releaseError && (
+                        <div style={{ background: "rgba(201, 92, 92, 0.1)", border: "1px solid #c95c5c", borderRadius: 8, padding: "12px 16px", color: "#c95c5c", fontSize: 13 }}>
+                          {releaseError}
+                        </div>
+                      )}
+
+                      <form onSubmit={handleSaveRelease} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.7 }}>버전명 *</label>
+                            <input
+                              type="text"
+                              value={releaseVersion}
+                              onChange={e => setReleaseVersion(e.target.value)}
+                              placeholder="예: v1.0.0"
+                              required
+                              style={{
+                                background: "rgba(255, 255, 255, 0.05)",
+                                border: "1px solid rgba(255, 255, 255, 0.1)",
+                                borderRadius: 8,
+                                padding: "10px 14px",
+                                color: "#fff",
+                                fontSize: 13,
+                              }}
+                            />
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.7 }}>출시 일시 (Released At)</label>
+                            <input
+                              type="datetime-local"
+                              value={releaseReleasedAt}
+                              onChange={e => setReleaseReleasedAt(e.target.value)}
+                              style={{
+                                background: "rgba(255, 255, 255, 0.05)",
+                                border: "1px solid rgba(255, 255, 255, 0.1)",
+                                borderRadius: 8,
+                                padding: "10px 14px",
+                                color: "#fff",
+                                fontSize: 13,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.7 }}>릴리즈 노트 내용 (마크다운 지원) *</label>
+                          <textarea
+                            value={releaseContent}
+                            onChange={e => setReleaseContent(e.target.value)}
+                            placeholder="이번 릴리즈의 변경 사항을 마크다운 형식으로 작성해주세요.&#10;예:&#10;### 주요 변경 사항&#10;- 거북목 감지 성능 향상&#10;- 어드민 제어판 추가"
+                            required
+                            rows={12}
+                            style={{
+                              background: "rgba(255, 255, 255, 0.05)",
+                              border: "1px solid rgba(255, 255, 255, 0.1)",
+                              borderRadius: 8,
+                              padding: "12px 16px",
+                              color: "#fff",
+                              fontSize: 13,
+                              fontFamily: "monospace",
+                              lineHeight: 1.6,
+                              resize: "vertical",
+                            }}
+                          />
+                        </div>
+
+                        {/* 라이브 프리뷰 */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.7 }}>실시간 프리뷰 (Live Preview)</label>
+                          <div
+                            style={{
+                              background: "rgba(255, 255, 255, 0.02)",
+                              border: "1px solid rgba(255, 255, 255, 0.05)",
+                              borderRadius: 8,
+                              padding: "20px 24px",
+                              minHeight: 150,
+                              color: "#ccc",
+                              fontSize: 13,
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            {releaseContent.trim() ? (
+                              <div className="b-legal-body" style={{ color: "rgba(255,255,255,0.85)" }}>
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                  {releaseContent}
+                                </ReactMarkdown>
+                              </div>
+                            ) : (
+                              <span style={{ opacity: 0.3, fontStyle: "italic" }}>내용을 입력하면 여기에 실시간 렌더링 결과가 표시됩니다.</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 10 }}>
+                          {selectedRelease && (
+                            <button
+                              type="button"
+                              onClick={handleResetForm}
+                              style={{
+                                background: "rgba(255,255,255,0.06)",
+                                color: "#ccc",
+                                border: "none",
+                                borderRadius: 8,
+                                padding: "10px 20px",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                              }}
+                            >
+                              취소
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            disabled={savingRelease}
+                            style={{
+                              background: "#5b8c7a",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 8,
+                              padding: "10px 24px",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {savingRelease ? "저장 중..." : selectedRelease ? "수정사항 저장" : "새 릴리즈 등록"}
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   </div>
                 )}

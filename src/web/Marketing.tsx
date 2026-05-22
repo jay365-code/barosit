@@ -5,6 +5,7 @@ import privacyMd from "../../docs/privacy.md?raw";
 import termsMd from "../../docs/terms.md?raw";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
+import { interpolateLegalTemplate } from "../lib/legal";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import {
@@ -195,14 +196,17 @@ function Footer() {
 
         {/* 법적 고지 및 링크 */}
         <div style={{ display: "flex", gap: 24, fontSize: 13, fontWeight: 500 }}>
+          <a href="#/changelog" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
+            업데이트 내역
+          </a>
           <a href="#/privacy" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             개인정보 처리방침
           </a>
           <a href="#/terms" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             이용약관
           </a>
-          <a href="#/contact" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
-            문의
+          <a href="#/community" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
+            커뮤니티
           </a>
         </div>
       </div>
@@ -378,9 +382,9 @@ function Landing() {
             marginBottom: 36,
           }}
         >
-          웹캠으로 자세를 살펴드릴게요. 거북목·어깨 기울임·등 구부정·턱 괴임·모니터
-          거리·어깨 비대칭 6종을 살펴보다 잘못된 자세가 일정 시간 이어지면 부드럽게
-          알려드립니다.
+          웹캠으로 자세를 살펴드릴게요. 거북목·턱 괴임·어깨 기울임·등 구부정·모니터
+          거리·어깨 비대칭·머리 갸우뚱 7종을 살펴보다 잘못된 자세가 일정 시간 이어지면
+          부드럽게 알려드립니다.
         </p>
         <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
           <a
@@ -446,7 +450,7 @@ function Landing() {
               {
                 icon: "target",
                 t: "잘못된 자세를 짚어드려요",
-                d: "거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정. 네 가지를 따로 구분해 알려드려요.",
+                d: "거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱. 7종을 구분해 알려드려요.",
               },
               {
                 icon: "sparkle",
@@ -591,7 +595,7 @@ function Landing() {
               { k: "On-device", v: "100%" },
               { k: "클라우드", v: "0%" },
               { k: "오프라인", v: "작동" },
-              { k: "동작 분석", v: "13가지" },
+              { k: "동작 분석", v: "7가지" },
             ].map((c, i) => (
               <div
                 key={i}
@@ -639,8 +643,8 @@ function Landing() {
             [
               {
                 i: "target",
-                t: "자세 4종 감지",
-                d: "거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정을 구분해 짚어드려요",
+                t: "자세 7종 감지",
+                d: "거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱을 구분해 짚어드려요",
               },
               {
                 i: "sparkle",
@@ -807,7 +811,7 @@ function AuthCallback() {
           localStorage.removeItem("barosit:auth_redirect");
           window.location.replace(redirectTo);
         } else {
-          window.location.replace("#/landing");
+          window.location.replace("#/app");
         }
       } catch (e) {
         if (cancelled) return;
@@ -912,7 +916,7 @@ const LEGAL_SOURCE: Record<"privacy" | "terms", string> = {
 };
 
 function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
-  const md = useMemo(() => LEGAL_SOURCE[kind], [kind]);
+  const md = useMemo(() => interpolateLegalTemplate(LEGAL_SOURCE[kind]), [kind]);
   const otherKind = kind === "privacy" ? "terms" : "privacy";
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
@@ -970,7 +974,8 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
             remarkPlugins={[remarkGfm]}
             components={{
               a: ({ href, children, ...props }) => {
-                if (href && href.includes("pricing-policy.md")) {
+                if (!href) return <>{children}</>;
+                if (href.includes("pricing-policy.md")) {
                   return (
                     <a
                       href="#"
@@ -995,8 +1000,48 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
                     </a>
                   );
                 }
+                if (href.includes("changelog.md")) {
+                  return (
+                    <a href="#/changelog" style={{ textDecoration: "underline" }}>
+                      {children}
+                    </a>
+                  );
+                }
+                if (href.includes("settings.md")) {
+                  return (
+                    <a
+                      href="https://github.com/jay365-code/barosit/blob/main/docs/settings.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: "underline" }}
+                    >
+                      {children}
+                    </a>
+                  );
+                }
+                if (href.includes("privacy.md")) {
+                  return (
+                    <a href="#/privacy" style={{ textDecoration: "underline" }}>
+                      {children}
+                    </a>
+                  );
+                }
+                if (href.includes("terms.md")) {
+                  return (
+                    <a href="#/terms" style={{ textDecoration: "underline" }}>
+                      {children}
+                    </a>
+                  );
+                }
+                const isExternal = href.startsWith("http") || href.startsWith("//");
                 return (
-                  <a href={href} {...props}>
+                  <a
+                    href={href}
+                    target={isExternal ? "_blank" : undefined}
+                    rel={isExternal ? "noopener noreferrer" : undefined}
+                    style={{ textDecoration: "underline" }}
+                    {...props}
+                  >
                     {children}
                   </a>
                 );
@@ -1027,6 +1072,192 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
             style={{ textDecoration: "none" }}
           >
             커뮤니티 바로가기
+          </a>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+function ChangelogPage() {
+  const [releases, setReleases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchReleases = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("releases")
+          .select("*")
+          .order("released_at", { ascending: false });
+        
+        if (error) {
+          throw error;
+        }
+        setReleases(data || []);
+      } catch (err: any) {
+        console.error("Failed to fetch releases:", err);
+        setError("릴리즈 내역을 불러오는 중 오류가 발생했습니다. (데이터베이스에 'releases' 테이블이 등록되었는지 확인해주세요.)");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReleases();
+  }, []);
+
+  return (
+    <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
+      <TopNav />
+      <div
+        style={{
+          maxWidth: 820,
+          margin: "0 auto",
+          padding: "60px 56px 80px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--b-sig)",
+            letterSpacing: "0.1em",
+            marginBottom: 10,
+          }}
+        >
+          RELEASE NOTES
+        </div>
+        <h1
+          style={{
+            fontSize: 40,
+            fontWeight: 700,
+            letterSpacing: "-0.028em",
+            margin: 0,
+            marginBottom: 8,
+            lineHeight: 1.15,
+          }}
+        >
+          공지사항 및 업데이트 내역
+        </h1>
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--b-fg-3)",
+            margin: 0,
+            marginBottom: 32,
+          }}
+        >
+          BaroSit의 최신 업데이트 정보와 기능 변경 소식을 한눈에 확인하세요.
+        </p>
+
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--b-fg-3)", fontSize: 14 }}>
+            업데이트 내역을 불러오는 중입니다...
+          </div>
+        ) : error ? (
+          <div style={{ padding: "40px", border: "1px solid #ff4d4f", borderRadius: 14, background: "rgba(255, 77, 79, 0.05)", color: "#ff4d4f", fontSize: 14, textAlign: "center" }}>
+            {error}
+          </div>
+        ) : releases.length === 0 ? (
+          <div style={{ padding: "80px 40px", border: "1px solid var(--b-line)", borderRadius: 14, background: "var(--b-surface)", color: "var(--b-fg-3)", fontSize: 14, textAlign: "center" }}>
+            등록된 업데이트 내역이 아직 없습니다.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+            {releases.map((release) => (
+              <div
+                key={release.id}
+                style={{
+                  border: "1px solid var(--b-line)",
+                  borderRadius: 14,
+                  background: "var(--b-surface)",
+                  padding: "36px 40px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                }}
+              >
+                {/* 헤더: 버전 + 날짜 */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "1px solid var(--b-line)", paddingBottom: 16, flexWrap: "wrap", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span
+                      style={{
+                        background: "var(--b-sig)",
+                        color: "#fff",
+                        padding: "4px 12px",
+                        borderRadius: 20,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {release.version}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 13, color: "var(--b-fg-3)", fontWeight: 500 }}>
+                    {new Date(release.released_at).toLocaleString("ko-KR", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+
+                {/* 본문 마크다운 */}
+                <div className="b-legal-body" style={{ fontSize: 14, lineHeight: 1.7, color: "var(--b-fg-2)" }}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ href, children, ...props }) => {
+                        if (!href) return <>{children}</>;
+                        const isExternal = href.startsWith("http") || href.startsWith("//");
+                        return (
+                          <a
+                            href={href}
+                            target={isExternal ? "_blank" : undefined}
+                            rel={isExternal ? "noopener noreferrer" : undefined}
+                            style={{ textDecoration: "underline" }}
+                            {...props}
+                          >
+                            {children}
+                          </a>
+                        );
+                      },
+                    }}
+                  >
+                    {release.content}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: 40,
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <a
+            href="#/landing"
+            className="b-btn b-btn-ghost"
+            style={{ textDecoration: "none" }}
+          >
+            홈으로 가기
+          </a>
+          <a
+            href="#/privacy"
+            className="b-btn b-btn-quiet"
+            style={{ textDecoration: "none" }}
+          >
+            개인정보 처리방침 보기
           </a>
         </div>
       </div>
@@ -2698,7 +2929,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
         localStorage.removeItem("barosit:auth_redirect");
         window.location.replace(redirectTo);
       } else {
-        window.location.replace("#/landing");
+        window.location.replace("#/app");
       }
     }
   }, [loading, user]);
@@ -3260,6 +3491,16 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
         };
 
   const handleDownloadClick = () => {
+    if (!user) {
+      alert(
+        "💡 데스크톱 전용 설치형 앱(Tauri)은 PRO 플랜 전용 혜택입니다.\n\n" +
+        "다운로드 전 회원님의 플랜(FREE / PRO)을 확인하기 위해 로그인이 필요합니다.\n\n" +
+        "확인을 누르시면 로그인 페이지로 이동합니다."
+      );
+      window.location.hash = "#/login";
+      return;
+    }
+
     if (userPlan !== "pro") {
       alert(
         "💡 데스크톱 전용 설치형 앱(Tauri)은 PRO 플랜 전용 혜택입니다.\n\n" +
@@ -3392,7 +3633,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
               lineHeight: 1.8,
             }}
           >
-            <li>자세 4종 감지 (거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정)</li>
+            <li>자세 7종 감지 (거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱)</li>
             <li>0–100 점수 시스템 + 스트레칭 보너스</li>
             <li>위젯 모드 (드래그·위치 저장)</li>
             <li>다크 모드 · 시그니처 sage</li>
@@ -4082,7 +4323,7 @@ function Pricing() {
                 price: "0원",
                 sub: "평생 무료 (웹 브라우저 전용)",
                 feats: [
-                  "4종 핵심 실시간 자세 감지",
+                  "7종 핵심 실시간 자세 감지",
                   "실시간 웹 화면 경고 피드백",
                   "온디바이스 실루엣 프라이버시 필터",
                   "바른 자세 스트레칭 복구 가이드",
@@ -5395,6 +5636,7 @@ export type MarketingRoute =
   | "privacy"
   | "terms"
   | "community"
+  | "changelog"
   | "auth-callback";
 
 export function routeFromHash(hash: string): MarketingRoute | null {
@@ -5408,6 +5650,7 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   if (h === "profile" || h === "account") return "profile";
   if (h === "privacy") return "privacy";
   if (h === "terms") return "terms";
+  if (h === "changelog" || h === "release" || h === "releases") return "changelog";
   if (h === "community" || h === "contact" || h === "support") return "community";
   if (h === "auth/callback") return "auth-callback";
   return null;
@@ -5433,6 +5676,8 @@ function routeBody(route: MarketingRoute) {
       return <LegalPage kind="privacy" />;
     case "terms":
       return <LegalPage kind="terms" />;
+    case "changelog":
+      return <ChangelogPage />;
     case "community":
       return <Contact />;
     case "auth-callback":
