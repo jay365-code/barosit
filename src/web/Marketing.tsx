@@ -15,7 +15,7 @@ import {
 } from "../slogans";
 
 // const CONTACT_EMAIL = "support@barosit.com";
-const GITHUB_URL = "https://github.com/jay365-code/barosit";
+
 
 export const trackPaymentEvent = (
   eventName:
@@ -50,10 +50,20 @@ function TopNav({ active }: { active?: string }) {
     { label: "커뮤니티", hash: "#/community" },
   ];
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  let customName = "";
+  if (typeof window !== "undefined") {
+    try {
+      const localProfileRaw = localStorage.getItem("user_profile_v1");
+      if (localProfileRaw) {
+        customName = JSON.parse(localProfileRaw).name || "";
+      }
+    } catch (e) {}
+  }
   const fullName =
-    (meta.full_name as string | undefined) ??
-    (meta.name as string | undefined) ??
-    "";
+    customName ||
+    ((meta.full_name as string | undefined) ??
+      (meta.name as string | undefined) ??
+      "");
   const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
   const initial = (fullName || user?.email || "?").trim().charAt(0).toUpperCase();
   return (
@@ -951,16 +961,7 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
         >
           {LEGAL_TITLE[kind]}
         </h1>
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--b-fg-3)",
-            margin: 0,
-            marginBottom: 32,
-          }}
-        >
-          본 문서는 앱과 동일한 소스(<code>docs/{kind}.md</code>)로 렌더됩니다.
-        </p>
+
         <div
           className="b-legal-body"
           style={{
@@ -1009,12 +1010,7 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
                 }
                 if (href.includes("settings.md")) {
                   return (
-                    <a
-                      href="https://github.com/jay365-code/barosit/blob/main/docs/settings.md"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: "underline" }}
-                    >
+                    <a href="#/landing" style={{ textDecoration: "underline" }}>
                       {children}
                     </a>
                   );
@@ -1319,7 +1315,17 @@ function Contact() {
   // --- Auto-set profile display name for logged-in users ---
   useEffect(() => {
     if (user) {
-      const displayName = user.user_metadata?.full_name || user.email?.split("@")[0] || "";
+      const localProfileRaw = localStorage.getItem("user_profile_v1");
+      let displayName = "";
+      if (localProfileRaw) {
+        try {
+          const profile = JSON.parse(localProfileRaw);
+          displayName = profile.name;
+        } catch (e) {}
+      }
+      if (!displayName) {
+        displayName = user.user_metadata?.full_name || user.email?.split("@")[0] || "";
+      }
       setWriteAuthor(displayName);
       setCommentAuthor(displayName);
     } else {
@@ -2886,17 +2892,6 @@ function Contact() {
             <div>대표이사 : 이종현 · 사업자등록번호 : 512-88-00059</div>
             <div>주소 : 서울특별시 송파구 오금로15길 5-12, 3층 3425호</div>
             <div>통신판매업신고번호 : 제 2025-서울송파-2552호 · 고객센터 : 02-2147-2513</div>
-            <div style={{ marginTop: 4 }}>
-              오픈소스 코드 저장소 :{" "}
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: "var(--b-sig-deep)", textDecoration: "underline", fontWeight: 500 }}
-              >
-                {GITHUB_URL.replace("https://", "")}
-              </a>
-            </div>
           </div>
         </div>
       </div>
@@ -4331,10 +4326,20 @@ function AccountTab({
   subPlan: "free" | "pro";
 }) {
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  let customName = "";
+  if (typeof window !== "undefined") {
+    try {
+      const localProfileRaw = localStorage.getItem("user_profile_v1");
+      if (localProfileRaw) {
+        customName = JSON.parse(localProfileRaw).name || "";
+      }
+    } catch (e) {}
+  }
   const fullName =
-    (meta.full_name as string | undefined) ??
-    (meta.name as string | undefined) ??
-    "";
+    customName ||
+    ((meta.full_name as string | undefined) ??
+      (meta.name as string | undefined) ??
+      "");
   const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
   const provider =
     ((user?.app_metadata as Record<string, unknown> | undefined)?.provider as
@@ -5317,10 +5322,20 @@ function Profile() {
   if (loading || !user) return <ProfileLoading />;
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  let customName = "";
+  if (typeof window !== "undefined") {
+    try {
+      const localProfileRaw = localStorage.getItem("user_profile_v1");
+      if (localProfileRaw) {
+        customName = JSON.parse(localProfileRaw).name || "";
+      }
+    } catch (e) {}
+  }
   const fullName =
-    (meta.full_name as string | undefined) ??
-    (meta.name as string | undefined) ??
-    "";
+    customName ||
+    ((meta.full_name as string | undefined) ??
+      (meta.name as string | undefined) ??
+      "");
   const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
   const sidebarInitial = (fullName || user.email || "?")
     .trim()

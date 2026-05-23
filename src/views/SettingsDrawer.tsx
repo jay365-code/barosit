@@ -65,6 +65,7 @@ interface Props {
   onClose: () => void;
   updater: UpdaterState;
   onShowLegal: (kind: LegalDocKind) => void;
+  onOpenStretchCalibrate?: () => void;
 }
 
 type Preset = "엄격" | "보통" | "관대";
@@ -83,7 +84,7 @@ const POSTURE_LABEL: Record<PostureType, string> = {
   head_roll: "머리 좌우 기울임",
 };
 
-export function SettingsDrawer({ onClose, updater, onShowLegal }: Props) {
+export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCalibrate }: Props) {
   const [version, setVersion] = useState("0.1.2");
   useEffect(() => {
     platform.getAppVersion().then(setVersion);
@@ -851,6 +852,41 @@ export function SettingsDrawer({ onClose, updater, onShowLegal }: Props) {
             기본값으로 (자동 보정 ON)
           </button>
         </Section>
+
+        {/* 스트레칭 가동범위 개인화 */}
+        {onOpenStretchCalibrate && (
+          <Section title="스트레칭 보정">
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--b-fg-3)",
+                marginBottom: 10,
+                lineHeight: 1.5,
+              }}
+            >
+              내 몸의 유연성에 맞춰 각 스트레칭 동작의 감지 기준을 조율하거나, 다중 모니터로 인해 측면에 장착된 카메라 각도 환경을 보정합니다.
+            </div>
+            <button
+              type="button"
+              className="b-btn b-btn-primary"
+              onClick={onOpenStretchCalibrate}
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                fontSize: 12,
+                fontWeight: 700,
+                background: "linear-gradient(135deg, var(--b-sig), #3c5e52)",
+                border: "none",
+                borderRadius: 8,
+                padding: "8px 12px",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              🔧 스트레칭 가동범위 보정하기
+            </button>
+          </Section>
+        )}
 
         {/* 프라이버시 */}
         <Section title="프라이버시">

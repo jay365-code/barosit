@@ -6,6 +6,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "../components/Icon";
+import { AdminTemplateView } from "./AdminTemplateView";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import {
@@ -38,6 +39,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile>(() => loadProfile());
+  const [adminModelCalibrateOpen, setAdminModelCalibrateOpen] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [subPlan, setSubPlan] = useState<"free" | "pro">("free");
@@ -688,6 +690,27 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                   Kakao 로그인
                 </button>
               </div>
+
+              {/* 비로그인 유저가 소개/커뮤니티 홈으로 바로 이탈/이동할 수 있도록 편의 버튼 배치 */}
+              <div style={{ marginTop: "16px", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "16px", width: "100%" }}>
+                <a
+                  href="#/landing"
+                  onClick={onGoHome}
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--b-fg-3)",
+                    textDecoration: "underline",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    padding: "6px 0"
+                  }}
+                >
+                  🏠 소개 및 커뮤니티 홈으로 가기
+                </a>
+              </div>
             </div>
           </section>
         ) : (
@@ -1162,7 +1185,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                       <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--b-fg-1)" }}>
-                        {session.user.user_metadata?.full_name || session.user.user_metadata?.name || profile.name || "사용자"}
+                        {profile.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || "사용자"}
                       </span>
                       <span style={{ fontSize: "12px", color: "var(--b-fg-3)" }}>
                         {session.user.email}
@@ -1195,6 +1218,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
               )}
             </section>
 
+
             {/* 어드민 시스템 제어 센터 */}
             {isAdmin && (
               <section className="profile-card" style={{ border: "1px dashed var(--b-sig, #5b8c7a)", background: "rgba(91, 140, 122, 0.04)" }}>
@@ -1204,16 +1228,28 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                   <span className="profile-pill" style={{ background: "rgba(91, 140, 122, 0.2)", color: "#5b8c7a" }}>ADMIN</span>
                 </div>
                 <p className="profile-card-sub" style={{ marginBottom: 12 }}>
-                  관리자 권한 계정으로 감지되었습니다. 아래 버튼을 눌러 실시간 가입자 요금 플랜 변경, Q&A 관리, SVG 사용 통계 분석이 포함된 종합 어드민 대시보드를 엽니다.
+                  관리자 권한 계정으로 감지되었습니다. 어드민 대시보드 관리 기능을 조작하거나, 모든 사용자의 감지 감도 개선을 위한 표준 가동범위 모델을 보정할 수 있습니다.
                 </p>
-                <div className="profile-card-actions">
+                <div className="profile-card-actions" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <button
                     type="button"
                     className="b-btn b-btn-primary"
                     style={{ background: "linear-gradient(135deg, #5b8c7a, #3c5e52)" }}
                     onClick={onOpenAdmin}
                   >
-                    어드민 대시보드 구동
+                    📊 어드민 대시보드 구동
+                  </button>
+                  <button
+                    type="button"
+                    className="b-btn b-btn-primary"
+                    style={{
+                      background: "rgba(255, 255, 255, 0.05)",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      color: "#fff",
+                    }}
+                    onClick={() => setAdminModelCalibrateOpen(true)}
+                  >
+                    🎯 스트레칭 가동범위 모델 보정하기
                   </button>
                 </div>
               </section>
@@ -1545,6 +1581,81 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
               </button>
             </div>
           </>
+        )}
+
+
+        {adminModelCalibrateOpen && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 1050,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(10, 10, 10, 0.75)",
+              backdropFilter: "blur(12px)",
+              color: "#fff",
+            }}
+          >
+            <div
+              style={{
+                width: "90%",
+                maxWidth: 900,
+                background: "var(--b-surface)",
+                borderRadius: 24,
+                padding: "24px 32px 32px",
+                border: "1px solid var(--b-line)",
+                boxShadow: "var(--b-shadow-modal)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              {/* 헤더 */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: "rgba(91, 140, 122, 0.15)",
+                      color: "var(--b-sig)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon name="settings" size={16} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>스트레칭 가동범위 표준 모델 보정</h3>
+                    <p style={{ fontSize: 12, opacity: 0.5, margin: "2px 0 0" }}>
+                      어드민 전용: 서비스 공통으로 적용될 기본 3방향 표준 실루엣 데이터셋을 추출합니다.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAdminModelCalibrateOpen(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#fff",
+                    cursor: "pointer",
+                    opacity: 0.6,
+                  }}
+                >
+                  <Icon name="x" size={20} />
+                </button>
+              </div>
+
+              {/* 스크롤 가능한 도구 바디 */}
+              <div style={{ maxHeight: "70vh", overflowY: "auto", paddingRight: 6 }} className="b-scroll">
+                <AdminTemplateView />
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

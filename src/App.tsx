@@ -6,6 +6,7 @@ import { Onboarding } from "./views/Onboarding";
 import { ProfileView } from "./views/ProfileView";
 import { AdminDashboardView } from "./views/AdminDashboardView";
 import { PricingView } from "./views/PricingView";
+import { UserCalibrationView } from "./views/UserCalibrationView";
 import { AlertOverlay } from "./components/AlertOverlay";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { useUpdater } from "./updater";
@@ -106,6 +107,7 @@ export default function App() {
   const [paused, setPaused] = useState(false);
   const [, setStatus] = useState<PostureStatus>("good");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [stretchCalibrateOpen, setStretchCalibrateOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState<boolean>(
     () => localStorage.getItem(ONBOARDED_KEY) !== "1",
   );
@@ -427,6 +429,10 @@ export default function App() {
             onClose={() => setSettingsOpen(false)}
             updater={updater}
             onShowLegal={setLegalDoc}
+            onOpenStretchCalibrate={() => {
+              setSettingsOpen(false);
+              setStretchCalibrateOpen(true);
+            }}
           />
         )}
         {onboardingOpen && (
@@ -441,6 +447,9 @@ export default function App() {
         )}
         {adminOpen && (
           <AdminDashboardView onClose={() => setAdminOpen(false)} />
+        )}
+        {stretchCalibrateOpen && (
+          <UserCalibrationView onClose={() => setStretchCalibrateOpen(false)} />
         )}
         <AlertOverlay />
         <UpdateNotice state={updater} />

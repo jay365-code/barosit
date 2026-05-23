@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   loadProfile,
   PROFILE_CHANGED_EVENT,
@@ -20,6 +20,7 @@ import {
   STRETCH_LABEL,
   StretchTracker,
   type StretchKind,
+  type CameraAngle,
 } from "../pose/stretchDetector";
 import {
   BreakTracker,
@@ -150,6 +151,16 @@ function formatDuration(secs: number): string {
   return `${m}분 ${s}초`;
 }
 
+function formatUsageTime(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.round(secs % 60);
+  const hh = String(h).padStart(2, "0");
+  const mm = String(m).padStart(2, "0");
+  const ss = String(s).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
 export function MonitorView({
   baseline,
   paused,
@@ -176,6 +187,20 @@ export function MonitorView({
       window.removeEventListener("storage", syncPlan);
     };
   }, []);
+
+  const initialAngle = useMemo<"front" | "left" | "right">(() => {
+    if (!baseline || !baseline.face) return "front";
+    const yawDeg = baseline.face.yaw * (180 / Math.PI);
+    if (yawDeg > 12) return "right";
+    if (yawDeg < -12) return "left";
+    return "front";
+  }, [baseline]);
+
+  const [cameraAngle, setCameraAngle] = useState<"front" | "left" | "right">(initialAngle);
+
+  useEffect(() => {
+    setCameraAngle(initialAngle);
+  }, [initialAngle]);
 
   const [detailedReportOpen, setDetailedReportOpen] = useState(false);
   const [hoveredCardIdx, setHoveredCardIdx] = useState<number | null>(null);
@@ -489,6 +514,10 @@ export function MonitorView({
   });
   const debugRef = useRef<AnalysisDebug | null>(null);
   const violationsRef = useRef<Set<PostureType>>(new Set());
+  const consecutiveAngleRef = useRef<{ angle: CameraAngle; count: number }>({
+    angle: initialAngle,
+    count: 0,
+  });
   // pose loop heartbeat + watchdog — 60초+ stale 시 hard reload
   const monitorHeartbeat = useHeartbeat();
   useWatchdog("monitor-frame", monitorHeartbeat.getLastAt, {
@@ -702,6 +731,42 @@ export function MonitorView({
       setFaceLandmarks(frame.face?.landmarks ?? null);
       setHandsData(frame.hands);
       if (frame.mask) setMask(frame.mask);
+
+      // 5. 실시간 카메라 설치 위치(좌/우/정면) 자동 보정 시스템 (Auto-Calibration Engine)
+      // 사용자가 8초(80프레임) 이상 새로운 카메라 방향에서 안정적으로 자세를 유지하고 있다면,
+      // 하드웨어 위치 이동이 일어난 것으로 판단하여 배경에서 보정(Baseline)을 완전히 자동으로 정렬하고 아이콘을 이동시킵니다.
+      if (frame.face) {
+        const liveYawDeg = frame.face.yaw * (180 / Math.PI);
+        let liveAngle: CameraAngle = "front";
+        if (liveYawDeg > 12) liveAngle = "right";
+        else if (liveYawDeg < -12) liveAngle = "left";
+
+        if (liveAngle !== cameraAngle) {
+          if (consecutiveAngleRef.current.angle === liveAngle) {
+            consecutiveAngleRef.current.count++;
+            if (consecutiveAngleRef.current.count >= 80) { // 8초 연속 유지됨
+              // A. 카메라 위치 상태 변경 (실시간 아이콘 점프)
+              setCameraAngle(liveAngle);
+              
+              // B. 메모리 상의 baseline 및 localStorage 영구 업데이트 (자세 경고 오작동 차단)
+              if (baseline && baseline.face) {
+                // 원래 정면이었으나 좌측/우측으로 이동 시, 새 위치의 표준 중심으로 보정
+                const targetYaw = liveAngle === "left" ? -0.61 : liveAngle === "right" ? 0.61 : 0.0;
+                baseline.face.yaw = targetYaw;
+                localStorage.setItem("calibration_baseline", JSON.stringify(baseline));
+              }
+              
+              consecutiveAngleRef.current.count = 0;
+              console.log(`[Auto-Calibration] Camera position automatically updated to: ${liveAngle}`);
+            }
+          } else {
+            consecutiveAngleRef.current.angle = liveAngle;
+            consecutiveAngleRef.current.count = 1;
+          }
+        } else {
+          consecutiveAngleRef.current.count = 0;
+        }
+      }
 
       // Phase 4 — 적응형 민감도. 자세 임계 × postureMultiplier (피로 시 완화),
       // 휴식 임계 × breakMultiplier (피로 시 더 일찍 발사).
@@ -1683,6 +1748,35 @@ export function MonitorView({
               ON-DEVICE
             </div>
 
+            {/* Camera Position Icon Badge (Ultra-minimalist, placed elegantly at the bottom edge inside the card) */}
+            <div
+              title={cameraAngle === "front" ? "정면 카메라 감지됨" : cameraAngle === "left" ? "좌측 45° 카메라 감지됨" : "우측 45° 카메라 감지됨"}
+              style={{
+                position: "absolute",
+                bottom: 10,
+                ...(cameraAngle === "left"
+                  ? { left: 10 }
+                  : cameraAngle === "right"
+                  ? { right: 10 }
+                  : { left: "50%", transform: "translateX(-50%)" }),
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 24,
+                height: 24,
+                borderRadius: "50%",
+                background: "rgba(0, 0, 0, 0.65)",
+                backdropFilter: "blur(4px)",
+                color: "var(--b-sig)",
+                border: "1px solid var(--b-sig)",
+                boxShadow: "0 0 8px rgba(91, 140, 122, 0.4)",
+                zIndex: 4,
+                transition: "all 0.3s ease-in-out",
+              }}
+            >
+              <Icon name="camera" size={11} />
+            </div>
+
             {/* Stretch toast */}
             {stretchToast && (
               <div className="stretch-toast">
@@ -1694,7 +1788,7 @@ export function MonitorView({
               </div>
             )}
 
-            {/* 기준 자세 다시 잡기 — 카메라 우상단 (Privacy 배지의 좌상단 대칭) */}
+            {/* 기준 자세 다시 잡기 — 카메라 우상단 (위치 배지가 밀려나서 중첩 방지) */}
             <button
               onClick={onRecalibrate}
               title="기준 자세를 다시 측정합니다"
@@ -2129,7 +2223,7 @@ export function MonitorView({
               },
               {
                 label: "오늘 총 사용 시간",
-                value: formatDuration(activeDurationTodayCount),
+                value: formatUsageTime(activeDurationTodayCount),
                 badge: null,
                 delta: null,
                 deltaGood: true,

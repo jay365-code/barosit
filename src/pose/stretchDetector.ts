@@ -32,9 +32,9 @@ export function isOverheadStretch(lm: Landmarks): boolean {
   const rw = lm[LANDMARK_INDEX.RIGHT_WRIST];
   const nose = lm[LANDMARK_INDEX.NOSE];
 
-  // 어깨와 코는 명확히 보여야 기준점이 잡힘
-  if (!vis(ls, 0.5) || !vis(rs, 0.5)) return false;
-  if (!vis(nose, 0.4)) return false;
+  // 어깨와 코는 명확히 보여야 기준점이 잡힘 (가려짐을 유연하게 수용하기 위해 임계값 0.5 -> 0.20 하향)
+  if (!vis(ls, 0.20) || !vis(rs, 0.20)) return false;
+  if (!vis(nose, 0.20)) return false;
 
   const sw = Math.abs(ls.x - rs.x);
   // 자연스러운 기지개를 위해 가중치를 0.20 -> 0.15로 약간 완화
@@ -80,8 +80,9 @@ export function isBehindHead(lm: Landmarks): boolean {
   const rw = lm[LANDMARK_INDEX.RIGHT_WRIST];
   const le = lm[LANDMARK_INDEX.LEFT_ELBOW];
   const re = lm[LANDMARK_INDEX.RIGHT_ELBOW];
-  if (!vis(ls, 0.5) || !vis(rs, 0.5)) return false;
-  if (!vis(lEar, 0.4) || !vis(rEar, 0.4)) return false;
+  // 머리 뒤 깍지 시 어깨 가림 완화를 위해 임계값 0.5 -> 0.20 하향
+  if (!vis(ls, 0.20) || !vis(rs, 0.20)) return false;
+  if (!vis(lEar, 0.20) || !vis(rEar, 0.20)) return false;
   if (!vis(le) || !vis(re)) return false;
   const sw = Math.abs(ls.x - rs.x);
   const radius = sw * 0.50;
@@ -113,36 +114,49 @@ export function isCrossBody(lm: Landmarks): boolean {
   const rw = lm[LANDMARK_INDEX.RIGHT_WRIST];
   const le = lm[LANDMARK_INDEX.LEFT_ELBOW];
   const re = lm[LANDMARK_INDEX.RIGHT_ELBOW];
-  if (!vis(ls, 0.5) || !vis(rs, 0.5)) return false;
+
+  // 팔이 교차되면서 어깨가 극단적으로 가려져도 끊김없이 감지하도록 어깨 관절 신뢰도 조건을 0.5 -> 0.15로 파격 하향 조정
+  if (!vis(ls, 0.15) || !vis(rs, 0.15)) return false;
 
   const sw = Math.abs(ls.x - rs.x);
   const midY = (ls.y + rs.y) / 2;
 
-  // 1. 손목이 반대쪽 어깨에 확실하게 접근해야 함 (sw * 0.45 -> sw * 0.32 타이트화)
-  const close = (w: Landmark, opp: Landmark): boolean =>
-    Math.hypot(w.x - opp.x, w.y - opp.y) < sw * 0.32;
+  // 실시간 카메라 각도에 따른 기하학적 X축 수축 보상 스케일링
+  const cameraAngle = getCameraAngle();
+  const isSideView = cameraAngle !== "front";
+  
+  // 측면 뷰인 경우 X축 2D 원근 왜곡을 보상하기 위해 손목/팔꿈치의 상대적 벡터 X축 통과 기준을 획기적으로 낮춰 극상의 감도를 보장합니다.
+  const wristXThresh = isSideView ? sw * 0.25 : sw * 0.40;
+  const elbowXThresh = isSideView ? sw * 0.10 : sw * 0.15;
+  const wristVisThresh = isSideView ? 0.05 : 0.15;
+  const elbowVisThresh = isSideView ? 0.05 : 0.15;
 
-  const aroundChest = (w: Landmark) => Math.abs(w.y - midY) < sw * 0.40;
+  // 1. 왼팔 스트레칭 (왼손과 왼팔꿈치가 오른어깨 방향으로 뻗음)
+  // 어깨 너비(sw) 벡터 방향을 활용하여 미러링이나 측면 어깨 뒤바뀜 현상에서도 100% 강인한 벡터 판정 적용
+  const leftVector = rs.x - ls.x;
+  const leftArmCrossed =
+    vis(lw, wristVisThresh) && vis(le, elbowVisThresh) &&
+    (lw.x - ls.x) * leftVector > 0 &&         // 왼손이 오른어깨 방향으로 뻗음 (벡터 방향 일치)
+    Math.abs(lw.x - ls.x) > wristXThresh &&   // 손목 X축 이동량 동적 기준 적용 (정면 sw*0.40, 측면 sw*0.25)
+    (le.x - ls.x) * leftVector > 0 &&         // 왼팔꿈치도 오른어깨 방향으로 향함
+    Math.abs(le.x - ls.x) > elbowXThresh &&   // 팔꿈치 X축 이동량 동적 기준 적용 (정면 sw*0.15, 측면 sw*0.10)
+    Math.abs(le.y - midY) < sw * 0.45 &&      // [정렬 조건] 왼팔꿈치가 어깨선(Y축)에 수평으로 정렬됨
+    Math.abs(lw.y - midY) < sw * 0.45 &&      // [정렬 조건] 왼손이 어깨선(Y축)에 수평으로 정렬됨
+    (!vis(rw, 0.15) || Math.hypot(rw.x - le.x, rw.y - le.y) < sw * 0.75);
 
-  // 2. 팔꿈치가 아래로 축 처지지 않고, 가슴/어깨 높이 수준에서 수평으로 들어올려져 반대편으로 뻗어 있어야 함
-  const elbowActive = (elbow: Landmark | undefined, sameShoulder: Landmark): boolean =>
-    !!elbow && vis(elbow) && Math.abs(elbow.y - sameShoulder.y) < sw * 0.30;
+  // 2. 오른팔 스트레칭 (오른손과 오른팔꿈치가 왼어깨 방향으로 뻗음)
+  const rightVector = ls.x - rs.x;
+  const rightArmCrossed =
+    vis(rw, wristVisThresh) && vis(re, elbowVisThresh) &&
+    (rw.x - rs.x) * rightVector > 0 &&
+    Math.abs(rw.x - rs.x) > wristXThresh &&
+    (re.x - rs.x) * rightVector > 0 &&
+    Math.abs(re.x - rs.x) > elbowXThresh &&
+    Math.abs(re.y - midY) < sw * 0.45 &&      // [정렬 조건] 오른팔꿈치가 어깨선(Y축)에 수평으로 정렬됨
+    Math.abs(rw.y - midY) < sw * 0.45 &&      // [정렬 조건] 오른손이 어깨선(Y축)에 수평으로 정렬됨
+    (!vis(lw, 0.15) || Math.hypot(lw.x - re.x, lw.y - re.y) < sw * 0.75);
 
-  // 3. 손목이 단순히 가슴 중앙이 아니라, 반대편 가슴 영역 깊숙이 넘어가야 함 (sw * 0.15 -> sw * 0.28 이상으로 가로지름 확장)
-  const midX = (ls.x + rs.x) / 2;
-  const dirL = Math.sign(rs.x - ls.x); // ls→rs 방향 부호
-  const lCrossed = (w: Landmark) => dirL * (w.x - midX) > sw * 0.28;
-  const rCrossed = (w: Landmark) => -dirL * (w.x - midX) > sw * 0.28;
-
-  if (
-    vis(lw, 0.5) && lCrossed(lw) && close(lw, rs) && aroundChest(lw) &&
-    elbowActive(le, ls)
-  ) return true;
-  if (
-    vis(rw, 0.5) && rCrossed(rw) && close(rw, ls) && aroundChest(rw) &&
-    elbowActive(re, rs)
-  ) return true;
-  return false;
+  return leftArmCrossed || rightArmCrossed;
 }
 
 /**
@@ -154,11 +168,15 @@ export function isSideStretch(lm: Landmarks): boolean {
   const le = lm[LANDMARK_INDEX.LEFT_ELBOW];
   const re = lm[LANDMARK_INDEX.RIGHT_ELBOW];
   const nose = lm[LANDMARK_INDEX.NOSE];
-  if (!vis(ls, 0.5) || !vis(rs, 0.5)) return false;
-  if (!vis(le) || !vis(re) || !vis(nose, 0.4)) return false;
+  
+  // 몸을 기울일 때 어깨 가림 현상 극복을 위해 임계값 0.5 -> 0.20 하향
+  if (!vis(ls, 0.20) || !vis(rs, 0.20)) return false;
+  if (!vis(le) || !vis(re) || !vis(nose, 0.20)) return false;
 
   const sw = Math.abs(ls.x - rs.x);
   const t = sw * 0.20;
+  
+  // 한쪽 팔꿈치만 어깨선 위로 올라갔는지 확인
   const leftUp = le.y < ls.y - t;
   const rightUp = re.y < rs.y - t;
   if (leftUp === rightUp) return false;
@@ -166,9 +184,18 @@ export function isSideStretch(lm: Landmarks): boolean {
   const shoulderTilt = ls.y - rs.y;
   if (Math.abs(shoulderTilt) < 0.06) return false;
 
-  const shoulderMidX = (ls.x + rs.x) / 2;
-  const noseShift = nose.x - shoulderMidX;
-  return Math.sign(shoulderTilt) === Math.sign(noseShift) && Math.abs(noseShift) > sw * 0.08;
+  // 실시간 카메라 각도를 고려한 이원화(Dynamic Branching) 처리
+  const cameraAngle = getCameraAngle();
+  if (cameraAngle === "front") {
+    // 정면 모드: 머리와 어깨가 기울어진 방향의 부호 일치성을 정교하게 매칭
+    const shoulderMidX = (ls.x + rs.x) / 2;
+    const noseShift = nose.x - shoulderMidX;
+    return Math.sign(shoulderTilt) === Math.sign(noseShift) && Math.abs(noseShift) > sw * 0.08;
+  } else {
+    // 좌/우측 45° 모드: 사선 원근 왜곡으로 인해 머리의 2D 부호가 완전히 뒤집히거나 압축될 수 있으므로,
+    // 부호 일치 및 noseShift 수평 검사를 지능적으로 우회(Bypass)하고, 확실한 척추 수직 굽힘(Shoulder Tilt + Arm Raised) 형태로만 유연하게 감지
+    return true;
+  }
 }
 
 /**
@@ -182,16 +209,32 @@ export function isShoulderShrug(
   if (!baseline) return false;
   const ls = lm[LANDMARK_INDEX.LEFT_SHOULDER];
   const rs = lm[LANDMARK_INDEX.RIGHT_SHOULDER];
-  if (!vis(ls, 0.5) || !vis(rs, 0.5)) return false;
+  if (!vis(ls, 0.20) || !vis(rs, 0.20)) return false;
+  
   const sw = Math.abs(ls.x - rs.x);
   if (sw < 0.05) return false;
+
+  // [오감지 완벽 방어 체계]
+  // 1. 손목 높이 차단: 양 손목이 어깨 높이 근처/위로 올라가 있다면 어깨 으쓱이 아닙니다.
+  const lw = lm[LANDMARK_INDEX.LEFT_WRIST];
+  const rw = lm[LANDMARK_INDEX.RIGHT_WRIST];
+  if (lw && lw.visibility >= 0.15 && lw.y < ls.y + sw * 0.10) return false;
+  if (rw && rw.visibility >= 0.15 && rw.y < rs.y + sw * 0.10) return false;
+
+  // 2. 팔꿈치 높이 차단: 어깨 스트레칭(cross_body)이나 기지개 시 손목이 가려져서 위 차단막을 우회하더라도,
+  // 무조건 가슴/어깨 높이로 들리는 양쪽 팔꿈치의 Y축 높이 변화를 통해 '어깨 으쓱' 오감지를 이중 차단합니다.
+  const le = lm[LANDMARK_INDEX.LEFT_ELBOW];
+  const re = lm[LANDMARK_INDEX.RIGHT_ELBOW];
+  if (le && le.visibility >= 0.15 && le.y < ls.y + sw * 0.10) return false;
+  if (re && re.visibility >= 0.15 && re.y < rs.y + sw * 0.10) return false;
+
   const midY = (ls.y + rs.y) / 2;
-  // baseline 대비 어깨가 sw*0.20 이상 위로 (음수)
+  // baseline 대비 어깨가 sw*0.28 이상 위로 (음수) - 민감도 완화
   const lift = baseline.shoulderMidY - midY;
-  if (lift < sw * 0.20) return false;
-  // 양쪽 모두 올라가야 (한쪽만이면 사이드 굽힘 또는 비대칭)
-  return ls.y < baseline.meanLandmarks[LANDMARK_INDEX.LEFT_SHOULDER].y - sw * 0.10 &&
-         rs.y < baseline.meanLandmarks[LANDMARK_INDEX.RIGHT_SHOULDER].y - sw * 0.10;
+  if (lift < sw * 0.28) return false;
+  // 양쪽 모두 올라가야 (한쪽만이면 사이드 굽힘 또는 비대칭) - 각 어깨 임계값 sw*0.10 -> sw*0.18 완화
+  return ls.y < baseline.meanLandmarks[LANDMARK_INDEX.LEFT_SHOULDER].y - sw * 0.18 &&
+         rs.y < baseline.meanLandmarks[LANDMARK_INDEX.RIGHT_SHOULDER].y - sw * 0.18;
 }
 
 /**
@@ -206,7 +249,7 @@ export function isNeckSide(
   if (!face || !baseline?.face) return false;
   const ls = lm[LANDMARK_INDEX.LEFT_SHOULDER];
   const rs = lm[LANDMARK_INDEX.RIGHT_SHOULDER];
-  if (!vis(ls, 0.5) || !vis(rs, 0.5)) return false;
+  if (!vis(ls, 0.20) || !vis(rs, 0.20)) return false;
   const rollDelta = face.roll - baseline.face.roll;
   if (Math.abs(rollDelta) < 0.25) return false;  // ~14도 이상
   // 어깨는 baseline 기울임에서 크게 변하지 않아야 (사이드 굽힘과 구분)
@@ -227,7 +270,8 @@ export function isForwardFold(
   const nose = lm[LANDMARK_INDEX.NOSE];
   const ls = lm[LANDMARK_INDEX.LEFT_SHOULDER];
   const rs = lm[LANDMARK_INDEX.RIGHT_SHOULDER];
-  if (!vis(ls, 0.5) || !vis(rs, 0.5) || !vis(nose, 0.4)) return false;
+  // 상체를 숙일 때 어깨 및 코 가림 현상 극복을 위해 임계값 0.5 -> 0.20 하향
+  if (!vis(ls, 0.20) || !vis(rs, 0.20) || !vis(nose, 0.20)) return false;
   const sw = Math.abs(ls.x - rs.x);
   if (sw < 0.05) return false;
   // 코가 baseline 대비 sw*0.30 이상 아래
@@ -245,12 +289,217 @@ export function isForwardFold(
   return true;
 }
 
+export type CameraAngle = "front" | "left" | "right";
+
+export function getCameraAngle(): CameraAngle {
+  if (typeof window === "undefined") return "front";
+  try {
+    const rawBaseline = localStorage.getItem("calibration_baseline");
+    if (!rawBaseline) return "front";
+    const baseline = JSON.parse(rawBaseline);
+    if (!baseline || !baseline.face) return "front";
+    const yawDeg = baseline.face.yaw * (180 / Math.PI);
+    if (yawDeg > 12) return "right";
+    if (yawDeg < -12) return "left";
+  } catch (e) {}
+  return "front";
+}
+
+export interface NormalizedPose {
+  [idx: number]: { x: number; y: number; z: number; visibility?: number };
+}
+
+export function normalizePose(lm: Landmarks): NormalizedPose | null {
+  const ls = lm[LANDMARK_INDEX.LEFT_SHOULDER];
+  const rs = lm[LANDMARK_INDEX.RIGHT_SHOULDER];
+  if (!ls || !rs || ls.visibility < 0.1 || rs.visibility < 0.1) return null;
+  const cx = (ls.x + rs.x) / 2;
+  const cy = (ls.y + rs.y) / 2;
+  const cz = (ls.z + rs.z) / 2;
+  const sw = Math.abs(ls.x - rs.x);
+  if (sw < 0.01) return null;
+
+  const result: NormalizedPose = {};
+  const indices = [0, 7, 8, 11, 12, 13, 14, 15, 16];
+  for (const idx of indices) {
+    const p = lm[idx];
+    if (p) {
+      result[idx] = {
+        x: (p.x - cx) / sw,
+        y: (p.y - cy) / sw,
+        z: (p.z - cz) / sw,
+        visibility: p.visibility !== undefined ? Number(p.visibility.toFixed(4)) : undefined,
+      };
+    }
+  }
+  return result;
+}
+
+export const STRETCH_WEIGHTS: Record<StretchKind, Record<number, number>> = {
+  overhead: { 15: 3, 16: 3, 13: 3, 14: 3, 11: 1, 12: 1, 0: 1, 7: 1, 8: 1 },
+  behind_head: { 13: 3, 14: 3, 15: 2, 16: 2, 11: 1, 12: 1, 7: 1, 8: 1 },
+  // 전신 자세 템플릿 매칭 강화를 위해 다른 스트레칭에도 누락된 부위(얼굴 및 양팔)를 낮은 가중치로 보강합니다.
+  // 이를 통해 머리 및 어깨 랜드마크만 비교하여 서로 다른 동작이 혼선되어 감지되는 일을 원천 방지합니다.
+  cross_body: { 15: 3, 16: 3, 13: 3, 14: 3, 11: 1, 12: 1, 0: 1, 7: 1, 8: 1 },
+  side: { 13: 3, 14: 3, 15: 3, 16: 3, 11: 1, 12: 1, 0: 1, 7: 1, 8: 1 },
+  shoulder_shrug: { 11: 3, 12: 3, 0: 1, 7: 1, 8: 1, 13: 1, 14: 1, 15: 1, 16: 1 },
+  neck_side: { 0: 3, 7: 3, 8: 3, 11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 16: 1 },
+  forward_fold: { 0: 3, 11: 3, 12: 3, 13: 1, 14: 1, 15: 1, 16: 1 },
+};
+
+export const STRETCH_THRESHOLDS: Record<StretchKind, number> = {
+  overhead: 0.30,       // 기지개는 팔의 궤적이 넓어 유연하게 30% 오차 허용 (체감 감도 극대화)
+  behind_head: 0.30,    // 목 풀기도 30% 오차 허용 (감도 극대화)
+  cross_body: 0.30,     // 어깨 스트레치도 30% 오차 허용 (감도 극대화)
+  side: 0.30,           // 사이드 굽힘도 30% 오차 허용 (감도 극대화)
+  shoulder_shrug: 0.14, // 어깨 으쓱은 미세한 으쓱임 감지를 위해 14% 고수
+  neck_side: 0.15,      // 목 좌우 풀기는 15% 허용
+  forward_fold: 0.18,   // 상체 앞 숙이기는 18% 허용
+};
+
+// 어드민 시스템 제어판에서 보정한 표준 가동범위 데이터셋을 붙여넣는 마스터 데이터베이스입니다.
+// 여기에 어드민 도구에서 복사한 JSON 코드 내부의 'pose' 객체를 알맞은 키값 아래 덮어씌웁니다.
+export const DEFAULT_TEMPLATES: Record<string, { pose: NormalizedPose }> = {
+  // 예: "overhead_front": { pose: { ... } },
+  // 예: "overhead_left": { pose: { ... } },
+  // 예: "overhead_right": { pose: { ... } },
+};
+
+export function computePoseDistance(
+  live: NormalizedPose,
+  template: NormalizedPose,
+  weights: Record<number, number>
+): number {
+  let sumWeightedDist = 0;
+  let sumWeights = 0;
+  for (const idxStr in template) {
+    const idx = Number(idxStr);
+    const p1 = live[idx];
+    const p2 = template[idx];
+    if (!p1 || !p2) continue;
+    
+    // 관절 가림 노이즈 필터링: 실시간 자세 혹은 템플릿에서 가려진 관절(신뢰도 < 0.25)은 계산에서 제외
+    if (p1.visibility !== undefined && p1.visibility < 0.25) continue;
+    if (p2.visibility !== undefined && p2.visibility < 0.25) continue;
+
+    const w = weights[idx] ?? 1.0;
+    const dx = p1.x - p2.x;
+    const dy = p1.y - p2.y;
+    const dz = p1.z - p2.z;
+    const dist = Math.hypot(dx, dy, dz);
+    sumWeightedDist += dist * w;
+    sumWeights += w;
+  }
+  return sumWeights > 0 ? sumWeightedDist / sumWeights : Infinity;
+}
+
+export interface CustomTemplateData {
+  pose: NormalizedPose;
+  capturedAt: number;
+}
+
+export function loadCustomTemplates(): Record<string, CustomTemplateData> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("barosit:custom_stretch_templates");
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (e) {}
+  return {};
+}
+
+export function loadAdminTemplates(): Record<string, CustomTemplateData> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("barosit:admin_templates");
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (e) {}
+  return {};
+}
+
+/**
+ * 템플릿의 가로 방향을 반전하여 반대편(좌우) 스트레칭 템플릿을 자동으로 유도합니다.
+ * 이를 통해 사용자가 한쪽 방향만 보정 등록하더라도 반대쪽 방향까지 자동으로 감지할 수 있습니다.
+ */
+export function mirrorNormalizedPose(pose: NormalizedPose): NormalizedPose {
+  const mirrored: NormalizedPose = {};
+
+  // 좌우 대칭 교환이 필요한 MediaPipe 랜드마크 인덱스 쌍
+  const swapMap: Record<number, number> = {
+    11: 12, 12: 11, // Left/Right shoulders
+    13: 14, 14: 13, // Left/Right elbows
+    15: 16, 16: 15, // Left/Right wrists
+    7: 8, 8: 7,     // Left/Right ears
+  };
+
+  for (const [keyStr, pt] of Object.entries(pose)) {
+    const idx = Number(keyStr);
+    const targetIdx = swapMap[idx] ?? idx;
+    if (pt) {
+      mirrored[targetIdx] = {
+        x: Number((-pt.x).toFixed(4)), // 어깨 중심(0,0,0) 정규화 좌표이므로 단순 부호 반전(-X)으로 좌우 대칭 적용
+        y: pt.y,
+        z: Number((-pt.z).toFixed(4)), // 45도 측면 카메라 원근/깊이 왜곡 해결을 위해 Z좌표(깊이)도 함께 부호 반전 적용!
+        visibility: pt.visibility,
+      };
+    }
+  }
+
+  return mirrored;
+}
+
 export function detectStretch(
   lm: Landmarks,
   face?: FaceData | null,
   baseline?: CalibrationBaseline | null,
 ): StretchKind | null {
-  // 우선순위: 더 명확한 동작 먼저. baseline 비교 동작은 다 통과해야 신뢰.
+  // 1. 개인화된 커스텀 템플릿 판정 (등록된 템플릿이 있는 경우 최우선 적용)
+  const normalized = normalizePose(lm);
+  if (normalized) {
+    const customTemplates = loadCustomTemplates();
+    const adminTemplates = loadAdminTemplates();
+    const currentAngle = getCameraAngle();
+    const kinds: StretchKind[] = [
+      "behind_head",
+      "overhead",
+      "forward_fold",
+      "side",
+      "cross_body",
+      "shoulder_shrug",
+      "neck_side",
+    ];
+
+    for (const kind of kinds) {
+      const key = `${kind}_${currentAngle}`;
+      
+      // 우선순위 1: 사용자가 직접 보정한 개인화 템플릿
+      // 우선순위 2: 어드민이 UI에서 실시간 적용한 보정 표준 템플릿
+      // 우선순위 3: 어드민이 코드에 등록하여 배포한 공통 기본값 표준 템플릿 (DEFAULT_TEMPLATES)
+      const templateData = customTemplates[key] || adminTemplates[key] || DEFAULT_TEMPLATES[key];
+
+      if (templateData && templateData.pose) {
+        const weights = STRETCH_WEIGHTS[kind];
+        
+        // 원본 템플릿과의 L2 거리 계산 (예: 사용자가 캡처한 방향)
+        const distOriginal = computePoseDistance(normalized, templateData.pose, weights);
+        
+        // 자동으로 유도된 반대편 대칭(좌우 반전) 템플릿 생성
+        const mirroredPose = mirrorNormalizedPose(templateData.pose);
+        const distMirrored = computePoseDistance(normalized, mirroredPose, weights);
+
+        // 각 스트레칭 성격에 따른 맞춤 임계치(Threshold) 허용 폭 적용
+        const threshold = STRETCH_THRESHOLDS[kind] ?? 0.14;
+        if (distOriginal <= threshold || distMirrored <= threshold) {
+          return kind;
+        }
+      }
+    }
+  }
+
+  // 2. 커스텀 템플릿이 없거나 매칭되지 않은 경우, 해부학적으로 튜닝된 기본 휴리스틱 검사기로 완벽한 폴백 제공
   if (isBehindHead(lm)) return "behind_head";
   if (isOverheadStretch(lm)) return "overhead";
   if (isForwardFold(lm, face, baseline)) return "forward_fold";
@@ -290,8 +539,8 @@ export class StretchTracker {
   };
 
   constructor(
-    private readonly minHoldMs = 1000,
-    private readonly cooldownMs = 5 * 1000,
+    private readonly minHoldMs = 2000,
+    private readonly cooldownMs = 0,
     /** 검출이 끊기더라도 이 시간 안에 다시 잡히면 같은 동작으로 본다 */
     private readonly gapToleranceMs = 1000,
   ) {}

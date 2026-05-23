@@ -247,6 +247,7 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status }: Props) {
         height: "100%",
         display: "block",
         pointerEvents: "none",
+        transform: "scaleX(-1)", // Mirror horizontally to match the mirrored webcam video feed
       }}
     />
   );

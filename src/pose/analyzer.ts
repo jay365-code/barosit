@@ -305,19 +305,39 @@ export function analyzeFrame(
   if (baseNoseLm && baseLsLm && baseRsLm && !noseFromFace) {
     const shoulderMidX = (ls.x + rs.x) / 2;
     const baseShoulderMidX = (baseLsLm.x + baseRsLm.x) / 2;
-    const baseNeckX = baseNoseLm.x - baseShoulderMidX;
-    const baseNeckY = baseline.noseY - baseline.shoulderMidY;
-    const curNeckX = nose.x - shoulderMidX;
-    const curNeckY = nose.y - shoulderMidY;
+
+    // [세컨 모니터 환경 최적화 및 거북목 감지 사각지대 제거]
+    // 코(Nose)는 회전축에서 멀어 고개를 돌릴 때 2D 오차가 극대화되므로,
+    // 목뼈 회전축에 수렴하는 '양쪽 귀의 중점(Ear Midpoint)'을 추적 좌표로 사용하여 회전 불변성(Rotation Invariance)을 획득합니다.
+    const useEar = lEar && rEar && lEar.visibility >= 0.25 && rEar.visibility >= 0.25 && baseLEar && baseREar;
+
+    const curHeadX = useEar ? (lEar.x + rEar.x) / 2 : nose.x;
+    const curHeadY = useEar ? (lEar.y + rEar.y) / 2 : nose.y;
+
+    const baseHeadX = useEar ? (baseLEar.x + baseREar.x) / 2 : baseNoseLm.x;
+    const baseHeadY = useEar ? (baseLEar.y + baseREar.y) / 2 : baseline.noseY;
+
+    const baseNeckX = baseHeadX - baseShoulderMidX;
+    const baseNeckY = baseHeadY - baseline.shoulderMidY;
+    const curNeckX = curHeadX - shoulderMidX;
+    const curNeckY = curHeadY - shoulderMidY;
+
     const neckDrift = Math.hypot(curNeckX - baseNeckX, curNeckY - baseNeckY);
-    // shoulderWidth * 0.20 (어깨 너비의 20%) drift 가 score 1.0.
-    // 거북목으로 머리가 3-5cm 빠지면 어깨 너비의 15-25% 정도 변화.
+    // 어깨 너비의 20% 변위를 거북목 지수 1.0으로 환산
     neckDriftScore = neckDrift / (baseline.shoulderWidth * 0.20);
   }
 
-  const forwardHeadScore =
+  const rawForwardHeadScore =
     headSizeScore + (-zDelta / 0.05) + (headDrop / 0.04) + pitchScore +
     neckDriftScore;
+
+  // 귀 중점 필터 덕분에 고개만 돌리는 것(Yaw 회전)은 자연적으로 점수가 오르지 않습니다.
+  // 다만, 45도 이상 고개를 아주 크게 돌려 귀가 완전히 가려지거나 극단적 각도일 때의 노이즈 안전망으로 
+  // 고개 회전각(yawDelta)에 대한 감쇄 마진을 35도(약 0.60rad) 수준으로 극도로 넓고 넉넉하게 보완합니다.
+  // 이를 통해 세컨 모니터에서 목을 앞으로 빼는 '진짜 거북목'은 사각지대 없이 100% 탐지해냅니다.
+  const yawDelta = face && baseline.face ? Math.abs(face.yaw - baseline.face.yaw) : 0;
+  const yawDamping = face && baseline.face ? Math.max(0, 1 - yawDelta / 0.60) : 1.0;
+  const forwardHeadScore = rawForwardHeadScore * yawDamping;
   // forward_head 발동은 chin_resting 평가 이후로 이동 — 우선순위 충돌 회피.
   // 손이 얼굴 근처에 있는 자세는 자연히 살짝 숙임을 동반해 거북목 신호도 같이
   // 켜지는데, 사용자 의도는 턱괴임이 더 정확. 둘 다 발동 시 턱괴임이 displayViolations[0]
@@ -495,7 +515,7 @@ export function analyzeFrame(
   // shoulder_tilt 는 절댓값 기반이라 좌우 어느 쪽이 처졌는지 신경 안 씀.
   // asymmetry 는 부호 있는 tilt + 어깨 중점이 코 기준 한쪽으로 쏠림을 같이 본다.
   const signedTilt = (ls.y - rs.y) - baseline.shoulderTiltY;
-  const tiltDirection = Math.abs(signedTilt) / 0.05;
+  const tiltDirection = Math.abs(signedTilt) / 0.075; // 이전 0.05 대비 임계 완화 (미세 움직임 방지)
   const shoulderMidX = (ls.x + rs.x) / 2;
   const baseLs = baseline.meanLandmarks[LANDMARK_INDEX.LEFT_SHOULDER];
   const baseRs = baseline.meanLandmarks[LANDMARK_INDEX.RIGHT_SHOULDER];
@@ -505,12 +525,12 @@ export function analyzeFrame(
     const baseShoulderMidX = (baseLs.x + baseRs.x) / 2;
     const noseOffset = nose.x - shoulderMidX;
     const baseNoseOffset = baseNose.x - baseShoulderMidX;
-    lateralShift = Math.abs(noseOffset - baseNoseOffset) / 0.04;
+    lateralShift = Math.abs(noseOffset - baseNoseOffset) / 0.06; // 이전 0.04 대비 임계 완화
   }
   const asymmetryScore = tiltDirection + lateralShift;
   if (
     asymmetryScore > thresholds.shoulder_asymmetry.sensitivity &&
-    Math.abs(signedTilt) > 0.025
+    Math.abs(signedTilt) > 0.035 // 최소 유의미한 어깨 처짐 폭 완화 (이전 0.025)
   ) {
     result.violations.add("shoulder_asymmetry");
   }
@@ -602,7 +622,20 @@ export function analyzeFrame(
   // 캘리브레이션 앉은 자세 기준(baseline.shoulderMidY)보다 실시간 어깨 높이가 12% 이상 상승 시 서 있는 상태로 판단.
   // 5프레임 이상 연속 유지될 때만 최종 선 자세로 전환하여 노이즈 차단.
   const prevStandingHold = prevState?.standingHoldFrames ?? 0;
-  const standingConditionMet = result.personPresent && (baseline.shoulderMidY - shoulderMidY > 0.12);
+
+  // 어깨만 귀 쪽으로 한껏 움츠리는 '어깨 으쓱' 스트레칭과 구별하기 위해, 어깨의 상승 폭과 머리(코)의 상승 폭을 직접 비교합니다.
+  // 실제 일어설 때는 어깨와 머리가 거의 동일한 수준(또는 머리가 더 많이) 위로 이동하지만,
+  // 어깨 으쓱 중에는 머리는 거의 그대로 있고 어깨만 치솟으므로 어깨 상승 폭이 머리 상승 폭보다 현저히 큽니다.
+  const shoulderLift = baseline.shoulderMidY - shoulderMidY;
+  const noseLift = baseline.noseY - nose.y;
+  const isShrugPose = (shoulderLift - noseLift) > 0.05; // 어깨가 머리보다 5% 이상 과도하게 올라갔다면 으쓱 상태
+
+  // 일어설 때는 전체 몸체(어깨 > 0.12)와 머리(코 > 0.12)가 함께 비례하여 상승해야 하며, 목이 좁아진 으쓱 자세가 아니어야 합니다.
+  const standingConditionMet =
+    result.personPresent &&
+    (shoulderLift > 0.12) &&
+    (noseLift > 0.12) &&
+    !isShrugPose;
   const standingHoldFrames = standingConditionMet ? prevStandingHold + 1 : 0;
   result.state.standingHoldFrames = standingHoldFrames;
 

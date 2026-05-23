@@ -21,7 +21,9 @@ if (typeof window !== "undefined") {
   }
 }
 
-const IS_WEB = (import.meta.env.VITE_PLATFORM as string | undefined) === "web";
+const IS_WEB =
+  (import.meta.env.VITE_PLATFORM as string | undefined) === "web" ||
+  (typeof window !== "undefined" && !(window as any).__TAURI_INTERNALS__ && !(window as any).__TAURI__);
 const isWidget = !IS_WEB && window.location.hash === "#widget";
 const isAlert = !IS_WEB && window.location.hash === "#alert";
 // 웹은 마케팅 페이지가 기본 진입점. 모니터링 앱은 #/app 으로 명시 진입.

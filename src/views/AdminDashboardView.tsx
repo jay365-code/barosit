@@ -3,6 +3,7 @@ import { supabase } from "../auth/supabase";
 import { Icon } from "../components/Icon";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { AdminTemplateView } from "./AdminTemplateView";
 
 interface UserProfileData {
   id: string;
@@ -89,7 +90,7 @@ interface Props {
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "releases">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
   
   // 릴리즈 관리 상태
@@ -729,6 +730,7 @@ export function AdminDashboardView({ onClose }: Props) {
               { id: "qna", label: "Q&A 문의 제어", icon: "info" as const },
               { id: "alerts", label: "실시간 알림", icon: "bell" as const },
               { id: "releases", label: "업데이트/공지 관리", icon: "sparkle" as const },
+              { id: "stretches", label: "스트레칭 템플릿 제어", icon: "target" as const },
               { id: "system", label: "시스템 제어판", icon: "settings" as const },
             ].map(tab => {
               const isAlerts = tab.id === "alerts";
@@ -1824,6 +1826,11 @@ export function AdminDashboardView({ onClose }: Props) {
                       </form>
                     </div>
                   </div>
+                )}
+
+                {/* 7. 스트레칭 템플릿 관리 탭 */}
+                {activeTab === "stretches" && (
+                  <AdminTemplateView />
                 )}
               </>
             )}

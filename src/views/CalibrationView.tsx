@@ -13,6 +13,7 @@ import type {
   CalibrationBaseline,
   DetectionFrame,
   Landmarks,
+  Landmark,
 } from "../pose/types";
 import { Icon } from "../components/Icon";
 import { Logo } from "../components/Logo";
@@ -37,6 +38,8 @@ const CHECK_LABELS: { key: keyof CalibrationCheck; label: string }[] = [
 export function CalibrationView({ onComplete }: Props) {
   const { videoRef, ready: cameraReady, error: cameraError } = useCamera();
   const [landmarks, setLandmarks] = useState<Landmarks | null>(null);
+  const [faceLandmarks, setFaceLandmarks] = useState<Landmark[] | null>(null);
+  const [videoAspect, setVideoAspect] = useState<number>(4 / 3);
   const [phase, setPhase] = useState<
     "idle" | "capturing" | "done" | "rejected"
   >("idle");
@@ -56,6 +59,7 @@ export function CalibrationView({ onComplete }: Props) {
     fps: 10,
     onFrame: (frame: DetectionFrame) => {
       setLandmarks(frame.pose);
+      setFaceLandmarks(frame.face?.landmarks || null);
       setLiveCheck(checkCalibrationFrame(frame, liveStabilityRef.current));
       if (phase === "capturing") {
         collectorRef.current.pushFrame(frame);
@@ -238,7 +242,8 @@ export function CalibrationView({ onComplete }: Props) {
             <div
               style={{
                 position: "relative",
-                height: 220,
+                width: "100%",
+                aspectRatio: videoAspect,
                 borderRadius: 14,
                 background: "#0a0a0a",
                 overflow: "hidden",
@@ -252,6 +257,12 @@ export function CalibrationView({ onComplete }: Props) {
                 ref={videoRef}
                 muted
                 playsInline
+                onLoadedMetadata={(e) => {
+                  const video = e.currentTarget;
+                  if (video.videoWidth && video.videoHeight) {
+                    setVideoAspect(video.videoWidth / video.videoHeight);
+                  }
+                }}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -262,7 +273,7 @@ export function CalibrationView({ onComplete }: Props) {
                   zIndex: 1,
                 }}
               />
-              <LandmarkOverlay landmarks={landmarks} />
+              <LandmarkOverlay landmarks={landmarks} faceLandmarks={faceLandmarks} />
 
               {/* Breathing ring overlay */}
               {capturing && (

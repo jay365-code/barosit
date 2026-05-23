@@ -80,48 +80,28 @@ export function LegalDocument({ kind, onClose }: Props) {
                 }
                 if (href.includes("changelog.md")) {
                   return (
-                    <a
-                      href="https://github.com/jay365-code/barosit/blob/main/docs/changelog.md"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: "underline" }}
-                    >
+                    <a href="#/changelog" style={{ textDecoration: "underline" }}>
                       {children}
                     </a>
                   );
                 }
                 if (href.includes("settings.md")) {
                   return (
-                    <a
-                      href="https://github.com/jay365-code/barosit/blob/main/docs/settings.md"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: "underline" }}
-                    >
+                    <a href="#/landing" style={{ textDecoration: "underline" }}>
                       {children}
                     </a>
                   );
                 }
                 if (href.includes("privacy.md")) {
                   return (
-                    <a
-                      href="https://github.com/jay365-code/barosit/blob/main/docs/privacy.md"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: "underline" }}
-                    >
+                    <a href="#/privacy" style={{ textDecoration: "underline" }}>
                       {children}
                     </a>
                   );
                 }
                 if (href.includes("terms.md")) {
                   return (
-                    <a
-                      href="https://github.com/jay365-code/barosit/blob/main/docs/terms.md"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: "underline" }}
-                    >
+                    <a href="#/terms" style={{ textDecoration: "underline" }}>
                       {children}
                     </a>
                   );

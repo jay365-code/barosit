@@ -596,7 +596,7 @@ input:focus {
 .b-update-notice {
   position: fixed;
   right: 20px;
-  bottom: 20px;
+  top: 20px;
   z-index: 100;
   width: 320px;
   padding: 14px 16px;
@@ -640,7 +640,7 @@ input:focus {
   text-align: right;
 }
 @keyframes updateNoticeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
