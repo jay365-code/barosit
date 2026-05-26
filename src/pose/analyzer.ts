@@ -381,6 +381,7 @@ export function analyzeFrame(
   const rEar = landmarks[LANDMARK_INDEX.RIGHT_EAR];
   const baseLEar = baseline.meanLandmarks[LANDMARK_INDEX.LEFT_EAR];
   const baseREar = baseline.meanLandmarks[LANDMARK_INDEX.RIGHT_EAR];
+
   let headSizeScore = 0;
   if (
     lEar && rEar &&
@@ -545,14 +546,24 @@ export function analyzeFrame(
     handWrist.y < shoulderMinY - baseline.shoulderWidth * 0.05;
   // 손가락 끝: ① 얼굴 반경 90% 이내 (턱 거리 포함) ② 어깨보다 sw*0.10 명확히 위
   // ③ 코 기준 sw*0.40 아래까지 허용 (턱 높이 포함, 책상 손은 어깨선 아래라 ②에서 차단)
-  // [phantom hand 최종 게이트] 진짜 chin_resting 자세에서는 활성 팔의 pose 손목이 visibility ≥ 0.4 로 추적됩니다.
-  // pose 양쪽 손목 모두 visibility < 0.4 이면 사용자 손이 프레임 밖이라는 강한 증거 — Hand 모델 검출이 살아남았더라도 발화 자체를 차단해
-  // filter A~E 를 우회한 잔여 phantom 이 chin_resting 을 stuck 시키는 것을 막습니다.
-  const hasReliablePoseWrist =
-    (lWrist?.visibility ?? 0) >= 0.4 || (rWrist?.visibility ?? 0) >= 0.4;
+  // [phantom hand 최종 게이트 — 위치 동의 강화]
+  // 기존 visibility-only 게이트는 phantom 의 손목이 목 부근으로 외삽되고 pose 도 그 근처로 wrist 를 추정할 때 (양쪽 다 0.4+ visibility) 통과되어 차단 실패.
+  // 진짜 chin_resting 에서는 hand 모델의 손목 landmark(0) 와 pose 손목 좌표가 거의 동일 위치 (둘 다 실제 손목 추적). phantom 에서는 hand 모델이 환각한 손목 위치와 pose 가 추정한 위치가 일치하지 않음.
+  // sw*0.15 이내 정확 위치 일치 + visibility ≥ 0.4 둘 다 요구해 phantom 의 "구조적으로 그럴듯한" 통과를 차단합니다.
+  const poseConfirmsHandWristPosition = (() => {
+    if (!handWrist) return false;
+    const checkPose = (pw: Landmark | undefined): boolean => {
+      if (!pw || pw.visibility < 0.4) return false;
+      return (
+        Math.hypot(handWrist.x - pw.x, handWrist.y - pw.y) <
+        baseline.shoulderWidth * 0.15
+      );
+    };
+    return checkPose(lWrist) || checkPose(rWrist);
+  })();
   const fingerNearChin =
     hands.length > 0 &&
-    hasReliablePoseWrist &&
+    poseConfirmsHandWristPosition &&
     minFingerDist < faceRadius * 0.90 &&
     !!minTip &&
     minTip.y < shoulderMinY - baseline.shoulderWidth * 0.10 &&
@@ -615,9 +626,21 @@ export function analyzeFrame(
   // forward_head 발동 — chin_resting raw 신호가 활성이면 보류 (우선순위: 턱괴임 > 거북목).
   // 시간 게이트로 violations 에 아직 안 올라간 raw 신호 단계에서도 forward_head 는 양보.
   // noseFromFace 인 경우도 보류 — face pitch·ear 신호가 가림으로 noisy.
+  // [측면 카메라 회전 false positive 차단 — 1차 yaw deadzone 가드]
+  // yawDelta 가 deadzone(15°) 을 넘은 회전 자세에서는 score 신뢰 불가 → 발화 보류.
+  //
+  // [측면 카메라 회전 false positive 차단 — 2차 운동학적 동의 요구]
+  // 진짜 거북목의 본질은 "턱이 앞·아래로 빠지는" 운동학적 동작. pitch (3D 머리 각도) 또는 drop (코 y 좌표) 둘 다 yaw 회전에 거의 무관.
+  // 반면 size (귀폭/어깨폭 비율), z (깊이), neckDrift (2D 헤드-숄더 drift) 는 yaw 회전만으로도 폭증할 수 있는 geometric 신호.
+  // geometric 신호가 단독으로 임계 돌파하는 케이스를 차단하기 위해 — 운동학적 신호 중 최소 하나는 거북목 방향(양수)으로 의미있게 움직였어야 진짜 거북목으로 인정.
+  // 이로써 yawDelta < deadzone 인 작은 회전에서도 geometric 신호 폭증으로 false positive 발생하는 케이스 봉쇄.
+  const kinematicAgreesForwardHead =
+    pitchScore > 0.3 || (headDrop / 0.04) > 0.3;
   if (
     !noseFromFace &&
     !chinRaw &&
+    yawDelta < FREE_YAW_RAD &&
+    kinematicAgreesForwardHead &&
     forwardHeadScore > thresholds.forward_head.sensitivity
   ) {
     result.violations.add("forward_head");
@@ -679,10 +702,16 @@ export function analyzeFrame(
     !face || !baseline.face ||
     Math.abs(face.pitch - baseline.face.pitch) < 0.12;
   const monitorCloseScore = closeZScore + closeSizeScore;
+  // [측면 카메라 회전 false positive 차단 — 어깨폭 동의 요구]
+  // 진짜 모니터 근접의 본질은 "사용자 몸 전체가 카메라에 가까워짐". 얼굴만 커지고 어깨는 그대로면 그건 yaw 회전이지 근접 아님.
+  // 어깨폭이 baseline 대비 10% 이상 증가했어야 진짜 카메라 거리 변화로 인정 — 회전만으로는 어깨폭이 비례 증가하지 않으므로 (오히려 약간 감소) yaw 회전 false positive 가 자연 차단됨.
+  const shoulderWidthRatio = shoulderWidth / baseline.shoulderWidth;
+  const shouldersAlsoCloser = shoulderWidthRatio > 1.10;
   if (
     monitorCloseScore > thresholds.monitor_too_close.sensitivity &&
     closeZScore >= 0.5 &&     // z 감소 신호 필수
     closeSizeScore >= 0.5 &&  // 귀 너비 증가 신호 필수 (AND)
+    shouldersAlsoCloser &&    // 어깨도 같이 커져야 진짜 근접 (AND)
     headPostureSteady
   ) {
     result.violations.add("monitor_too_close");

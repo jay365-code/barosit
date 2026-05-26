@@ -323,6 +323,26 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status, baseline }:
                 }
               }
             }
+
+            // 필터 F: Pose Wrist 위치 동의 (face mesh 봉쇄 여부 무관, 모든 hand 검출에 적용)
+            // 손목이 face mesh 밖(목 부근)으로 빠지는 phantom 패턴(세로 컬럼 형태)은 Filter E 의 다수 봉쇄 조건이 충족 안 되어 통과됩니다.
+            // 진짜 손은 hand 모델의 손목 landmark(0) 좌표와 pose 모델의 손목 좌표가 거의 동일 위치에 있어야 함 — phantom 은 pose 가 동일 위치를 추적하지 못함.
+            // sw*0.15 이내 위치 일치 + visibility ≥ 0.4 둘 다 요구해, 어떤 모양의 phantom 이든 pose 의 독립 추적과 일치 안 하면 렌더링 차단.
+            const lPoseWristF = pose[LANDMARK_INDEX.LEFT_WRIST];
+            const rPoseWristF = pose[LANDMARK_INDEX.RIGHT_WRIST];
+            const poseConfirmsPosition = (() => {
+              if (!wristLm) return false;
+              const check = (pw: Landmark | undefined): boolean => {
+                if (!pw || pw.visibility < 0.4) return false;
+                return (
+                  Math.hypot(wristLm.x - pw.x, wristLm.y - pw.y) < sw * 0.15
+                );
+              };
+              return check(lPoseWristF) || check(rPoseWristF);
+            })();
+            if (!poseConfirmsPosition) {
+              continue;
+            }
           }
         }
 

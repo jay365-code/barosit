@@ -15,6 +15,25 @@ export type StretchKind =
   | "neck_side"       // 목 좌우 기울이기
   | "forward_fold";   // 상체 앞 숙이기
 
+export type CameraAngle = "front" | "left" | "right";
+
+/**
+ * 실시간 face landmark 의 yaw 로 현재 카메라 각도 판정.
+ *
+ * 기존 `getCameraAngle()` 은 localStorage 의 `calibration_baseline` single-key (마지막 캘리브레이션 저장값) 만 봐서
+ * 사용자가 다른 각도에서 사용 중일 때도 stale 한 값을 반환하는 구조적 결함이 있었습니다.
+ * 이 헬퍼는 매 프레임 들어오는 face data 로 판정하므로 자동 카메라 각도 적응과 일관됩니다.
+ *
+ * face 가 없으면 안전한 기본값으로 "front" — 자세 검출 대부분의 함수가 face 없이도 동작하므로 OK.
+ */
+function liveAngleFromFace(face?: FaceData | null): CameraAngle {
+  if (!face) return "front";
+  const yawDeg = face.yaw * (180 / Math.PI);
+  if (yawDeg > 12) return "right";
+  if (yawDeg < -12) return "left";
+  return "front";
+}
+
 const vis = (p: Landmark | undefined, t = 0.35): boolean =>
   !!p && p.visibility >= t;
 
@@ -107,7 +126,7 @@ export function isBehindHead(lm: Landmarks): boolean {
  *   - wrist가 가슴 영역 + 동측 wrist에서 충분히 떨어짐 (몸을 가로질러야)
  *   - 동측 팔꿈치가 어깨 근처 이상 (마우스 reach 차단)
  */
-export function isCrossBody(lm: Landmarks): boolean {
+export function isCrossBody(lm: Landmarks, cameraAngle: CameraAngle): boolean {
   const ls = lm[LANDMARK_INDEX.LEFT_SHOULDER];
   const rs = lm[LANDMARK_INDEX.RIGHT_SHOULDER];
   const lw = lm[LANDMARK_INDEX.LEFT_WRIST];
@@ -122,7 +141,8 @@ export function isCrossBody(lm: Landmarks): boolean {
   const midY = (ls.y + rs.y) / 2;
 
   // 실시간 카메라 각도에 따른 기하학적 X축 수축 보상 스케일링
-  const cameraAngle = getCameraAngle();
+  // [stale 제거] 기존 getCameraAngle() 은 localStorage 의 마지막 캘리브레이션 단일-키만 봐서 사용자의 현재 카메라 위치와 어긋날 수 있었습니다.
+  // 이제 detectStretch 가 실시간 face yaw 로 판정한 각도를 인자로 전달하므로 자동 카메라 각도 적응과 일관됩니다.
   const isSideView = cameraAngle !== "front";
   
   // 측면 뷰인 경우 X축 2D 원근 왜곡을 보상하기 위해 손목/팔꿈치의 상대적 벡터 X축 통과 기준을 획기적으로 낮춰 극상의 감도를 보장합니다.
@@ -182,7 +202,7 @@ export function isCrossBody(lm: Landmarks): boolean {
 /**
  * 사이드 굽힘 — 한쪽만 팔 위로 + 측면 기울임 + 머리도 같은 방향.
  */
-export function isSideStretch(lm: Landmarks): boolean {
+export function isSideStretch(lm: Landmarks, cameraAngle: CameraAngle): boolean {
   const ls = lm[LANDMARK_INDEX.LEFT_SHOULDER];
   const rs = lm[LANDMARK_INDEX.RIGHT_SHOULDER];
   const le = lm[LANDMARK_INDEX.LEFT_ELBOW];
@@ -205,7 +225,7 @@ export function isSideStretch(lm: Landmarks): boolean {
   if (Math.abs(shoulderTilt) < 0.06) return false;
 
   // 실시간 카메라 각도를 고려한 이원화(Dynamic Branching) 처리
-  const cameraAngle = getCameraAngle();
+  // [stale 제거] 호출자(detectStretch)가 실시간 face yaw 로 판정해 전달한 각도 사용.
   if (cameraAngle === "front") {
     // 정면 모드: 머리와 어깨가 기울어진 방향의 부호 일치성을 정교하게 매칭
     const shoulderMidX = (ls.x + rs.x) / 2;
@@ -247,6 +267,15 @@ export function isShoulderShrug(
   const re = lm[LANDMARK_INDEX.RIGHT_ELBOW];
   if (le && le.visibility >= 0.15 && le.y < ls.y + sw * 0.10) return false;
   if (re && re.visibility >= 0.15 && re.y < rs.y + sw * 0.10) return false;
+
+  // 3. 팔꿈치 X(가로) 차단: cross_body 의 transitional phase 차단.
+  // cross_body 는 어깨 lift 가 동반되는 ~2~4초 sequence 인데, 초기·중기엔 손목·팔꿈치 Y 가 아직 어깨선까지 못 올라와 Y 가드를 통과합니다.
+  // 그 사이 어깨가 보상 운동으로 올라가면 셔그로 잡혀 isCrossBody 가 완성되기 전에 셔그 보너스가 먼저 발화하는 버그가 발생.
+  // 자기 어깨에서 몸 중앙 쪽으로 sw*0.15 이상 들어온 팔꿈치는 cross_body 진행 중으로 보고 셔그 차단. 안식 자세의 자연스러운 약간 안쪽 위치(< sw*0.15)는 통과.
+  const shoulderMidX = (ls.x + rs.x) / 2;
+  const xGuardThresh = sw * 0.35; // sw/2 (어깨~중앙 거리) - sw*0.15 (마진)
+  if (le && le.visibility >= 0.15 && Math.abs(le.x - shoulderMidX) < xGuardThresh) return false;
+  if (re && re.visibility >= 0.15 && Math.abs(re.x - shoulderMidX) < xGuardThresh) return false;
 
   const midY = (ls.y + rs.y) / 2;
   // baseline 대비 어깨가 sw*0.28 이상 위로 (음수) - 민감도 완화
@@ -309,8 +338,11 @@ export function isForwardFold(
   return true;
 }
 
-export type CameraAngle = "front" | "left" | "right";
-
+/**
+ * @deprecated 자세·스트레치 검출 경로에서는 사용 금지. localStorage 의 마지막 캘리브레이션 single-key 만 보므로
+ * 사용자의 현재 카메라 각도와 stale 어긋남이 발생합니다. 실시간 판정이 필요한 곳은 `liveAngleFromFace(face)` 또는
+ * 호출자가 가지고 있는 face data 로 직접 판정하세요. UI 의 마지막 캘리브레이션 각도 표시 같은 비검출 용도에만 한정.
+ */
 export function getCameraAngle(): CameraAngle {
   if (typeof window === "undefined") return "front";
   try {
@@ -476,12 +508,14 @@ export function detectStretch(
   face?: FaceData | null,
   baseline?: CalibrationBaseline | null,
 ): StretchKind | null {
+  // [stale 제거] 실시간 face yaw 로 각도 판정. 기존 getCameraAngle() 의 localStorage stale 참조를 함수 진입 시 한 번에 해결합니다.
+  const currentAngle = liveAngleFromFace(face);
+
   // 1. 개인화된 커스텀 템플릿 판정 (등록된 템플릿이 있는 경우 최우선 적용)
   const normalized = normalizePose(lm);
   if (normalized) {
     const customTemplates = loadCustomTemplates();
     const adminTemplates = loadAdminTemplates();
-    const currentAngle = getCameraAngle();
     const kinds: StretchKind[] = [
       "behind_head",
       "overhead",
@@ -523,8 +557,8 @@ export function detectStretch(
   if (isBehindHead(lm)) return "behind_head";
   if (isOverheadStretch(lm)) return "overhead";
   if (isForwardFold(lm, face, baseline)) return "forward_fold";
-  if (isSideStretch(lm)) return "side";
-  if (isCrossBody(lm)) return "cross_body";
+  if (isSideStretch(lm, currentAngle)) return "side";
+  if (isCrossBody(lm, currentAngle)) return "cross_body";
   if (isShoulderShrug(lm, baseline)) return "shoulder_shrug";
   if (isNeckSide(lm, face, baseline)) return "neck_side";
   return null;
