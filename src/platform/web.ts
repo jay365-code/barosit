@@ -127,6 +127,7 @@ const onWidgetState = async (
 // 이미 visibilityChange를 처리하므로 여기서는 외부 신호 없음.
 const onPauseEvent = onNothing;
 const onResumeEvent = onNothing;
+const onTogglePauseEvent = onNothing;
 const onMainCloseRequested = onNothing;
 const onMainReopened = onNothing;
 
@@ -157,6 +158,7 @@ export const webPlatform: PlatformAPI = {
   onWidgetState,
   onPauseEvent,
   onResumeEvent,
+  onTogglePauseEvent,
   onMainCloseRequested,
   onMainReopened,
   generateCoachingMessage,

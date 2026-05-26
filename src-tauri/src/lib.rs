@@ -307,8 +307,24 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, _shortcut, event| {
+            if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                let _ = app.emit("monitoring:toggle-pause", ());
+            }
+        }).build())
         .setup(|app| {
+            use tauri_plugin_global_shortcut::GlobalShortcutExt;
             tray::setup_tray(app.handle())?;
+
+            // 전역 단축키 등록 (Mac: Cmd + Option + P / Win/Linux: Ctrl + Alt + P)
+            #[cfg(target_os = "macos")]
+            let modifiers = tauri_plugin_global_shortcut::Modifiers::SUPER | tauri_plugin_global_shortcut::Modifiers::ALT;
+            #[cfg(not(target_os = "macos"))]
+            let modifiers = tauri_plugin_global_shortcut::Modifiers::CONTROL | tauri_plugin_global_shortcut::Modifiers::ALT;
+
+            let shortcut = tauri_plugin_global_shortcut::Shortcut::new(Some(modifiers), tauri_plugin_global_shortcut::Code::KeyP);
+            let _ = app.global_shortcut().register(shortcut);
+
             // App Nap 비활성화 — 메인 윈도우가 가려져도 pose loop 가 throttle 없이 동작.
             // process 수명 동안 유지되어야 효과 있음.
             disable_app_nap();

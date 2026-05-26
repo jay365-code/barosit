@@ -62,6 +62,8 @@ const onPauseEvent = (cb: () => void) =>
   onChannelVoid("monitoring:pause", cb);
 const onResumeEvent = (cb: () => void) =>
   onChannelVoid("monitoring:resume", cb);
+const onTogglePauseEvent = (cb: () => void) =>
+  onChannelVoid("monitoring:toggle-pause", cb);
 const onMainCloseRequested = (cb: () => void) =>
   onChannelVoid("main:close-requested", cb);
 const onMainReopened = (cb: () => void) =>
@@ -291,6 +293,7 @@ export const tauriPlatform: PlatformAPI = {
   onWidgetState,
   onPauseEvent,
   onResumeEvent,
+  onTogglePauseEvent,
   onMainCloseRequested,
   onMainReopened,
   generateCoachingMessage,

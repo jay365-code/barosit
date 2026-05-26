@@ -95,6 +95,10 @@ export interface AnalyzerState {
 const CHIN_HOLD_FRAMES = 6;
 /** isResting 진입 조건 충족이 연속 N 프레임 이상이어야 휴식으로 전환. */
 const RESTING_HOLD_FRAMES = 10;
+/** [멀티 모니터 회전 deadzone] baseline 대비 yaw 가 ±15° 이내면 통상 작업 자세로 간주하고 yaw 댐핑을 적용하지 않습니다.
+ * 좌우 서브 모니터를 응시하는 자연 회전(보통 20~30°)에서 false positive 가 안 나도록 통상 자세 구간을 명시적으로 분리합니다.
+ * 이 값을 넘어선 회전에서만 점진적으로 자세 점수를 감쇄해 큰 각도 회전에서의 2D 투영 왜곡을 흡수합니다. */
+const FREE_YAW_RAD = 0.26;
 
 // nose 제외: 손이 얼굴 가리면 pose nose visibility 가 떨어지는데, 그게 곧
 // 자리비움은 아님. 어깨 둘 만으로 person presence 판정하고 nose 좌표는 face
@@ -109,11 +113,127 @@ const FINGERTIP_INDICES = [4, 8, 12, 16, 20];
 function minFingertipToNose(
   hands: HandData[],
   nose: Landmark,
+  shoulderWidth: number,
+  lPoseWrist: Landmark | undefined,
+  rPoseWrist: Landmark | undefined,
+  faceLandmarks: Landmark[] | null,
 ): { dist: number; tip: Landmark | null; hand: HandData | null } {
   let best = Infinity;
   let bestTip: Landmark | null = null;
   let bestHand: HandData | null = null;
+  // 필터 D: Pose-Hand 교차 검증 (Independent-Model Cross-Validation Filter)
+  // MediaPipe Pose 와 Hand Landmarker 는 별도 학습된 독립 모델이라 동일한 얼굴 텍스처(광대/턱선/귀 윤곽)에 동시에 속을 확률이 매우 낮습니다.
+  // 양쪽 pose 손목 visibility 가 모두 0.25 미만이면 사용자의 실제 손은 프레임 밖에 있다는 강한 증거 — 그럼에도 Hand 검출이 발생했다면 환각으로 확정.
+  // 진짜 턱·뺨 받침 자세에서는 해당 팔의 pose 손목 visibility 가 최소 0.3 이상으로 추적되므로 정상 검출은 영향 없습니다.
+  const noPoseWristTracked =
+    (lPoseWrist?.visibility ?? 0) < 0.25 &&
+    (rPoseWrist?.visibility ?? 0) < 0.25;
+
+  // [필터 E 사전계산] Face Landmarker 의 478 mesh 좌표 bbox.
+  // 코 반경 검사(필터 B)는 측면 시점에서 얼굴이 비대칭으로 늘어나 임계가 깨지지만, mesh bbox 는 실제 얼굴 영역에 정확히 맞춰 변형됩니다.
+  let faceMinX = Infinity, faceMaxX = -Infinity;
+  let faceMinY = Infinity, faceMaxY = -Infinity;
+  const hasFaceMesh = !!(faceLandmarks && faceLandmarks.length > 100);
+  if (hasFaceMesh) {
+    for (const lm of faceLandmarks!) {
+      if (lm.x < faceMinX) faceMinX = lm.x;
+      if (lm.x > faceMaxX) faceMaxX = lm.x;
+      if (lm.y < faceMinY) faceMinY = lm.y;
+      if (lm.y > faceMaxY) faceMaxY = lm.y;
+    }
+  }
+
   for (const h of hands) {
+    // 필터 D 적용: Pose 손목 둘 다 미추적이면 모든 Hand 검출을 환각으로 일괄 차단
+    if (noPoseWristTracked) {
+      continue;
+    }
+    // [안경테 유령 손 오탐 박멸 Bounding Box Span 필터]
+    // 미디어파이프가 안경알/안경테의 기하학적 형태나 얼굴 음영을 손으로 오인해 뺨 주변에 맺히는 유령 손을 걸러냅니다.
+    // 랜드마크 누락 상태에서도 유령 손 영역의 2D 점유 폭(Span)을 측정하여 어깨폭의 최소 18% 이상인 유효한 손만 턱 괴임 검사에 반영합니다.
+    // [안경테/얼굴 음영 유령 손 오탐 박멸 2중 필터]
+    if (h.landmarks.length > 0) {
+      // 필터 A: Bounding Box Span (초소형 점 뭉치 차단)
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+      for (const lm of h.landmarks) {
+        if (lm.x < minX) minX = lm.x;
+        if (lm.x > maxX) maxX = lm.x;
+        if (lm.y < minY) minY = lm.y;
+        if (lm.y > maxY) maxY = lm.y;
+      }
+      const handSpan = Math.hypot(maxX - minX, maxY - minY);
+      if (handSpan < shoulderWidth * 0.18) {
+        continue; // 안경 크기 수준으로 찌그러진 초소형 유령 손은 즉각 분석에서 제외합니다.
+      }
+
+      // 필터 B: 얼굴 내부 고립 유령 손 검사 (Topological Facial Isolation Filter)
+      // 안경을 벗은 상태여도 뺨/턱선의 짙은 음영이나 귀 주변 하이라이트를 손가락 21개 마디로 통째 오탐하는 경우가 있습니다.
+      // 진짜 턱을 괸 손은 손목이나 하단 마디가 얼굴 바깥(목/어깨 방향)으로 넓게 뻗쳐 나오지만, 
+      // 얼굴 음영 유령 손은 모든 랜드마크 21개가 코를 중심으로 반지름 sw*0.38 이내의 얼굴 영역 내부에 100% 갇혀 고립되어 있습니다.
+      let allPointsInsideFace = true;
+      for (const lm of h.landmarks) {
+        const distToNose = Math.hypot(lm.x - nose.x, lm.y - nose.y);
+        if (distToNose > shoulderWidth * 0.38) {
+          allPointsInsideFace = false; // 단 한 점이라도 얼굴 바깥으로 삐져나갔다면 진짜 손으로 판단 후보
+          break;
+        }
+      }
+      if (allPointsInsideFace) {
+        continue; // 얼굴 뺨 내부 좁은 범위에 100% 고립되어 맺힌 손은 얼굴 음영으로 인한 가짜 손이 확실하므로 완벽히 무시합니다.
+      }
+
+      // 필터 C: 손목 해부학적 일관성 필터 (Anatomical Wrist-Below-Nose Filter)
+      // 실제 턱·뺨·광대 받침 자세는 팔꿈치가 책상에 놓여 손목이 턱·목 방향(코보다 아래)에 위치합니다.
+      // 측면 시점에서 광대뼈/턱선/귀 윤곽이 손등으로 환각될 때, 21개 마디가 얼굴 위에 통째 얹히면서
+      // 손목 landmark(0)이 뺨·관자놀이 같은 코보다 위쪽에 찍히는 패턴을 보입니다.
+      // 손목이 코보다 sw*0.05 이상 위로 떠 있으면 해부학적으로 턱괴임 자세가 불가능하므로 환각으로 판정해 차단합니다.
+      const wristLm = h.landmarks[0];
+      if (wristLm && wristLm.y < nose.y - shoulderWidth * 0.05) {
+        continue;
+      }
+
+      // 필터 E: Face Mesh 다수 봉쇄 + Pose Wrist 위치 동의 (Face-Mesh Majority Containment + Pose Wrist Agreement)
+      // 필터 B 의 코 반경 검사는 측면 시점에서 얼굴이 코를 한쪽으로 밀어내 임계가 깨지지만,
+      // Face Landmarker 의 478 mesh bbox 는 시점에 무관하게 실제 얼굴 영역을 정확히 잡습니다.
+      // [개선] 기존 "모든 21점 내부" 조건은 phantom 의 한두 외삽 outlier 만 face 밖으로 튀어도 통과되어 환각이 살아남았습니다.
+      // → 다수 비율(85% 이상)이 face mesh 내부면 환각 후보로 판정해 외삽 노이즈를 흡수합니다.
+      // 단, 진짜 palm-on-cheek 도 mesh 내부에 들어올 수 있으므로 pose 모델이 동시에 그 손의 손목 위치를 추적하는지(위치 일치) 확인해 거짓 양성을 막습니다.
+      // [개선] pose wrist 위치 일치 반경을 sw*0.20 → sw*0.12 로 좁혀, pose 가 팔꿈치에서 외삽한 부정확한 wrist 좌표가 phantom 근처에 우연히 떨어져도 통과되지 않도록 합니다.
+      // - 환각 손: 다수가 mesh 내부 + pose 손목 위치 정확 동의 없음 → reject
+      // - 진짜 palm-on-cheek: mesh 내부 + 진짜 pose 손목 좌표가 hand wrist 와 정확히 일치 → pass through
+      if (hasFaceMesh && wristLm) {
+        const margin = shoulderWidth * 0.03;
+        let insideCount = 0;
+        for (const lm of h.landmarks) {
+          if (
+            lm.x >= faceMinX - margin &&
+            lm.x <= faceMaxX + margin &&
+            lm.y >= faceMinY - margin &&
+            lm.y <= faceMaxY + margin
+          ) {
+            insideCount++;
+          }
+        }
+        const majorityInsideFaceMesh =
+          insideCount >= h.landmarks.length * 0.85;
+        if (majorityInsideFaceMesh) {
+          const poseWristAgrees = (pw: Landmark | undefined): boolean => {
+            if (!pw || pw.visibility < 0.5) return false;
+            return (
+              Math.hypot(wristLm.x - pw.x, wristLm.y - pw.y) <
+              shoulderWidth * 0.12
+            );
+          };
+          const realHandConfirmed =
+            poseWristAgrees(lPoseWrist) || poseWristAgrees(rPoseWrist);
+          if (!realHandConfirmed) {
+            continue; // 환각: 얼굴 mesh 다수 내부 + pose 손목 위치 정확 동의 없음
+          }
+        }
+      }
+    }
+
     for (const i of FINGERTIP_INDICES) {
       const tip = h.landmarks[i];
       if (!tip) continue;
@@ -238,7 +358,9 @@ export function analyzeFrame(
   // 계속 동작하게 함. 단, face landmark 의 z·y 는 pose landmark 와 좌표계가
   // 달라 baseline 비교가 부정확하므로 forward_head·monitor_too_close 의 z·drop
   // 점수는 fallback 시 보류.
-  const POSE_NOSE_VIS_MIN = 0.7;
+  // [P3 오탐 개선] 측면 각도(Yaw)로 인한 카메라 노이즈로 코의 visibility가 0.6 내외로 튀어도 
+  // 실제 가려지지 않았다면 가림 폴백이 켜지지 않도록 임계치를 0.4로 대폭 낮춥니다.
+  const POSE_NOSE_VIS_MIN = 0.4;
   const poseNoseReliable = poseNose && poseNose.visibility >= POSE_NOSE_VIS_MIN;
   const faceNoseTip =
     face && face.landmarks.length > 1 ? face.landmarks[1] : null;
@@ -309,13 +431,34 @@ export function analyzeFrame(
     // [세컨 모니터 환경 최적화 및 거북목 감지 사각지대 제거]
     // 코(Nose)는 회전축에서 멀어 고개를 돌릴 때 2D 오차가 극대화되므로,
     // 목뼈 회전축에 수렴하는 '양쪽 귀의 중점(Ear Midpoint)'을 추적 좌표로 사용하여 회전 불변성(Rotation Invariance)을 획득합니다.
-    const useEar = lEar && rEar && lEar.visibility >= 0.25 && rEar.visibility >= 0.25 && baseLEar && baseREar;
+    // [좌우 비대칭 회귀 제거] 가시성 임계(≥0.25)에서 ear-midpoint↔nose 로 하드 스위치하던 기존 구현은
+    // 한쪽 귀 가시성이 임계를 넘는 순간 참조점이 sw*0.05~0.15 점프하면서 단일 프레임에 거북목 점수가 폭증해 한 방향 회전에서만 false positive 가 발생했습니다.
+    // 양쪽 귀 가시성의 최솟값으로 가중치(0~1)를 계산해 ear-midpoint 와 nose 사이를 부드럽게 보간하여 스위칭 점프를 제거합니다.
+    // baseline 도 동일 가중치로 블렌드해 현재값과 동일 좌표계로 비교되도록 보장합니다.
+    const earsAvailable = !!(lEar && rEar && baseLEar && baseREar);
+    const minEarVis = earsAvailable
+      ? Math.min(lEar.visibility, rEar.visibility)
+      : 0;
+    // 가시성 < 0.15: nose 단독 (weight 0), 가시성 ≥ 0.50: ear midpoint 단독 (weight 1), 그 사이 선형 보간.
+    const earWeight = earsAvailable
+      ? Math.max(0, Math.min(1, (minEarVis - 0.15) / 0.35))
+      : 0;
 
-    const curHeadX = useEar ? (lEar.x + rEar.x) / 2 : nose.x;
-    const curHeadY = useEar ? (lEar.y + rEar.y) / 2 : nose.y;
+    const earMidX = earsAvailable ? (lEar.x + rEar.x) / 2 : nose.x;
+    const earMidY = earsAvailable ? (lEar.y + rEar.y) / 2 : nose.y;
+    const baseEarMidX = earsAvailable
+      ? (baseLEar.x + baseREar.x) / 2
+      : baseNoseLm.x;
+    const baseEarMidY = earsAvailable
+      ? (baseLEar.y + baseREar.y) / 2
+      : baseline.noseY;
 
-    const baseHeadX = useEar ? (baseLEar.x + baseREar.x) / 2 : baseNoseLm.x;
-    const baseHeadY = useEar ? (baseLEar.y + baseREar.y) / 2 : baseline.noseY;
+    const curHeadX = earWeight * earMidX + (1 - earWeight) * nose.x;
+    const curHeadY = earWeight * earMidY + (1 - earWeight) * nose.y;
+    const baseHeadX =
+      earWeight * baseEarMidX + (1 - earWeight) * baseNoseLm.x;
+    const baseHeadY =
+      earWeight * baseEarMidY + (1 - earWeight) * baseline.noseY;
 
     const baseNeckX = baseHeadX - baseShoulderMidX;
     const baseNeckY = baseHeadY - baseline.shoulderMidY;
@@ -332,11 +475,13 @@ export function analyzeFrame(
     neckDriftScore;
 
   // 귀 중점 필터 덕분에 고개만 돌리는 것(Yaw 회전)은 자연적으로 점수가 오르지 않습니다.
-  // 다만, 45도 이상 고개를 아주 크게 돌려 귀가 완전히 가려지거나 극단적 각도일 때의 노이즈 안전망으로 
-  // 고개 회전각(yawDelta)에 대한 감쇄 마진을 35도(약 0.60rad) 수준으로 극도로 넓고 넉넉하게 보완합니다.
-  // 이를 통해 세컨 모니터에서 목을 앞으로 빼는 '진짜 거북목'은 사각지대 없이 100% 탐지해냅니다.
+  // [멀티 모니터 deadzone] FREE_YAW_RAD(±15°) 이내는 통상 작업 자세로 보고 무감쇄(damping=1.0).
+  // 그 너머는 점진 감쇄해 ~40°(0.70rad) 에서 0 도달 — 큰 각도 회전에서의 2D 투영 왜곡과 학습 분포 외 영역을 안전하게 흡수합니다.
+  // 이를 통해 30° 자연 회전에서 false positive 없이, 진짜 거북목(목을 앞으로 빼는 신호)은 그대로 탐지합니다.
   const yawDelta = face && baseline.face ? Math.abs(face.yaw - baseline.face.yaw) : 0;
-  const yawDamping = face && baseline.face ? Math.max(0, 1 - yawDelta / 0.60) : 1.0;
+  const yawDamping = face && baseline.face
+    ? Math.max(0, 1 - Math.max(0, yawDelta - FREE_YAW_RAD) / 0.44)
+    : 1.0;
   const forwardHeadScore = rawForwardHeadScore * yawDamping;
   // forward_head 발동은 chin_resting 평가 이후로 이동 — 우선순위 충돌 회피.
   // 손이 얼굴 근처에 있는 자세는 자연히 살짝 숙임을 동반해 거북목 신호도 같이
@@ -373,7 +518,14 @@ export function analyzeFrame(
   const rightChin = wristAtChin(rWrist) && forearmUp(rWrist, rElbow);
 
   const { dist: minFingerDist, tip: minTip, hand: minHand } =
-    minFingertipToNose(hands, nose);
+    minFingertipToNose(
+      hands,
+      nose,
+      baseline.shoulderWidth,
+      lWrist,
+      rWrist,
+      face?.landmarks ?? null,
+    );
   // 손목 게이팅: 손끝이 코 근처여도, 그 손의 손목이 어깨선 위로 올라와 있지 않으면
   // 책상/키보드 위 손 + 고개 숙임 으로 보고 차단. (고개 숙여도 손목 y는 안 따라옴)
   // 예외: 손끝이 얼굴에 매우 가까우면 진짜 턱대기로 보고 손목 위치 무관하게 인정.
@@ -393,8 +545,14 @@ export function analyzeFrame(
     handWrist.y < shoulderMinY - baseline.shoulderWidth * 0.05;
   // 손가락 끝: ① 얼굴 반경 90% 이내 (턱 거리 포함) ② 어깨보다 sw*0.10 명확히 위
   // ③ 코 기준 sw*0.40 아래까지 허용 (턱 높이 포함, 책상 손은 어깨선 아래라 ②에서 차단)
+  // [phantom hand 최종 게이트] 진짜 chin_resting 자세에서는 활성 팔의 pose 손목이 visibility ≥ 0.4 로 추적됩니다.
+  // pose 양쪽 손목 모두 visibility < 0.4 이면 사용자 손이 프레임 밖이라는 강한 증거 — Hand 모델 검출이 살아남았더라도 발화 자체를 차단해
+  // filter A~E 를 우회한 잔여 phantom 이 chin_resting 을 stuck 시키는 것을 막습니다.
+  const hasReliablePoseWrist =
+    (lWrist?.visibility ?? 0) >= 0.4 || (rWrist?.visibility ?? 0) >= 0.4;
   const fingerNearChin =
     hands.length > 0 &&
+    hasReliablePoseWrist &&
     minFingerDist < faceRadius * 0.90 &&
     !!minTip &&
     minTip.y < shoulderMinY - baseline.shoulderWidth * 0.10 &&
@@ -411,7 +569,9 @@ export function analyzeFrame(
   const wristNearFace = (w: typeof lWrist): boolean => {
     if (!w || w.visibility < 0.5) return false;
     if (Math.hypot(w.x - nose.x, w.y - nose.y) >= faceRadius * 0.8) return false;
-    return w.y < shoulderMinY;
+    // [키보드 오탐 방지 마진] 키보드 타이핑 시 손목이 2D 카메라 앵글 상에서 어깨 위로 겹쳐 보일 수 있으므로 
+    // 최소 어깨너비의 10% 이상 높이 올라갔을 때만 턱 괴임으로 간주합니다.
+    return w.y < shoulderMinY - baseline.shoulderWidth * 0.10;
   };
   const noseOccludedByHand =
     noseFromFace && (wristNearFace(lWrist) || wristNearFace(rWrist));
@@ -425,7 +585,9 @@ export function analyzeFrame(
   // hands.length>0 이므로 자동 차단.
   const elbowRaisedNearFace = (e: typeof lElbow): boolean => {
     if (!e || e.visibility < 0.5) return false;
-    if (e.y >= shoulderMinY) return false;
+    // [키보드 오탐 방지 마진] 로우 앵글에서 키보드 타이핑 시 팔꿈치가 어깨선 부근/살짝 위로 겹칠 수 있으므로
+    // 어깨너비의 15% 이상 과도하게 들렸을 때만 진짜 턱 괴임 팔로 판정합니다.
+    if (e.y >= shoulderMinY - baseline.shoulderWidth * 0.15) return false;
     return Math.abs(e.x - nose.x) < faceRadius * 0.8;
   };
   const elbowFallbackActive = hands.length === 0 && noseFromFace;
@@ -461,9 +623,20 @@ export function analyzeFrame(
     result.violations.add("forward_head");
   }
 
+  // [대화면/다중 모니터 대응 공용 회전 감쇄 필터]
+  // 40인치 거대 화면이나 다중 서브 모니터를 응시하기 위해 고개를 좌우로 돌릴 때,
+  // 2D 투영 상에서 어깨폭이 미세 수축하거나 Y축 높이 차이(Shoulder Tilt/Slouching)가 요동치는 물리적 영사 왜곡(오탐)을 퇴치합니다.
+  // [멀티 모니터 deadzone] FREE_YAW_RAD(±15°) 이내 무감쇄 → 30°(0.52rad) 에서 floor(0.4) 도달.
+  // 30° 자연 회전 시 어깨/기울기/비대칭 점수가 60% 감쇄되어 자연 작업 자세를 위반으로 오인하지 않도록 안전 마진을 제공합니다.
+  const rotationYawDelta = face && baseline.face ? Math.abs(face.yaw - baseline.face.yaw) : 0;
+  const commonYawDamping = face && baseline.face
+    ? Math.max(0.4, 1 - Math.max(0, rotationYawDelta - FREE_YAW_RAD) / 0.26)
+    : 1.0;
+
   // -- 3. Shoulder tilt --
   const tilt = ls.y - rs.y;
-  const tiltDelta = Math.abs(tilt - baseline.shoulderTiltY);
+  // 고개를 돌릴 때의 어깨 뒤틀림 투영 왜곡을 방지하기 위해 공용 회전 댐핑을 적용합니다.
+  const tiltDelta = Math.abs(tilt - baseline.shoulderTiltY) * commonYawDamping;
   if (tiltDelta > 0.04 * thresholds.shoulder_tilt.sensitivity) {
     result.violations.add("shoulder_tilt");
   }
@@ -471,8 +644,12 @@ export function analyzeFrame(
   // -- 4. Slouching --
   const widthRatio = shoulderWidth / baseline.shoulderWidth;
   const yDrop = shoulderMidY - baseline.shoulderMidY;
-  const slouchingScore =
-    (1 - widthRatio) / 0.08 + yDrop / 0.04;
+  
+  // 어깨가 미세하게 좁아지거나 타이핑 및 고개 회전에 의한 Y축 흔들림 노이즈에 덜 격동하도록 스케일을 너그럽게 완화합니다.
+  const rawSlouchingScore =
+    (1 - widthRatio) / 0.11 + yDrop / 0.055;
+  const slouchingScore = rawSlouchingScore * commonYawDamping;
+
   if (slouchingScore > thresholds.slouching.sensitivity) {
     result.violations.add("slouching");
   }
@@ -527,7 +704,8 @@ export function analyzeFrame(
     const baseNoseOffset = baseNose.x - baseShoulderMidX;
     lateralShift = Math.abs(noseOffset - baseNoseOffset) / 0.06; // 이전 0.04 대비 임계 완화
   }
-  const asymmetryScore = tiltDirection + lateralShift;
+  // 고개를 회전할 때 비대칭성이 크게 오인되는 2D 투영 오류를 방지하기 위해 공용 회전 댐핑을 주입합니다.
+  const asymmetryScore = (tiltDirection + lateralShift) * commonYawDamping;
   if (
     asymmetryScore > thresholds.shoulder_asymmetry.sensitivity &&
     Math.abs(signedTilt) > 0.035 // 최소 유의미한 어깨 처짐 폭 완화 (이전 0.025)
@@ -545,7 +723,12 @@ export function analyzeFrame(
   let headRollSuppressed = false;
   if (face && baseline.face) {
     rollDelta = face.roll - baseline.face.roll;
-    headRollScore = Math.abs(rollDelta) / 0.12;
+    // 머리 기울임은 어깨 관절보다 고개 회전(Yaw)에 따른 2D 영사 Roll 오차가 극단적으로 급격합니다.
+    // [멀티 모니터 deadzone] FREE_YAW_RAD(±15°) 이내 무감쇄, 약 29°(0.50rad) 에서 floor(0.4) 도달.
+    // Roll 신호는 yaw 와 강하게 결합되어 있어 회전 범위에서는 head_roll 단독 발화가 거의 의미 없으므로 보수적으로 감쇄합니다.
+    const rollYawDamping = Math.max(0.4, 1 - Math.max(0, rotationYawDelta - FREE_YAW_RAD) / 0.24);
+    headRollScore = (Math.abs(rollDelta) / 0.12) * rollYawDamping;
+    
     const shouldersAlsoTilted =
       Math.abs(tilt - baseline.shoulderTiltY) > 0.025;
     headRollSuppressed = shouldersAlsoTilted;

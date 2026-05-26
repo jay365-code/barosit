@@ -27,7 +27,7 @@ const IS_WEB =
 const isWidget = !IS_WEB && window.location.hash === "#widget";
 const isAlert = !IS_WEB && window.location.hash === "#alert";
 // 웹은 마케팅 페이지가 기본 진입점. 모니터링 앱은 #/app 으로 명시 진입.
-const isWebAppRoute = IS_WEB && window.location.hash === "#/app";
+const isWebAppRoute = IS_WEB && (window.location.hash === "#/app" || window.location.hash === "#/admin");
 const isQaRoute = window.location.hash === "#/qa" || window.location.hash === "#/qa-checklist";
 
 

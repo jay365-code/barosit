@@ -208,6 +208,10 @@ export async function syncSettingsToServer(): Promise<void> {
     return raw ? JSON.parse(raw) : null;
   };
 
+  // 비즈니스 가치: PRO 플랜일 때만 다중 캘리브레이션 데이터 동기화
+  const userPlan = localStorage.getItem("barosit:subscription_plan") || "free";
+  const isPro = userPlan === "pro";
+
   const payload = {
     user_id: userId,
     thresholds: getJSON("thresholds"),
@@ -216,6 +220,9 @@ export async function syncSettingsToServer(): Promise<void> {
     cumulative_load: getJSON("cumulative_load_config"),
     variability: getJSON("variability_config"),
     adaptive_sensitivity: getJSON("adaptive_sensitivity"),
+    // PRO 플랜일 때만 캘리브레이션 데이터를 클라우드로 전송하여 다른 기기에서 복구 가능케 함
+    calibration_baseline_multi: isPro ? getJSON("calibration_baseline_multi") : null,
+    calibration_baseline: isPro ? getJSON("calibration_baseline") : null,
     updated_at: new Date().toISOString(),
   };
 
@@ -228,6 +235,8 @@ export async function syncSettingsToServer(): Promise<void> {
       console.error("[syncService] Settings upload failed:", error.message);
     } else {
       console.log("[syncService] User settings synced to cloud successfully.");
+      // 업로드 성공 시 로컬의 settings_last_synced_at 갱신
+      localStorage.setItem("barosit:settings_last_synced_at", payload.updated_at);
     }
   } catch (err) {
     console.error("[syncService] Exception in settings sync:", err);
@@ -242,8 +251,38 @@ export async function pullSettingsFromServer(): Promise<void> {
   if (!session?.user) return;
 
   const userId = session.user.id;
+  const localLastSynced = localStorage.getItem("barosit:settings_last_synced_at");
 
   try {
+    // 1. 가볍게 updated_at 값만 먼저 가져와서 비교하는 초경량 사전 체크 로직 추가
+    const { data: timeCheck, error: timeError } = await supabase
+      .from("user_settings")
+      .select("updated_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (timeError) {
+      console.error("[syncService] Failed to fetch settings updated_at:", timeError.message);
+      return;
+    }
+
+    if (timeCheck && timeCheck.updated_at) {
+      const serverUpdatedAt = new Date(timeCheck.updated_at).getTime();
+      const localSyncedTime = localLastSynced ? new Date(localLastSynced).getTime() : 0;
+
+      // 만약 로컬이 최신이거나 같으면 무거운 설정 풀(Pull) 요청을 즉시 바이패스(Bypass)
+      if (localSyncedTime >= serverUpdatedAt) {
+        console.log("[syncService] Local cache is up-to-date. Bypassing cloud settings pull.");
+        return;
+      }
+    } else if (!timeCheck) {
+      // 서버에 데이터가 아예 없으면 최초 가입자로 간주하고 현재 로컬 설정을 서버로 즉시 업로드
+      console.log("[syncService] No settings found on server. Uploading current local settings...");
+      await syncSettingsToServer();
+      return;
+    }
+
+    // 2. 서버 측이 더 최신인 경우에만 실제 캘리브레이션 세트 전체가 담긴 settings를 pull 받음
     const { data, error } = await supabase
       .from("user_settings")
       .select("*")
@@ -267,6 +306,13 @@ export async function pullSettingsFromServer(): Promise<void> {
       setItem("variability_config", data.variability);
       setItem("adaptive_sensitivity", data.adaptive_sensitivity);
 
+      // PRO 구독 등급일 때만 캘리브레이션 클라우드 스토어 복원
+      const userPlan = localStorage.getItem("barosit:subscription_plan") || "free";
+      if (userPlan === "pro") {
+        setItem("calibration_baseline_multi", data.calibration_baseline_multi);
+        setItem("calibration_baseline", data.calibration_baseline);
+      }
+
       // 설정 변경 사항 전파용 커스텀 스토리지 이벤트 디스패치
       window.dispatchEvent(
         new StorageEvent("storage", {
@@ -277,11 +323,10 @@ export async function pullSettingsFromServer(): Promise<void> {
       // thresholds 변경 통보
       window.dispatchEvent(new CustomEvent("barosit:thresholds-changed", { detail: data.thresholds }));
 
+      // 로컬에 마지막 동기화 완료 시간 갱신
+      localStorage.setItem("barosit:settings_last_synced_at", data.updated_at || new Date().toISOString());
+
       console.log("[syncService] Settings pulled from cloud and restored locally.");
-    } else {
-      // 서버에 데이터가 없으면 최초 가입자로 간주하고 현재 로컬 설정을 서버로 즉시 업로드
-      console.log("[syncService] No settings found on server. Uploading current local settings...");
-      await syncSettingsToServer();
     }
   } catch (err) {
     console.error("[syncService] Exception in pulling settings:", err);

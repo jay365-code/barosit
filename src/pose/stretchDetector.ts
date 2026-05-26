@@ -126,35 +126,55 @@ export function isCrossBody(lm: Landmarks): boolean {
   const isSideView = cameraAngle !== "front";
   
   // 측면 뷰인 경우 X축 2D 원근 왜곡을 보상하기 위해 손목/팔꿈치의 상대적 벡터 X축 통과 기준을 획기적으로 낮춰 극상의 감도를 보장합니다.
-  const wristXThresh = isSideView ? sw * 0.25 : sw * 0.40;
-  const elbowXThresh = isSideView ? sw * 0.10 : sw * 0.15;
-  const wristVisThresh = isSideView ? 0.05 : 0.15;
-  const elbowVisThresh = isSideView ? 0.05 : 0.15;
+  const wristXThresh = isSideView ? sw * 0.22 : sw * 0.35; // 정면 0.40 -> 0.35로 완화
+  const elbowXThresh = isSideView ? sw * 0.08 : sw * 0.12; // 정면 0.15 -> 0.12로 완화
+  const wristVisThresh = 0.08; // 정면 기준 0.15 -> 0.08로 대폭 하향하여 가려진 손목 관절 수용
+  const elbowVisThresh = 0.08;
+
+  // Y축 정렬 허용 범위를 대폭 확장 (0.45 -> 0.65)
+  const yThresh = sw * 0.65;
 
   // 1. 왼팔 스트레칭 (왼손과 왼팔꿈치가 오른어깨 방향으로 뻗음)
-  // 어깨 너비(sw) 벡터 방향을 활용하여 미러링이나 측면 어깨 뒤바뀜 현상에서도 100% 강인한 벡터 판정 적용
   const leftVector = rs.x - ls.x;
-  const leftArmCrossed =
+  
+  // A. 정석 감지 (손목 신뢰도가 다소 잡혀 가려짐이 미미할 때)
+  const leftNormalCrossed =
     vis(lw, wristVisThresh) && vis(le, elbowVisThresh) &&
-    (lw.x - ls.x) * leftVector > 0 &&         // 왼손이 오른어깨 방향으로 뻗음 (벡터 방향 일치)
-    Math.abs(lw.x - ls.x) > wristXThresh &&   // 손목 X축 이동량 동적 기준 적용 (정면 sw*0.40, 측면 sw*0.25)
-    (le.x - ls.x) * leftVector > 0 &&         // 왼팔꿈치도 오른어깨 방향으로 향함
-    Math.abs(le.x - ls.x) > elbowXThresh &&   // 팔꿈치 X축 이동량 동적 기준 적용 (정면 sw*0.15, 측면 sw*0.10)
-    Math.abs(le.y - midY) < sw * 0.45 &&      // [정렬 조건] 왼팔꿈치가 어깨선(Y축)에 수평으로 정렬됨
-    Math.abs(lw.y - midY) < sw * 0.45 &&      // [정렬 조건] 왼손이 어깨선(Y축)에 수평으로 정렬됨
-    (!vis(rw, 0.15) || Math.hypot(rw.x - le.x, rw.y - le.y) < sw * 0.75);
+    (lw.x - ls.x) * leftVector > 0 &&
+    Math.abs(lw.x - ls.x) > wristXThresh &&
+    (le.x - ls.x) * leftVector > 0 &&
+    Math.abs(le.x - ls.x) > elbowXThresh &&
+    Math.abs(le.y - midY) < yThresh &&
+    Math.abs(lw.y - midY) < yThresh;
+
+  // B. 가려짐 보완 폴백 (손목이 완전히 묻혀 신뢰도가 0.08 미만이지만 팔꿈치가 가슴을 질러 확실하게 꺾어 뻗은 경우)
+  const leftOccludedCrossed =
+    !vis(lw, wristVisThresh) && vis(le, 0.25) &&
+    (le.x - ls.x) * leftVector > 0 &&
+    Math.abs(le.x - ls.x) > sw * 0.32 && // 팔꿈치 자체가 몸 가슴 정중앙 깊이 들어옴
+    Math.abs(le.y - midY) < yThresh;
+
+  const leftArmCrossed = leftNormalCrossed || leftOccludedCrossed;
 
   // 2. 오른팔 스트레칭 (오른손과 오른팔꿈치가 왼어깨 방향으로 뻗음)
   const rightVector = ls.x - rs.x;
-  const rightArmCrossed =
+  
+  const rightNormalCrossed =
     vis(rw, wristVisThresh) && vis(re, elbowVisThresh) &&
     (rw.x - rs.x) * rightVector > 0 &&
     Math.abs(rw.x - rs.x) > wristXThresh &&
     (re.x - rs.x) * rightVector > 0 &&
     Math.abs(re.x - rs.x) > elbowXThresh &&
-    Math.abs(re.y - midY) < sw * 0.45 &&      // [정렬 조건] 오른팔꿈치가 어깨선(Y축)에 수평으로 정렬됨
-    Math.abs(rw.y - midY) < sw * 0.45 &&      // [정렬 조건] 오른손이 어깨선(Y축)에 수평으로 정렬됨
-    (!vis(lw, 0.15) || Math.hypot(lw.x - re.x, lw.y - re.y) < sw * 0.75);
+    Math.abs(re.y - midY) < yThresh &&
+    Math.abs(rw.y - midY) < yThresh;
+
+  const rightOccludedCrossed =
+    !vis(rw, wristVisThresh) && vis(re, 0.25) &&
+    (re.x - rs.x) * rightVector > 0 &&
+    Math.abs(re.x - rs.x) > sw * 0.32 &&
+    Math.abs(re.y - midY) < yThresh;
+
+  const rightArmCrossed = rightNormalCrossed || rightOccludedCrossed;
 
   return leftArmCrossed || rightArmCrossed;
 }

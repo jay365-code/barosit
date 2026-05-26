@@ -637,32 +637,16 @@ export function AdminDashboardView({ onClose }: Props) {
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(10, 10, 10, 0.75)",
-        backdropFilter: "blur(12px)",
+        width: "100vw",
+        height: "100vh",
+        background: "rgba(16, 18, 22, 0.99)",
         color: "#fff",
         fontFamily: "'Inter', sans-serif",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          width: "90%",
-          maxWidth: 1080,
-          height: "85vh",
-          background: "rgba(30, 30, 30, 0.8)",
-          borderRadius: 20,
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          boxShadow: "0 20px 50px rgba(0, 0, 0, 0.5)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
         {/* 상단 헤더 */}
         <div
           style={{
@@ -797,6 +781,40 @@ export function AdminDashboardView({ onClose }: Props) {
                 </button>
               );
             })}
+            
+            <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.08)", margin: "12px 0" }} />
+            <button
+              onClick={() => {
+                window.location.hash = "#/qa";
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 16px",
+                borderRadius: 12,
+                border: "none",
+                background: "rgba(255, 199, 61, 0.06)",
+                color: "#ffc73d",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "all 0.2s",
+                width: "100%",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "rgba(255, 199, 61, 0.12)";
+                e.currentTarget.style.color = "#ffe082";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "rgba(255, 199, 61, 0.06)";
+                e.currentTarget.style.color = "#ffc73d";
+              }}
+            >
+              <Icon name="sparkle" size={16} />
+              <span>QA 체크리스트 이동</span>
+            </button>
           </div>
 
           {/* 우측 메인 콘텐츠 */}
@@ -1929,6 +1947,5 @@ export function AdminDashboardView({ onClose }: Props) {
           })}
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

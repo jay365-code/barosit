@@ -43,6 +43,8 @@ export const onPauseEvent: PlatformAPI["onPauseEvent"] = (cb) =>
   platform.onPauseEvent(cb);
 export const onResumeEvent: PlatformAPI["onResumeEvent"] = (cb) =>
   platform.onResumeEvent(cb);
+export const onTogglePauseEvent: PlatformAPI["onTogglePauseEvent"] = (cb) =>
+  platform.onTogglePauseEvent(cb);
 export const onMainCloseRequested: PlatformAPI["onMainCloseRequested"] = (cb) =>
   platform.onMainCloseRequested(cb);
 export const onMainReopened: PlatformAPI["onMainReopened"] = (cb) =>

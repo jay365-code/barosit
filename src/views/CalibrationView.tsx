@@ -22,6 +22,7 @@ import { PostureFigure } from "../components/PostureFigure";
 
 interface Props {
   onComplete: (baseline: CalibrationBaseline) => void;
+  onCancel?: () => void;
 }
 
 const CALIBRATION_DURATION_SECS = 5;
@@ -35,7 +36,7 @@ const CHECK_LABELS: { key: keyof CalibrationCheck; label: string }[] = [
   { key: "stable", label: "편안한 자세로 멈춰 있어요" },
 ];
 
-export function CalibrationView({ onComplete }: Props) {
+export function CalibrationView({ onComplete, onCancel }: Props) {
   const { videoRef, ready: cameraReady, error: cameraError } = useCamera();
   const [landmarks, setLandmarks] = useState<Landmarks | null>(null);
   const [faceLandmarks, setFaceLandmarks] = useState<Landmark[] | null>(null);
@@ -152,19 +153,25 @@ export function CalibrationView({ onComplete }: Props) {
               기준 자세 잡기
             </span>
           </div>
-          {!platform.features.multiWindow && (
-            <a
-              href="#/landing"
+          {!platform.features.multiWindow && onCancel && (
+            <button
+              onClick={onCancel}
               className="b-btn b-btn-ghost"
               style={{
                 height: 30,
                 padding: "0 12px",
                 fontSize: 12,
+                border: "none",
+                cursor: "pointer",
+                background: "none",
                 textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              홈으로
-            </a>
+              돌아가기
+            </button>
           )}
         </div>
 

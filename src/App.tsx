@@ -14,7 +14,7 @@ import {
   LegalDocument,
   type LegalDocKind,
 } from "./components/LegalDocument";
-import { clearBaseline, loadBaseline } from "./pose/calibration";
+import { loadBaseline } from "./pose/calibration";
 import type { CalibrationBaseline, PostureStatus } from "./pose/types";
 import {
   hideMainWindow,
@@ -23,6 +23,7 @@ import {
   onMainReopened,
   onPauseEvent,
   onResumeEvent,
+  onTogglePauseEvent,
   setWidgetVisible,
   switchToMainMode,
   switchToWidgetMode,
@@ -114,7 +115,9 @@ export default function App() {
   const updater = useUpdater();
   const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [currentHash, setCurrentHash] = useState(() =>
+    typeof window !== "undefined" ? window.location.hash : "",
+  );
   const [pricingOpen, setPricingOpen] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -293,12 +296,47 @@ export default function App() {
     };
   }, []);
 
+  // 4. 앱 내 지역 단축키(Space) 바인딩 Effect
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA"
+      ) {
+        return;
+      }
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        setPaused((p) => !p);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  // 5. URL 해시 변경 실시간 리스너 Effect
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentHash(window.location.hash);
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+
   useEffect(() => {
     let unsubPause: (() => void) | undefined;
     let unsubResume: (() => void) | undefined;
+    let unsubTogglePause: (() => void) | undefined;
     let unsubClose: (() => void) | undefined;
     onPauseEvent(() => setPaused(true)).then((u) => (unsubPause = u));
     onResumeEvent(() => setPaused(false)).then((u) => (unsubResume = u));
+    onTogglePauseEvent(() => setPaused((p) => !p)).then((u) => (unsubTogglePause = u));
     let unsubReopen: (() => void) | undefined;
     onMainCloseRequested(() => {
       switchToWidgetMode().catch(() => undefined);
@@ -322,6 +360,7 @@ export default function App() {
     return () => {
       unsubPause?.();
       unsubResume?.();
+      unsubTogglePause?.();
       unsubClose?.();
       unsubReopen?.();
     };
@@ -332,7 +371,9 @@ export default function App() {
   }, []);
 
   const recalibrate = () => {
-    clearBaseline();
+    // 기존 다중 앵글 저장소(STORAGE_KEY_MULTI) 데이터를 유지하기 위해 
+    // 전체를 날리는 clearBaseline() 호출을 생략하고, 
+    // 캘리브레이션 뷰 진입을 위해 런타임 baseline 상태만 null로 비워줍니다.
     setBaseline(null);
   };
 
@@ -340,6 +381,14 @@ export default function App() {
     localStorage.setItem(ONBOARDED_KEY, "1");
     setOnboardingOpen(false);
   };
+
+  if (currentHash === "#/admin") {
+    return (
+      <ErrorBoundary>
+        <AdminDashboardView onClose={() => { window.location.hash = ""; }} />
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -395,6 +444,12 @@ export default function App() {
                   .requestPermissionsForMonitoring()
                   .catch(() => undefined);
               }}
+              onCancel={() => {
+                const prev = loadBaseline();
+                if (prev) {
+                  setBaseline(prev);
+                }
+              }}
             />
           ) : (
             <MonitorView
@@ -412,7 +467,7 @@ export default function App() {
         {profileOpen && (
           <ProfileView 
             onGoHome={() => setProfileOpen(false)} 
-            onOpenAdmin={() => setAdminOpen(true)}
+            onOpenAdmin={() => { window.location.hash = "#/admin"; }}
             onOpenPricing={() => setPricingOpen(true)}
           />
         )}
@@ -444,9 +499,6 @@ export default function App() {
         )}
         {legalDoc && (
           <LegalDocument kind={legalDoc} onClose={() => setLegalDoc(null)} />
-        )}
-        {adminOpen && (
-          <AdminDashboardView onClose={() => setAdminOpen(false)} />
         )}
         {stretchCalibrateOpen && (
           <UserCalibrationView onClose={() => setStretchCalibrateOpen(false)} />

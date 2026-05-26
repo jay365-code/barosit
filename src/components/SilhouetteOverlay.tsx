@@ -5,6 +5,7 @@ import type {
   Landmarks,
   MaskBuffer,
   PostureStatus,
+  CalibrationBaseline,
 } from "../pose/types";
 import { LANDMARK_INDEX } from "../pose/types";
 
@@ -14,6 +15,7 @@ interface Props {
   hands: HandData[];
   mask: MaskBuffer | null;
   status: PostureStatus;
+  baseline?: CalibrationBaseline | null;
 }
 
 const STATUS_RGB: Record<
@@ -59,7 +61,7 @@ const MASK_EMA_OLD = 40;   // out of 255 (합 255)
 const FACE_EMA_NEW = 0.7;  // 70% 새 데이터 → 빠른 추적
 const FACE_DOT_STRIDE = 1;  // 478점 전부 표시 (마스크 같은 질감)
 
-export function SilhouetteOverlay({ pose, face, hands, mask, status }: Props) {
+export function SilhouetteOverlay({ pose, face, hands, mask, status, baseline }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const offRef = useRef<HTMLCanvasElement | null>(null);
   const imgDataRef = useRef<ImageData | null>(null);
@@ -228,6 +230,102 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status }: Props) {
     if (hands.length > 0) {
       ctx.fillStyle = color.stroke;
       for (const hand of hands) {
+        // [안경테/얼굴 음영 유령 손 렌더링 2중 필터]
+        if (pose && hand.landmarks.length > 0) {
+          const ls = pose[LANDMARK_INDEX.LEFT_SHOULDER];
+          const rs = pose[LANDMARK_INDEX.RIGHT_SHOULDER];
+          const nose = pose[LANDMARK_INDEX.NOSE];
+          if (ls && rs && nose) {
+            const sw = baseline ? baseline.shoulderWidth : Math.abs(ls.x - rs.x);
+
+            // 필터 D: Pose-Hand 교차 검증 (analyzer.ts 의 필터 D 와 동일 로직)
+            // Pose 양쪽 손목 visibility 가 모두 0.25 미만이면 실제 손은 프레임 밖 → Hand 검출은 환각이므로 렌더링 차단
+            const lWristVis = pose[LANDMARK_INDEX.LEFT_WRIST]?.visibility ?? 0;
+            const rWristVis = pose[LANDMARK_INDEX.RIGHT_WRIST]?.visibility ?? 0;
+            if (lWristVis < 0.25 && rWristVis < 0.25) {
+              continue;
+            }
+
+            // 필터 A: Bounding Box Span (초소형 점 무리 숨김)
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            for (const lm of hand.landmarks) {
+              if (lm.x < minX) minX = lm.x;
+              if (lm.x > maxX) maxX = lm.x;
+              if (lm.y < minY) minY = lm.y;
+              if (lm.y > maxY) maxY = lm.y;
+            }
+            const handSpan = Math.hypot(maxX - minX, maxY - minY);
+            if (handSpan < sw * 0.18) {
+              continue; // 찌그러진 초소형 유령 손은 실루엣에 그리지 않고 투명화시킵니다.
+            }
+
+            // 필터 B: 얼굴 내부 고립 유령 손 검사 (안경을 벗어도 발생하는 얼굴 명암/그림자 오탐 숨김)
+            let allPointsInsideFace = true;
+            for (const lm of hand.landmarks) {
+              const distToNose = Math.hypot(lm.x - nose.x, lm.y - nose.y);
+              if (distToNose > sw * 0.38) {
+                allPointsInsideFace = false; // 단 한 점이라도 얼굴 외부로 나가야 진짜 손으로 인정해 실루엣에 렌더링
+                break;
+              }
+            }
+            if (allPointsInsideFace) {
+              continue; // 얼굴 뺨/턱선 내부에 100% 갇혀 고립된 유령 손은 캔버스 그리기를 즉각 건너뜁니다.
+            }
+
+            // 필터 C: 손목 해부학적 일관성 필터 (analyzer.ts 의 필터 C 와 동일 로직)
+            // 진짜 턱·뺨 받침은 손목이 코보다 아래(턱·목 방향)에 있어야 하므로
+            // 손목 landmark(0) 이 코보다 sw*0.05 이상 위로 떠 있으면 얼굴 위에 통째 얹힌 환각으로 판정해 렌더링도 차단합니다.
+            const wristLm = hand.landmarks[0];
+            if (wristLm && wristLm.y < nose.y - sw * 0.05) {
+              continue;
+            }
+
+            // 필터 E: Face Mesh 다수 봉쇄 + Pose Wrist 위치 정확 동의 (analyzer.ts 의 필터 E 와 동일 로직)
+            // [개선] 다수(85%) 마디가 face mesh 내부 + pose 손목 위치 sw*0.12 이내 정확 일치 없으면 환각으로 판정.
+            // 외삽 outlier 한두 점이 face 밖으로 튀어도 다수 비율 검사로 통과시키지 않고, pose 외삽 좌표가 우연히 phantom 근처에 떨어져도 통과시키지 않습니다.
+            if (face && face.length > 100 && wristLm) {
+              let faceMinX = Infinity, faceMaxX = -Infinity;
+              let faceMinY = Infinity, faceMaxY = -Infinity;
+              for (const lm of face) {
+                if (lm.x < faceMinX) faceMinX = lm.x;
+                if (lm.x > faceMaxX) faceMaxX = lm.x;
+                if (lm.y < faceMinY) faceMinY = lm.y;
+                if (lm.y > faceMaxY) faceMaxY = lm.y;
+              }
+              const margin = sw * 0.03;
+              let insideCount = 0;
+              for (const lm of hand.landmarks) {
+                if (
+                  lm.x >= faceMinX - margin &&
+                  lm.x <= faceMaxX + margin &&
+                  lm.y >= faceMinY - margin &&
+                  lm.y <= faceMaxY + margin
+                ) {
+                  insideCount++;
+                }
+              }
+              const majorityInsideFaceMesh =
+                insideCount >= hand.landmarks.length * 0.85;
+              if (majorityInsideFaceMesh) {
+                const lPoseWrist = pose[LANDMARK_INDEX.LEFT_WRIST];
+                const rPoseWrist = pose[LANDMARK_INDEX.RIGHT_WRIST];
+                const poseWristAgrees = (pw: Landmark | undefined): boolean => {
+                  if (!pw || pw.visibility < 0.5) return false;
+                  return (
+                    Math.hypot(wristLm.x - pw.x, wristLm.y - pw.y) < sw * 0.12
+                  );
+                };
+                const realHandConfirmed =
+                  poseWristAgrees(lPoseWrist) || poseWristAgrees(rPoseWrist);
+                if (!realHandConfirmed) {
+                  continue;
+                }
+              }
+            }
+          }
+        }
+
         for (const lm of hand.landmarks) {
           ctx.beginPath();
           ctx.arc(lm.x * w, lm.y * h, 2, 0, Math.PI * 2);

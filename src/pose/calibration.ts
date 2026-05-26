@@ -99,8 +99,15 @@ export function checkCalibrationFrame(
   }
 
   const face = frame.face;
-  const headNotTiltedDown = face ? Math.abs(face.pitch) < MAX_FACE_PITCH : true;
-  const headUpright = face ? Math.abs(face.roll) < MAX_FACE_ROLL : true;
+  const currentAngle = determineAngle(face);
+  const isSideAngle = currentAngle === "left" || currentAngle === "right";
+
+  // 측면 카메라 각도에서는 3D->2D 투영 왜곡 및 Yaw 회전에 따른 Roll-Pitch Coupling 왜곡이 발생하므로 임계값을 넉넉하게 완화합니다.
+  const maxPitch = isSideAngle ? 38 * DEG : MAX_FACE_PITCH;
+  const maxRoll = isSideAngle ? 35 * DEG : MAX_FACE_ROLL;
+
+  const headNotTiltedDown = face ? Math.abs(face.pitch) < maxPitch : true;
+  const headUpright = face ? Math.abs(face.roll) < maxRoll : true;
 
   let noChinRest = true;
   if (lm) {
@@ -225,14 +232,68 @@ export class CalibrationCollector {
   }
 }
 
-const STORAGE_KEY = "calibration_baseline";
+import type { MultiAngleBaseline } from "./types";
 
-export function saveBaseline(b: CalibrationBaseline): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(b));
+const STORAGE_KEY_MULTI = "calibration_baseline_multi";
+
+export function determineAngle(face: FaceData | null): "front" | "left" | "right" {
+  if (!face) return "front";
+  const yawDeg = face.yaw * (180 / Math.PI);
+  if (yawDeg > 12) return "right";
+  if (yawDeg < -12) return "left";
+  return "front";
 }
 
-export function loadBaseline(): CalibrationBaseline | null {
-  const raw = localStorage.getItem(STORAGE_KEY);
+export function loadMultiBaseline(): MultiAngleBaseline {
+  const raw = localStorage.getItem(STORAGE_KEY_MULTI);
+  if (!raw) {
+    return { front: null, left: null, right: null };
+  }
+  try {
+    const multi = JSON.parse(raw) as MultiAngleBaseline;
+    return {
+      front: multi.front || null,
+      left: multi.left || null,
+      right: multi.right || null,
+    };
+  } catch {
+    return { front: null, left: null, right: null };
+  }
+}
+
+export function saveBaseline(b: CalibrationBaseline): void {
+  const multi = loadMultiBaseline();
+  const angle = determineAngle(b.face);
+  multi[angle] = b;
+  localStorage.setItem(STORAGE_KEY_MULTI, JSON.stringify(multi));
+  
+  // 하위 호환용 단일 키(calibration_baseline) 갱신 (마이그레이션 안전성)
+  localStorage.setItem("calibration_baseline", JSON.stringify(b));
+}
+
+/**
+ * [좌표계 통일] angle-specific baseline 을 그대로 반환합니다.
+ *
+ * 과거 구현은 `baseline.shoulderWidth` 만 cos(yaw) 로 restored 한 frontal-equivalent max 값으로 대체했으나,
+ * 그 결과 같은 baseline 객체 안에서 좌표계가 두 가지로 섞이는 구조적 버그가 있었습니다:
+ *   - `meanLandmarks`, `shoulderTiltY`, `noseY`, `shoulderMidY` 등은 calibration 시점의 **2D 측면 시점 (foreshortened)** 값
+ *   - `shoulderWidth` 만 정면 환산 max 값 (다른 필드와 좌표계 불일치)
+ *
+ * analyzer.ts 가 `baseline.shoulderWidth` 를 X-방향 거리 threshold 의 scale 로 30+ 곳에서 사용하므로,
+ * 측면 시점에서 모든 X-방향 임계가 15~25% inflated 되어 phantom hand 필터가 헐거워지고
+ * chin_resting 등 false positive 가 잘 발생하던 원인이었습니다.
+ *
+ * 이제 angle-specific baseline 의 native shoulderWidth (해당 각도의 foreshortened 2D 폭) 를 그대로 사용해
+ * 동일 baseline 객체 내부의 좌표계 일관성을 복원합니다.
+ * - 사용자가 right 각도에서 right baseline 으로 평가받으면 live frame 도 right 의 foreshortened scale → 일치
+ * - front 각도에서 front baseline 으로 평가받으면 양쪽 다 frontal scale → 일치
+ */
+export function loadBaseline(angle?: "front" | "left" | "right"): CalibrationBaseline | null {
+  const multi = loadMultiBaseline();
+  if (angle) {
+    return multi[angle] ?? null;
+  }
+  const raw = localStorage.getItem("calibration_baseline");
   if (!raw) return null;
   try {
     const b = JSON.parse(raw) as CalibrationBaseline;
@@ -244,5 +305,6 @@ export function loadBaseline(): CalibrationBaseline | null {
 }
 
 export function clearBaseline(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEY_MULTI);
+  localStorage.removeItem("calibration_baseline");
 }

@@ -5,6 +5,7 @@ import {
   type UserProfile,
 } from "../userProfile";
 import { useAuth } from "../auth/useAuth";
+import { loadBaseline, determineAngle } from "../pose/calibration";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
@@ -20,7 +21,6 @@ import {
   STRETCH_LABEL,
   StretchTracker,
   type StretchKind,
-  type CameraAngle,
 } from "../pose/stretchDetector";
 import {
   BreakTracker,
@@ -176,6 +176,9 @@ export function MonitorView({
     return (localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free";
   });
 
+  const isMac = typeof navigator !== "undefined" && navigator.userAgent.indexOf("Mac") !== -1;
+  const shortcutText = isMac ? "Space 또는 ⌥⌘P" : "Space 또는 Ctrl+Alt+P";
+
   useEffect(() => {
     const syncPlan = () => {
       setSubPlan((localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free");
@@ -201,6 +204,27 @@ export function MonitorView({
   useEffect(() => {
     setCameraAngle(initialAngle);
   }, [initialAngle]);
+
+  const [recommendAngle, setRecommendAngle] = useState<"front" | "left" | "right" | null>(null);
+  const [showHelpTooltip, setShowHelpTooltip] = useState(false);
+
+  useEffect(() => {
+    const handleRecommend = (e: Event) => {
+      const customEvent = e as CustomEvent<{ angle: "front" | "left" | "right" | null }>;
+      const angle = customEvent.detail?.angle;
+      setRecommendAngle(angle || null);
+    };
+    window.addEventListener("barosit:calibration-recommended", handleRecommend);
+    return () => {
+      window.removeEventListener("barosit:calibration-recommended", handleRecommend);
+    };
+  }, []);
+
+  const [baselineState, setBaselineState] = useState<CalibrationBaseline>(baseline);
+
+  useEffect(() => {
+    setBaselineState(baseline);
+  }, [baseline]);
 
   const [detailedReportOpen, setDetailedReportOpen] = useState(false);
   const [hoveredCardIdx, setHoveredCardIdx] = useState<number | null>(null);
@@ -514,10 +538,7 @@ export function MonitorView({
   });
   const debugRef = useRef<AnalysisDebug | null>(null);
   const violationsRef = useRef<Set<PostureType>>(new Set());
-  const consecutiveAngleRef = useRef<{ angle: CameraAngle; count: number }>({
-    angle: initialAngle,
-    count: 0,
-  });
+  const lastRecommendedAngleRef = useRef<"front" | "left" | "right" | null>(null);
   // pose loop heartbeat + watchdog — 60초+ stale 시 hard reload
   const monitorHeartbeat = useHeartbeat();
   useWatchdog("monitor-frame", monitorHeartbeat.getLastAt, {
@@ -732,39 +753,48 @@ export function MonitorView({
       setHandsData(frame.hands);
       if (frame.mask) setMask(frame.mask);
 
-      // 5. 실시간 카메라 설치 위치(좌/우/정면) 자동 보정 시스템 (Auto-Calibration Engine)
-      // 사용자가 8초(80프레임) 이상 새로운 카메라 방향에서 안정적으로 자세를 유지하고 있다면,
-      // 하드웨어 위치 이동이 일어난 것으로 판단하여 배경에서 보정(Baseline)을 완전히 자동으로 정렬하고 아이콘을 이동시킵니다.
-      if (frame.face) {
-        const liveYawDeg = frame.face.yaw * (180 / Math.PI);
-        let liveAngle: CameraAngle = "front";
-        if (liveYawDeg > 12) liveAngle = "right";
-        else if (liveYawDeg < -12) liveAngle = "left";
+      // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동
+      if (frame.face && baselineState) {
+        const currentAngle = determineAngle(frame.face);
+        const storedAngle = determineAngle(baselineState.face);
+        
+        if (currentAngle !== storedAngle) {
+          // A. 오토 스위칭 성공 여부와 무관하게, 감지된 실시간 카메라 방향 상태를 즉각 반영하여 아이콘을 좌우로 점프시킴
+          setCameraAngle(currentAngle);
 
-        if (liveAngle !== cameraAngle) {
-          if (consecutiveAngleRef.current.angle === liveAngle) {
-            consecutiveAngleRef.current.count++;
-            if (consecutiveAngleRef.current.count >= 80) { // 8초 연속 유지됨
-              // A. 카메라 위치 상태 변경 (실시간 아이콘 점프)
-              setCameraAngle(liveAngle);
-              
-              // B. 메모리 상의 baseline 및 localStorage 영구 업데이트 (자세 경고 오작동 차단)
-              if (baseline && baseline.face) {
-                // 원래 정면이었으나 좌측/우측으로 이동 시, 새 위치의 표준 중심으로 보정
-                const targetYaw = liveAngle === "left" ? -0.61 : liveAngle === "right" ? 0.61 : 0.0;
-                baseline.face.yaw = targetYaw;
-                localStorage.setItem("calibration_baseline", JSON.stringify(baseline));
-              }
-              
-              consecutiveAngleRef.current.count = 0;
-              console.log(`[Auto-Calibration] Camera position automatically updated to: ${liveAngle}`);
-            }
+          const nextBaseline = loadBaseline(currentAngle);
+          if (nextBaseline) {
+            setBaselineState(nextBaseline);
+            lastRecommendedAngleRef.current = null;
+            console.log(`[MonitorView] 🔄 카메라 측정 각도 전환 감지: ${storedAngle} ➔ ${currentAngle}. 기준 데이터를 자동 스위칭했습니다.`);
+            
+            // 각도 복원 시 경고 가이드 배너를 끄기 위한 이벤트 발행
+            window.dispatchEvent(
+              new CustomEvent("barosit:calibration-recommended", {
+                detail: { angle: null }
+              })
+            );
           } else {
-            consecutiveAngleRef.current.angle = liveAngle;
-            consecutiveAngleRef.current.count = 1;
+            // 오직 새로운 각도로 진입했고, 해당 각도로 이벤트를 발행한 적이 없을 때만 1회 디스패치 (중복 노티 방지)
+            if (lastRecommendedAngleRef.current !== currentAngle) {
+              lastRecommendedAngleRef.current = currentAngle;
+              window.dispatchEvent(
+                new CustomEvent("barosit:calibration-recommended", {
+                  detail: { angle: currentAngle }
+                })
+              );
+            }
           }
         } else {
-          consecutiveAngleRef.current.count = 0;
+          // 각도가 다시 정렬되었거나 일치할 때는 추천 상태 초기화
+          if (lastRecommendedAngleRef.current !== null) {
+            lastRecommendedAngleRef.current = null;
+            window.dispatchEvent(
+              new CustomEvent("barosit:calibration-recommended", {
+                detail: { angle: null }
+              })
+            );
+          }
         }
       }
 
@@ -789,7 +819,7 @@ export function MonitorView({
 
       const result = analyzeFrame(
         { ...frame, pose: smoothed },
-        baseline,
+        baselineState,
         thresholds,
         {
           ...analyzerStateRef.current,
@@ -850,7 +880,7 @@ export function MonitorView({
         return;
       }
 
-      const stretchKind = detectStretch(smoothed, frame.face, baseline);
+      const stretchKind = detectStretch(smoothed, frame.face, baselineState);
       const stretchFired = stretchTrackerRef.current.push(stretchKind);
       if (stretchFired) {
         window.dispatchEvent(
@@ -1549,7 +1579,11 @@ export function MonitorView({
             <button
               className="b-icon-btn b-tip"
               aria-label={paused ? "모니터링 재개" : "모니터링 일시정지"}
-              data-tip={paused ? "모니터링 재개" : "모니터링 일시정지"}
+              data-tip={
+                paused
+                  ? `모니터링 재개 (${shortcutText})`
+                  : `모니터링 일시정지 (${shortcutText})`
+              }
               onClick={onTogglePause}
             >
               <Icon name={paused ? "play" : "pause"} size={15} />
@@ -1706,6 +1740,7 @@ export function MonitorView({
                   hands={handsData}
                   mask={mask}
                   status={paused ? "paused" : status}
+                  baseline={baselineState}
                 />
                 {/* posture figure 오버레이 — 실루엣 위에 살짝 */}
                 {!landmarks && !paused && (
@@ -1815,6 +1850,171 @@ export function MonitorView({
               <Icon name="target" size={11} />
               기준 다시 잡기
             </button>
+
+            {/* 카메라 각도 변경으로 인한 실루엣 카드 내 가이드 배너 */}
+            {recommendAngle && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  borderRadius: "10px",
+                  padding: "8px 10px",
+                  background: "linear-gradient(135deg, rgba(217, 119, 6, 0.95) 0%, rgba(245, 158, 11, 0.98) 100%)",
+                  backgroundBlendMode: "normal",
+                  backgroundAttachment: "scroll",
+                  backgroundColor: "rgba(217, 119, 6, 0.95)",
+                  backgroundPosition: "0% 0%",
+                  backgroundRepeat: "repeat",
+                  backgroundSize: "auto",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "6px",
+                  zIndex: 20,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: "14px", flexShrink: 0 }}>📐</span>
+                  <span
+                    style={{
+                      fontSize: "11.5px",
+                      fontWeight: 700,
+                      color: "#ffffff",
+                      letterSpacing: "-0.03em",
+                      lineHeight: 1.2,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                  >
+                    카메라 각도 변경됨 ({recommendAngle === "front" ? "정면" : recommendAngle === "left" ? "왼쪽" : "오른쪽"})
+                    {/* 헬프 아이콘 (?) */}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "15px",
+                        height: "15px",
+                        borderRadius: "50%",
+                        background: "rgba(255, 255, 255, 0.2)",
+                        border: "none",
+                        color: "#ffffff",
+                        fontSize: "9.5px",
+                        fontWeight: "bold",
+                        marginLeft: "5px",
+                        cursor: "help",
+                        transition: "all 0.2s ease",
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.35)";
+                        setShowHelpTooltip(true);
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
+                        setShowHelpTooltip(false);
+                      }}
+                    >
+                      ?
+                    </span>
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRecalibrate();
+                      setRecommendAngle(null);
+                    }}
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: "6px",
+                      background: "#ffffff",
+                      color: "#d97706",
+                      fontSize: "10.5px",
+                      fontWeight: 800,
+                      border: "none",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                      transition: "all 0.2s ease",
+                      whiteSpace: "nowrap",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "scale(1.03)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "none";
+                    }}
+                  >
+                    기준등록
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRecommendAngle(null);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "20px",
+                      height: "20px",
+                      borderRadius: "4px",
+                      background: "rgba(255, 255, 255, 0.15)",
+                      border: "none",
+                      color: "#ffffff",
+                      cursor: "pointer",
+                      fontSize: "10px",
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* 헬프 툴팁 오버레이 - 배너 하단에 둥둥 뜨는 글래스모피즘 상자 */}
+                {showHelpTooltip && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      left: 0,
+                      right: 0,
+                      borderRadius: "10px",
+                      padding: "14px 18px",
+                      background: "rgba(15, 23, 42, 0.96)",
+                      backdropFilter: "blur(20px)",
+                      WebkitBackdropFilter: "blur(20px)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      boxShadow: "0 12px 36px rgba(0,0,0,0.5)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                      zIndex: 30,
+                      pointerEvents: "none",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div style={{ fontSize: "12px", fontWeight: 800, color: "#fbbf24", display: "flex", alignItems: "center", gap: "6px" }}>
+                      📐 다중 각도 자동 관제 안내
+                    </div>
+                    <div style={{ fontSize: "11px", fontWeight: 500, color: "rgba(255, 255, 255, 0.85)", lineHeight: 1.5, letterSpacing: "-0.01em" }}>
+                      노트북/모니터 등 카메라 각도가 변경되면 인체 인식 기하 왜곡이 일어나 오동작을 방지하기 위해 새로운 기준 등록을 추천합니다.
+                    </div>
+                    <div style={{ fontSize: "11.5px", fontWeight: 700, color: "#a8d4c4", lineHeight: 1.4, marginTop: "2px" }}>
+                      💡 앵글별(정면/좌/우)로 단 한 번씩만 등록해 두시면, 이후에는 카메라 위치가 바뀌어도 추가 등록 없이 실시간 자동 인식되어 즉시 정상 사용이 가능합니다!
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Active state / feedback panel */}

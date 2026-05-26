@@ -7,7 +7,7 @@ import { analyzeFrame, type AnalysisDebug, type AnalyzerState } from "../pose/an
 import { ViolationTracker } from "../pose/violationTracker";
 import { ViolationSmoother } from "../pose/violationSmoother";
 import { loadThresholds } from "../pose/thresholds";
-import { loadBaseline } from "../pose/calibration";
+import { loadBaseline, determineAngle } from "../pose/calibration";
 import {
   detectStretch,
   StretchTracker,
@@ -194,6 +194,7 @@ export function useMonitoringEngine(opts: {
   const lastAlarmRef = useRef<{ type: PostureType; at: number } | null>(null);
   const debugRef = useRef<AnalysisDebug | null>(null);
   const violationsRef = useRef<Set<PostureType>>(new Set());
+  const lastRecommendedAngleRef = useRef<"front" | "left" | "right" | null>(null);
 
   // 실제 검출이 안 되는 모든 경우 점수 변동 중단
   // (비활성, 일시정지, 카메라 미준비, 베이스라인 없음)
@@ -343,6 +344,48 @@ export function useMonitoringEngine(opts: {
     onFrame: (frame: DetectionFrame) => {
       heartbeat.tick();
       if (!baseline || opts.paused) return;
+
+      // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동
+      if (frame.face) {
+        const currentAngle = determineAngle(frame.face);
+        const storedAngle = determineAngle(baseline.face);
+        
+        if (currentAngle !== storedAngle) {
+          const nextBaseline = loadBaseline(currentAngle);
+          if (nextBaseline) {
+            setBaseline(nextBaseline);
+            lastRecommendedAngleRef.current = null;
+            console.log(`[useMonitoringEngine] 🔄 카메라 측정 각도 전환 감지: ${storedAngle} ➔ ${currentAngle}. 기준 데이터를 자동 스위칭했습니다.`);
+            
+            // 각도 복원 시 경고 가이드 배너를 끄기 위한 이벤트 발행
+            window.dispatchEvent(
+              new CustomEvent("barosit:calibration-recommended", {
+                detail: { angle: null }
+              })
+            );
+          } else {
+            // 오직 새로운 각도로 진입했고, 해당 각도로 이벤트를 발행한 적이 없을 때만 1회 디스패치 (중복 노티 방지)
+            if (lastRecommendedAngleRef.current !== currentAngle) {
+              lastRecommendedAngleRef.current = currentAngle;
+              window.dispatchEvent(
+                new CustomEvent("barosit:calibration-recommended", {
+                  detail: { angle: currentAngle }
+                })
+              );
+            }
+          }
+        } else {
+          // 각도가 다시 정렬되었거나 일치할 때는 추천 상태 초기화
+          if (lastRecommendedAngleRef.current !== null) {
+            lastRecommendedAngleRef.current = null;
+            window.dispatchEvent(
+              new CustomEvent("barosit:calibration-recommended", {
+                detail: { angle: null }
+              })
+            );
+          }
+        }
+      }
       if (!frame.pose) {
         const since = Date.now() - lastPresentAtRef.current;
         // BreakTracker 에 absence 신호 계속 전달 — 내부 5분 카운터가 누적되어

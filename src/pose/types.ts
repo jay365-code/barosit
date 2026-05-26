@@ -98,3 +98,9 @@ export interface CalibrationBaseline {
   face: FaceData | null;
   capturedAt: number;
 }
+
+export interface MultiAngleBaseline {
+  front: CalibrationBaseline | null;
+  left: CalibrationBaseline | null;
+  right: CalibrationBaseline | null;
+}

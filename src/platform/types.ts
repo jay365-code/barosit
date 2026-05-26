@@ -93,6 +93,7 @@ export interface PlatformAPI {
   /** 외부 트리거로 모니터링 일시정지/재개 (트레이 메뉴 등) */
   onPauseEvent(cb: () => void): Promise<Unsubscribe>;
   onResumeEvent(cb: () => void): Promise<Unsubscribe>;
+  onTogglePauseEvent(cb: () => void): Promise<Unsubscribe>;
   /** 메인 X 클릭 → JS가 위젯 모드 전환 처리하도록 신호 (웹: 호출 안 됨) */
   onMainCloseRequested(cb: () => void): Promise<Unsubscribe>;
   /** Dock 클릭 → 메인 표시 후 JS가 메인 모드 복귀 처리 (웹: 호출 안 됨) */

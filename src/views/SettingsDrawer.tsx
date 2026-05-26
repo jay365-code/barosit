@@ -853,8 +853,8 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
           </button>
         </Section>
 
-        {/* 스트레칭 가동범위 개인화 */}
-        {onOpenStretchCalibrate && (
+        {/* 스트레칭 가동범위 개인화 - 스트레칭 알고리즘 고도화 완료로 보정이 불필요하므로 UI에서만 일시적으로 히든 처리 (코드 보존) */}
+        {false && onOpenStretchCalibrate && (
           <Section title="스트레칭 보정">
             <div
               style={{
