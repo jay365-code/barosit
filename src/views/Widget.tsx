@@ -459,7 +459,7 @@ export function Widget() {
         // 빈 영역에서도 mouseenter/leave가 발화하도록 픽셀을 깔아둠.
         // 0,0,0 으로 두면 빈 영역에 마우스가 와도 호버 이벤트가 안 잡혀
         // 사용자가 알약 위를 직접 클릭/터치해야 패널이 열리는 문제 발생.
-        background: "rgba(0,0,0,0.001)",
+        background: "transparent",
         fontFamily:
           '"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif',
       }}
