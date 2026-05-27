@@ -3744,8 +3744,8 @@ export function MonitorView({
                                 </span>
                               </div>
                               <div style={{ fontSize: 9.5, color: "var(--b-fg-2)", display: "flex", justifyContent: "space-between" }}>
-                                <span>좋은 자세 비율:</span>
-                                <strong style={{ color: "var(--b-fg-1)" }}>{hoveredCell.ratio}%</strong>
+                                <span>자세 건강 점수:</span>
+                                <strong style={{ color: "var(--b-fg-1)" }}>{hoveredCell.ratio}점</strong>
                               </div>
                               <div style={{ fontSize: 8.5, color: "var(--b-fg-3)", lineHeight: 1.35, marginTop: 2 }}>
                                 💡 {hoveredCell.info.desc}
