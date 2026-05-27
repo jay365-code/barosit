@@ -187,7 +187,14 @@ export default function App() {
   // V8 외부 메모리 (video frame buffer, canvas backing, GPU staging) 가
   // 활성 사용 중 분당 ~110 MB 자라는 게 관찰됨. 1분 주기로 idle 감지 후
   // 자동 reload 해 release. 모든 state 는 localStorage/supabase 에 영속.
-  useMemoryReloadGuard({ intervalMs: 60_000, idleMs: 10_000 });
+  // deepIntervalMs: 1시간마다 about:blank intermediate navigation 으로 일반
+  // reload 가 회수 못 하는 V8 internal cache 일부도 추가 cleanup 시도. 효과
+  // 는 marginal 이지만 장시간 운영 시 누적 효과 기대.
+  useMemoryReloadGuard({
+    intervalMs: 60_000,
+    idleMs: 10_000,
+    deepIntervalMs: 60 * 60 * 1000,
+  });
   const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [currentHash, setCurrentHash] = useState(() =>
