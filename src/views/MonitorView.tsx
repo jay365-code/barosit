@@ -3206,8 +3206,11 @@ export function MonitorView({
                         const vCount = hourlyViolations[hr] || 0;
 
                         let badSecs = 0;
-                        // 과도기/비동기 보정: good_duration_by_hour 누적 시작일 대비 과거 데이터 등
-                        if (goodSecs === 0 && vCount > 0) {
+                        if (vCount === 0) {
+                          // 위반이 전혀 발생하지 않은 깨끗한 시간대는 나쁜 자세가 0초입니다.
+                          badSecs = 0;
+                        } else if (goodSecs === 0 && vCount > 0) {
+                          // 과도기/비동기 보정: good_duration_by_hour 누적 시작일 대비 과거 데이터 등
                           badSecs = Math.min(activeSecs, vCount * 18);
                         } else {
                           badSecs = Math.max(0, activeSecs - goodSecs);
@@ -3332,7 +3335,11 @@ export function MonitorView({
                                     const vCount = hourlyViolations[p.hour] || 0;
 
                                     let badSecs = 0;
-                                    if (goodSecs === 0 && vCount > 0) {
+                                    if (vCount === 0) {
+                                      // 위반이 전혀 발생하지 않은 깨끗한 시간대는 나쁜 자세가 0초입니다.
+                                      badSecs = 0;
+                                    } else if (goodSecs === 0 && vCount > 0) {
+                                      // 과도기/비동기 보정: good_duration_by_hour 누적 시작일 대비 과거 데이터 등
                                       badSecs = Math.min(activeSecs, vCount * 18);
                                     } else {
                                       badSecs = Math.max(0, activeSecs - goodSecs);
