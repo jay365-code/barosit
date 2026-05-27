@@ -3213,7 +3213,15 @@ export function MonitorView({
                           // 과도기/비동기 보정: good_duration_by_hour 누적 시작일 대비 과거 데이터 등
                           badSecs = Math.min(activeSecs, vCount * 18);
                         } else {
-                          badSecs = Math.max(0, activeSecs - goodSecs);
+                          // 기본 물리 시간 계산
+                          const rawBadSecs = Math.max(0, activeSecs - goodSecs);
+                          // 스마트 비동기 가드: 1회당 물리적 최대 유지 한계선(90초)을 초과하는 왜곡 검출 시 합리값으로 보정
+                          const maxPossibleBadSecs = vCount * 90;
+                          if (rawBadSecs > maxPossibleBadSecs) {
+                            badSecs = Math.min(activeSecs, vCount * 18);
+                          } else {
+                            badSecs = rawBadSecs;
+                          }
                         }
 
                         if (badSecs > activeSecs) {
@@ -3342,7 +3350,15 @@ export function MonitorView({
                                       // 과도기/비동기 보정: good_duration_by_hour 누적 시작일 대비 과거 데이터 등
                                       badSecs = Math.min(activeSecs, vCount * 18);
                                     } else {
-                                      badSecs = Math.max(0, activeSecs - goodSecs);
+                                      // 기본 물리 시간 계산
+                                      const rawBadSecs = Math.max(0, activeSecs - goodSecs);
+                                      // 스마트 비동기 가드: 1회당 물리적 최대 유지 한계선(90초)을 초과하는 왜곡 검출 시 합리값으로 보정
+                                      const maxPossibleBadSecs = vCount * 90;
+                                      if (rawBadSecs > maxPossibleBadSecs) {
+                                        badSecs = Math.min(activeSecs, vCount * 18);
+                                      } else {
+                                        badSecs = rawBadSecs;
+                                      }
                                     }
 
                                     if (badSecs > activeSecs) {
