@@ -230,6 +230,14 @@ export function MonitorView({
   const [detailedReportOpen, setDetailedReportOpen] = useState(false);
   const [hoveredCardIdx, setHoveredCardIdx] = useState<number | null>(null);
   const [hoveredCell, setHoveredCell] = useState<{ month: number; day: number; ratio: number; grade: string; info: any } | null>(null);
+  const [hoveredLinePoint, setHoveredLinePoint] = useState<{
+    x: number;
+    y: number;
+    score: number;
+    hour: number;
+    violations: number;
+    activeSecs: number;
+  } | null>(null);
 
   const triggerBackgroundSync = () => {
     try {
@@ -3171,20 +3179,18 @@ export function MonitorView({
 
                           {/* Dots & Score Labels */}
                           {points.map((p, idx) => {
-                            // 감점 이력이 있거나 4시간 마킹 눈금
-                            const isSpecial = p.hour % 4 === 0 || p.score < 100;
-                            if (!isSpecial) return null;
+                            const hasDeduction = p.score < 100;
                             return (
                               <g key={idx}>
                                 <circle
                                   cx={p.x}
                                   cy={p.y}
-                                  r={p.score < 100 ? "4" : "3"}
-                                  fill={p.score < 100 ? "var(--b-warn)" : "var(--b-sig)"}
+                                  r={hasDeduction ? "4" : "2.5"}
+                                  fill={hasDeduction ? "var(--b-warn)" : "var(--b-sig)"}
                                   stroke="var(--b-surface)"
                                   strokeWidth="1.5"
                                 />
-                                {p.score < 100 && (
+                                {hasDeduction && (
                                   <text
                                     x={p.x}
                                     y={p.y - 8}
@@ -3196,6 +3202,23 @@ export function MonitorView({
                                     {p.score}점
                                   </text>
                                 )}
+                                {/* 대형 투명 호버 영역 */}
+                                <circle
+                                  cx={p.x}
+                                  cy={p.y}
+                                  r="12"
+                                  fill="transparent"
+                                  cursor="pointer"
+                                  onMouseEnter={() => setHoveredLinePoint({
+                                    x: p.x,
+                                    y: p.y,
+                                    score: p.score,
+                                    hour: p.hour,
+                                    violations: hourlyViolations[p.hour] || 0,
+                                    activeSecs: activeByHour[p.hour] || 0,
+                                  })}
+                                  onMouseLeave={() => setHoveredLinePoint(null)}
+                                />
                               </g>
                             );
                           })}
@@ -3216,6 +3239,48 @@ export function MonitorView({
                         </svg>
                       );
                     })()}
+
+                    {/* 🌟 꺾은선 마우스 호버 시 글자가 크게 표출되는 프리미엄 툴팁 */}
+                    {hoveredLinePoint && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: hoveredLinePoint.x,
+                          top: hoveredLinePoint.y - 12,
+                          transform: "translateX(-50%) translateY(-100%)",
+                          background: "rgba(20, 20, 26, 0.96)",
+                          backdropFilter: "blur(12px)",
+                          WebkitBackdropFilter: "blur(12px)",
+                          border: "1px solid rgba(255, 255, 255, 0.16)",
+                          borderRadius: 12,
+                          padding: "12px 16px",
+                          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+                          zIndex: 10000,
+                          pointerEvents: "none",
+                          whiteSpace: "nowrap",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 5,
+                          animation: "b-fade-in 0.15s ease",
+                        }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-1)", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: 4, marginBottom: 2 }}>
+                          ⏰ {hoveredLinePoint.hour}:00 ~ {hoveredLinePoint.hour + 1}:00
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "var(--b-fg-2)", display: "flex", justifyContent: "space-between", gap: 15 }}>
+                          <span>자세 건강 점수:</span>
+                          <strong style={{ color: "var(--b-sig)", fontSize: 13 }}>{hoveredLinePoint.score}점</strong>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
+                          <span>착석 시간:</span>
+                          <span>{Math.round(hoveredLinePoint.activeSecs / 60)}분</span>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
+                          <span>자세 위반:</span>
+                          <span style={{ color: hoveredLinePoint.violations > 0 ? "var(--b-warn)" : "inherit" }}>{hoveredLinePoint.violations}회</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -3892,31 +3957,31 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
                     animation: "b-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
                   }}
                 >
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--b-fg-1)", marginBottom: 2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-1)", marginBottom: 3 }}>
                     {START + i}:00 ~ {START + i + 1}:00
                   </div>
                   
                   {/* 오늘 상세 착석 & 위반 피드백 */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3, paddingBottom: 4, borderBottom: "1px solid rgba(255, 255, 255, 0.06)", width: "100%" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--b-sig)" }} />
-                      오늘 착석: <span className="b-num" style={{ fontWeight: 700 }}>{formatSeatingTime(vSitting)}</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingBottom: 6, borderBottom: "1px solid rgba(255, 255, 255, 0.06)", width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--b-fg-2)" }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--b-sig)" }} />
+                      오늘 착석: <span className="b-num" style={{ fontWeight: 700, fontSize: 13 }}>{formatSeatingTime(vSitting)}</span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: vViolation > 0 ? violationColor : "rgba(255, 255, 255, 0.15)" }} />
-                      오늘 위반: <span className="b-num" style={{ fontWeight: 700, color: vViolation > 0 ? violationColor : "inherit" }}>{vViolation}회</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--b-fg-2)" }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: vViolation > 0 ? violationColor : "rgba(255, 255, 255, 0.15)" }} />
+                      오늘 위반: <span className="b-num" style={{ fontWeight: 700, fontSize: 13, color: vViolation > 0 ? violationColor : "inherit" }}>{vViolation}회</span>
                     </div>
                   </div>
 
                   {/* 어제 상세 착석 & 위반 피드백 */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3, width: "100%", paddingTop: 2 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)", opacity: 0.85 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--b-fg-4)", opacity: 0.5 }} />
-                      어제 착석: <span className="b-num" style={{ fontWeight: 700 }}>{formatSeatingTime(ySitting)}</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", paddingTop: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--b-fg-3)", opacity: 0.85 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--b-fg-4)", opacity: 0.5 }} />
+                      어제 착석: <span className="b-num" style={{ fontWeight: 700, fontSize: 12 }}>{formatSeatingTime(ySitting)}</span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)", opacity: 0.85 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: yViolation > 0 ? yesterdayViolationColor : "rgba(255, 255, 255, 0.15)", opacity: 0.7 }} />
-                      어제 위반: <span className="b-num" style={{ fontWeight: 700 }}>{yViolation}회</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--b-fg-3)", opacity: 0.85 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: yViolation > 0 ? yesterdayViolationColor : "rgba(255, 255, 255, 0.15)", opacity: 0.7 }} />
+                      어제 위반: <span className="b-num" style={{ fontWeight: 700, fontSize: 12 }}>{yViolation}회</span>
                     </div>
                   </div>
 
