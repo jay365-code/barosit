@@ -436,9 +436,9 @@ input:focus {
 }
 
 /* Tauri 투명 윈도우 배경 투명화 강제 */
-body.is-tauri-transparent,
-body.is-tauri-transparent html,
-body.is-tauri-transparent #root {
+html.is-tauri-transparent,
+html.is-tauri-transparent body,
+html.is-tauri-transparent #root {
   background: transparent !important;
   background-color: transparent !important;
 }
