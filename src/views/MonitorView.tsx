@@ -3062,16 +3062,33 @@ export function MonitorView({
                   <div style={{ position: "relative", width: "100%", height: 130 }}>
                     {(() => {
                       const eventsToday = loadEvents().filter(e => e.startedAt >= startOfToday());
-                      const hourlyViolations = new Array(24).fill(0);
+                      const hourlyViolationSecs = new Array(24).fill(0);
                       eventsToday.forEach(e => {
                         const hr = new Date(e.startedAt).getHours();
                         if (hr >= 0 && hr < 24) {
-                          hourlyViolations[hr] += 1;
+                          hourlyViolationSecs[hr] += e.durationSecs || 0;
                         }
                       });
 
-                      // 시간별 점수 연산: 위반당 10점 감점, 최소 30점 보장
-                      const scores = hourlyViolations.map(v => Math.max(30, 100 - v * 10));
+                      // 실제 로컬 스토리지의 오늘 시간당 착석 시간(초) 로드
+                      const activeHourRaw = localStorage.getItem("active_duration_by_hour");
+                      let activeByHour = new Array(24).fill(0);
+                      try {
+                        if (activeHourRaw) {
+                          const parsed = JSON.parse(activeHourRaw);
+                          if (Array.isArray(parsed) && parsed.length === 24) {
+                            activeByHour = parsed;
+                          }
+                        }
+                      } catch {}
+
+                      // 시간별 점수 연산: (위반 시간 / 착석 시간) 비율 감점, 최소 30점 보장
+                      const scores = hourlyViolationSecs.map((vSecs, hr) => {
+                        const activeSecs = activeByHour[hr] || 0;
+                        if (activeSecs === 0) return 100;
+                        const ratio = Math.min(1.0, vSecs / activeSecs);
+                        return Math.max(30, 100 - Math.round(ratio * 100));
+                      });
 
                       const width = 540;
                       const height = 110;
