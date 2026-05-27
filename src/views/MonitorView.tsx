@@ -3639,32 +3639,32 @@ export function MonitorView({
                                   // 날짜 문자열
                                   const dateStr = `${currentYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                                   
-                                  // 실제 데이터 연동 또는 시뮬레이션 데이터 생성
-                                  let ratio = 100;
+                                  // 실제 데이터 연동 (과거 가짜 난수 완전 제거)
+                                  let ratio = 0;
                                   let isToday = false;
+                                  let hasData = false;
                                   
                                   // 오늘 날짜인지 체크
                                   const todayDateObj = new Date();
                                   if (todayDateObj.getFullYear() === currentYear && (todayDateObj.getMonth() + 1) === month && todayDateObj.getDate() === day) {
                                     isToday = true;
                                     const todayActiveSecs = activeDurationTodayCount;
-                                    const todayGoodSecs = goodDurationTodayCount;
-                                    ratio = todayActiveSecs > 0 ? Math.round((todayGoodSecs / todayActiveSecs) * 100) : 100;
+                                    if (todayActiveSecs > 0) {
+                                      hasData = true;
+                                      const todayGoodSecs = goodDurationTodayCount;
+                                      ratio = Math.round((todayGoodSecs / todayActiveSecs) * 100);
+                                    }
                                   } else if (history[dateStr]) {
                                     // 역사 저장소에 실제 기록이 있는 경우
+                                    hasData = true;
                                     ratio = history[dateStr].r;
-                                  } else {
-                                    // 과거 미측정 날짜 시뮬레이션 난수 (시간이 흐를수록 점진적 개선 트렌드 연출)
-                                    const monthFactor = month / 12; // 0.08 ~ 1.0
-                                    const seed = Math.sin(month * 2.3 + day * 4.7); // -1.0 ~ 1.0
-                                    const baseScore = 74 + Math.round(monthFactor * 15); // 75 ~ 89
-                                    ratio = Math.max(50, Math.min(100, baseScore + Math.round(seed * 10)));
                                   }
 
-                                  const cellGradeInfo = getPostureGrade(ratio);
+                                  const cellGradeInfo = hasData ? getPostureGrade(ratio) : null;
                                   
                                   // 호버 시 정보 바인딩
                                   const handleMouseEnter = () => {
+                                    if (!hasData || !cellGradeInfo) return;
                                     setHoveredCell({
                                       month,
                                       day,
@@ -3681,29 +3681,29 @@ export function MonitorView({
                                   return (
                                     <div
                                       key={dayIdx}
-                                      onMouseEnter={handleMouseEnter}
-                                      onMouseLeave={handleMouseLeave}
+                                      onMouseEnter={hasData ? handleMouseEnter : undefined}
+                                      onMouseLeave={hasData ? handleMouseLeave : undefined}
                                       style={{
                                         width: 13,
                                         height: 13,
                                         display: "flex",
                                         alignItems: "center",
                                         justifyContent: "center",
-                                        cursor: "pointer",
+                                        cursor: hasData ? "pointer" : "default",
                                       }}
                                     >
                                       <div
                                         style={{
-                                          width: isToday ? 9 : 8,
-                                          height: isToday ? 9 : 8,
+                                          width: hasData ? (isToday ? 9 : 8) : 5,
+                                          height: hasData ? (isToday ? 9 : 8) : 5,
                                           borderRadius: "50%",
-                                          background: cellGradeInfo.color,
-                                          border: isToday ? "2px solid #ffffff" : "none",
-                                          opacity: ratio >= 80 ? 0.95 : 0.7,
-                                          boxShadow: isToday ? "0 0 6px #ffffff" : "none",
+                                          background: hasData && cellGradeInfo ? cellGradeInfo.color : "rgba(255, 255, 255, 0.08)",
+                                          border: hasData && isToday ? "2px solid #ffffff" : "none",
+                                          opacity: hasData ? (ratio >= 80 ? 0.95 : 0.7) : 0.35,
+                                          boxShadow: hasData && isToday ? "0 0 6px #ffffff" : "none",
                                           transition: "transform 0.15s ease",
                                         }}
-                                        className="b-dot"
+                                        className={hasData ? "b-dot" : undefined}
                                       />
                                     </div>
                                   );
