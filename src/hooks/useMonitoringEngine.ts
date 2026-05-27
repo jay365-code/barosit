@@ -190,6 +190,10 @@ export function useMonitoringEngine(opts: {
   });
   const lastPresentAtRef = useRef<number>(Date.now());
   const lastPosePublishAtRef = useRef<number>(0);
+  // widget_state 발행 throttle — 매 프레임 stringify + localStorage.setItem 의
+  // JS heap 압력을 줄이기 위해 status 변경이 없으면 ~3 FPS 로 발행.
+  const lastWidgetPublishAtRef = useRef<number>(0);
+  const lastPublishedStatusRef = useRef<string>("");
   const latestPoseRef = useRef<Landmarks | null>(null);
   const lastAlarmRef = useRef<{ type: PostureType; at: number } | null>(null);
   const debugRef = useRef<AnalysisDebug | null>(null);
@@ -726,8 +730,17 @@ export function useMonitoringEngine(opts: {
         pose: poseToSend,
         breakStatus: breakResult.status,
       };
-      localStorage.setItem("widget_state", JSON.stringify(widgetState));
-      publishWidgetState(widgetState).catch(() => undefined);
+      // status 가 바뀌면 즉시 발행 (위젯 상태 변화 지연 방지),
+      // 그 외엔 333ms throttle (3 FPS) — pose throttle 주기와 일치.
+      if (
+        widgetState.status !== lastPublishedStatusRef.current ||
+        now - lastWidgetPublishAtRef.current > 330
+      ) {
+        lastWidgetPublishAtRef.current = now;
+        lastPublishedStatusRef.current = widgetState.status;
+        localStorage.setItem("widget_state", JSON.stringify(widgetState));
+        publishWidgetState(widgetState).catch(() => undefined);
+      }
     },
   });
 
@@ -755,6 +768,23 @@ export function useMonitoringEngine(opts: {
         const nextActive = currentActive + 1;
         localStorage.setItem("active_duration_today", String(nextActive));
 
+        // 1.5. 시간대별 착석 시간 누적
+        const currentHour = new Date().getHours();
+        const activeByHourRaw = localStorage.getItem("active_duration_by_hour");
+        let activeByHour = new Array(24).fill(0);
+        try {
+          if (activeByHourRaw) {
+            const parsed = JSON.parse(activeByHourRaw);
+            if (Array.isArray(parsed) && parsed.length === 24) {
+              activeByHour = parsed;
+            }
+          }
+        } catch {
+          // ignore
+        }
+        activeByHour[currentHour] = (activeByHour[currentHour] || 0) + 1;
+        localStorage.setItem("active_duration_by_hour", JSON.stringify(activeByHour));
+
         // 2. 점수 누적합 가산
         const currentScoreSum = Number(localStorage.getItem("score_sum_today") || "0");
         const nextScoreSum = currentScoreSum + scoreRef.current;
@@ -772,6 +802,10 @@ export function useMonitoringEngine(opts: {
         window.dispatchEvent(new StorageEvent("storage", {
           key: "active_duration_today",
           newValue: String(nextActive),
+        }));
+        window.dispatchEvent(new StorageEvent("storage", {
+          key: "active_duration_by_hour",
+          newValue: JSON.stringify(activeByHour),
         }));
         window.dispatchEvent(new StorageEvent("storage", {
           key: "score_sum_today",
