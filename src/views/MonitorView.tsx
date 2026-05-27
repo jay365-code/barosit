@@ -237,7 +237,101 @@ export function MonitorView({
     hour: number;
     violations: number;
     activeSecs: number;
+    badSecs?: number;
   } | null>(null);
+
+  // 실시간 착석 시간 로컬 상태 연동
+  const [activeDurationByHour, setActiveDurationByHour] = useState<number[]>(() => {
+    const raw = localStorage.getItem("active_duration_by_hour");
+    try {
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length === 24) return parsed;
+      }
+    } catch {}
+    return new Array(24).fill(0);
+  });
+
+  const [yesterdayActiveDurationByHour, setYesterdayActiveDurationByHour] = useState<number[]>(() => {
+    const raw = localStorage.getItem("active_duration_by_hour_yesterday");
+    try {
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length === 24) return parsed;
+      }
+    } catch {}
+    return new Array(24).fill(0);
+  });
+
+  // 실시간 좋은 자세 시간 로컬 상태 연동
+  const [goodDurationByHour, setGoodDurationByHour] = useState<number[]>(() => {
+    const raw = localStorage.getItem("good_duration_by_hour");
+    try {
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length === 24) return parsed;
+      }
+    } catch {}
+    return new Array(24).fill(0);
+  });
+
+  useEffect(() => {
+    const sync = () => {
+      const rawActive = localStorage.getItem("active_duration_by_hour");
+      try {
+        if (rawActive) {
+          const parsed = JSON.parse(rawActive);
+          if (Array.isArray(parsed) && parsed.length === 24) {
+            setActiveDurationByHour(parsed);
+          }
+        }
+      } catch {}
+
+      const rawGood = localStorage.getItem("good_duration_by_hour");
+      try {
+        if (rawGood) {
+          const parsed = JSON.parse(rawGood);
+          if (Array.isArray(parsed) && parsed.length === 24) {
+            setGoodDurationByHour(parsed);
+          }
+        }
+      } catch {}
+    };
+
+    const syncYesterday = () => {
+      const rawActive = localStorage.getItem("active_duration_by_hour_yesterday");
+      try {
+        if (rawActive) {
+          const parsed = JSON.parse(rawActive);
+          if (Array.isArray(parsed) && parsed.length === 24) {
+            setYesterdayActiveDurationByHour(parsed);
+          }
+        }
+      } catch {}
+    };
+
+    // 1초 타이머와 연동하여 동기화
+    const timer = setInterval(() => {
+      sync();
+      syncYesterday();
+    }, 1000);
+
+    // 타 창 동기화 리스너
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "active_duration_by_hour" || e.key === "good_duration_by_hour") {
+        sync();
+      }
+      if (e.key === "active_duration_by_hour_yesterday" || e.key === "good_duration_by_hour_yesterday") {
+        syncYesterday();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   const triggerBackgroundSync = () => {
     try {
@@ -706,10 +800,26 @@ export function MonitorView({
         // 3. 좋은 자세 시간 누적 (위반이 없을 때)
         const currentGood = Number(localStorage.getItem("good_duration_today") || "0");
         let nextGood = currentGood;
+        const goodByHourRaw = localStorage.getItem("good_duration_by_hour");
+        let goodByHour = new Array(24).fill(0);
+        try {
+          if (goodByHourRaw) {
+            const parsed = JSON.parse(goodByHourRaw);
+            if (Array.isArray(parsed) && parsed.length === 24) {
+              goodByHour = parsed;
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         if (violationsRef.current.size === 0) {
           nextGood = currentGood + 1;
           localStorage.setItem("good_duration_today", String(nextGood));
           setGoodDurationTodayCount(nextGood);
+
+          goodByHour[currentHour] = (goodByHour[currentHour] || 0) + 1;
+          localStorage.setItem("good_duration_by_hour", JSON.stringify(goodByHour));
         }
 
         // 다중 윈도우 동기화를 위한 스토리지 이벤트 디스패치
@@ -729,6 +839,10 @@ export function MonitorView({
           window.dispatchEvent(new StorageEvent("storage", {
             key: "good_duration_today",
             newValue: String(nextGood),
+          }));
+          window.dispatchEvent(new StorageEvent("storage", {
+            key: "good_duration_by_hour",
+            newValue: JSON.stringify(goodByHour),
           }));
         }
       } catch (e) {
@@ -1305,6 +1419,10 @@ export function MonitorView({
         const prevActiveByHour = localStorage.getItem("active_duration_by_hour") || JSON.stringify(new Array(24).fill(0));
         localStorage.setItem("active_duration_by_hour_yesterday", prevActiveByHour);
         localStorage.setItem("active_duration_by_hour", JSON.stringify(new Array(24).fill(0)));
+
+        const prevGoodByHour = localStorage.getItem("good_duration_by_hour") || JSON.stringify(new Array(24).fill(0));
+        localStorage.setItem("good_duration_by_hour_yesterday", prevGoodByHour);
+        localStorage.setItem("good_duration_by_hour", JSON.stringify(new Array(24).fill(0)));
 
         localStorage.setItem("last_active_date", todayDateStr);
       } else if (!lastActiveDateStr) {
@@ -2711,7 +2829,11 @@ export function MonitorView({
               상세 분석 리포트
             </button>
           </div>
-          <HourlyHeatmap yesterdayByHour={yesterdayByHour} />
+          <HourlyHeatmap
+            yesterdayByHour={yesterdayByHour}
+            activeDurationByHour={activeDurationByHour}
+            yesterdayActiveDurationByHour={yesterdayActiveDurationByHour}
+          />
           <div
             style={{
               marginTop: 14,
@@ -3078,30 +3200,25 @@ export function MonitorView({
                         }
                       });
 
-                      // 실제 로컬 스토리지의 오늘 시간당 착석 시간(초) 로드
-                      const activeHourRaw = localStorage.getItem("active_duration_by_hour");
-                      let activeByHour = new Array(24).fill(0);
-                      try {
-                        if (activeHourRaw) {
-                          const parsed = JSON.parse(activeHourRaw);
-                          if (Array.isArray(parsed) && parsed.length === 24) {
-                            activeByHour = parsed;
-                          }
-                        }
-                      } catch {}
-
-                      const MAX_ALLOWABLE_VIOLATIONS = 12; // 임상적 시간당 최대 한계선 (5분당 1회 무너짐)
-
-                      const scores = hourlyViolations.map((vCount, hr) => {
-                        const activeSecs = activeByHour[hr] || 0;
+                      const scores = (activeDurationByHour as number[]).map((activeSecs: number, hr: number) => {
                         if (activeSecs === 0) return 100;
+                        const goodSecs = goodDurationByHour[hr] || 0;
+                        const vCount = hourlyViolations[hr] || 0;
 
-                        // 단기 세션의 급격한 점수 스윙을 방지하기 위해 최소 15분(900초) 기준선 적용
-                        const effectiveActiveSecs = Math.max(900, activeSecs);
-                        const violationsPerHour = vCount / (effectiveActiveSecs / 3600);
+                        let badSecs = 0;
+                        // 과도기/비동기 보정: good_duration_by_hour 누적 시작일 대비 과거 데이터 등
+                        if (goodSecs === 0 && vCount > 0) {
+                          badSecs = Math.min(activeSecs, vCount * 18);
+                        } else {
+                          badSecs = Math.max(0, activeSecs - goodSecs);
+                        }
 
-                        const ratio = Math.min(1.0, violationsPerHour / MAX_ALLOWABLE_VIOLATIONS);
-                        return Math.max(30, 100 - Math.round(ratio * 70));
+                        if (badSecs > activeSecs) {
+                          badSecs = activeSecs;
+                        }
+
+                        const ratio = badSecs / activeSecs;
+                        return Math.max(30, 100 - Math.round(ratio * 100));
                       });
 
                       const width = 540;
@@ -3114,13 +3231,13 @@ export function MonitorView({
                       const chartWidth = width - paddingLeft - paddingRight;
                       const chartHeight = height - paddingTop - paddingBottom;
 
-                      const points = scores.map((s, idx) => {
+                      const points = (scores as number[]).map((s: number, idx: number) => {
                         const x = paddingLeft + (idx / 23) * chartWidth;
                         const y = paddingTop + chartHeight - (s / 100) * chartHeight;
                         return { x, y, score: s, hour: idx };
                       });
 
-                      const linePath = points.map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+                      const linePath = (points as { x: number; y: number; score: number; hour: number; }[]).map((p, idx: number) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
                       const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${(paddingTop + chartHeight).toFixed(1)} L ${points[0].x.toFixed(1)} ${(paddingTop + chartHeight).toFixed(1)} Z`;
 
                       return (
@@ -3136,7 +3253,7 @@ export function MonitorView({
                           </defs>
 
                           {/* Level Guides */}
-                          {[100, 75, 50].map((level) => {
+                          {[100, 75, 50].map((level: number) => {
                             const y = paddingTop + chartHeight - (level / 100) * chartHeight;
                             return (
                               <g key={level}>
@@ -3178,7 +3295,7 @@ export function MonitorView({
                           />
 
                           {/* Dots & Score Labels */}
-                          {points.map((p, idx) => {
+                          {(points as { x: number; y: number; score: number; hour: number; }[]).map((p, idx: number) => {
                             const hasDeduction = p.score < 100;
                             return (
                               <g key={idx}>
@@ -3209,14 +3326,32 @@ export function MonitorView({
                                   r="12"
                                   fill="transparent"
                                   cursor="pointer"
-                                  onMouseEnter={() => setHoveredLinePoint({
-                                    x: p.x,
-                                    y: p.y,
-                                    score: p.score,
-                                    hour: p.hour,
-                                    violations: hourlyViolations[p.hour] || 0,
-                                    activeSecs: activeByHour[p.hour] || 0,
-                                  })}
+                                  onMouseEnter={() => {
+                                    const activeSecs = activeDurationByHour[p.hour] || 0;
+                                    const goodSecs = goodDurationByHour[p.hour] || 0;
+                                    const vCount = hourlyViolations[p.hour] || 0;
+
+                                    let badSecs = 0;
+                                    if (goodSecs === 0 && vCount > 0) {
+                                      badSecs = Math.min(activeSecs, vCount * 18);
+                                    } else {
+                                      badSecs = Math.max(0, activeSecs - goodSecs);
+                                    }
+
+                                    if (badSecs > activeSecs) {
+                                      badSecs = activeSecs;
+                                    }
+
+                                    setHoveredLinePoint({
+                                      x: p.x,
+                                      y: p.y,
+                                      score: p.score,
+                                      hour: p.hour,
+                                      violations: vCount,
+                                      activeSecs,
+                                      badSecs,
+                                    });
+                                  }}
                                   onMouseLeave={() => setHoveredLinePoint(null)}
                                 />
                               </g>
@@ -3224,7 +3359,7 @@ export function MonitorView({
                           })}
 
                           {/* X-Axis Labels */}
-                          {points.filter(p => p.hour % 4 === 0).map((p, idx) => (
+                          {(points as { x: number; y: number; score: number; hour: number; }[]).filter(p => p.hour % 4 === 0).map((p, idx: number) => (
                             <text
                               key={idx}
                               x={p.x}
@@ -3275,9 +3410,32 @@ export function MonitorView({
                           <span>착석 시간:</span>
                           <span>{Math.round(hoveredLinePoint.activeSecs / 60)}분</span>
                         </div>
+                        {hoveredLinePoint.badSecs !== undefined && (
+                          <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
+                            <span>나쁜 자세 유지:</span>
+                            <span style={{ color: hoveredLinePoint.badSecs > 0 ? "var(--b-warn)" : "inherit" }}>
+                              {(() => {
+                                const secs = hoveredLinePoint.badSecs;
+                                if (secs === 0) return "0초";
+                                if (secs < 60) return `${secs}초`;
+                                const m = Math.floor(secs / 60);
+                                const s = secs % 60;
+                                return s > 0 ? `${m}분 ${s}초` : `${m}분`;
+                              })()}
+                            </span>
+                          </div>
+                        )}
+                        {hoveredLinePoint.badSecs !== undefined && hoveredLinePoint.activeSecs > 0 && (
+                          <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
+                            <span>자세 위반 비율:</span>
+                            <span style={{ color: hoveredLinePoint.badSecs > 0 ? "var(--b-warn)" : "inherit" }}>
+                              {(hoveredLinePoint.badSecs / hoveredLinePoint.activeSecs * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        )}
                         <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
-                          <span>자세 위반:</span>
-                          <span style={{ color: hoveredLinePoint.violations > 0 ? "var(--b-warn)" : "inherit" }}>{hoveredLinePoint.violations}회</span>
+                          <span>자세 위반 횟수:</span>
+                          <span>{hoveredLinePoint.violations}회</span>
                         </div>
                       </div>
                     )}
@@ -3663,7 +3821,17 @@ export function MonitorView({
     </div>
   );
 }
-function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
+interface HourlyHeatmapProps {
+  yesterdayByHour: number[];
+  activeDurationByHour: number[];
+  yesterdayActiveDurationByHour: number[];
+}
+
+function HourlyHeatmap({
+  yesterdayByHour,
+  activeDurationByHour,
+  yesterdayActiveDurationByHour,
+}: HourlyHeatmapProps) {
   // 00:00 ~ 24:00 (24개 슬롯 전체). 각 슬롯에 착석 시간(배경 바)과 자세 위반(전경 바)을 중첩 표시.
   // 데이터가 적을 때는 어제 데이터를 옅게 함께 보여 비교 가능하게.
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -3675,81 +3843,6 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
       setNow(new Date());
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  // 실시간 착석 시간 로컬 상태 연동
-  const [activeDurationByHour, setActiveDurationByHour] = useState<number[]>(() => {
-    const raw = localStorage.getItem("active_duration_by_hour");
-    try {
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length === 24) return parsed;
-      }
-    } catch {}
-    return new Array(24).fill(0);
-  });
-
-  const [yesterdayActiveDurationByHour, setYesterdayActiveDurationByHour] = useState<number[]>(() => {
-    const raw = localStorage.getItem("active_duration_by_hour_yesterday");
-    try {
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length === 24) return parsed;
-      }
-    } catch {}
-    return new Array(24).fill(0);
-  });
-
-  useEffect(() => {
-    const sync = () => {
-      const raw = localStorage.getItem("active_duration_by_hour");
-      try {
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length === 24) {
-            setActiveDurationByHour(parsed);
-            return;
-          }
-        }
-      } catch {}
-      setActiveDurationByHour(new Array(24).fill(0));
-    };
-
-    const syncYesterday = () => {
-      const raw = localStorage.getItem("active_duration_by_hour_yesterday");
-      try {
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length === 24) {
-            setYesterdayActiveDurationByHour(parsed);
-            return;
-          }
-        }
-      } catch {}
-      setYesterdayActiveDurationByHour(new Array(24).fill(0));
-    };
-
-    // 1초 타이머와 연동하여 동기화
-    const timer = setInterval(() => {
-      sync();
-      syncYesterday();
-    }, 1000);
-
-    // 타 창 동기화 리스너
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "active_duration_by_hour") {
-        sync();
-      }
-      if (e.key === "active_duration_by_hour_yesterday") {
-        syncYesterday();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("storage", handleStorage);
-    };
   }, []);
 
   const stats = (() => {

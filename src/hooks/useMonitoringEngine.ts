@@ -793,9 +793,25 @@ export function useMonitoringEngine(opts: {
         // 3. 좋은 자세 시간 누적 (위반이 없을 때)
         const currentGood = Number(localStorage.getItem("good_duration_today") || "0");
         let nextGood = currentGood;
+        const goodByHourRaw = localStorage.getItem("good_duration_by_hour");
+        let goodByHour = new Array(24).fill(0);
+        try {
+          if (goodByHourRaw) {
+            const parsed = JSON.parse(goodByHourRaw);
+            if (Array.isArray(parsed) && parsed.length === 24) {
+              goodByHour = parsed;
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         if (violationsRef.current.size === 0) {
           nextGood = currentGood + 1;
           localStorage.setItem("good_duration_today", String(nextGood));
+
+          goodByHour[currentHour] = (goodByHour[currentHour] || 0) + 1;
+          localStorage.setItem("good_duration_by_hour", JSON.stringify(goodByHour));
         }
 
         // 다중 윈도우 동기화를 위한 스토리지 이벤트 디스패치
@@ -815,6 +831,10 @@ export function useMonitoringEngine(opts: {
           window.dispatchEvent(new StorageEvent("storage", {
             key: "good_duration_today",
             newValue: String(nextGood),
+          }));
+          window.dispatchEvent(new StorageEvent("storage", {
+            key: "good_duration_by_hour",
+            newValue: JSON.stringify(goodByHour),
           }));
         }
       } catch (e) {
