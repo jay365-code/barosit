@@ -8,6 +8,7 @@ import type {
   CalibrationBaseline,
 } from "../pose/types";
 import { LANDMARK_INDEX } from "../pose/types";
+import { registerSilhouetteSource } from "../lib/viewportSnapshot";
 
 interface Props {
   pose: Landmarks | null;
@@ -71,6 +72,14 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status, baseline }:
 
   const color = useMemo(() => STATUS_RGB[status], [status]);
 
+  // unmount 시 registered source 해제 (다른 view 로 전환했는데 stale canvas 가
+  // 남아 있으면 다음 reload capture 에서 잘못된 화면 사용).
+  useEffect(() => {
+    return () => {
+      registerSilhouetteSource(null);
+    };
+  }, []);
+
   // 마스크 갱신: 시간축 EMA로 부드럽게
   useEffect(() => {
     if (!mask) return;
@@ -78,6 +87,10 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status, baseline }:
     if (!off) {
       off = document.createElement("canvas");
       offRef.current = off;
+      // viewportSnapshot 이 raw silhouette 만 캡처할 수 있게 module 단위로 등록.
+      // 화면 표시 canvas (canvasRef) 는 어깨/팔 라인 + face mesh 가 합성돼 있어
+      // capture 시 졸라맨이 같이 노출됨 — 그래서 raw mask 만 그려진 offRef 사용.
+      registerSilhouetteSource(off);
     }
     if (off.width !== mask.width || off.height !== mask.height) {
       off.width = mask.width;
@@ -157,6 +170,14 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status, baseline }:
     const h = canvas.height;
 
     ctx.clearRect(0, 0, w, h);
+
+    // mask 첫 도착 전에는 silhouette 도, 어깨/팔/face/hand 점선도 그리지 않음.
+    // Why: pose/face/hand 는 mask 보다 먼저 도착하는 경우가 많아, mask 없는
+    // 사이에 점선만 그리면 silhouette 으로 가려지지 않은 "졸라맨"이 노출됨
+    // (특히 reload 직후 segmenter 첫 결과 도착 전 짧은 시간).
+    if (!maskReadyRef.current) {
+      return;
+    }
 
     if (maskReadyRef.current && offRef.current) {
       ctx.imageSmoothingEnabled = true;
@@ -358,6 +379,7 @@ export function SilhouetteOverlay({ pose, face, hands, mask, status, baseline }:
   return (
     <canvas
       ref={canvasRef}
+      data-silhouette-canvas
       style={{
         position: "absolute",
         inset: 0,

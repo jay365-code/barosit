@@ -10,6 +10,8 @@ import { UserCalibrationView } from "./views/UserCalibrationView";
 import { AlertOverlay } from "./components/AlertOverlay";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { useUpdater } from "./updater";
+import { useMemoryReloadGuard } from "./hooks/useMemoryReloadGuard";
+import { loadSnapshot, clearSnapshot } from "./lib/viewportSnapshot";
 import {
   LegalDocument,
   type LegalDocKind,
@@ -101,6 +103,75 @@ class ErrorBoundary extends Component<
   }
 }
 
+/**
+ * Reload 직후 잠깐 표시되는 정지 화면. useMemoryReloadGuard 가 reload 전에
+ * MonitorView 의 video + silhouette 합성을 sessionStorage 에 저장해 두면,
+ * 새 페이지 mount 시 이 컴포넌트가 즉시 표시 후 첫 mask 도착 시 fade-out.
+ *
+ * 사용자가 분 단위 자동 reload 자체를 인지하지 못하는 게 목적.
+ */
+function SnapshotOverlay() {
+  const [data, setData] = useState(() => loadSnapshot());
+  const [fading, setFading] = useState(false);
+
+  useEffect(() => {
+    if (!data) return;
+    let timeoutId: number | null = null;
+    const startFade = () => {
+      setFading(true);
+      // 300ms transition 끝나면 DOM 에서 완전 제거.
+      timeoutId = window.setTimeout(() => {
+        setData(null);
+        clearSnapshot();
+      }, 320);
+    };
+    const onMaskReady = () => startFade();
+    window.addEventListener("barosit:mask-ready", onMaskReady);
+    // 안전망: 첫 mask 가 4초 안에 안 오면 (segmenter off 등) 강제 fade-out.
+    const safetyId = window.setTimeout(startFade, 4000);
+    return () => {
+      window.removeEventListener("barosit:mask-ready", onMaskReady);
+      window.clearTimeout(safetyId);
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+    };
+  }, [data]);
+
+  if (!data) return null;
+  // rect 있으면 silhouette canvas 위치에 정확히 매칭, 없으면 viewport fallback.
+  // 사용자 화면의 카메라 영상은 CSS scaleX(-1) 로 mirror 표시되므로 snapshot
+  // 도 동일하게 좌우 반전해야 자연스러움.
+  const positionStyle: React.CSSProperties = data.rect
+    ? {
+        position: "fixed",
+        top: data.rect.top,
+        left: data.rect.left,
+        width: data.rect.width,
+        height: data.rect.height,
+      }
+    : {
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+      };
+  return (
+    <img
+      src={data.dataURL}
+      alt=""
+      aria-hidden
+      style={{
+        ...positionStyle,
+        objectFit: "cover",
+        transform: "scaleX(-1)",
+        zIndex: 99_999,
+        pointerEvents: "none",
+        opacity: fading ? 0 : 1,
+        transition: "opacity 300ms ease-out",
+      }}
+    />
+  );
+}
+
 export default function App() {
   const [baseline, setBaseline] = useState<CalibrationBaseline | null>(() =>
     loadBaseline(),
@@ -113,6 +184,10 @@ export default function App() {
     () => localStorage.getItem(ONBOARDED_KEY) !== "1",
   );
   const updater = useUpdater();
+  // V8 외부 메모리 (video frame buffer, canvas backing, GPU staging) 가
+  // 활성 사용 중 분당 ~110 MB 자라는 게 관찰됨. 1분 주기로 idle 감지 후
+  // 자동 reload 해 release. 모든 state 는 localStorage/supabase 에 영속.
+  useMemoryReloadGuard({ intervalMs: 60_000, idleMs: 10_000 });
   const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [currentHash, setCurrentHash] = useState(() =>
@@ -392,6 +467,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <SnapshotOverlay />
       <div className="app" style={subStatus === "grace_period" && gracePeriodUntil ? { paddingTop: "40px" } : undefined}>
         {/* 결제 실패 유예기간(Grace Period) 상단 경고 배너 */}
         {subStatus === "grace_period" && gracePeriodUntil && (

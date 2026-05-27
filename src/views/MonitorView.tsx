@@ -12,6 +12,7 @@ import { LandmarkOverlay } from "../components/LandmarkOverlay";
 import { SilhouetteOverlay } from "../components/SilhouetteOverlay";
 import { usePostureScore } from "../hooks/usePostureScore";
 import { LandmarkSmoother } from "../pose/smoothing";
+import { captureMonitorSnapshot, saveSnapshot } from "../lib/viewportSnapshot";
 import { analyzeFrame, type AnalysisDebug, type AnalyzerState } from "../pose/analyzer";
 import { DebugOverlay } from "../components/DebugOverlay";
 import { ViolationTracker } from "../pose/violationTracker";
@@ -333,6 +334,39 @@ export function MonitorView({
     cameraActive,
   );
 
+  // useMemoryReloadGuard 가 reload 직전 발행하는 이벤트를 받아 현재 video +
+  // silhouette overlay 합성 snapshot 을 sessionStorage 에 저장. App.tsx 의
+  // SnapshotOverlay 가 reload 후 짧게 표시해 사용자가 reload 자체를 인지
+  // 못하게 한다.
+  useEffect(() => {
+    const handler = () => {
+      // visible silhouette canvas — silhouette + dot + 어깨/팔 라인 까지 합성된
+      // 사용자 화면 그대로. 머리 위 졸라맨인 PostureFigure 는 별도 SVG 라 canvas
+      // 에 안 잡히고 baselineState 조건으로 이미 차단되어 안전. dot/어깨선이
+      // SnapshotOverlay 에도 포함되어 fade-out 시점에 갑자기 등장하는 위화감 차단.
+      const visibleCanvas = document.querySelector<HTMLCanvasElement>(
+        "canvas[data-silhouette-canvas]",
+      );
+      const dataURL = captureMonitorSnapshot({
+        video: videoRef.current,
+        silhouetteCanvas: visibleCanvas,
+      });
+      if (!dataURL) return;
+      const rectDom = visibleCanvas?.getBoundingClientRect();
+      const rect = rectDom
+        ? {
+            top: rectDom.top,
+            left: rectDom.left,
+            width: rectDom.width,
+            height: rectDom.height,
+          }
+        : undefined;
+      saveSnapshot(dataURL, rect);
+    };
+    window.addEventListener("barosit:before-memory-reload", handler);
+    return () => window.removeEventListener("barosit:before-memory-reload", handler);
+  }, [videoRef]);
+
   const scoreInputsRef = useRef<ScoreInputs>({
     durations: [],
     secsSinceLastClear: Infinity,
@@ -380,6 +414,7 @@ export function MonitorView({
     [],
   );
   const [thresholdsState, setThresholdsState] = useState(() => loadThresholds());
+  const [viewMode, setViewMode] = useState<"violations" | "sitting">("violations");
 
   // 드로어에서 thresholds 변경 시 인라인 슬라이더도 즉시 반영
   useEffect(() => {
@@ -541,6 +576,13 @@ export function MonitorView({
   const lastRecommendedAngleRef = useRef<"front" | "left" | "right" | null>(null);
   // Hysteresis 용 마지막 sticky angle. flap 차단 위해 진입 12° / 이탈 8° 적용.
   const lastAngleRef = useRef<"front" | "left" | "right" | null>(null);
+  // useMemoryReloadGuard 가 reload 직전 발행하는 mask-ready 이벤트용 — 첫
+  // mask 한 번만 발행해 SnapshotOverlay 가 fade-out.
+  const firstMaskFiredRef = useRef<boolean>(false);
+  // 첫 mask 도착 후 SilhouetteOverlay 가 그려진 다음 frame 부터 LandmarkOverlay
+  // 표시. mask 와 같은 frame 에 그리면 silhouette 보다 LandmarkOverlay 가
+  // 1 frame 먼저 paint 되어 졸라맨이 한 순간 노출됨 → RAF 2번 대기.
+  const [landmarkReady, setLandmarkReady] = useState(false);
   // pose loop heartbeat + watchdog — 60초+ stale 시 hard reload
   const monitorHeartbeat = useHeartbeat();
   useWatchdog("monitor-frame", monitorHeartbeat.getLastAt, {
@@ -631,6 +673,23 @@ export function MonitorView({
         localStorage.setItem("active_duration_today", String(nextActive));
         setActiveDurationTodayCount(nextActive);
 
+        // 1.5. 시간대별 착석 시간 누적
+        const currentHour = new Date().getHours();
+        const activeByHourRaw = localStorage.getItem("active_duration_by_hour");
+        let activeByHour = new Array(24).fill(0);
+        try {
+          if (activeByHourRaw) {
+            const parsed = JSON.parse(activeByHourRaw);
+            if (Array.isArray(parsed) && parsed.length === 24) {
+              activeByHour = parsed;
+            }
+          }
+        } catch {
+          // ignore
+        }
+        activeByHour[currentHour] = (activeByHour[currentHour] || 0) + 1;
+        localStorage.setItem("active_duration_by_hour", JSON.stringify(activeByHour));
+
         // 2. 점수 누적합 가산
         const currentScoreSum = Number(localStorage.getItem("score_sum_today") || "0");
         const nextScoreSum = currentScoreSum + scoreRef.current;
@@ -649,6 +708,10 @@ export function MonitorView({
         window.dispatchEvent(new StorageEvent("storage", {
           key: "active_duration_today",
           newValue: String(nextActive),
+        }));
+        window.dispatchEvent(new StorageEvent("storage", {
+          key: "active_duration_by_hour",
+          newValue: JSON.stringify(activeByHour),
         }));
         window.dispatchEvent(new StorageEvent("storage", {
           key: "score_sum_today",
@@ -753,7 +816,23 @@ export function MonitorView({
       latestPoseRef.current = smoothed;
       setFaceLandmarks(frame.face?.landmarks ?? null);
       setHandsData(frame.hands);
-      if (frame.mask) setMask(frame.mask);
+      if (frame.mask) {
+        setMask(frame.mask);
+        if (!firstMaskFiredRef.current) {
+          firstMaskFiredRef.current = true;
+          try {
+            window.dispatchEvent(new CustomEvent("barosit:mask-ready"));
+          } catch {
+            /* noop */
+          }
+          // SilhouetteOverlay 가 mask prop 을 받아 useEffect 로 canvas 에
+          // 그리려면 commit + 다음 frame 필요. RAF 2 번 대기 후 LandmarkOverlay
+          // 표시 → silhouette 이 먼저 paint 되어 졸라맨 노출 차단.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => setLandmarkReady(true));
+          });
+        }
+      }
 
       // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동.
       // lastAngleRef 로 hysteresis 적용 — yaw 임계 근처 진동에 의한 flap 차단.
@@ -1214,6 +1293,10 @@ export function MonitorView({
         localStorage.setItem("active_duration_yesterday", prevActive);
         localStorage.setItem("active_duration_today", "0");
         setTimeout(() => setActiveDurationTodayCount(0), 0);
+
+        const prevActiveByHour = localStorage.getItem("active_duration_by_hour") || JSON.stringify(new Array(24).fill(0));
+        localStorage.setItem("active_duration_by_hour_yesterday", prevActiveByHour);
+        localStorage.setItem("active_duration_by_hour", JSON.stringify(new Array(24).fill(0)));
 
         localStorage.setItem("last_active_date", todayDateStr);
       } else if (!lastActiveDateStr) {
@@ -1745,8 +1828,11 @@ export function MonitorView({
                   status={paused ? "paused" : status}
                   baseline={baselineState}
                 />
-                {/* posture figure 오버레이 — 실루엣 위에 살짝 */}
-                {!landmarks && !paused && (
+                {/* posture figure 오버레이 — 캘리브레이션 안 된 첫 사용자
+                    가이드용. baseline 이 있으면 (캘리브레이션 완료) reload
+                    직후 landmarks 가 아직 null 인 짧은 순간에 SVG 졸라맨이
+                    노출되어 거슬리므로 baseline 없을 때만 표시. */}
+                {!landmarks && !paused && !baselineState && (
                   <div style={{ color: toneColor, position: "relative", zIndex: 3 }}>
                     <PostureFigure
                       state={postureFigState}
@@ -1758,7 +1844,10 @@ export function MonitorView({
                 )}
               </>
             ) : (
-              <LandmarkOverlay landmarks={landmarks} />
+              // 첫 mask 가 도착하고 SilhouetteOverlay 가 그려진 다음 frame 부터
+              // 표시. Why: 같은 frame 에 그리면 LandmarkOverlay 가 silhouette
+              // 보다 먼저 paint 되어 졸라맨이 한 순간 노출됨.
+              landmarkReady && <LandmarkOverlay landmarks={landmarks} />
             )}
 
             {/* Privacy badge */}
@@ -2588,9 +2677,57 @@ export function MonitorView({
                   marginTop: 2,
                 }}
               >
-                시간대별 위반 추이
+                {viewMode === "violations" ? "시간대별 위반 추이" : "시간대별 착석 및 근무 시간"}
               </div>
             </div>
+
+            {/* Premium Segmented Control Toggle */}
+            <div
+              style={{
+                display: "flex",
+                background: "rgba(255, 255, 255, 0.04)",
+                padding: 3,
+                borderRadius: 10,
+                border: "1px solid rgba(255, 255, 255, 0.05)",
+                gap: 2,
+              }}
+            >
+              <button
+                onClick={() => setViewMode("violations")}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  border: "none",
+                  background: viewMode === "violations" ? "var(--b-surface-2)" : "transparent",
+                  color: viewMode === "violations" ? "var(--b-sig)" : "var(--b-fg-3)",
+                  boxShadow: viewMode === "violations" ? "0 2px 8px rgba(0, 0, 0, 0.2), 0 0 1px rgba(255, 255, 255, 0.1)" : "none",
+                  cursor: "pointer",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                }}
+              >
+                자세 위반
+              </button>
+              <button
+                onClick={() => setViewMode("sitting")}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  border: "none",
+                  background: viewMode === "sitting" ? "var(--b-surface-2)" : "transparent",
+                  color: viewMode === "sitting" ? "var(--b-sig)" : "var(--b-fg-3)",
+                  boxShadow: viewMode === "sitting" ? "0 2px 8px rgba(0, 0, 0, 0.2), 0 0 1px rgba(255, 255, 255, 0.1)" : "none",
+                  cursor: "pointer",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                }}
+              >
+                착석 시간
+              </button>
+            </div>
+
             <button
               onClick={() => setDetailedReportOpen(true)}
               className="b-btn b-btn-ghost"
@@ -2613,7 +2750,7 @@ export function MonitorView({
               상세 분석 리포트
             </button>
           </div>
-          <HourlyHeatmap yesterdayByHour={yesterdayByHour} />
+          <HourlyHeatmap yesterdayByHour={yesterdayByHour} viewMode={viewMode} />
           <div
             style={{
               marginTop: 14,
@@ -3467,9 +3604,8 @@ export function MonitorView({
     </div>
   );
 }
-
-function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
-  // 00:00 ~ 24:00 (24개 슬롯 전체). 각 슬롯의 위반 수를 색·높이로 표시.
+function HourlyHeatmap({ yesterdayByHour, viewMode }: { yesterdayByHour: number[]; viewMode: "violations" | "sitting" }) {
+  // 00:00 ~ 24:00 (24개 슬롯 전체). 각 슬롯의 위반 수 혹은 착석 시간을 색·높이로 표시.
   // 데이터가 적을 때는 어제 데이터를 옅게 함께 보여 비교 가능하게.
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -3480,6 +3616,81 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
       setNow(new Date());
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // 실시간 착석 시간 로컬 상태 연동
+  const [activeDurationByHour, setActiveDurationByHour] = useState<number[]>(() => {
+    const raw = localStorage.getItem("active_duration_by_hour");
+    try {
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length === 24) return parsed;
+      }
+    } catch {}
+    return new Array(24).fill(0);
+  });
+
+  const [yesterdayActiveDurationByHour, setYesterdayActiveDurationByHour] = useState<number[]>(() => {
+    const raw = localStorage.getItem("active_duration_by_hour_yesterday");
+    try {
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length === 24) return parsed;
+      }
+    } catch {}
+    return new Array(24).fill(0);
+  });
+
+  useEffect(() => {
+    const sync = () => {
+      const raw = localStorage.getItem("active_duration_by_hour");
+      try {
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length === 24) {
+            setActiveDurationByHour(parsed);
+            return;
+          }
+        }
+      } catch {}
+      setActiveDurationByHour(new Array(24).fill(0));
+    };
+
+    const syncYesterday = () => {
+      const raw = localStorage.getItem("active_duration_by_hour_yesterday");
+      try {
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length === 24) {
+            setYesterdayActiveDurationByHour(parsed);
+            return;
+          }
+        }
+      } catch {}
+      setYesterdayActiveDurationByHour(new Array(24).fill(0));
+    };
+
+    // 1초 타이머와 연동하여 동기화
+    const timer = setInterval(() => {
+      sync();
+      syncYesterday();
+    }, 1000);
+
+    // 타 창 동기화 리스너
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "active_duration_by_hour") {
+        sync();
+      }
+      if (e.key === "active_duration_by_hour_yesterday") {
+        syncYesterday();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   const stats = (() => {
@@ -3505,13 +3716,22 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
   const START = 0;
   const END = 24;
   const SLOTS = END - START;
-  const todayBuckets = Array.from({ length: SLOTS }, (_, i) =>
-    stats.byHour[START + i] ?? 0,
-  );
-  const yesterdayBuckets = Array.from({ length: SLOTS }, (_, i) =>
-    yesterdayByHour[START + i] ?? 0,
-  );
-  const max = Math.max(1, ...todayBuckets, ...yesterdayBuckets);
+
+  const todayBuckets = Array.from({ length: SLOTS }, (_, i) => {
+    if (viewMode === "sitting") {
+      return activeDurationByHour[START + i] ?? 0;
+    }
+    return stats.byHour[START + i] ?? 0;
+  });
+
+  const yesterdayBuckets = Array.from({ length: SLOTS }, (_, i) => {
+    if (viewMode === "sitting") {
+      return yesterdayActiveDurationByHour[START + i] ?? 0;
+    }
+    return yesterdayByHour[START + i] ?? 0;
+  });
+
+  const max = viewMode === "sitting" ? 3600 : Math.max(1, ...todayBuckets, ...yesterdayBuckets);
 
   // 현재 시간 소수점 및 가로 슬롯 위치(%) 계산
   const curHour = now.getHours();
@@ -3522,6 +3742,13 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
   const currentTimePercentage = isCurrentTimeInRange
     ? ((curTimeDecimal - START) / (END - START)) * 100
     : 0;
+
+  function formatSeatingTime(seconds: number): string {
+    if (seconds === 0) return "0분 0초";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}분 ${secs}초`;
+  }
 
   return (
     <div>
@@ -3540,14 +3767,28 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
           const h = Math.max(8, ratio * 60);
           const yRatio = yesterdayBuckets[i] / max;
           const yh = Math.max(4, yRatio * 60);
+
+          // 자세 위반 vs 착석 시간에 따라 색상 및 불투명도 계산
           const color =
-            ratio === 0
-              ? "var(--b-sig-soft)"
-              : ratio > 0.66
-                ? "var(--b-warn)"
-                : ratio > 0.33
-                  ? "var(--b-amber)"
-                  : "var(--b-sig)";
+            viewMode === "sitting"
+              ? v === 0
+                ? "rgba(255, 255, 255, 0.03)"
+                : "var(--b-sig)"
+              : ratio === 0
+                ? "var(--b-sig-soft)"
+                : ratio > 0.66
+                  ? "var(--b-warn)"
+                  : ratio > 0.33
+                    ? "var(--b-amber)"
+                    : "var(--b-sig)";
+
+          const opacity =
+            viewMode === "sitting"
+              ? v === 0
+                ? 1
+                : Math.max(0.4, ratio * 0.95)
+              : 0.9;
+
           return (
             <div
               key={i}
@@ -3572,9 +3813,9 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
                   flex: 1,
                   height: h,
                   background: color,
-                  opacity: 0.9,
+                  opacity: opacity,
                   borderRadius: 2,
-                  transition: "height .3s ease",
+                  transition: "height .3s ease, opacity .3s ease",
                 }}
               />
               {yesterdayBuckets[i] > 0 && (
@@ -3615,29 +3856,59 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--b-fg-1)" }}>
                     {START + i}:00 ~ {START + i + 1}:00
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        background: v > 0 ? color : "var(--b-sig-soft)",
-                      }}
-                    />
-                    오늘: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{v}회</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)" }}>
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        background: "var(--b-fg-4)",
-                        opacity: 0.6,
-                      }}
-                    />
-                    어제: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{yesterdayBuckets[i]}회</span>
-                  </div>
+                  {viewMode === "sitting" ? (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: "var(--b-sig)",
+                          }}
+                        />
+                        오늘 착석: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{formatSeatingTime(v)}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)" }}>
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: "var(--b-fg-4)",
+                            opacity: 0.6,
+                          }}
+                        />
+                        어제 착석: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{formatSeatingTime(yesterdayBuckets[i])}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: v > 0 ? color : "var(--b-sig-soft)",
+                          }}
+                        />
+                        오늘: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{v}회</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)" }}>
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: "var(--b-fg-4)",
+                            opacity: 0.6,
+                          }}
+                        />
+                        어제: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{yesterdayBuckets[i]}회</span>
+                      </div>
+                    </>
+                  )}
 
                   {/* Caret / Arrow */}
                   <div
@@ -3773,7 +4044,9 @@ function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
         }}
       >
         <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>
-          * 09:00 ~ 21:00 사이의 실시간 자세 위반 추이가 모니터링됩니다.
+          {viewMode === "violations"
+            ? "* 09:00 ~ 21:00 사이의 실시간 자세 위반 추이가 모니터링됩니다."
+            : "* 사용자가 실제로 자리에 앉아 집중하고 근무한 실시간 누적 시간입니다."}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span
