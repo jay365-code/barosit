@@ -435,6 +435,14 @@ input:focus {
   to   { opacity: 1; }
 }
 
+/* Tauri 투명 윈도우 배경 투명화 강제 */
+body.is-tauri-transparent,
+body.is-tauri-transparent html,
+body.is-tauri-transparent #root {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 /* ========== Force light theme (used by widget — any OS / any backdrop) ========== */
 
 .b-force-light {

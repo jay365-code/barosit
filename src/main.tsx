@@ -70,6 +70,7 @@ if (IS_WEB && !marketingRoute) {
 }
 
 if (isWidget) {
+  document.body.classList.add("is-tauri-transparent");
   document.documentElement.style.background = "transparent";
   document.body.style.background = "transparent";
   container.style.background = "transparent";
@@ -83,6 +84,7 @@ if (isWidget) {
     );
   });
 } else if (isAlert) {
+  document.body.classList.add("is-tauri-transparent");
   document.documentElement.style.background = "transparent";
   document.body.style.background = "transparent";
   container.style.background = "transparent";
