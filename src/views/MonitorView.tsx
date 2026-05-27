@@ -2586,7 +2586,7 @@ export function MonitorView({
             const cards = [
               {
                 label: "자세 건강 점수",
-                value: `${Math.round(todayGoodRatio)}점`,
+                value: `${todayGoodRatio.toFixed(2)}점`,
                 badge: {
                   text: `${todayGradeInfo.grade} ${todayGradeInfo.label}`,
                   color: todayGradeInfo.color,
@@ -2594,10 +2594,10 @@ export function MonitorView({
                 delta: goodRatioDelta === null 
                   ? null 
                   : goodRatioDelta === 0 
-                  ? "0점" 
+                  ? "0.00점" 
                   : goodRatioDelta > 0 
-                  ? `+${Math.round(goodRatioDelta)}점` 
-                  : `${Math.round(goodRatioDelta)}점`,
+                  ? `+${goodRatioDelta.toFixed(2)}점` 
+                  : `${goodRatioDelta.toFixed(2)}점`,
                 deltaGood: goodRatioDelta === null ? true : goodRatioDelta >= 0,
                 tooltipDesc: "실시간 감지 데이터를 기반으로 계산된 오늘의 자세 건강 점수와 등급입니다. (S/A/B/C/D 등급 기준)",
                 scientificGround: "나켐슨(Nachemson) 척추 역학 측정 모델 및 미국 정형외과학회(AAOS) 정렬 기준 연동.",
