@@ -229,7 +229,15 @@ export function MonitorView({
 
   const [detailedReportOpen, setDetailedReportOpen] = useState(false);
   const [hoveredCardIdx, setHoveredCardIdx] = useState<number | null>(null);
-  const [hoveredCell, setHoveredCell] = useState<{ month: number; day: number; ratio: number; grade: string; info: any } | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<{
+    month: number;
+    day: number;
+    ratio: number;
+    grade: string;
+    info: any;
+    x: number;
+    y: number;
+  } | null>(null);
   const [hoveredLinePoint, setHoveredLinePoint] = useState<{
     x: number;
     y: number;
@@ -3547,6 +3555,7 @@ export function MonitorView({
 
                 {/* Section 2.8: 12개월 전주기 일별 자세 건강 분포 그리드 */}
                 <div
+                  data-calendar-card
                   style={{
                     padding: "16px 20px",
                     borderRadius: 14,
@@ -3555,6 +3564,7 @@ export function MonitorView({
                     display: "flex",
                     flexDirection: "column",
                     gap: 12,
+                    position: "relative",
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -3662,15 +3672,25 @@ export function MonitorView({
 
                                   const cellGradeInfo = hasData ? getPostureGrade(ratio) : null;
                                   
-                                  // 호버 시 정보 바인딩
-                                  const handleMouseEnter = () => {
+                                  // 호버 시 정보 바인딩 (이벤트 객체를 통해 상대 좌표 도출)
+                                  const handleMouseEnter = (e: React.MouseEvent) => {
                                     if (!hasData || !cellGradeInfo) return;
+                                    
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const parentDom = e.currentTarget.closest("[data-calendar-card]");
+                                    const parentRect = parentDom ? parentDom.getBoundingClientRect() : null;
+                                    
+                                    const x = rect.left - (parentRect ? parentRect.left : 0) + rect.width / 2;
+                                    const y = rect.top - (parentRect ? parentRect.top : 0);
+
                                     setHoveredCell({
                                       month,
                                       day,
                                       ratio,
                                       grade: cellGradeInfo.grade,
-                                      info: cellGradeInfo
+                                      info: cellGradeInfo,
+                                      x,
+                                      y
                                     });
                                   };
 
@@ -3711,47 +3731,6 @@ export function MonitorView({
                               </div>
                             );
                           })}
-
-                          {/* Hover Tooltip Render */}
-                          {hoveredCell && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                bottom: "100%",
-                                left: "50%",
-                                transform: "translateX(-50%) translateY(-10px)",
-                                width: 220,
-                                background: "rgba(18, 18, 24, 0.95)",
-                                backdropFilter: "blur(12px)",
-                                WebkitBackdropFilter: "blur(12px)",
-                                border: "1px solid rgba(255, 255, 255, 0.12)",
-                                borderRadius: 10,
-                                padding: "10px 12px",
-                                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6)",
-                                zIndex: 1000,
-                                pointerEvents: "none",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 4,
-                              }}
-                            >
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: 4, marginBottom: 2 }}>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--b-fg-1)" }}>
-                                  📅 {hoveredCell.month}월 {hoveredCell.day}일 분석
-                                </span>
-                                <span style={{ fontSize: 9.5, fontWeight: 800, color: hoveredCell.info.color }}>
-                                  {hoveredCell.grade} 등급 ({hoveredCell.info.label})
-                                </span>
-                              </div>
-                              <div style={{ fontSize: 9.5, color: "var(--b-fg-2)", display: "flex", justifyContent: "space-between" }}>
-                                <span>자세 건강 점수:</span>
-                                <strong style={{ color: "var(--b-fg-1)" }}>{hoveredCell.ratio}점</strong>
-                              </div>
-                              <div style={{ fontSize: 8.5, color: "var(--b-fg-3)", lineHeight: 1.35, marginTop: 2 }}>
-                                💡 {hoveredCell.info.desc}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       );
                     })()}
@@ -3789,6 +3768,48 @@ export function MonitorView({
                       </div>
                     </div>
                   </div>
+
+                  {/* 🚨 스크롤 밖에서 잘리지 않는 Hover Tooltip Render */}
+                  {hoveredCell && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: hoveredCell.x,
+                        top: hoveredCell.y,
+                        transform: "translateX(-50%) translateY(-100%) translateY(-8px)",
+                        width: 220,
+                        background: "rgba(18, 18, 24, 0.95)",
+                        backdropFilter: "blur(12px)",
+                        WebkitBackdropFilter: "blur(12px)",
+                        border: "1px solid rgba(255, 255, 255, 0.12)",
+                        borderRadius: 10,
+                        padding: "10px 12px",
+                        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6)",
+                        zIndex: 1000,
+                        pointerEvents: "none",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        animation: "b-fade-in 0.1s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: 4, marginBottom: 2 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "var(--b-fg-1)" }}>
+                          📅 {hoveredCell.month}월 {hoveredCell.day}일 분석
+                        </span>
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: hoveredCell.info.color }}>
+                          {hoveredCell.grade} 등급 ({hoveredCell.info.label})
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 9.5, color: "var(--b-fg-2)", display: "flex", justifyContent: "space-between" }}>
+                        <span>자세 건강 점수:</span>
+                        <strong style={{ color: "var(--b-fg-1)" }}>{hoveredCell.ratio}점</strong>
+                      </div>
+                      <div style={{ fontSize: 8.5, color: "var(--b-fg-3)", lineHeight: 1.35, marginTop: 2 }}>
+                        💡 {hoveredCell.info.desc}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Section 3: Chronological Log Table */}
