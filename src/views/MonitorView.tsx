@@ -3232,6 +3232,14 @@ export function MonitorView({
                         return Math.max(30, 100 - Math.round(ratio * 100));
                       });
 
+                      // 📈 동적 Y축 스케일링 엔진
+                      const validScores = scores.filter((_, hr) => (activeDurationByHour[hr] || 0) > 0);
+                      const minScore = validScores.length > 0 ? Math.min(...validScores) : 70;
+                      // 10단위 내림 버퍼 적용 (최하 30점 제한)
+                      const minY = Math.max(30, Math.floor((minScore - 5) / 10) * 10);
+                      const maxY = 100;
+                      const ySpan = maxY - minY;
+
                       const width = 540;
                       const height = 110;
                       const paddingLeft = 35;
@@ -3244,7 +3252,8 @@ export function MonitorView({
 
                       const points = (scores as number[]).map((s: number, idx: number) => {
                         const x = paddingLeft + (idx / 23) * chartWidth;
-                        const y = paddingTop + chartHeight - (s / 100) * chartHeight;
+                        // 동적 Y스케일 좌표 변환
+                        const y = paddingTop + chartHeight - ((s - minY) / ySpan) * chartHeight;
                         return { x, y, score: s, hour: idx };
                       });
 
@@ -3263,14 +3272,20 @@ export function MonitorView({
                             </filter>
                           </defs>
 
-                          {/* Level Guides (등급 경계 수치 격자) */}
+                          {/* Level Guides (동적 등급 경계 격자) */}
                           {[
                             { val: 95, color: "var(--b-sig)" },
                             { val: 90, color: "var(--b-sig)" },
                             { val: 80, color: "var(--b-fg-3)" },
                             { val: 70, color: "var(--b-warn)" },
-                          ].map((lvl: { val: number; color: string }) => {
-                            const y = paddingTop + chartHeight - (lvl.val / 100) * chartHeight;
+                            { val: 60, color: "var(--b-warn)" },
+                            { val: 50, color: "var(--b-warn)" },
+                            { val: 40, color: "var(--b-warn)" },
+                            { val: 30, color: "var(--b-warn)" },
+                          ]
+                            .filter((lvl) => lvl.val >= minY)
+                            .map((lvl: { val: number; color: string }) => {
+                              const y = paddingTop + chartHeight - ((lvl.val - minY) / ySpan) * chartHeight;
                             return (
                               <g key={lvl.val}>
                                 <line
