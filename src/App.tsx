@@ -184,17 +184,7 @@ export default function App() {
     () => localStorage.getItem(ONBOARDED_KEY) !== "1",
   );
   const updater = useUpdater();
-  // V8 외부 메모리 (video frame buffer, canvas backing, GPU staging) 가
-  // 활성 사용 중 분당 ~110 MB 자라는 게 관찰됨. 1분 주기로 idle 감지 후
-  // 자동 reload 해 release. 모든 state 는 localStorage/supabase 에 영속.
-  // deepIntervalMs: 1시간마다 about:blank intermediate navigation 으로 일반
-  // reload 가 회수 못 하는 V8 internal cache 일부도 추가 cleanup 시도. 효과
-  // 는 marginal 이지만 장시간 운영 시 누적 효과 기대.
-  useMemoryReloadGuard({
-    intervalMs: 60_000,
-    idleMs: 10_000,
-    deepIntervalMs: 60 * 60 * 1000,
-  });
+  const [detailedReportOpen, setDetailedReportOpen] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [currentHash, setCurrentHash] = useState(() =>
@@ -222,6 +212,28 @@ export default function App() {
 
   // 2. 인증 리다이렉트 브릿지 로딩 상태 (#/auth/callback 대응)
   const [authCallbackLoading, setAuthCallbackLoading] = useState(false);
+
+  const isAnyModalOpen =
+    settingsOpen ||
+    profileOpen ||
+    pricingOpen ||
+    onboardingOpen ||
+    stretchCalibrateOpen ||
+    legalDoc !== null ||
+    detailedReportOpen;
+
+  // V8 외부 메모리 (video frame buffer, canvas backing, GPU staging) 가
+  // 활성 사용 중 분당 ~110 MB 자라는 게 관찰됨. 1분 주기로 idle 감지 후
+  // 자동 reload 해 release. 모든 state 는 localStorage/supabase 에 영속.
+  // deepIntervalMs: 1시간마다 about:blank intermediate navigation 으로 일반
+  // reload 가 회수 못 하는 V8 internal cache 일부도 추가 cleanup 시도. 효과
+  // 는 marginal 이지만 장시간 운영 시 누적 효과 기대.
+  useMemoryReloadGuard({
+    intervalMs: 60_000,
+    idleMs: 10_000,
+    deepIntervalMs: 60 * 60 * 1000,
+    enabled: !isAnyModalOpen,
+  });
 
   // 3. 구독 플랜 및 결제 실패 유예기간 상태
   const [_subPlan, setSubPlan] = useState<"free" | "pro">("free");
@@ -544,6 +556,8 @@ export default function App() {
               onOpenProfile={() => setProfileOpen(true)}
               onOpenPricing={() => setPricingOpen(true)}
               onStatusChange={setStatus}
+              detailedReportOpen={detailedReportOpen}
+              setDetailedReportOpen={setDetailedReportOpen}
             />
           )}
         </main>

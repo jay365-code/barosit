@@ -4,6 +4,8 @@ import { exportData, importData } from "../dataBackup";
 import {
   dispatchAlertFired,
   dispatchBreakReminder,
+  dispatchCumulativeAlert,
+  dispatchVariabilityAlert,
   loadAlertModes,
   saveAlertModes,
   type AlertModes,
@@ -672,6 +674,24 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
           <button
             className="b-btn b-btn-ghost"
             onClick={() =>
+              dispatchCumulativeAlert({
+                type: "forward_head",
+                secs: 450,
+                ratio: 0.25,
+              })
+            }
+            style={{
+              marginTop: 8,
+              width: "100%",
+              justifyContent: "center",
+              fontSize: 12,
+            }}
+          >
+            누적 부하 알림 미리보기
+          </button>
+          <button
+            className="b-btn b-btn-ghost"
+            onClick={() =>
               updateCumulativeConfig({ ...DEFAULT_CUMULATIVE_CONFIG })
             }
             style={{
@@ -720,6 +740,23 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               updateVariabilityConfig({ ...variabilityConfig, windowMinutes: v })
             }
           />
+          <button
+            className="b-btn b-btn-ghost"
+            onClick={() =>
+              dispatchVariabilityAlert({
+                movementIndex: 0.15,
+                durationSecs: 600,
+              })
+            }
+            style={{
+              marginTop: 8,
+              width: "100%",
+              justifyContent: "center",
+              fontSize: 12,
+            }}
+          >
+            자세 변동성 알림 미리보기
+          </button>
           <button
             className="b-btn b-btn-ghost"
             onClick={() =>

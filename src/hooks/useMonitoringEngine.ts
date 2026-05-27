@@ -48,6 +48,7 @@ import {
   computeDailyStats,
   loadEvents,
   startOfToday,
+  updateEventDuration,
 } from "../pose/eventLog";
 import { fetchCoachingMessage } from "../llmConfig";
 import {
@@ -627,6 +628,11 @@ export function useMonitoringEngine(opts: {
       const fired = result.isResting
         ? []
         : trackerRef.current.update(stableViolations, thresholds);
+      
+      const cleared = trackerRef.current.getAndClearRecentCleared();
+      for (const event of cleared) {
+        updateEventDuration(event.id, event.durationSecs);
+      }
       if (fired.length > 0) {
         const latest = fired[fired.length - 1];
         lastAlarmRef.current = { type: latest.type, at: Date.now() };

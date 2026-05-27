@@ -92,6 +92,7 @@ import {
   computeDailyStats,
   loadEvents,
   startOfToday,
+  updateEventDuration,
 } from "../pose/eventLog";
 import { triggerAutoSync } from "../lib/syncService";
 import { fetchCoachingMessage } from "../llmConfig";
@@ -111,6 +112,8 @@ interface Props {
   onOpenProfile: () => void;
   onOpenPricing: () => void;
   onStatusChange?: (status: PostureStatus) => void;
+  detailedReportOpen?: boolean;
+  setDetailedReportOpen?: (open: boolean) => void;
 }
 
 const POSTURE_LABELS: Record<PostureType, string> = {
@@ -162,6 +165,76 @@ function formatUsageTime(secs: number): string {
   return `${hh}:${mm}:${ss}`;
 }
 
+function AnimatedValue({ value }: { value: string }) {
+  const characters = Array.from(value);
+
+  return (
+    <span 
+      style={{ 
+        display: "inline-flex", 
+        overflow: "hidden", 
+        height: "1.1em", 
+        lineHeight: "1.1em",
+        verticalAlign: "bottom"
+      }}
+    >
+      {characters.map((char, idx) => {
+        const isDigit = char >= '0' && char <= '9';
+        
+        if (!isDigit) {
+          return (
+            <span key={idx} style={{ display: "inline-block" }}>
+              {char}
+            </span>
+          );
+        }
+
+        const digit = parseInt(char, 10);
+
+        return (
+          <span
+            key={idx}
+            style={{
+              display: "inline-block",
+              width: "0.62em",
+              height: "1.1em",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <span
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(-${digit * 10}%)`,
+                transition: "transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)",
+              }}
+            >
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <span
+                  key={num}
+                  style={{
+                    height: "1.1em",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {num}
+                </span>
+              ))}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export function MonitorView({
   baseline,
   paused,
@@ -171,6 +244,8 @@ export function MonitorView({
   onOpenProfile,
   onOpenPricing,
   onStatusChange,
+  detailedReportOpen = false,
+  setDetailedReportOpen = () => {},
 }: Props) {
   const { user } = useAuth();
   const [subPlan, setSubPlan] = useState<"free" | "pro">(() => {
@@ -201,13 +276,40 @@ export function MonitorView({
   }, [baseline]);
 
   const [cameraAngle, setCameraAngle] = useState<"front" | "left" | "right">(initialAngle);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarNavDate, setCalendarNavDate] = useState<Date>(() => new Date());
+
+  const getViolationSecsForDate = (year: number, month: number, day: number): number => {
+    const events = loadEvents();
+    let totalSecs = 0;
+    for (const e of events) {
+      const eDate = new Date(e.startedAt);
+      if (
+        eDate.getFullYear() === year &&
+        eDate.getMonth() === month &&
+        eDate.getDate() === day
+      ) {
+        totalSecs += e.durationSecs;
+      }
+    }
+    return totalSecs;
+  };
+
+  const getDaysInMonth = (year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (year: number, month: number) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const [recommendAngle, setRecommendAngle] = useState<"front" | "left" | "right" | null>(null);
+  const [showHelpTooltip, setShowHelpTooltip] = useState(false);
+  const [baselineState, setBaselineState] = useState<CalibrationBaseline>(baseline);
 
   useEffect(() => {
     setCameraAngle(initialAngle);
   }, [initialAngle]);
-
-  const [recommendAngle, setRecommendAngle] = useState<"front" | "left" | "right" | null>(null);
-  const [showHelpTooltip, setShowHelpTooltip] = useState(false);
 
   useEffect(() => {
     const handleRecommend = (e: Event) => {
@@ -221,20 +323,40 @@ export function MonitorView({
     };
   }, []);
 
-  const [baselineState, setBaselineState] = useState<CalibrationBaseline>(baseline);
-
   useEffect(() => {
     setBaselineState(baseline);
   }, [baseline]);
 
-  const [detailedReportOpen, setDetailedReportOpen] = useState(false);
+  useEffect(() => {
+    if (!calendarOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".calendar-popover") && !target.closest(".calendar-toggle-btn")) {
+        setCalendarOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [calendarOpen]);
+
   const [hoveredCardIdx, setHoveredCardIdx] = useState<number | null>(null);
+  const [activePostureDetail, setActivePostureDetail] = useState<PostureType | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [hoveredCell, setHoveredCell] = useState<{
     month: number;
     day: number;
     ratio: number;
     grade: string;
     info: any;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [hoveredHeatmapCell, setHoveredHeatmapCell] = useState<{
+    label: string;
+    hour: number;
+    secs: number;
     x: number;
     y: number;
   } | null>(null);
@@ -699,7 +821,7 @@ export function MonitorView({
     expectedIntervalMs: 100,
     warnThresholdMs: 30_000,
     reloadThresholdMs: 60_000,
-    active: !paused && !widgetEnabled,
+    active: !paused && !widgetEnabled && !detailedReportOpen,
   });
   /** isResting 히스테리시스 + 최소 유지 시간 — 핑퐁 방지 */
   const restingRef = useRef<{ isResting: boolean; enteredAt: number }>({
@@ -1198,6 +1320,11 @@ export function MonitorView({
       const fired = result.isResting
         ? []
         : trackerRef.current.update(stableViolations, thresholds);
+      
+      const cleared = trackerRef.current.getAndClearRecentCleared();
+      for (const event of cleared) {
+        updateEventDuration(event.id, event.durationSecs);
+      }
       if (fired.length > 0) {
         const latest = fired[fired.length - 1];
         setLastAlarm({ type: latest.type, at: Date.now() });
@@ -2586,7 +2713,7 @@ export function MonitorView({
             const cards = [
               {
                 label: "자세 건강 점수",
-                value: `${todayGoodRatio.toFixed(4)}점`,
+                value: `${todayGoodRatio.toFixed(4)}`,
                 badge: {
                   text: `${todayGradeInfo.grade} ${todayGradeInfo.label}`,
                   color: todayGradeInfo.color,
@@ -2594,10 +2721,10 @@ export function MonitorView({
                 delta: goodRatioDelta === null 
                   ? null 
                   : goodRatioDelta === 0 
-                  ? "0.0000점" 
+                  ? "0.0000" 
                   : goodRatioDelta > 0 
-                  ? `+${goodRatioDelta.toFixed(4)}점` 
-                  : `${goodRatioDelta.toFixed(4)}점`,
+                  ? `+${goodRatioDelta.toFixed(4)}` 
+                  : `${goodRatioDelta.toFixed(4)}`,
                 deltaGood: goodRatioDelta === null ? true : goodRatioDelta >= 0,
                 tooltipDesc: "실시간 감지 데이터를 기반으로 계산된 오늘의 자세 건강 점수와 등급입니다. (S/A/B/C/D 등급 기준)",
                 scientificGround: "나켐슨(Nachemson) 척추 역학 측정 모델 및 미국 정형외과학회(AAOS) 정렬 기준 연동.",
@@ -2629,7 +2756,7 @@ export function MonitorView({
               },
               {
                 label: "자세 위반 횟수",
-                value: `${todayStats.violations}회`,
+                value: `${todayStats.violations}`,
                 badge: null,
                 delta: fmtDelta(deltas.violations),
                 deltaGood: deltas.violations === null ? true : deltas.violations <= 0,
@@ -2639,7 +2766,7 @@ export function MonitorView({
               },
               {
                 label: "스트레칭 점수",
-                value: `${todayStats.stretches}점`,
+                value: `${todayStats.stretches}`,
                 badge: null,
                 delta: fmtDelta(deltas.stretches),
                 deltaGood: deltas.stretches === null ? true : deltas.stretches >= 0,
@@ -2771,7 +2898,7 @@ export function MonitorView({
                       letterSpacing: "-0.022em",
                     }}
                   >
-                    {c.value}
+                    <AnimatedValue value={c.value} />
                   </span>
                   {c.delta && (
                     <span
@@ -3812,50 +3939,644 @@ export function MonitorView({
                   )}
                 </div>
 
-                {/* Section 3: Chronological Log Table */}
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", marginBottom: 10 }}>오늘의 실시간 감지 로그 (최근 15개)</div>
-                  <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--b-line)", borderRadius: 10 }} className="b-scroll">
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
-                      <thead>
-                        <tr style={{ background: "var(--b-surface-2)", borderBottom: "1px solid var(--b-line)", color: "var(--b-fg-3)", textAlign: "left" }}>
-                          <th style={{ padding: "8px 12px", fontWeight: 600 }}>감지 시각</th>
-                          <th style={{ padding: "8px 12px", fontWeight: 600 }}>자세 위반 종류</th>
-                          <th style={{ padding: "8px 12px", fontWeight: 600 }}>지속 시간</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                {/* Section 3: 일별 자세 위반 트렌드 잔디(Heatmap) 매트릭스 & 아코디언 타임라인 */}
+                <div style={{ position: "relative" }}>
+                  {/* 날짜 선택 컨트롤러 */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 14,
+                      background: "var(--b-surface)",
+                      border: "1px solid var(--b-line)",
+                      borderRadius: 12,
+                      padding: "8px 16px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "var(--b-fg-1)" }}>
+                        📅 분석 날짜 선택
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <button
+                        onClick={() => {
+                          const d = new Date(selectedDate);
+                          d.setDate(d.getDate() - 1);
+                          setSelectedDate(d);
+                        }}
+                        style={{
+                          background: "var(--b-surface-2)",
+                          color: "var(--b-fg-2)",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          border: "1px solid var(--b-line)",
+                        }}
+                      >
+                        ◀ 이전일
+                      </button>
+                      <span
+                        className="calendar-toggle-btn"
+                        onClick={() => {
+                          setCalendarOpen(!calendarOpen);
+                          setCalendarNavDate(new Date(selectedDate));
+                        }}
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "var(--b-fg-1)",
+                          cursor: "pointer",
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          background: calendarOpen ? "var(--b-surface-3)" : "transparent",
+                          border: "1px dashed var(--b-line)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          userSelect: "none",
+                          transition: "all 0.15s ease-in-out",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "var(--b-surface-2)";
+                          e.currentTarget.style.border = "1px solid var(--b-line)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = calendarOpen ? "var(--b-surface-3)" : "transparent";
+                          e.currentTarget.style.border = calendarOpen ? "1px solid var(--b-line)" : "1px dashed var(--b-line)";
+                        }}
+                      >
                         {(() => {
-                          const formatEventTime = (timestamp: number) => {
-                            const d = new Date(timestamp);
-                            return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
-                          };
-                          const todayEvts = loadEvents()
-                            .filter(e => e.startedAt >= startOfToday())
-                            .sort((a, b) => b.startedAt - a.startedAt)
-                            .slice(0, 15);
+                          const yyyy = selectedDate.getFullYear();
+                          const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
+                          const dd = String(selectedDate.getDate()).padStart(2, "0");
+                          const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+                          const dayName = dayNames[selectedDate.getDay()];
+                          const today = new Date();
+                          const isToday = today.getFullYear() === selectedDate.getFullYear() &&
+                            today.getMonth() === selectedDate.getMonth() &&
+                            today.getDate() === selectedDate.getDate();
+                          return `${yyyy}-${mm}-${dd} (${dayName})${isToday ? " (오늘)" : ""} ▼`;
+                        })()}
+                      </span>
+                      <button
+                        onClick={() => {
+                          const d = new Date(selectedDate);
+                          d.setDate(d.getDate() + 1);
+                          const today = new Date();
+                          today.setHours(23, 59, 59, 999);
+                          if (d.getTime() > today.getTime()) return;
+                          setSelectedDate(d);
+                        }}
+                        disabled={(() => {
+                          const today = new Date();
+                          return today.getFullYear() === selectedDate.getFullYear() &&
+                            today.getMonth() === selectedDate.getMonth() &&
+                            today.getDate() === selectedDate.getDate();
+                        })()}
+                        style={{
+                          background: "var(--b-surface-2)",
+                          color: "var(--b-fg-2)",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          cursor: (() => {
+                            const today = new Date();
+                            const isToday = today.getFullYear() === selectedDate.getFullYear() &&
+                              today.getMonth() === selectedDate.getMonth() &&
+                              today.getDate() === selectedDate.getDate();
+                            return isToday ? "not-allowed" : "pointer";
+                          })(),
+                          opacity: (() => {
+                            const today = new Date();
+                            const isToday = today.getFullYear() === selectedDate.getFullYear() &&
+                              today.getMonth() === selectedDate.getMonth() &&
+                              today.getDate() === selectedDate.getDate();
+                            return isToday ? 0.4 : 1;
+                          })(),
+                          border: "1px solid var(--b-line)",
+                        }}
+                      >
+                        다음일 ▶
+                      </button>
+                    </div>
+                  </div>
 
-                          if (todayEvts.length === 0) {
-                            return (
-                              <tr>
-                                <td colSpan={3} style={{ padding: "30px", textAlign: "center", color: "var(--b-fg-4)" }}>
-                                  감지 로그가 존재하지 않습니다.
-                                </td>
-                              </tr>
+                  {/* 미니 달력 팝오버 컴포넌트 */}
+                  {calendarOpen && (
+                    <div
+                      className="calendar-popover"
+                      style={{
+                        position: "absolute",
+                        top: 48,
+                        right: 16,
+                        zIndex: 9000,
+                        width: 280,
+                        background: "rgba(15, 17, 19, 0.85)",
+                        backdropFilter: "blur(16px)",
+                        WebkitBackdropFilter: "blur(16px)",
+                        border: "1px solid var(--b-line)",
+                        borderRadius: 16,
+                        padding: 16,
+                        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 12,
+                        animation: "fadeIn 0.2s ease-out",
+                      }}
+                    >
+                      {/* 달력 헤더 */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          paddingBottom: 8,
+                          borderBottom: "1px solid var(--b-line)",
+                        }}
+                      >
+                        <button
+                          onClick={() => {
+                            const d = new Date(calendarNavDate);
+                            d.setMonth(d.getMonth() - 1);
+                            setCalendarNavDate(d);
+                          }}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "var(--b-fg-2)",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontWeight: "bold",
+                            padding: 4,
+                          }}
+                        >
+                          ◀
+                        </button>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "var(--b-fg-1)" }}>
+                          {calendarNavDate.getFullYear()}년 {calendarNavDate.getMonth() + 1}월
+                        </span>
+                        <button
+                          onClick={() => {
+                            const d = new Date(calendarNavDate);
+                            d.setMonth(d.getMonth() + 1);
+                            const today = new Date();
+                            if (d.getFullYear() > today.getFullYear() || 
+                                (d.getFullYear() === today.getFullYear() && d.getMonth() > today.getMonth())) {
+                              return;
+                            }
+                            setCalendarNavDate(d);
+                          }}
+                          disabled={(() => {
+                            const today = new Date();
+                            return calendarNavDate.getFullYear() === today.getFullYear() &&
+                              calendarNavDate.getMonth() === today.getMonth();
+                          })()}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "var(--b-fg-2)",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontWeight: "bold",
+                            padding: 4,
+                            opacity: (calendarNavDate.getFullYear() === new Date().getFullYear() && calendarNavDate.getMonth() === new Date().getMonth()) ? 0.3 : 1,
+                          }}
+                        >
+                          ▶
+                        </button>
+                      </div>
+
+                      {/* 요일 헤더 */}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(7, 1fr)",
+                          textAlign: "center",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "var(--b-fg-3)",
+                          gap: 4,
+                        }}
+                      >
+                        {["일", "월", "화", "수", "목", "금", "토"].map((day, idx) => (
+                          <span key={day} style={{ color: idx === 0 ? "#ff5b5b" : idx === 6 ? "#5b9cff" : undefined }}>
+                            {day}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* 날짜 그리드 */}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(7, 1fr)",
+                          gap: 4,
+                        }}
+                      >
+                        {(() => {
+                          const year = calendarNavDate.getFullYear();
+                          const month = calendarNavDate.getMonth();
+                          const daysInMonth = getDaysInMonth(year, month);
+                          const firstDay = getFirstDayOfMonth(year, month);
+                          const cells = [];
+
+                          for (let i = 0; i < firstDay; i++) {
+                            cells.push(<div key={`empty-${i}`} />);
+                          }
+
+                          for (let day = 1; day <= daysInMonth; day++) {
+                            const curDate = new Date(year, month, day);
+                            const today = new Date();
+                            const isToday = curDate.getFullYear() === today.getFullYear() &&
+                              curDate.getMonth() === today.getMonth() &&
+                              curDate.getDate() === today.getDate();
+                            const isFuture = curDate.getTime() > today.getTime();
+                            const isSelected = curDate.getFullYear() === selectedDate.getFullYear() &&
+                              curDate.getMonth() === selectedDate.getMonth() &&
+                              curDate.getDate() === selectedDate.getDate();
+
+                            const vSecs = getViolationSecsForDate(year, month, day);
+
+                            let densityBg = "rgba(255, 255, 255, 0.04)";
+                            if (vSecs > 0) {
+                              if (vSecs <= 30) densityBg = "rgba(234, 88, 12, 0.25)";
+                              else if (vSecs <= 120) densityBg = "rgba(234, 88, 12, 0.5)";
+                              else if (vSecs <= 300) densityBg = "rgba(234, 88, 12, 0.75)";
+                              else densityBg = "rgba(234, 88, 12, 1)";
+                            }
+
+                            const formatVTime = (secs: number) => {
+                              if (secs === 0) return "바른 자세 모범일 💚";
+                              if (secs < 60) return `위반: ${secs}초`;
+                              const m = Math.floor(secs / 60);
+                              const s = secs % 60;
+                              return `위반: ${m}분 ${s}초 ⚠️`;
+                            };
+
+                            cells.push(
+                              <div
+                                key={`day-${day}`}
+                                onClick={() => {
+                                  if (isFuture) return;
+                                  setSelectedDate(curDate);
+                                  setCalendarOpen(false);
+                                }}
+                                title={`${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}\n${formatVTime(vSecs)}`}
+                                style={{
+                                  position: "relative",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  height: 28,
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  cursor: isFuture ? "not-allowed" : "pointer",
+                                  opacity: isFuture ? 0.25 : 1,
+                                  background: isSelected ? "var(--b-theme)" : densityBg,
+                                  color: isSelected ? "var(--b-theme-fg)" : isToday ? "#7eb09c" : "var(--b-fg-1)",
+                                  border: isSelected ? "1px solid var(--b-theme)" : isToday ? "1px solid #7eb09c" : "1px solid transparent",
+                                  transition: "all 0.15s ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (isFuture) return;
+                                  e.currentTarget.style.transform = "scale(1.1)";
+                                  e.currentTarget.style.zIndex = "10";
+                                  if (!isSelected) {
+                                    e.currentTarget.style.border = "1px solid rgba(255, 255, 255, 0.2)";
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (isFuture) return;
+                                  e.currentTarget.style.transform = "scale(1)";
+                                  e.currentTarget.style.zIndex = "1";
+                                  if (!isSelected) {
+                                    e.currentTarget.style.border = "1px solid transparent";
+                                  }
+                                }}
+                              >
+                                {day}
+                              </div>
                             );
                           }
 
-                          return todayEvts.map((e, idx) => (
-                            <tr key={idx} style={{ borderBottom: "1px solid var(--b-line-2)", color: "var(--b-fg-2)" }}>
-                              <td style={{ padding: "8px 12px", fontFamily: "ui-monospace, monospace" }}>{formatEventTime(e.startedAt)}</td>
-                              <td style={{ padding: "8px 12px", fontWeight: 600 }}>{POSTURE_LABELS[e.type] || e.type}</td>
-                              <td style={{ padding: "8px 12px", color: "var(--b-warn)", fontWeight: 500 }}>{e.durationSecs}초</td>
-                            </tr>
-                          ));
+                          return cells;
                         })()}
-                      </tbody>
-                    </table>
-                  </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 히트맵 잔디 매트릭스 */}
+                  {(() => {
+                    const startTs = new Date(selectedDate);
+                    startTs.setHours(0, 0, 0, 0);
+                    const startMs = startTs.getTime();
+
+                    const endTs = new Date(selectedDate);
+                    endTs.setHours(23, 59, 59, 999);
+                    const endMs = endTs.getTime();
+
+                    const dayEvents = loadEvents().filter(e => e.startedAt >= startMs && e.startedAt <= endMs);
+
+                    const statsByType: Record<PostureType, { count: number; totalSecs: number; hourlySecs: number[]; events: any[] }> = {
+                      forward_head: { count: 0, totalSecs: 0, hourlySecs: Array(24).fill(0), events: [] },
+                      chin_resting: { count: 0, totalSecs: 0, hourlySecs: Array(24).fill(0), events: [] },
+                      shoulder_tilt: { count: 0, totalSecs: 0, hourlySecs: Array(24).fill(0), events: [] },
+                      slouching: { count: 0, totalSecs: 0, hourlySecs: Array(24).fill(0), events: [] },
+                      monitor_too_close: { count: 0, totalSecs: 0, hourlySecs: Array(24).fill(0), events: [] },
+                      shoulder_asymmetry: { count: 0, totalSecs: 0, hourlySecs: Array(24).fill(0), events: [] },
+                      head_roll: { count: 0, totalSecs: 0, hourlySecs: Array(24).fill(0), events: [] },
+                    };
+
+                    dayEvents.forEach(e => {
+                      if (statsByType[e.type as PostureType]) {
+                        const duration = e.durationSecs;
+                        statsByType[e.type as PostureType].count += 1;
+                        statsByType[e.type as PostureType].totalSecs += duration;
+                        statsByType[e.type as PostureType].events.push(e);
+
+                        const hour = new Date(e.startedAt).getHours();
+                        if (hour >= 0 && hour < 24) {
+                          statsByType[e.type as PostureType].hourlySecs[hour] += duration;
+                        }
+                      }
+                    });
+
+                    Object.keys(statsByType).forEach(k => {
+                      statsByType[k as PostureType].events.sort((a, b) => b.startedAt - a.startedAt);
+                    });
+
+                    const biomechanicalWarnings: Record<PostureType, string> = {
+                      forward_head: "경추 전만이 소실되어 목뼈에 최대 27kg 하중이 가중되고 거북목 증후군을 유발합니다.",
+                      chin_resting: "안면 비대칭과 턱관절 디스크의 불균형한 압박을 초래하여 관절 장애로 번질 수 있습니다.",
+                      shoulder_tilt: "골반 변위 및 척추 측만증을 유발하는 어깨 축의 편향성 부하를 줍니다.",
+                      slouching: "요추 전만을 무너뜨려 허리 디스크 탈출 위험을 무려 3배 이상 촉진합니다.",
+                      monitor_too_close: "안구 조절 근육의 극심한 피로 및 목 근육의 무의식적 과긴장을 유발합니다.",
+                      shoulder_asymmetry: "승모근 비대칭 장력을 촉진하여 만성 어깨 뭉침 및 목 근역학 손상을 유발합니다.",
+                      head_roll: "경추 후관절의 편향 마모 및 어깨 근막 통증 증후군의 직접적인 유발 인자가 됩니다.",
+                    };
+
+                    const getDensityBg = (secs: number) => {
+                      if (secs === 0) return "rgba(255, 255, 255, 0.04)";
+                      if (secs <= 10) return "rgba(234, 88, 12, 0.2)";
+                      if (secs <= 30) return "rgba(234, 88, 12, 0.45)";
+                      if (secs <= 60) return "rgba(234, 88, 12, 0.75)";
+                      return "rgba(234, 88, 12, 1)";
+                    };
+
+                    const formatEventTime = (timestamp: number) => {
+                      const d = new Date(timestamp);
+                      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+                    };
+
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div
+                          style={{
+                            background: "var(--b-surface)",
+                            border: "1px solid var(--b-line)",
+                            borderRadius: 14,
+                            padding: "16px 20px",
+                            boxShadow: "var(--b-shadow-card)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              borderBottom: "1px solid var(--b-line)",
+                              paddingBottom: 10,
+                              marginBottom: 12,
+                            }}
+                          >
+                            <span style={{ fontSize: 12, fontWeight: 800, color: "var(--b-fg-2)" }}>
+                              📈 시간대별 위반 농도 트렌드 분포 (00시 ~ 23시)
+                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: "var(--b-fg-4)" }}>
+                              <span>안전</span>
+                              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(255, 255, 255, 0.04)" }} />
+                              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(234, 88, 12, 0.2)" }} />
+                              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(234, 88, 12, 0.45)" }} />
+                              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(234, 88, 12, 0.75)" }} />
+                              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(234, 88, 12, 1)" }} />
+                              <span>경고</span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center" }}>
+                              <div style={{ width: 100 }} />
+                              <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(24, 1fr)", gap: 3, textAlign: "center" }}>
+                                {Array.from({ length: 24 }).map((_, h) => {
+                                  const showText = h % 4 === 0;
+                                  return (
+                                    <span key={h} style={{ fontSize: 8.5, fontWeight: 700, color: "var(--b-fg-4)", opacity: showText ? 1 : 0.2 }}>
+                                      {String(h).padStart(2, "0")}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {(Object.keys(POSTURE_LABELS) as PostureType[]).map((type) => {
+                              const label = POSTURE_LABELS[type];
+                              const stats = statsByType[type];
+                              const isSelected = activePostureDetail === type;
+
+                              return (
+                                <div key={type} style={{ display: "flex", flexDirection: "column" }}>
+                                  <div
+                                    onClick={() => setActivePostureDetail(isSelected ? null : type)}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      padding: "6px 8px",
+                                      borderRadius: 8,
+                                      background: isSelected ? "var(--b-surface-2)" : "transparent",
+                                      cursor: "pointer",
+                                      transition: "all 0.15s ease",
+                                      border: isSelected ? "1px solid var(--b-line)" : "1px solid transparent",
+                                    }}
+                                    className="b-trend-row"
+                                  >
+                                    <div style={{ width: 100, display: "flex", flexDirection: "column", gap: 1 }}>
+                                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--b-fg-2)" }}>
+                                        {label}
+                                      </span>
+                                      <span style={{ fontSize: 8.5, color: stats.count > 0 ? "var(--b-warn)" : "var(--b-sig)", fontWeight: 700 }}>
+                                        {stats.count > 0 ? `누적 ${formatDuration(stats.totalSecs)}` : "완벽 정렬"}
+                                      </span>
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        flex: 1,
+                                        display: "grid",
+                                        gridTemplateColumns: "repeat(24, 1fr)",
+                                        gap: 3,
+                                        height: 18,
+                                      }}
+                                    >
+                                      {stats.hourlySecs.map((secs, hour) => {
+                                        const bg = getDensityBg(secs);
+                                        return (
+                                          <div
+                                            key={hour}
+                                            onMouseEnter={(e) => {
+                                              const rect = e.currentTarget.getBoundingClientRect();
+                                              const parentRect = e.currentTarget.offsetParent?.getBoundingClientRect();
+                                              const x = rect.left - (parentRect?.left || 0) + rect.width / 2;
+                                              const y = rect.top - (parentRect?.top || 0) - 8;
+                                              setHoveredHeatmapCell({ label, hour, secs, x, y });
+                                            }}
+                                            onMouseLeave={() => setHoveredHeatmapCell(null)}
+                                            style={{
+                                              background: bg,
+                                              borderRadius: 3,
+                                              transition: "transform 0.1s ease",
+                                              transform: hoveredHeatmapCell?.label === label && hoveredHeatmapCell?.hour === hour ? "scale(1.2)" : "scale(1)",
+                                              boxShadow: hoveredHeatmapCell?.label === label && hoveredHeatmapCell?.hour === hour ? "0 0 6px var(--b-warn)" : "none",
+                                            }}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {isSelected && (
+                                    <div
+                                      style={{
+                                        background: "var(--b-surface-2)",
+                                        border: "1px solid var(--b-line)",
+                                        borderRadius: 10,
+                                        margin: "4px 8px 12px 108px",
+                                        padding: "12px 14px",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 8,
+                                        animation: "b-fade-in 0.2s ease, b-slide-in 0.2s ease",
+                                      }}
+                                    >
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--b-line)", paddingBottom: 6 }}>
+                                        <span style={{ fontSize: 10.5, fontWeight: 800, color: "var(--b-fg-1)" }}>
+                                          🚨 {label} 타임스탬프 (총 {stats.count}회)
+                                        </span>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActivePostureDetail(null);
+                                          }}
+                                          style={{ border: "none", background: "transparent", fontSize: 9, color: "var(--b-fg-3)", fontWeight: 700, cursor: "pointer" }}
+                                        >
+                                          닫기 ✕
+                                        </button>
+                                      </div>
+
+                                      <div
+                                        style={{
+                                          background: stats.count > 0 ? "rgba(234, 88, 12, 0.04)" : "rgba(46, 163, 141, 0.04)",
+                                          border: `1px solid ${stats.count > 0 ? "rgba(234, 88, 12, 0.08)" : "rgba(46, 163, 141, 0.08)"}`,
+                                          borderRadius: 6,
+                                          padding: "6px 10px",
+                                          fontSize: 9.5,
+                                          color: stats.count > 0 ? "var(--b-warn)" : "var(--b-sig)",
+                                          lineHeight: 1.4,
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        💡 <strong>임상적 분석:</strong> {biomechanicalWarnings[type]}
+                                      </div>
+
+                                      {stats.events.length === 0 ? (
+                                        <div style={{ textAlign: "center", padding: "14px 0", fontSize: 10.5, color: "var(--b-sig)", fontWeight: 700 }}>
+                                          👏 선택하신 날짜에는 {label} 위반이 기록되지 않았습니다!
+                                        </div>
+                                      ) : (
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            flexWrap: "wrap",
+                                            gap: 6,
+                                            maxHeight: 120,
+                                            overflowY: "auto",
+                                            paddingRight: 4,
+                                          }}
+                                          className="b-scroll"
+                                        >
+                                          {stats.events.map((e, idx) => (
+                                            <span
+                                              key={idx}
+                                              style={{
+                                                fontSize: 9.5,
+                                                fontWeight: 600,
+                                                padding: "3px 8px",
+                                                borderRadius: 6,
+                                                background: "var(--b-surface)",
+                                                border: "1px solid var(--b-line)",
+                                                color: "var(--b-fg-2)",
+                                                fontFamily: "ui-monospace, monospace",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                              }}
+                                            >
+                                              ⏰ {formatEventTime(e.startedAt)}
+                                              <strong style={{ color: "var(--b-warn)" }}>({e.durationSecs}초)</strong>
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {hoveredHeatmapCell && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: hoveredHeatmapCell.x,
+                        top: hoveredHeatmapCell.y,
+                        transform: "translate(-50%, -100%)",
+                        background: "rgba(18, 18, 24, 0.95)",
+                        backdropFilter: "blur(8px)",
+                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        borderRadius: 8,
+                        padding: "6px 10px",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4)",
+                        zIndex: 200,
+                        pointerEvents: "none",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                        width: 140,
+                      }}
+                    >
+                      <div style={{ fontSize: 9.5, fontWeight: 800, color: "var(--b-fg-1)" }}>
+                        💡 {hoveredHeatmapCell.label}
+                      </div>
+                      <div style={{ fontSize: 8.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between" }}>
+                        <span>시간대:</span>
+                        <strong style={{ color: "var(--b-fg-2)" }}>{String(hoveredHeatmapCell.hour).padStart(2, "0")}시~{String(hoveredHeatmapCell.hour + 1).padStart(2, "0")}시</strong>
+                      </div>
+                      <div style={{ fontSize: 8.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between" }}>
+                        <span>위반 지속:</span>
+                        <strong style={{ color: "var(--b-warn)" }}>{formatDuration(hoveredHeatmapCell.secs)}</strong>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

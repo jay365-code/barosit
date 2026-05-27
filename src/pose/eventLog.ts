@@ -83,3 +83,21 @@ export function startOfWeek(): number {
   d.setDate(d.getDate() - d.getDay());
   return d.getTime();
 }
+
+export function updateEventDuration(id: string, nextDurationSecs: number): void {
+  const stored = loadEvents();
+  const index = stored.findIndex((e) => e.id === id);
+  if (index !== -1) {
+    stored[index].durationSecs = nextDurationSecs;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    // 다른 윈도우 동기화를 위해 storage 이벤트 수동 디스패치
+    try {
+      window.dispatchEvent(new StorageEvent("storage", {
+        key: STORAGE_KEY,
+        newValue: JSON.stringify(stored),
+      }));
+    } catch {
+      /* noop */
+    }
+  }
+}
