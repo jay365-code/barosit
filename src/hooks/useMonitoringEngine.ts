@@ -7,7 +7,7 @@ import { analyzeFrame, type AnalysisDebug, type AnalyzerState } from "../pose/an
 import { ViolationTracker } from "../pose/violationTracker";
 import { ViolationSmoother } from "../pose/violationSmoother";
 import { loadThresholds } from "../pose/thresholds";
-import { loadBaseline, determineAngle } from "../pose/calibration";
+import { loadBaseline, determineAngle, determineAngleSticky } from "../pose/calibration";
 import {
   detectStretch,
   StretchTracker,
@@ -195,6 +195,8 @@ export function useMonitoringEngine(opts: {
   const debugRef = useRef<AnalysisDebug | null>(null);
   const violationsRef = useRef<Set<PostureType>>(new Set());
   const lastRecommendedAngleRef = useRef<"front" | "left" | "right" | null>(null);
+  // Hysteresis 용 마지막 sticky angle. flap 차단 위해 진입 12° / 이탈 8° 적용.
+  const lastAngleRef = useRef<"front" | "left" | "right" | null>(null);
 
   // 실제 검출이 안 되는 모든 경우 점수 변동 중단
   // (비활성, 일시정지, 카메라 미준비, 베이스라인 없음)
@@ -345,18 +347,19 @@ export function useMonitoringEngine(opts: {
       heartbeat.tick();
       if (!baseline || opts.paused) return;
 
-      // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동
+      // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동.
+      // lastAngleRef 로 hysteresis 적용 — yaw 임계 근처 진동에 의한 flap 차단.
       if (frame.face) {
-        const currentAngle = determineAngle(frame.face);
+        const currentAngle = determineAngleSticky(frame.face, lastAngleRef.current);
         const storedAngle = determineAngle(baseline.face);
-        
+        lastAngleRef.current = currentAngle;
+
         if (currentAngle !== storedAngle) {
           const nextBaseline = loadBaseline(currentAngle);
           if (nextBaseline) {
             setBaseline(nextBaseline);
             lastRecommendedAngleRef.current = null;
-            console.log(`[useMonitoringEngine] 🔄 카메라 측정 각도 전환 감지: ${storedAngle} ➔ ${currentAngle}. 기준 데이터를 자동 스위칭했습니다.`);
-            
+
             // 각도 복원 시 경고 가이드 배너를 끄기 위한 이벤트 발행
             window.dispatchEvent(
               new CustomEvent("barosit:calibration-recommended", {

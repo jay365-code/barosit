@@ -5,7 +5,7 @@ import {
   type UserProfile,
 } from "../userProfile";
 import { useAuth } from "../auth/useAuth";
-import { loadBaseline, determineAngle } from "../pose/calibration";
+import { loadBaseline, determineAngle, determineAngleSticky } from "../pose/calibration";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
@@ -539,6 +539,8 @@ export function MonitorView({
   const debugRef = useRef<AnalysisDebug | null>(null);
   const violationsRef = useRef<Set<PostureType>>(new Set());
   const lastRecommendedAngleRef = useRef<"front" | "left" | "right" | null>(null);
+  // Hysteresis 용 마지막 sticky angle. flap 차단 위해 진입 12° / 이탈 8° 적용.
+  const lastAngleRef = useRef<"front" | "left" | "right" | null>(null);
   // pose loop heartbeat + watchdog — 60초+ stale 시 hard reload
   const monitorHeartbeat = useHeartbeat();
   useWatchdog("monitor-frame", monitorHeartbeat.getLastAt, {
@@ -753,11 +755,13 @@ export function MonitorView({
       setHandsData(frame.hands);
       if (frame.mask) setMask(frame.mask);
 
-      // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동
+      // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동.
+      // lastAngleRef 로 hysteresis 적용 — yaw 임계 근처 진동에 의한 flap 차단.
       if (frame.face && baselineState) {
-        const currentAngle = determineAngle(frame.face);
+        const currentAngle = determineAngleSticky(frame.face, lastAngleRef.current);
         const storedAngle = determineAngle(baselineState.face);
-        
+        lastAngleRef.current = currentAngle;
+
         if (currentAngle !== storedAngle) {
           // A. 오토 스위칭 성공 여부와 무관하게, 감지된 실시간 카메라 방향 상태를 즉각 반영하여 아이콘을 좌우로 점프시킴
           setCameraAngle(currentAngle);
@@ -766,8 +770,7 @@ export function MonitorView({
           if (nextBaseline) {
             setBaselineState(nextBaseline);
             lastRecommendedAngleRef.current = null;
-            console.log(`[MonitorView] 🔄 카메라 측정 각도 전환 감지: ${storedAngle} ➔ ${currentAngle}. 기준 데이터를 자동 스위칭했습니다.`);
-            
+
             // 각도 복원 시 경고 가이드 배너를 끄기 위한 이벤트 발행
             window.dispatchEvent(
               new CustomEvent("barosit:calibration-recommended", {

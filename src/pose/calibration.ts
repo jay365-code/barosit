@@ -244,6 +244,45 @@ export function determineAngle(face: FaceData | null): "front" | "left" | "right
   return "front";
 }
 
+/**
+ * Hysteresis 가 적용된 각도 판정.
+ *
+ * Why: determineAngle 은 ±12° hard threshold 라 사용자가 자연스럽게 모니터를
+ * 보면서 yaw 가 임계 근처에서 미세 진동하면 매 프레임 angle 이 flap 한다.
+ * 각 flap 은 setBaseline / dispatchEvent / re-render 를 폭주시켜 V8 heap
+ * 누수를 유발한다 (실측: 2.2 MB/s 증가, region 매초 +37).
+ *
+ * How: 진입 임계 ±12° (기존과 동일), 이탈 임계 ±8°. lastAngle 이 null 이면
+ * 기존 determineAngle 과 동일 동작 → 첫 호출 안전.
+ */
+export function determineAngleSticky(
+  face: FaceData | null,
+  lastAngle: "front" | "left" | "right" | null,
+): "front" | "left" | "right" {
+  if (!face) return lastAngle ?? "front";
+  const yawDeg = face.yaw * (180 / Math.PI);
+  const ENTER = 12;
+  const EXIT = 8;
+
+  switch (lastAngle) {
+    case "right":
+      // right 상태 유지 조건: yaw 가 EXIT 보다 큼. 작아지면 front/left 재판정.
+      if (yawDeg > EXIT) return "right";
+      if (yawDeg < -ENTER) return "left";
+      return "front";
+    case "left":
+      if (yawDeg < -EXIT) return "left";
+      if (yawDeg > ENTER) return "right";
+      return "front";
+    case "front":
+    case null:
+    default:
+      if (yawDeg > ENTER) return "right";
+      if (yawDeg < -ENTER) return "left";
+      return "front";
+  }
+}
+
 export function loadMultiBaseline(): MultiAngleBaseline {
   const raw = localStorage.getItem(STORAGE_KEY_MULTI);
   if (!raw) {
