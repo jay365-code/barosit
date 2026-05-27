@@ -34,7 +34,8 @@ export type IconName =
   | "cpu"
   | "pill"
   | "pill-off"
-  | "copy";
+  | "copy"
+  | "logo";
 
 interface Props {
   name: IconName;
@@ -299,6 +300,15 @@ export function Icon({ name, size = 18, stroke = 1.8, style, title }: Props) {
         <svg {...common}>
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      );
+    case "logo":
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <circle cx="12" cy="4.6" r="2.2" />
+          <rect x="11.2" y="6.8" width="1.6" height="11.6" rx="0.8" />
+          <rect x="7.0" y="8.85" width="10" height="1.5" rx="0.75" />
+          <rect x="8.2" y="18.75" width="7.6" height="1.5" rx="0.75" />
         </svg>
       );
     default:

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LogicalPosition, PhysicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { listen as tauriListen } from "@tauri-apps/api/event";
@@ -99,6 +99,7 @@ function formatDuration(secs: number): string {
 }
 
 export function Widget() {
+  const contentRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<WidgetState>({
     status: "good",
     score: 100,
@@ -464,6 +465,20 @@ export function Widget() {
       }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onMouseMove={(e) => {
+        if (!expandedOpen) return;
+        if (contentRef.current) {
+          const rect = contentRef.current.getBoundingClientRect();
+          const isInside =
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom;
+          if (!isInside) {
+            setHover(false);
+          }
+        }
+      }}
     >
       {/* 카메라 스트림용 hidden video */}
       <video
@@ -481,6 +496,7 @@ export function Widget() {
         }}
       />
       <div
+        ref={contentRef}
         className="b-force-light"
         style={{
           padding: 8,
@@ -653,7 +669,7 @@ export function Widget() {
                   }}
                   title="메인 창으로 돌아가기"
                 >
-                  <Icon name="camera" size={12} />
+                  <Icon name="logo" size={14} />
                 </button>
               )}
             </div>

@@ -5,6 +5,8 @@ interface UseMemoryReloadGuardOptions {
   intervalMs?: number;
   /** 마지막 사용자 입력 후 이 시간(ms) 이상 idle 일 때만 reload. 기본 10_000 = 10초. */
   idleMs?: number;
+  /** deep reload 주기 (ms) - 현재는 안전을 위해 일반 새로고침으로 호환 처리됨 */
+  deepIntervalMs?: number;
   /** false 면 hook 자체를 비활성화. */
   enabled?: boolean;
 }
@@ -61,6 +63,7 @@ export function useMemoryReloadGuard(
         /* noop */
       }
 
+      // 안전하고 검증된 일반 새로고침으로 실행하여 about:blank 컨텍스트 소멸로 인한 교착 현상을 예방합니다.
       window.setTimeout(() => window.location.reload(), 50);
     };
 
