@@ -3062,11 +3062,11 @@ export function MonitorView({
                   <div style={{ position: "relative", width: "100%", height: 130 }}>
                     {(() => {
                       const eventsToday = loadEvents().filter(e => e.startedAt >= startOfToday());
-                      const hourlyViolationSecs = new Array(24).fill(0);
+                      const hourlyViolations = new Array(24).fill(0);
                       eventsToday.forEach(e => {
                         const hr = new Date(e.startedAt).getHours();
                         if (hr >= 0 && hr < 24) {
-                          hourlyViolationSecs[hr] += e.durationSecs || 0;
+                          hourlyViolations[hr] += 1;
                         }
                       });
 
@@ -3082,12 +3082,18 @@ export function MonitorView({
                         }
                       } catch {}
 
-                      // 시간별 점수 연산: (위반 시간 / 착석 시간) 비율 감점, 최소 30점 보장
-                      const scores = hourlyViolationSecs.map((vSecs, hr) => {
+                      const MAX_ALLOWABLE_VIOLATIONS = 12; // 임상적 시간당 최대 한계선 (5분당 1회 무너짐)
+
+                      const scores = hourlyViolations.map((vCount, hr) => {
                         const activeSecs = activeByHour[hr] || 0;
                         if (activeSecs === 0) return 100;
-                        const ratio = Math.min(1.0, vSecs / activeSecs);
-                        return Math.max(30, 100 - Math.round(ratio * 100));
+
+                        // 단기 세션의 급격한 점수 스윙을 방지하기 위해 최소 15분(900초) 기준선 적용
+                        const effectiveActiveSecs = Math.max(900, activeSecs);
+                        const violationsPerHour = vCount / (effectiveActiveSecs / 3600);
+
+                        const ratio = Math.min(1.0, violationsPerHour / MAX_ALLOWABLE_VIOLATIONS);
+                        return Math.max(30, 100 - Math.round(ratio * 70));
                       });
 
                       const width = 540;
