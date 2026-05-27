@@ -3717,9 +3717,9 @@ export function MonitorView({
                                           width: hasData ? (isToday ? 9 : 8) : 5,
                                           height: hasData ? (isToday ? 9 : 8) : 5,
                                           borderRadius: "50%",
-                                          background: hasData && cellGradeInfo ? cellGradeInfo.color : "rgba(255, 255, 255, 0.08)",
+                                          background: hasData && cellGradeInfo ? cellGradeInfo.color : "var(--b-line-2)",
                                           border: hasData && isToday ? "2px solid #ffffff" : "none",
-                                          opacity: hasData ? (ratio >= 80 ? 0.95 : 0.7) : 0.35,
+                                          opacity: hasData ? (ratio >= 80 ? 0.95 : 0.7) : 0.6,
                                           boxShadow: hasData && isToday ? "0 0 6px #ffffff" : "none",
                                           transition: "transform 0.15s ease",
                                         }}
@@ -3778,13 +3778,13 @@ export function MonitorView({
                         top: hoveredCell.y,
                         transform: "translateX(-50%) translateY(-100%) translateY(-8px)",
                         width: 220,
-                        background: "rgba(18, 18, 24, 0.95)",
+                        background: "var(--b-elev)",
                         backdropFilter: "blur(12px)",
                         WebkitBackdropFilter: "blur(12px)",
-                        border: "1px solid rgba(255, 255, 255, 0.12)",
+                        border: "1px solid var(--b-line-2)",
                         borderRadius: 10,
                         padding: "10px 12px",
-                        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6)",
+                        boxShadow: "var(--b-shadow-elev)",
                         zIndex: 1000,
                         pointerEvents: "none",
                         display: "flex",
@@ -3793,7 +3793,7 @@ export function MonitorView({
                         animation: "b-fade-in 0.1s ease",
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: 4, marginBottom: 2 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--b-line)", paddingBottom: 4, marginBottom: 2 }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "var(--b-fg-1)" }}>
                           📅 {hoveredCell.month}월 {hoveredCell.day}일 분석
                         </span>
