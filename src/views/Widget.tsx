@@ -246,6 +246,29 @@ export function Widget() {
     active: true,
   });
 
+  // ─── 위젯 미사용 유휴 시 자동 환수 로직 (Idle Auto-Recovery) ──────────────────────
+  // 1. 위젯이 호버되어 있지 않고, 알림 팝업도 없음 (!hover && !alertExpand)
+  // 2. 모니터링이 일시정지/휴식 중이거나 (state.status === "paused" / "resting" / state.away)
+  //    또는 위젯 내부의 카메라 엔진이 비활성화 상태여서 (engineActive === false) 화면 갱신이 소극적일 때
+  // 3. 이 상태가 5분(300,000ms) 이상 지속되면 위젯을 새로고침하여 WebGL/V8 메모리를 완전히 환수합니다.
+  useEffect(() => {
+    const isPausedOrPassive =
+      state.status === "paused" ||
+      state.status === "resting" ||
+      state.away ||
+      !engineActive;
+
+    const isIdle = !hover && !alertExpand && isPausedOrPassive;
+    if (!isIdle) return;
+
+    const timerId = window.setTimeout(() => {
+      console.info("[barosit:widget] Idle Auto-Recovery triggered - reloading to reclaim memory.");
+      window.location.reload();
+    }, 5 * 60 * 1000); // 5분
+
+    return () => window.clearTimeout(timerId);
+  }, [hover, alertExpand, state.status, state.away, engineActive]);
+
   useEffect(() => {
     if (!hover) return;
     const id = window.setInterval(() => force((n) => n + 1), 1000);

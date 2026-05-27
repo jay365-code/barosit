@@ -44,12 +44,6 @@ import {
   type ThresholdMap,
 } from "../pose/thresholds";
 import type { PostureType } from "../pose/types";
-import {
-  isCoachingEnabled,
-  loadApiKey,
-  saveApiKey,
-  setCoachingEnabled,
-} from "../llmConfig";
 import { isPrivacyMode, setPrivacyMode } from "../privacyConfig";
 import {
   isMinibarVisible,
@@ -107,7 +101,6 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
   }, []);
   const [privacy, setPrivacy] = useState<boolean>(() => isPrivacyMode());
   const [minibar, setMinibar] = useState<boolean>(() => isMinibarVisible());
-  const [coaching, setCoaching] = useState<boolean>(() => isCoachingEnabled());
   const [alertModes, setAlertModes] = useState<AlertModes>(() => loadAlertModes());
   const [breakConfig, setBreakConfigState] = useState<BreakConfig>(() => loadBreakConfig());
   const [cumulativeConfig, setCumulativeConfigState] = useState<CumulativeLoadConfig>(() => loadCumulativeConfig());
@@ -161,7 +154,6 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
       /* noop */
     }
   };
-  const [apiKey, setApiKey] = useState<string>(() => loadApiKey());
   const [autostart, setAutostart] = useState<boolean | null>(null);
   const [quitConfirm, setQuitConfirm] = useState(false);
 
@@ -242,10 +234,6 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
     setAutostart(v);
   };
 
-  const toggleCoaching = (v: boolean) => {
-    setCoaching(v);
-    setCoachingEnabled(v);
-  };
 
   const clearEvents = () => {
     if (window.confirm("기록을 모두 지울까요? 되돌릴 수 없습니다.")) {
@@ -1029,33 +1017,6 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
           </Section>
         )}
 
-        {/* LLM 코칭 */}
-        {platform.features.llmCoaching && (
-          <Section title="코칭">
-            <Row
-              label="AI 코칭 메시지"
-              sub="잔소리 대신 한 줄 코칭"
-              v={coaching}
-              onChange={toggleCoaching}
-            />
-            <div style={{ marginTop: 10 }}>
-              <div
-                style={{ fontSize: 12, color: "var(--b-fg-3)", marginBottom: 6 }}
-              >
-                Anthropic API 키
-              </div>
-              <input
-                type="password"
-                placeholder="sk-ant-..."
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  saveApiKey(e.target.value);
-                }}
-              />
-            </div>
-          </Section>
-        )}
 
         {/* 데이터 */}
         <Section title="데이터">
