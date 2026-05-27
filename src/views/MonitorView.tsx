@@ -3187,7 +3187,7 @@ export function MonitorView({
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)" }}>자세 건강 점수 시간대별 추이 (오늘)</div>
-                    <div style={{ fontSize: 11, color: "var(--b-fg-3)" }}>단위: % (점수)</div>
+                    <div style={{ fontSize: 11, color: "var(--b-fg-3)" }}>단위: 점</div>
                   </div>
                   <div style={{ position: "relative", width: "100%", height: 130 }}>
                     {(() => {
@@ -3306,7 +3306,7 @@ export function MonitorView({
                                   textAnchor="end"
                                   fontFamily="ui-monospace, monospace"
                                 >
-                                  {lvl.val}%
+                                  {lvl.val}점
                                 </text>
                               </g>
                             );
