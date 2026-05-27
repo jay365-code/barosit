@@ -3263,13 +3263,13 @@ export function MonitorView({
                             </filter>
                           </defs>
 
-                          {/* Level Guides (등급 경계선 결합) */}
+                          {/* Level Guides (등급 경계 수치 격자) */}
                           {[
-                            { val: 95, grade: "S", color: "var(--b-sig)" },
-                            { val: 90, grade: "A", color: "var(--b-sig)" },
-                            { val: 80, grade: "B", color: "var(--b-fg-2)" },
-                            { val: 70, grade: "C", color: "var(--b-warn)" },
-                          ].map((lvl: { val: number; grade: string; color: string }) => {
+                            { val: 95, color: "var(--b-sig)" },
+                            { val: 90, color: "var(--b-sig)" },
+                            { val: 80, color: "var(--b-fg-3)" },
+                            { val: 70, color: "var(--b-warn)" },
+                          ].map((lvl: { val: number; color: string }) => {
                             const y = paddingTop + chartHeight - (lvl.val / 100) * chartHeight;
                             return (
                               <g key={lvl.val}>
@@ -3291,7 +3291,7 @@ export function MonitorView({
                                   textAnchor="end"
                                   fontFamily="ui-monospace, monospace"
                                 >
-                                  {lvl.grade}({lvl.val}%)
+                                  {lvl.val}%
                                 </text>
                               </g>
                             );
@@ -3480,6 +3480,53 @@ export function MonitorView({
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* 📊 구간별 자세 등급 척추역학 범례 가이드 배너 */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      paddingTop: 12,
+                      marginTop: 6,
+                      borderTop: "1px solid var(--b-line)",
+                    }}
+                  >
+                    {[
+                      { range: "95% 이상", grade: "S", label: "최우수", color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.08)", desc: "완벽한 정렬" },
+                      { range: "90%~95%", grade: "A", label: "우수", color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.04)", desc: "건강한 정렬" },
+                      { range: "80%~90%", grade: "B", label: "양호", color: "var(--b-fg-2)", bg: "rgba(255, 255, 255, 0.03)", desc: "가벼운 피로" },
+                      { range: "70%~80%", grade: "C", label: "주의", color: "var(--b-warn)", bg: "rgba(234, 88, 12, 0.06)", desc: "관절 압박" },
+                      { range: "70% 미만", grade: "D", label: "위험", color: "var(--b-warn)", bg: "rgba(239, 68, 68, 0.08)", desc: "만성 통증" },
+                    ].map((item, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 2,
+                          fontSize: 10,
+                          color: "var(--b-fg-3)",
+                          background: item.bg,
+                          padding: "6px 10px",
+                          borderRadius: 8,
+                          border: `1px solid ${item.color}18`,
+                          flex: 1,
+                          minWidth: 80,
+                          textAlign: "center",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 3, fontWeight: 800, color: item.color }}>
+                          <span>{item.grade}등급</span>
+                          <span style={{ fontSize: 9, fontWeight: 700 }}>({item.label})</span>
+                        </div>
+                        <div style={{ fontSize: 8.5, color: "var(--b-fg-4)", fontWeight: 500 }}>{item.range}</div>
+                        <div style={{ fontSize: 8, color: item.color, opacity: 0.9, fontWeight: 600 }}>{item.desc}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
