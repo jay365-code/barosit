@@ -2577,8 +2577,8 @@ export function MonitorView({
             // 위반은 적을수록 좋음 → 음수가 good. 스트레칭은 많을수록 좋음 → 양수가 good.
             const cards = [
               {
-                label: "좋은 자세 유지율",
-                value: `${todayGoodRatio.toFixed(1)}%`,
+                label: "자세 건강 점수",
+                value: `${Math.round(todayGoodRatio)}점`,
                 badge: {
                   text: `${todayGradeInfo.grade} ${todayGradeInfo.label}`,
                   color: todayGradeInfo.color,
@@ -2586,34 +2586,34 @@ export function MonitorView({
                 delta: goodRatioDelta === null 
                   ? null 
                   : goodRatioDelta === 0 
-                  ? "0%" 
+                  ? "0점" 
                   : goodRatioDelta > 0 
-                  ? `+${goodRatioDelta.toFixed(1)}%` 
-                  : `${goodRatioDelta.toFixed(1)}%`,
+                  ? `+${Math.round(goodRatioDelta)}점` 
+                  : `${Math.round(goodRatioDelta)}점`,
                 deltaGood: goodRatioDelta === null ? true : goodRatioDelta >= 0,
-                tooltipDesc: "모니터링 시간 중 척추의 건강한 S자 곡선(경추·요추 전만)이 유지된 백분율과 실시간 자세 등급입니다. (S/A/B/C/D 등급 기준)",
+                tooltipDesc: "실시간 감지 데이터를 기반으로 계산된 오늘의 자세 건강 점수와 등급입니다. (S/A/B/C/D 등급 기준)",
                 scientificGround: "나켐슨(Nachemson) 척추 역학 측정 모델 및 미국 정형외과학회(AAOS) 정렬 기준 연동.",
                 extraContent: (
                   <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4, borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: 4 }}>
-                    <div style={{ fontSize: 9, color: "var(--b-fg-4)", fontWeight: 700, marginBottom: 2 }}>[척추 건강 등급 기준]</div>
+                    <div style={{ fontSize: 9, color: "var(--b-fg-4)", fontWeight: 700, marginBottom: 2 }}>[자세 건강 등급 기준]</div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-sig)", fontWeight: 700 }}>S 등급 (95%이상)</span>
+                      <span style={{ color: "var(--b-sig)", fontWeight: 700 }}>S 등급 (95점 이상)</span>
                       <span style={{ color: "var(--b-fg-3)" }}>완벽 (NASA 중립 정렬)</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-sig)", fontWeight: 700 }}>A 등급 (90~95%)</span>
+                      <span style={{ color: "var(--b-sig)", fontWeight: 700 }}>A 등급 (90점 ~ 95점)</span>
                       <span style={{ color: "var(--b-fg-3)" }}>우수 (이상적 근육 지지)</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-fg-2)", fontWeight: 700 }}>B 등급 (80~90%)</span>
+                      <span style={{ color: "var(--b-fg-2)", fontWeight: 700 }}>B 등급 (80점 ~ 90점)</span>
                       <span style={{ color: "var(--b-fg-3)" }}>양호 (경미 장력 이동)</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-warn)", fontWeight: 700 }}>C 등급 (70~80%)</span>
+                      <span style={{ color: "var(--b-warn)", fontWeight: 700 }}>C 등급 (70점 ~ 80점)</span>
                       <span style={{ color: "var(--b-fg-3)" }}>주의 (수직 부하 1.5배)</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-warn)", fontWeight: 700 }}>D 등급 (70%미만)</span>
+                      <span style={{ color: "var(--b-warn)", fontWeight: 700 }}>D 등급 (70점 미만)</span>
                       <span style={{ color: "var(--b-fg-3)" }}>위험 (목 부하 27kg 돌파)</span>
                     </div>
                   </div>
@@ -3510,11 +3510,11 @@ export function MonitorView({
                     }}
                   >
                     {[
-                      { range: "95% 이상", grade: "S", label: "최우수", color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.08)", desc: "완벽한 정렬" },
-                      { range: "90%~95%", grade: "A", label: "우수", color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.04)", desc: "건강한 정렬" },
-                      { range: "80%~90%", grade: "B", label: "양호", color: "var(--b-fg-2)", bg: "rgba(255, 255, 255, 0.03)", desc: "가벼운 피로" },
-                      { range: "70%~80%", grade: "C", label: "주의", color: "var(--b-warn)", bg: "rgba(234, 88, 12, 0.06)", desc: "관절 압박" },
-                      { range: "70% 미만", grade: "D", label: "위험", color: "var(--b-warn)", bg: "rgba(239, 68, 68, 0.08)", desc: "만성 통증" },
+                      { range: "95점 이상", grade: "S", label: "최우수", color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.08)", desc: "완벽한 정렬" },
+                      { range: "90점 ~ 95점", grade: "A", label: "우수", color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.04)", desc: "건강한 정렬" },
+                      { range: "80점 ~ 90점", grade: "B", label: "양호", color: "var(--b-fg-2)", bg: "rgba(255, 255, 255, 0.03)", desc: "가벼운 피로" },
+                      { range: "70점 ~ 80점", grade: "C", label: "주의", color: "var(--b-warn)", bg: "rgba(234, 88, 12, 0.06)", desc: "관절 압박" },
+                      { range: "70점 미만", grade: "D", label: "위험", color: "var(--b-warn)", bg: "rgba(239, 68, 68, 0.08)", desc: "만성 통증" },
                     ].map((item, idx) => (
                       <div
                         key={idx}
