@@ -534,6 +534,8 @@ export function Widget() {
                 borderColor: pillBorder,
                 boxShadow:
                   "0 1px 3px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.28), 0 0 0 1px rgba(0,0,0,0.06)",
+                transform: "translate3d(0, 0, 0)",
+                willChange: "transform",
                 transition: "border-color .15s ease",
                 cursor: "grab",
                 boxSizing: "border-box",
