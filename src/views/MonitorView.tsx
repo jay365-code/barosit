@@ -3018,7 +3018,7 @@ export function MonitorView({
                           <span>자세 건강 등급 산정의 과학적 척추역학적 근거</span>
                         </div>
                         <div>
-                          본 분석 리포트의 등급 분류(S/A/B/C/D)는 <strong>나켐슨(Nachemson)의 척추 생체역학 디스크 가해 내압 측정 연구</strong> 및 <strong>NASA 중립 자세 표준(Neutral Body Posture)</strong> 가이드라인에 깊이 근거하여 실시간 자세 센싱 데이터로 설계되었습니다. 구부정한 정렬(C·D 등급) 시 가중되는 척추 디스크 수직 부하는 서 있을 때 대비 최대 <strong>150% ~ 220%</strong> 증가하며, 거북목은 경추에 최대 <strong>27kg</strong>의 모멘트 전단 하중을 가합니다. 본 리포트의 지수 개선 및 반응 속도 단축 지표는 척추를 압박하는 유해 정적 부하(Static Load) 해소 수준을 완벽하게 입증합니다.
+                          본 분석 리포트의 등급 분류(S/A/B/C/D)는 <strong>나켐슨(Nachemson)의 척추 생체역학 디스크 가해 내압 측정 연구</strong> 및 <strong>NASA 중립 자세 표준(Neutral Body Posture)</strong> 가이드라인에 깊이 근거하여 실시간 자세 센싱 데이터로 설계되었습니다. 구부정한 정렬(C·D 등급) 시 가중되는 척추 디스크 수직 부하는 서 있을 때 대비 <strong>1.5배 ~ 2.2배(150% ~ 220%) 수준으로 증가</strong>하며, 거북목은 경추에 최대 <strong>27kg</strong>의 모멘트 전단 하중을 가합니다. 본 리포트의 지수 개선 및 반응 속도 단축 지표는 척추를 압박하는 유해 정적 부하(Static Load) 해소 수준을 완벽하게 입증합니다.
                         </div>
                       </div>
                     </div>
