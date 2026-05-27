@@ -2890,6 +2890,24 @@ export function MonitorView({
                   const goodYesterdayMins = Math.round(Number(localStorage.getItem("good_duration_yesterday") || "0") / 60);
                   const goodMinsDelta = goodTodayMins - goodYesterdayMins;
 
+                  const formatMins = (mins: number) => {
+                    if (mins < 60) return `${mins}분`;
+                    const h = Math.floor(mins / 60);
+                    const m = mins % 60;
+                    return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+                  };
+
+                  const formatDeltaMins = (mins: number) => {
+                    if (mins === 0) return "";
+                    const sign = mins > 0 ? "+" : "-";
+                    const absMins = Math.abs(mins);
+                    if (absMins < 60) return `${sign}${absMins}분`;
+                    const h = Math.floor(absMins / 60);
+                    const m = absMins % 60;
+                    const timeStr = m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+                    return `${sign}${timeStr}`;
+                  };
+
                   // 좋은 자세 비율 변동 계산
                   const todayActiveSecs = activeDurationTodayCount;
                   const todayGoodSecs = goodDurationTodayCount;
@@ -2987,10 +3005,10 @@ export function MonitorView({
                         >
                           <span style={{ fontSize: 11, color: "var(--b-fg-3)", fontWeight: 500 }}>바른 자세 누적 시간</span>
                           <div style={{ fontSize: 17, fontWeight: 800, color: "var(--b-fg-1)", display: "flex", alignItems: "baseline", gap: 4 }}>
-                            <span>{goodTodayMins}분</span>
+                            <span>{formatMins(goodTodayMins)}</span>
                             {goodMinsDelta !== 0 && (
                               <span style={{ fontSize: 9, color: goodMinsDelta > 0 ? "var(--b-sig)" : "var(--b-warn)", fontWeight: 700 }}>
-                                ({goodMinsDelta > 0 ? `+${goodMinsDelta}분` : `${goodMinsDelta}분`})
+                                ({formatDeltaMins(goodMinsDelta)})
                               </span>
                             )}
                           </div>
