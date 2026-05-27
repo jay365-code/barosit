@@ -3263,29 +3263,35 @@ export function MonitorView({
                             </filter>
                           </defs>
 
-                          {/* Level Guides */}
-                          {[100, 75, 50].map((level: number) => {
-                            const y = paddingTop + chartHeight - (level / 100) * chartHeight;
+                          {/* Level Guides (등급 경계선 결합) */}
+                          {[
+                            { val: 95, grade: "S", color: "var(--b-sig)" },
+                            { val: 90, grade: "A", color: "var(--b-sig)" },
+                            { val: 80, grade: "B", color: "var(--b-fg-2)" },
+                            { val: 70, grade: "C", color: "var(--b-warn)" },
+                          ].map((lvl: { val: number; grade: string; color: string }) => {
+                            const y = paddingTop + chartHeight - (lvl.val / 100) * chartHeight;
                             return (
-                              <g key={level}>
+                              <g key={lvl.val}>
                                 <line
                                   x1={paddingLeft}
                                   y1={y}
                                   x2={width - paddingRight}
                                   y2={y}
                                   stroke="var(--b-line-2)"
-                                  strokeWidth="1"
-                                  strokeDasharray="4 4"
+                                  strokeWidth="0.8"
+                                  strokeDasharray="3 3"
                                 />
                                 <text
-                                  x={paddingLeft - 8}
+                                  x={paddingLeft - 6}
                                   y={y + 3}
-                                  fill="var(--b-fg-4)"
-                                  fontSize="9"
+                                  fill={lvl.color}
+                                  fontSize="8"
+                                  fontWeight="bold"
                                   textAnchor="end"
                                   fontFamily="ui-monospace, monospace"
                                 >
-                                  {level}%
+                                  {lvl.grade}({lvl.val}%)
                                 </text>
                               </g>
                             );
@@ -3427,7 +3433,19 @@ export function MonitorView({
                         </div>
                         <div style={{ fontSize: 12.5, color: "var(--b-fg-2)", display: "flex", justifyContent: "space-between", gap: 15 }}>
                           <span>자세 건강 점수:</span>
-                          <strong style={{ color: "var(--b-sig)", fontSize: 13 }}>{hoveredLinePoint.score}점</strong>
+                          <strong style={{ color: "var(--b-sig)", fontSize: 13 }}>
+                            {hoveredLinePoint.score}점
+                            <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--b-fg-3)", marginLeft: 5 }}>
+                              ({(() => {
+                                const s = hoveredLinePoint.score;
+                                if (s >= 95) return "S등급";
+                                if (s >= 90) return "A등급";
+                                if (s >= 80) return "B등급";
+                                if (s >= 70) return "C등급";
+                                return "D등급";
+                              })()})
+                            </span>
+                          </strong>
                         </div>
                         <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
                           <span>착석 시간:</span>
