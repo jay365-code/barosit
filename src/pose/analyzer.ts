@@ -660,20 +660,22 @@ export function analyzeFrame(
   const tilt = ls.y - rs.y;
   // 고개를 돌릴 때의 어깨 뒤틀림 투영 왜곡을 방지하기 위해 공용 회전 댐핑을 적용합니다.
   const tiltDelta = Math.abs(tilt - baseline.shoulderTiltY) * commonYawDamping;
-  if (tiltDelta > 0.04 * thresholds.shoulder_tilt.sensitivity) {
+  // [측면 카메라 회전 false positive 차단] yawDelta 가 deadzone(15°) 을 넘은 회전 자세에서는 baseline 의 shoulderTiltY 가 현재 head yaw 와 좌표계 안 맞아 신호 신뢰 불가 → 발화 보류.
+  if (tiltDelta > 0.04 * thresholds.shoulder_tilt.sensitivity && yawDelta < FREE_YAW_RAD) {
     result.violations.add("shoulder_tilt");
   }
 
   // -- 4. Slouching --
   const widthRatio = shoulderWidth / baseline.shoulderWidth;
   const yDrop = shoulderMidY - baseline.shoulderMidY;
-  
+
   // 어깨가 미세하게 좁아지거나 타이핑 및 고개 회전에 의한 Y축 흔들림 노이즈에 덜 격동하도록 스케일을 너그럽게 완화합니다.
   const rawSlouchingScore =
     (1 - widthRatio) / 0.11 + yDrop / 0.055;
   const slouchingScore = rawSlouchingScore * commonYawDamping;
 
-  if (slouchingScore > thresholds.slouching.sensitivity) {
+  // [측면 카메라 회전 false positive 차단] 어깨폭과 어깨 mid Y 둘 다 head yaw 에 영향 받음 → 회전 자세에서 widthRatio/yDrop 신호 신뢰 불가.
+  if (slouchingScore > thresholds.slouching.sensitivity && yawDelta < FREE_YAW_RAD) {
     result.violations.add("slouching");
   }
 
@@ -735,9 +737,11 @@ export function analyzeFrame(
   }
   // 고개를 회전할 때 비대칭성이 크게 오인되는 2D 투영 오류를 방지하기 위해 공용 회전 댐핑을 주입합니다.
   const asymmetryScore = (tiltDirection + lateralShift) * commonYawDamping;
+  // [측면 카메라 회전 false positive 차단] signedTilt, lateralShift 모두 head yaw 회전 시 2D 투영으로 자연 변화 → 회전 자세에서 발화 보류.
   if (
     asymmetryScore > thresholds.shoulder_asymmetry.sensitivity &&
-    Math.abs(signedTilt) > 0.035 // 최소 유의미한 어깨 처짐 폭 완화 (이전 0.025)
+    Math.abs(signedTilt) > 0.035 && // 최소 유의미한 어깨 처짐 폭 완화 (이전 0.025)
+    yawDelta < FREE_YAW_RAD
   ) {
     result.violations.add("shoulder_asymmetry");
   }

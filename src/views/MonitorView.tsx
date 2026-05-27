@@ -414,7 +414,7 @@ export function MonitorView({
     [],
   );
   const [thresholdsState, setThresholdsState] = useState(() => loadThresholds());
-  const [viewMode, setViewMode] = useState<"violations" | "sitting">("violations");
+
 
   // 드로어에서 thresholds 변경 시 인라인 슬라이더도 즉시 반영
   useEffect(() => {
@@ -2677,55 +2677,8 @@ export function MonitorView({
                   marginTop: 2,
                 }}
               >
-                {viewMode === "violations" ? "시간대별 위반 추이" : "시간대별 착석 및 근무 시간"}
+                시간대별 착석 시간 및 위반 추이
               </div>
-            </div>
-
-            {/* Premium Segmented Control Toggle */}
-            <div
-              style={{
-                display: "flex",
-                background: "rgba(255, 255, 255, 0.04)",
-                padding: 3,
-                borderRadius: 10,
-                border: "1px solid rgba(255, 255, 255, 0.05)",
-                gap: 2,
-              }}
-            >
-              <button
-                onClick={() => setViewMode("violations")}
-                style={{
-                  padding: "5px 12px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  borderRadius: 8,
-                  border: "none",
-                  background: viewMode === "violations" ? "var(--b-surface-2)" : "transparent",
-                  color: viewMode === "violations" ? "var(--b-sig)" : "var(--b-fg-3)",
-                  boxShadow: viewMode === "violations" ? "0 2px 8px rgba(0, 0, 0, 0.2), 0 0 1px rgba(255, 255, 255, 0.1)" : "none",
-                  cursor: "pointer",
-                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                }}
-              >
-                자세 위반
-              </button>
-              <button
-                onClick={() => setViewMode("sitting")}
-                style={{
-                  padding: "5px 12px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  borderRadius: 8,
-                  border: "none",
-                  background: viewMode === "sitting" ? "var(--b-surface-2)" : "transparent",
-                  color: viewMode === "sitting" ? "var(--b-sig)" : "var(--b-fg-3)",
-                  boxShadow: viewMode === "sitting" ? "0 2px 8px rgba(0, 0, 0, 0.2), 0 0 1px rgba(255, 255, 255, 0.1)" : "none",
-                  cursor: "pointer",
-                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                }}
-              >
-                착석 시간
-              </button>
             </div>
 
             <button
@@ -2750,7 +2703,7 @@ export function MonitorView({
               상세 분석 리포트
             </button>
           </div>
-          <HourlyHeatmap yesterdayByHour={yesterdayByHour} viewMode={viewMode} />
+          <HourlyHeatmap yesterdayByHour={yesterdayByHour} />
           <div
             style={{
               marginTop: 14,
@@ -3604,8 +3557,8 @@ export function MonitorView({
     </div>
   );
 }
-function HourlyHeatmap({ yesterdayByHour, viewMode }: { yesterdayByHour: number[]; viewMode: "violations" | "sitting" }) {
-  // 00:00 ~ 24:00 (24개 슬롯 전체). 각 슬롯의 위반 수 혹은 착석 시간을 색·높이로 표시.
+function HourlyHeatmap({ yesterdayByHour }: { yesterdayByHour: number[] }) {
+  // 00:00 ~ 24:00 (24개 슬롯 전체). 각 슬롯에 착석 시간(배경 바)과 자세 위반(전경 바)을 중첩 표시.
   // 데이터가 적을 때는 어제 데이터를 옅게 함께 보여 비교 가능하게.
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -3717,21 +3670,16 @@ function HourlyHeatmap({ yesterdayByHour, viewMode }: { yesterdayByHour: number[
   const END = 24;
   const SLOTS = END - START;
 
-  const todayBuckets = Array.from({ length: SLOTS }, (_, i) => {
-    if (viewMode === "sitting") {
-      return activeDurationByHour[START + i] ?? 0;
-    }
-    return stats.byHour[START + i] ?? 0;
-  });
+  // 오늘/어제 착석 시간 (초)
+  const todaySittingBuckets = Array.from({ length: SLOTS }, (_, i) => activeDurationByHour[START + i] ?? 0);
+  const yesterdaySittingBuckets = Array.from({ length: SLOTS }, (_, i) => yesterdayActiveDurationByHour[START + i] ?? 0);
 
-  const yesterdayBuckets = Array.from({ length: SLOTS }, (_, i) => {
-    if (viewMode === "sitting") {
-      return yesterdayActiveDurationByHour[START + i] ?? 0;
-    }
-    return yesterdayByHour[START + i] ?? 0;
-  });
+  // 오늘/어제 자세 위반 횟수
+  const todayViolationBuckets = Array.from({ length: SLOTS }, (_, i) => stats.byHour[START + i] ?? 0);
+  const yesterdayViolationBuckets = Array.from({ length: SLOTS }, (_, i) => yesterdayByHour[START + i] ?? 0);
 
-  const max = viewMode === "sitting" ? 3600 : Math.max(1, ...todayBuckets, ...yesterdayBuckets);
+  // 위반 최댓값 산출 (바 높이 상대 스케일링용)
+  const maxViolations = Math.max(1, ...todayViolationBuckets, ...yesterdayViolationBuckets);
 
   // 현재 시간 소수점 및 가로 슬롯 위치(%) 계산
   const curHour = now.getHours();
@@ -3757,37 +3705,48 @@ function HourlyHeatmap({ yesterdayByHour, viewMode }: { yesterdayByHour: number[
           display: "flex",
           alignItems: "flex-end",
           gap: 4,
-          height: 82,
+          height: 132,
           marginBottom: 10,
           position: "relative", // 실시간 인디케이터 절대 정렬용
         }}
       >
-        {todayBuckets.map((v, i) => {
-          const ratio = v / max;
-          const h = Math.max(8, ratio * 60);
-          const yRatio = yesterdayBuckets[i] / max;
-          const yh = Math.max(4, yRatio * 60);
+        {todaySittingBuckets.map((vSitting, i) => {
+          const vViolation = todayViolationBuckets[i];
+          const ySitting = yesterdaySittingBuckets[i];
+          const yViolation = yesterdayViolationBuckets[i];
 
-          // 자세 위반 vs 착석 시간에 따라 색상 및 불투명도 계산
-          const color =
-            viewMode === "sitting"
-              ? v === 0
-                ? "rgba(255, 255, 255, 0.03)"
-                : "var(--b-sig)"
-              : ratio === 0
-                ? "var(--b-sig-soft)"
-                : ratio > 0.66
-                  ? "var(--b-warn)"
-                  : ratio > 0.33
-                    ? "var(--b-amber)"
-                    : "var(--b-sig)";
+          // 1. 착석 시간 바 높이 (최대 1시간(3,600초) 대비 비율, 데이터 없을 시 6px 가이드)
+          const sittingRatio = vSitting / 3600;
+          const hSitting = vSitting === 0 ? 6 : Math.max(8, sittingRatio * 100);
 
-          const opacity =
-            viewMode === "sitting"
-              ? v === 0
-                ? 1
-                : Math.max(0.4, ratio * 0.95)
-              : 0.9;
+          // 2. 자세 위반 바 높이 (최대 위반 횟수 대비 비율, 최소 높이 6px)
+          const violationRatio = vViolation / maxViolations;
+          const hViolations = Math.max(6, violationRatio * 100);
+
+          // 어제 데이터 높이 계산
+          const ySittingRatio = ySitting / 3600;
+          const yhSitting = ySitting === 0 ? 0 : Math.max(8, ySittingRatio * 100);
+          const yViolationRatio = yViolation / maxViolations;
+          const yhViolations = Math.max(6, yViolationRatio * 100);
+
+          // 자세 위반 빈도별 컬러 배정
+          const violationColor =
+            violationRatio === 0
+              ? "transparent"
+              : violationRatio > 0.66
+                ? "var(--b-warn)"
+                : violationRatio > 0.33
+                  ? "var(--b-amber)"
+                  : "var(--b-sig)";
+
+          const yesterdayViolationColor =
+            yViolationRatio === 0
+              ? "transparent"
+              : yViolationRatio > 0.66
+                ? "var(--b-warn)"
+                : yViolationRatio > 0.33
+                  ? "var(--b-amber)"
+                  : "var(--b-sig)";
 
           return (
             <div
@@ -3797,37 +3756,76 @@ function HourlyHeatmap({ yesterdayByHour, viewMode }: { yesterdayByHour: number[
               style={{
                 flex: 1,
                 position: "relative",
-                height: 60,
+                height: 100,
                 display: "flex",
                 alignItems: "flex-end",
+                justifyContent: "center", // 전경/배경 기둥 가로축 중앙 정렬
                 gap: 2,
                 cursor: "pointer",
-                transform: hoveredIdx === i ? "scaleY(1.05) scaleX(1.05)" : "none",
+                transform: hoveredIdx === i ? "scaleY(1.03) scaleX(1.03)" : "none",
                 filter: hoveredIdx === i ? "brightness(1.08)" : "none",
                 transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease",
                 zIndex: hoveredIdx === i ? 10 : 1,
               }}
             >
+              {/* [배경 바] 착석 시간 (더 넓고 은은함, 둥근 모서리) */}
               <div
                 style={{
-                  flex: 1,
-                  height: h,
-                  background: color,
-                  opacity: opacity,
-                  borderRadius: 2,
-                  transition: "height .3s ease, opacity .3s ease",
+                  width: "100%",
+                  height: hSitting,
+                  background: "var(--b-sig)",
+                  opacity: vSitting === 0 ? 0.06 : 0.28,
+                  borderRadius: 3,
+                  transition: "height .3s ease",
                 }}
               />
-              {yesterdayBuckets[i] > 0 && (
+
+              {/* [전경 바] 자세 위반 (더 좁고 선명함, 착석 바 내부에 중첩) */}
+              {vViolation > 0 && (
                 <div
                   style={{
-                    width: 2,
-                    height: yh,
-                    background: "var(--b-fg-4)",
-                    opacity: 0.5,
-                    borderRadius: 1,
+                    position: "absolute",
+                    bottom: 0,
+                    width: "45%",
+                    height: hViolations,
+                    background: violationColor,
+                    borderRadius: 2,
+                    opacity: 0.95,
+                    transition: "height .3s ease",
                   }}
                 />
+              )}
+
+              {/* [어제 가이드 선] 착석 시간(세로선) & 위반 횟수(선 위의 도트) */}
+              {(ySitting > 0 || yViolation > 0) && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    right: -1.5, // 슬롯 간격 우측 끝에 배치하여 충돌 방지
+                    width: 2.5,
+                    height: yhSitting,
+                    background: "var(--b-fg-4)",
+                    opacity: 0.45,
+                    borderRadius: 1,
+                  }}
+                >
+                  {/* 어제 자세 위반이 있다면 앵커 컬러 도트 렌더링 */}
+                  {yViolation > 0 && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: Math.max(0, yhViolations - 4), // 위반 횟수 지점에 도트 안착
+                        left: -1,
+                        width: 4.5,
+                        height: 4.5,
+                        borderRadius: "50%",
+                        background: yesterdayViolationColor,
+                        boxShadow: `0 0 6px ${yesterdayViolationColor}`,
+                      }}
+                    />
+                  )}
+                </div>
               )}
 
               {/* Elegant floating tooltip on hover */}
@@ -3840,8 +3838,8 @@ function HourlyHeatmap({ yesterdayByHour, viewMode }: { yesterdayByHour: number[
                     transform: "translateX(-50%) translateY(-8px)",
                     background: "var(--b-elev)",
                     border: "1px solid var(--b-line-2)",
-                    borderRadius: 8,
-                    padding: "8px 12px",
+                    borderRadius: 12,
+                    padding: "10px 14px",
                     boxShadow: "var(--b-shadow-elev)",
                     zIndex: 100,
                     pointerEvents: "none",
@@ -3849,66 +3847,37 @@ function HourlyHeatmap({ yesterdayByHour, viewMode }: { yesterdayByHour: number[
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "flex-start",
-                    gap: 4,
+                    gap: 6,
                     animation: "b-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
                   }}
                 >
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--b-fg-1)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--b-fg-1)", marginBottom: 2 }}>
                     {START + i}:00 ~ {START + i + 1}:00
                   </div>
-                  {viewMode === "sitting" ? (
-                    <>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: "var(--b-sig)",
-                          }}
-                        />
-                        오늘 착석: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{formatSeatingTime(v)}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)" }}>
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: "var(--b-fg-4)",
-                            opacity: 0.6,
-                          }}
-                        />
-                        어제 착석: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{formatSeatingTime(yesterdayBuckets[i])}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: v > 0 ? color : "var(--b-sig-soft)",
-                          }}
-                        />
-                        오늘: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{v}회</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)" }}>
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: "var(--b-fg-4)",
-                            opacity: 0.6,
-                          }}
-                        />
-                        어제: <span className="b-num" style={{ fontWeight: 700, marginLeft: 2 }}>{yesterdayBuckets[i]}회</span>
-                      </div>
-                    </>
-                  )}
+                  
+                  {/* 오늘 상세 착석 & 위반 피드백 */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3, paddingBottom: 4, borderBottom: "1px solid rgba(255, 255, 255, 0.06)", width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--b-sig)" }} />
+                      오늘 착석: <span className="b-num" style={{ fontWeight: 700 }}>{formatSeatingTime(vSitting)}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-2)" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: vViolation > 0 ? violationColor : "rgba(255, 255, 255, 0.15)" }} />
+                      오늘 위반: <span className="b-num" style={{ fontWeight: 700, color: vViolation > 0 ? violationColor : "inherit" }}>{vViolation}회</span>
+                    </div>
+                  </div>
+
+                  {/* 어제 상세 착석 & 위반 피드백 */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3, width: "100%", paddingTop: 2 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)", opacity: 0.85 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--b-fg-4)", opacity: 0.5 }} />
+                      어제 착석: <span className="b-num" style={{ fontWeight: 700 }}>{formatSeatingTime(ySitting)}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--b-fg-3)", opacity: 0.85 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: yViolation > 0 ? yesterdayViolationColor : "rgba(255, 255, 255, 0.15)", opacity: 0.7 }} />
+                      어제 위반: <span className="b-num" style={{ fontWeight: 700 }}>{yViolation}회</span>
+                    </div>
+                  </div>
 
                   {/* Caret / Arrow */}
                   <div
@@ -4044,9 +4013,7 @@ function HourlyHeatmap({ yesterdayByHour, viewMode }: { yesterdayByHour: number[
         }}
       >
         <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>
-          {viewMode === "violations"
-            ? "* 09:00 ~ 21:00 사이의 실시간 자세 위반 추이가 모니터링됩니다."
-            : "* 사용자가 실제로 자리에 앉아 집중하고 근무한 실시간 누적 시간입니다."}
+          * 넓은 기둥은 시간대별 집중(착석) 시간이며, 내부의 진한 기둥은 자세 위반 횟수입니다.
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span
