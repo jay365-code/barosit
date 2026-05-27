@@ -2968,6 +2968,7 @@ export function MonitorView({
             yesterdayByHour={yesterdayByHour}
             activeDurationByHour={activeDurationByHour}
             yesterdayActiveDurationByHour={yesterdayActiveDurationByHour}
+            goodDurationByHour={goodDurationByHour}
           />
           <div
             style={{
@@ -4670,12 +4671,14 @@ interface HourlyHeatmapProps {
   yesterdayByHour: number[];
   activeDurationByHour: number[];
   yesterdayActiveDurationByHour: number[];
+  goodDurationByHour: number[];
 }
 
 function HourlyHeatmap({
   yesterdayByHour,
   activeDurationByHour,
   yesterdayActiveDurationByHour,
+  goodDurationByHour,
 }: HourlyHeatmapProps) {
   // 00:00 ~ 24:00 (24개 슬롯 전체). 각 슬롯에 착석 시간(배경 바)과 자세 위반(전경 바)을 중첩 표시.
   // 데이터가 적을 때는 어제 데이터를 옅게 함께 보여 비교 가능하게.
@@ -4773,15 +4776,19 @@ function HourlyHeatmap({
           const yViolationRatio = yViolation / maxViolations;
           const yhViolations = Math.max(6, yViolationRatio * 100);
 
-          // 자세 위반 빈도별 컬러 배정
+          // 자세 위반 빈도별 컬러 배정 (바른 자세 유지율 연동)
+          const slotActiveSecs = vSitting;
+          const slotGoodSecs = goodDurationByHour[START + i] ?? 0;
+          const slotGoodRatio = slotActiveSecs > 0 ? (slotGoodSecs / slotActiveSecs) * 100 : 100;
+
           const violationColor =
-            violationRatio === 0
+            vViolation === 0
               ? "transparent"
-              : violationRatio > 0.66
-                ? "var(--b-warn)"
-                : violationRatio > 0.33
-                  ? "var(--b-amber)"
-                  : "var(--b-sig)";
+              : slotGoodRatio >= 90
+                ? "var(--b-sig)"   // NASA 중립 자세 기준 S/A 등급 (초록)
+                : slotGoodRatio >= 80
+                  ? "var(--b-amber)" // 근육 피로 누적 B 등급 (주황)
+                  : "var(--b-warn)";  // 척추 디스크 수직 부하 가중 C/D 등급 (빨강)
 
           const yesterdayViolationColor =
             yViolationRatio === 0
