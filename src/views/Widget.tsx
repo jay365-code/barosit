@@ -519,7 +519,7 @@ export function Widget() {
             <div
               data-tauri-drag-region
               onPointerDown={startDrag}
-              className={scoreJumped ? "b-pill-glow" : undefined}
+              className={`b-minibar-pill ${scoreJumped ? "b-pill-glow" : ""}`}
               style={{
                 alignSelf: "flex-start",
                 display: "inline-flex",

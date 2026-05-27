@@ -443,6 +443,12 @@ html.is-tauri-transparent #root {
   background-color: transparent !important;
 }
 
+/* Tauri 투명 모드에서 WebKit 번짐 섀도우와 OS 네이티브 섀도우 충돌로 인한 버블 테두리 제거 */
+html.is-tauri-transparent .b-minibar-pill,
+html.is-tauri-transparent .b-toast-in {
+  box-shadow: none !important;
+}
+
 /* ========== Force light theme (used by widget — any OS / any backdrop) ========== */
 
 .b-force-light {
