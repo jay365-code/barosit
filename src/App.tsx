@@ -176,7 +176,33 @@ export default function App() {
   const [baseline, setBaseline] = useState<CalibrationBaseline | null>(() =>
     loadBaseline(),
   );
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused] = useState<boolean>(() => {
+    return localStorage.getItem("barosit:paused") === "true";
+  });
+
+  // paused 상태 동기화 (localStorage + storage 이벤트)
+  useEffect(() => {
+    localStorage.setItem("barosit:paused", String(paused));
+    try {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "barosit:paused",
+          newValue: String(paused),
+        })
+      );
+    } catch { /* noop */ }
+  }, [paused]);
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "barosit:paused") {
+        setPaused(e.newValue === "true");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const [, setStatus] = useState<PostureStatus>("good");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stretchCalibrateOpen, setStretchCalibrateOpen] = useState(false);

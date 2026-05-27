@@ -5,6 +5,9 @@ import { listen as tauriListen } from "@tauri-apps/api/event";
 import {
   isMinibarVisible,
   onAlertFired,
+  onPauseEvent,
+  onResumeEvent,
+  onTogglePauseEvent,
   onWidgetState,
   switchToMainMode,
   type WidgetState,
@@ -107,6 +110,61 @@ export function Widget() {
     pose: null,
     breakStatus: null,
   });
+  const [paused, setPaused] = useState<boolean>(() => {
+    return localStorage.getItem("barosit:paused") === "true";
+  });
+
+  // ─── 모니터링 일시정지 상태 동기화 및 단축키(Space) ──────────────────
+  useEffect(() => {
+    localStorage.setItem("barosit:paused", String(paused));
+    try {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "barosit:paused",
+          newValue: String(paused),
+        })
+      );
+    } catch { /* noop */ }
+  }, [paused]);
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "barosit:paused") {
+        setPaused(e.newValue === "true");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  useEffect(() => {
+    let unsubPause: (() => void) | undefined;
+    let unsubResume: (() => void) | undefined;
+    let unsubTogglePause: (() => void) | undefined;
+
+    onPauseEvent(() => setPaused(true)).then((u) => (unsubPause = u));
+    onResumeEvent(() => setPaused(false)).then((u) => (unsubResume = u));
+    onTogglePauseEvent(() => setPaused((p) => !p)).then((u) => (unsubTogglePause = u));
+
+    return () => {
+      unsubPause?.();
+      unsubResume?.();
+      unsubTogglePause?.();
+    };
+  }, []);
+
+  // 위젯 윈도우 포커스 상태일 때 Space 키로 일시정지/재개 토글
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        setPaused((p) => !p);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const { displayed: tweenedScore, jumped: scoreJumped } = useScoreTween(
     state.score,
   );
@@ -162,7 +220,7 @@ export function Widget() {
   const expandedOpen = hover || !!alertExpand;
   useEffect(() => {
     const win = getCurrentWindow();
-    const compact = new LogicalSize(220, 54);
+    const compact = new LogicalSize(250, 54);
     const expanded = new LogicalSize(340, 380);
     win.setSize(expandedOpen ? expanded : compact).catch(() => undefined);
   }, [expandedOpen]);
@@ -199,7 +257,7 @@ export function Widget() {
 
   const engine = useMonitoringEngine({
     enabled: engineActive,
-    paused: false,
+    paused: paused,
     visible: true,
   });
 
@@ -451,7 +509,7 @@ export function Widget() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 9,
-                padding: showCameraIcon ? "0 4px 0 12px" : "0 14px",
+                padding: "0 4px 0 12px",
                 height: 36,
                 borderRadius: 999,
                 background: "#ffffff",
@@ -535,6 +593,38 @@ export function Widget() {
                   {breakBadge.minutes}m
                 </span>
               )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPaused((p) => !p);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  border: 0,
+                  cursor: "pointer",
+                  background: paused ? PALETTE.sageSoft : "#fee2e2",
+                  color: paused ? PALETTE.sageDeep : "#b91c1c",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  transition: "background .12s ease, color .12s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = paused ? PALETTE.sage : "#fca5a5";
+                  e.currentTarget.style.color = "#fff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = paused ? PALETTE.sageSoft : "#fee2e2";
+                  e.currentTarget.style.color = paused ? PALETTE.sageDeep : "#b91c1c";
+                }}
+                title={paused ? "모니터링 재개" : "모니터링 일시정지"}
+              >
+                <Icon name={paused ? "play" : "pause"} size={12} />
+              </button>
               {showCameraIcon && (
                 <button
                   onClick={handleClick}
