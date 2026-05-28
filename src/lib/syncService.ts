@@ -367,6 +367,7 @@ export async function syncProfileToServer(): Promise<void> {
     }
 
     const updatePayload: any = {
+      id: userId,
       name: profile.name,
       work_env: profile.workEnv,
       updated_at: new Date().toISOString(),
@@ -378,13 +379,12 @@ export async function syncProfileToServer(): Promise<void> {
 
     const { error } = await supabase
       .from("profiles")
-      .update(updatePayload)
-      .eq("id", userId);
+      .upsert(updatePayload, { onConflict: "id" });
 
     if (error) {
-      console.error("[syncService] Profile upload failed:", error.message);
+      console.error("[syncService] Profile upload failed (upsert):", error.message);
     } else {
-      console.log("[syncService] User profile synced to cloud successfully.");
+      console.log("[syncService] User profile synced to cloud successfully (upsert).");
     }
   } catch (err) {
     console.error("[syncService] Exception in profile sync:", err);

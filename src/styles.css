@@ -663,6 +663,7 @@ html.is-tauri-transparent .b-toast-in {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 380px;
+  cursor: help;
 }
 .b-update-actions {
   display: flex;

@@ -25,7 +25,7 @@ export function UpdateNotice({ state, style }: Props) {
       <div className="b-update-notice b-update-error" style={style}>
         <div className="b-update-content">
           <div className="b-update-title">⚠ 오류 발생</div>
-          <div className="b-update-body">{error}</div>
+          <div className="b-update-body" title={error}>{error}</div>
         </div>
         <button
           className="b-btn b-btn-quiet"
@@ -43,7 +43,7 @@ export function UpdateNotice({ state, style }: Props) {
       <div className="b-update-notice b-update-info" style={style}>
         <div className="b-update-content">
           <div className="b-update-title">ℹ 알림</div>
-          <div className="b-update-body">{info}</div>
+          <div className="b-update-body" title={info}>{info}</div>
         </div>
         <button
           className="b-btn b-btn-quiet"
@@ -81,7 +81,7 @@ export function UpdateNotice({ state, style }: Props) {
           <div className="b-update-content">
             <div className="b-update-title">🚀 새 버전 {available.version} 사용 가능</div>
             {available.body && (
-              <div className="b-update-body">— {available.body.slice(0, 100)}</div>
+              <div className="b-update-body" title={available.body}>— {available.body}</div>
             )}
           </div>
           <div className="b-update-actions">

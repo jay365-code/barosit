@@ -80,6 +80,12 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [customAvatarError, setCustomAvatarError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 카카오 CDN 리소스 Mixed Content 차단 우회를 위해 HTTP를 HTTPS로 강제 변환하는 보안 헬퍼
+  const rawSocialAvatar = session?.user?.user_metadata?.avatar_url;
+  const socialAvatarUrl = rawSocialAvatar && rawSocialAvatar.startsWith("http://")
+    ? rawSocialAvatar.replace("http://", "https://")
+    : rawSocialAvatar;
+
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCustomAvatarError("");
     const file = e.target.files?.[0];
@@ -199,13 +205,12 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
   // 소셜 로그인 완료 시 디폴트 아바타(🪑) 상태라면 소셜 이미지(avatar_url)로 자동 교체 및 적용
   useEffect(() => {
-    if (session?.user?.user_metadata?.avatar_url) {
-      const socialAvatar = session.user.user_metadata.avatar_url;
+    if (socialAvatarUrl) {
       if (profile.avatar === "🪑" || !profile.avatar) {
-        setProfile((prev) => ({ ...prev, avatar: socialAvatar }));
+        setProfile((prev) => ({ ...prev, avatar: socialAvatarUrl }));
       }
     }
-  }, [session, profile.avatar]);
+  }, [socialAvatarUrl, profile.avatar]);
 
   // 프로필 실시간 변경 이벤트 감지 및 반영
   useEffect(() => {
@@ -1196,7 +1201,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     marginBottom: "16px",
                     marginTop: "8px"
                   }}>
-                    {session.user.user_metadata?.avatar_url ? (
+                    {socialAvatarUrl ? (
                       <div style={{
                         width: "56px",
                         height: "56px",
@@ -1207,7 +1212,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         flexShrink: 0
                       }}>
                         <img
-                          src={session.user.user_metadata.avatar_url}
+                          src={socialAvatarUrl}
                           alt="Social Profile"
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                           referrerPolicy="no-referrer"
@@ -1387,11 +1392,11 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                 <span>아바타</span>
               </div>
               <div className="profile-avatar-grid" style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
-                {session?.user?.user_metadata?.avatar_url && (
+                {socialAvatarUrl && (
                   <button
                     type="button"
                     className={`profile-avatar-cell ${
-                      profile.avatar === session.user.user_metadata.avatar_url ? "is-selected" : ""
+                      profile.avatar === socialAvatarUrl ? "is-selected" : ""
                     }`}
                     style={{
                       width: 40,
@@ -1399,7 +1404,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       borderRadius: "50%",
                       overflow: "hidden",
                       padding: 0,
-                      border: profile.avatar === session.user.user_metadata.avatar_url 
+                      border: profile.avatar === socialAvatarUrl 
                         ? "2px solid #5b8c7a" 
                         : "2px solid var(--b-border-translucent, rgba(255,255,255,0.1))",
                       boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
@@ -1409,11 +1414,11 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       cursor: "pointer",
                       transition: "transform 0.2s, border-color 0.2s"
                     }}
-                    onClick={() => update("avatar", session.user.user_metadata.avatar_url)}
+                    onClick={() => update("avatar", socialAvatarUrl)}
                     aria-label="소셜 프로필 이미지"
                   >
                     <img
-                      src={session.user.user_metadata.avatar_url}
+                      src={socialAvatarUrl}
                       alt="Social Avatar"
                       style={{
                         width: "100%",

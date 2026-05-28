@@ -521,7 +521,10 @@ export function MonitorView({
       try {
         const { supabase } = await import("../auth/supabase");
         const { data: { session } } = await supabase.auth.getSession();
-        const socialAvatar = session?.user?.user_metadata?.avatar_url;
+        const rawAvatar = session?.user?.user_metadata?.avatar_url;
+        const socialAvatar = rawAvatar && rawAvatar.startsWith("http://")
+          ? rawAvatar.replace("http://", "https://")
+          : rawAvatar;
         if (socialAvatar && (profile.avatar === "🪑" || !profile.avatar)) {
           const { saveProfile } = await import("../userProfile");
           saveProfile({
