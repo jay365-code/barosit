@@ -429,11 +429,26 @@ export default function App() {
         setPaused((p) => !p);
       }
     };
-
+ 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
+  }, []);
+
+  // 4.5. 앱 새로고침 단축키(Cmd+R, Ctrl+R, F5) 바인딩 Effect
+  useEffect(() => {
+    const handleReloadKey = (e: KeyboardEvent) => {
+      if (
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") ||
+        e.key === "F5"
+      ) {
+        e.preventDefault();
+        window.location.reload();
+      }
+    };
+    window.addEventListener("keydown", handleReloadKey);
+    return () => window.removeEventListener("keydown", handleReloadKey);
   }, []);
 
   // 5. URL 해시 변경 실시간 리스너 Effect

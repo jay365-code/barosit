@@ -1165,6 +1165,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                           src={session.user.user_metadata.avatar_url}
                           alt="Social Profile"
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          referrerPolicy="no-referrer"
                         />
                       </div>
                     ) : (
@@ -1295,6 +1296,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         objectFit: "cover",
                         borderRadius: "50%"
                       }}
+                      referrerPolicy="no-referrer"
                     />
                   </button>
                 )}
