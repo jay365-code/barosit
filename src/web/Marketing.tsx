@@ -3294,7 +3294,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
     os === "mac"
       ? {
           name: "macOS",
-          file: `Barosit-${currentVer}.dmg`,
+          file: `BaroSit_${currentVer}_universal.dmg`,
           size: "38 MB",
           req: "macOS 12.0 (Monterey) 이상 · Apple Silicon · Intel",
           other: "Windows",
@@ -3303,7 +3303,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
         }
       : {
           name: "Windows",
-          file: `Barosit-Setup-${currentVer}.exe`,
+          file: `BaroSit_${currentVer}_x64-setup.exe`,
           size: "42 MB",
           req: "Windows 10 64-bit 이상 · x64 · ARM64",
           other: "macOS",
@@ -3333,6 +3333,8 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
       window.location.hash = "#/pricing";
     } else {
       alert(`🎉 PRO 회원 인증 성공! ${m.name} 설치 프로그램(${m.file}) 다운로드를 시작합니다.`);
+      const downloadUrl = `https://github.com/jay365-code/barosit/releases/download/v${currentVer}/${m.file}`;
+      window.location.href = downloadUrl;
     }
   };
 
