@@ -58,73 +58,123 @@ export function useAuth() {
     const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
 
     if (isTauri) {
-      try {
-        console.warn(`[Tauri OAuth] Requesting authorize URL for ${provider}...`);
-        
-        // Supabase에서 구글/카카오 공식 인가 페이지 주소를 낚아챕니다.
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider,
-          options: {
-            redirectTo: "https://barosit.com/#/auth/callback",
-            skipBrowserRedirect: true,
-            queryParams: provider === "google" || provider === "kakao" ? {
-              prompt: "select_account"
-            } : undefined
-          },
-        });
+      // ─── Tauri OAuth (deep-link 기반) ─────────────────────────────────────
+      // 1. PKCE 흐름으로 supabase 가 code_verifier 를 main webview localStorage
+      //    (tauri://localhost) 에 저장하고 authorize URL 반환.
+      // 2. 외부 기본 브라우저에서 그 URL 을 염. provider 인증 완료 후 provider
+      //    가 supabase callback 으로 redirect, supabase 가 다시 barosit://
+      //    스킴으로 redirect.
+      // 3. OS 가 barosit:// 를 본 앱으로 라우팅 → deep-link 플러그인이
+      //    onOpenUrl 이벤트 발행 → 같은 main webview 의 supabase client 가
+      //    저장된 verifier 로 exchangeCodeForSession 실행 → 세션 확립.
+      //
+      // 이전 in-app popup 방식은 popup webview 가 https://barosit.com origin
+      // 으로 redirect 되면서 세션이 거기 갇히고 main (tauri://localhost) 에서
+      // origin 격리 때문에 영원히 못 읽는 구조적 결함이 있었음 — 폐기.
 
-        if (error) throw error;
-        if (!data?.url) throw new Error("인증 주소를 생성하지 못했습니다.");
+      const { onOpenUrl } = await import("@tauri-apps/plugin-deep-link");
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
 
-        console.log(`[Tauri OAuth] Spawn popup with authorize URL: ${data.url}`);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: "barosit://auth-callback",
+          skipBrowserRedirect: true,
+          queryParams: provider === "google" || provider === "kakao" ? {
+            prompt: "select_account",
+          } : undefined,
+        },
+      });
 
-        const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-        const existing = await WebviewWindow.getByLabel("oauth-login");
-        if (existing) {
-          console.log("[Tauri OAuth] Closing existing oauth-login window label...");
-          await existing.close();
-        }
+      if (error) throw error;
+      if (!data?.url) throw new Error("인증 주소를 생성하지 못했습니다.");
 
-        // 팝업창은 앱 리소스를 최초 기동하지 않고 오직 순수 구글/카카오 로그인 폼만 띄우므로 이중 렌더링이 불가능합니다.
-        new WebviewWindow("oauth-login", {
-          url: data.url,
-          title: `${provider === "kakao" ? "카카오" : provider === "google" ? "Google" : "Apple"} 로그인`,
-          width: 500,
-          height: 650,
-          resizable: true,
-          alwaysOnTop: true,
-          focus: true,
-        });
+      // deep-link 콜백 대기 — listener 등록 → 외부 브라우저 open → URL 도착까지 await.
+      // listener 는 await 가 끝난 시점 (성공/실패/timeout) 에 모두 정리.
+      const sessionPromise = new Promise<void>((resolve, reject) => {
+        let unlisten: (() => void) | null = null;
+        let settled = false;
 
-        const checkInterval = setInterval(async () => {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            clearInterval(checkInterval);
-            console.log("[Tauri OAuth] Session established in main engine, closing login popup...");
-            const win = await WebviewWindow.getByLabel("oauth-login");
-            if (win) {
-              await win.close();
+        // 5분 timeout. provider 페이지에서 사용자가 충분히 인증할 시간 확보.
+        const timeoutId = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          unlisten?.();
+          reject(new Error("로그인 시간이 초과되었습니다. 다시 시도해주세요."));
+        }, 5 * 60 * 1000);
+
+        onOpenUrl(async (urls) => {
+          // 한 이벤트에 여러 URL 이 올 수 있음 — barosit://auth-callback 만 필터.
+          const url = urls.find((u) => u.startsWith("barosit://auth-callback"));
+          if (!url) return;
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeoutId);
+          unlisten?.();
+
+          try {
+            // custom scheme URL 은 표준 URL 파서가 일관되지 않으므로 수동 파싱.
+            // barosit://auth-callback?code=XXX&state=YYY 형태 (PKCE).
+            const queryIdx = url.indexOf("?");
+            const query = queryIdx === -1
+              ? new URLSearchParams()
+              : new URLSearchParams(url.slice(queryIdx + 1));
+
+            const errParam = query.get("error_description") ?? query.get("error");
+            if (errParam) {
+              throw new Error(decodeURIComponent(errParam));
             }
-            window.location.reload();
+
+            const code = query.get("code");
+            if (!code) {
+              throw new Error("인증 응답에 code 파라미터가 없습니다.");
+            }
+
+            const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeErr) throw exchangeErr;
+
+            // 메인 윈도우 포커스 — 사용자가 브라우저에서 돌아오게 안내.
+            try {
+              const { getCurrentWindow } = await import("@tauri-apps/api/window");
+              const win = getCurrentWindow();
+              await win.unminimize();
+              await win.show();
+              await win.setFocus();
+            } catch {
+              /* 포커스 실패는 치명적이지 않음 */
+            }
+
+            resolve();
+          } catch (err) {
+            reject(err);
           }
-        }, 1000);
+        }).then((u) => {
+          unlisten = u;
+          // 등록 전에 이미 settled (예: timeout 즉시 발생) 면 곧장 정리.
+          if (settled) u();
+        }).catch((err) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeoutId);
+          reject(err);
+        });
+      });
 
-        setTimeout(() => {
-          clearInterval(checkInterval);
-        }, 600000);
+      // 외부 브라우저에서 provider 인증 페이지 열기.
+      await openUrl(data.url);
 
-      } catch (err) {
-        console.error("[Tauri OAuth Error]", err);
-        throw err;
-      }
+      // 콜백이 돌아올 때까지 await — 호출자 (ProfileView 등) 의 loginLoading 이
+      // 실제 세션 확립까지 유지되도록 함.
+      await sessionPromise;
     } else {
+      // ─── 웹 (PKCE, full-page redirect) ───────────────────────────────────
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: authRedirectUrl(),
           queryParams: provider === "google" || provider === "kakao" ? {
-            prompt: "select_account"
-          } : undefined
+            prompt: "select_account",
+          } : undefined,
         },
       });
       if (error) throw error;

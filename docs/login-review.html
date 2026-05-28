@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BaroSit 소셜 로그인 코드 리뷰 — Web / macOS / Windows</title>
+<style>
+  :root {
+    --bg: #0f1113;
+    --panel: #161a1e;
+    --panel-2: #1d2228;
+    --line: #2a3038;
+    --fg: #e6ebf0;
+    --fg-2: #aab3bd;
+    --fg-3: #6f7882;
+    --sig: #7eb09c;
+    --sig-deep: #5b8c7a;
+    --crit: #e15554;
+    --high: #e89b4a;
+    --med: #e6c34a;
+    --low: #6aa1d6;
+    --ok: #7eb09c;
+    --code-bg: #0b0d0f;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+    line-height: 1.55;
+    font-size: 14.5px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 32px 96px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 36px; }
+  header .eyebrow { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sig); font-weight: 700; }
+  header h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin: 10px 0 8px; }
+  header .meta { color: var(--fg-3); font-size: 13px; }
+  header .meta strong { color: var(--fg-2); font-weight: 600; }
+
+  h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.015em; margin: 48px 0 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 { font-size: 16px; font-weight: 700; margin: 24px 0 8px; }
+  p { color: var(--fg); margin: 8px 0; }
+  ul, ol { color: var(--fg); padding-left: 22px; }
+  ul li, ol li { margin: 4px 0; }
+
+  code, pre { font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 13px; }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; color: #d5dde5; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); padding: 14px 16px; border-radius: 8px; overflow-x: auto; color: #d5dde5; }
+  a { color: var(--sig); }
+
+  .summary-grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(4, 1fr);
+    margin: 16px 0 8px;
+  }
+  .stat {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat .n { font-size: 28px; font-weight: 800; }
+  .stat .l { font-size: 12px; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+  .stat.crit .n { color: var(--crit); }
+  .stat.high .n { color: var(--high); }
+  .stat.med .n { color: var(--med); }
+  .stat.low .n { color: var(--low); }
+
+  .matrix {
+    width: 100%; border-collapse: collapse; margin: 16px 0;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  }
+  .matrix th, .matrix td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .matrix th { background: var(--panel-2); color: var(--fg-2); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .matrix tr:last-child td { border-bottom: none; }
+  .matrix .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: -0.005em; }
+  .pill.ok { background: rgba(126,176,156,0.16); color: var(--ok); }
+  .pill.broken { background: rgba(225,85,84,0.16); color: var(--crit); }
+  .pill.partial { background: rgba(232,155,74,0.16); color: var(--high); }
+  .pill.na { background: rgba(111,120,130,0.16); color: var(--fg-3); }
+
+  .finding { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin: 16px 0; }
+  .finding .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .sev { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; }
+  .sev.crit { background: var(--crit); color: #fff; }
+  .sev.high { background: var(--high); color: #1a1a1a; }
+  .sev.med  { background: var(--med); color: #1a1a1a; }
+  .sev.low  { background: var(--low); color: #fff; }
+  .finding .id { font-size: 12px; color: var(--fg-3); font-family: ui-monospace, monospace; }
+  .finding h3 { margin: 0; font-size: 16px; }
+  .finding .meta { font-size: 12.5px; color: var(--fg-3); margin: 4px 0 10px; }
+  .finding .meta code { font-size: 12px; }
+  .finding .affects { font-size: 12px; color: var(--fg-2); margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .finding .affects b { color: var(--fg); }
+
+  .kbd { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 11.5px; font-family: ui-monospace, monospace; }
+
+  .toc { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; margin: 0 0 32px; }
+  .toc ol { margin: 6px 0 0; padding-left: 22px; }
+  .toc a { color: var(--fg); text-decoration: none; }
+  .toc a:hover { color: var(--sig); }
+
+  .callout {
+    background: rgba(225,85,84,0.06); border: 1px solid rgba(225,85,84,0.3);
+    border-left: 4px solid var(--crit);
+    border-radius: 6px; padding: 14px 18px; margin: 16px 0;
+  }
+  .callout .label { color: var(--crit); font-weight: 800; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--fg-3); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Code Review</div>
+  <h1>BaroSit 소셜 로그인 — 3 클라이언트 정밀 리뷰</h1>
+  <div class="meta">
+    리뷰 대상 · <strong>Web (Vite + barosit.com)</strong> / <strong>macOS Tauri 앱</strong> / <strong>Windows Tauri 앱</strong><br>
+    검토 범위 · <code>src/auth/</code>, <code>src/web/Marketing.tsx</code>, <code>src/views/ProfileView.tsx</code>, <code>src/App.tsx</code>, <code>src-tauri/</code><br>
+    작성일 · 2026-05-28
+  </div>
+</header>
+
+<div class="toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#summary">요약 — 한눈에 보기</a></li>
+    <li><a href="#matrix">클라이언트 × Provider 동작 매트릭스</a></li>
+    <li><a href="#architecture">아키텍처 개요 — 두 갈래 flow</a></li>
+    <li><a href="#critical">치명적 결함 (Critical)</a></li>
+    <li><a href="#high">중대 결함 (High)</a></li>
+    <li><a href="#medium">중간 결함 (Medium)</a></li>
+    <li><a href="#low">낮은 결함 (Low)</a></li>
+    <li><a href="#recommend">권장 수정 로드맵</a></li>
+  </ol>
+</div>
+
+<h2 id="summary">1. 요약 — 한눈에 보기</h2>
+
+<div class="summary-grid">
+  <div class="stat crit"><div class="n">3</div><div class="l">Critical</div></div>
+  <div class="stat high"><div class="n">4</div><div class="l">High</div></div>
+  <div class="stat med"><div class="n">7</div><div class="l">Medium</div></div>
+  <div class="stat low"><div class="n">6</div><div class="l">Low</div></div>
+</div>
+
+<div class="callout">
+  <div class="label">핵심 결론</div>
+  <p style="margin:0;"><b>macOS 앱과 Windows 앱의 소셜 로그인은 현재 구조상 절대 성공할 수 없습니다.</b>
+  Tauri 코드 경로가 OAuth 팝업을 <code>https://barosit.com</code>(웹 origin)으로 보내고, 메인 앱은 <code>tauri://localhost</code>(다른 origin) 의 자기 <code>localStorage</code>만 polling 합니다. <b>두 origin 의 localStorage 는 브라우저 표준상 격리</b>되어 있어, 팝업에 세션이 만들어져도 메인은 영원히 찾지 못합니다. 폴링은 10분 후 조용히 종료되고 사용자는 무한 로딩만 봅니다. 웹은 PKCE 표준 경로라 동작합니다.</p>
+</div>
+
+<p>현재 UI 에 노출된 provider 는 <b>Google + Kakao</b> 두 개뿐입니다. <code>signInWithApple</code>, <code>signInWithNaver</code>, <code>signInWithLine</code> 은 <code>useAuth.ts</code> 에서 export 만 되어 있고 어떤 화면에서도 호출되지 않는 dead export 입니다. Naver/Line 은 그 자체로 Supabase 가 지원하지 않는 provider 라 <code>as any</code> cast 로 타입 검사를 우회한 상태입니다.</p>
+
+<h2 id="matrix">2. 클라이언트 × Provider 동작 매트릭스</h2>
+
+<table class="matrix">
+  <thead>
+    <tr>
+      <th style="width:18%">Provider</th>
+      <th>Web (PKCE)</th>
+      <th>macOS Tauri</th>
+      <th>Windows Tauri</th>
+      <th>UI 노출</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Google</td>
+      <td><span class="pill ok">동작</span></td>
+      <td><span class="pill broken">세션 전달 불가</span></td>
+      <td><span class="pill broken">세션 전달 불가</span></td>
+      <td>O</td>
+    </tr>
+    <tr>
+      <td>Kakao</td>
+      <td><span class="pill ok">동작</span></td>
+      <td><span class="pill broken">세션 전달 불가</span></td>
+      <td><span class="pill broken">세션 전달 불가</span></td>
+      <td>O</td>
+    </tr>
+    <tr>
+      <td>Apple</td>
+      <td><span class="pill na">미노출</span></td>
+      <td><span class="pill broken">세션 전달 불가 + Apple 특수 요건 미처리</span></td>
+      <td><span class="pill broken">세션 전달 불가</span></td>
+      <td>X (dead export)</td>
+    </tr>
+    <tr>
+      <td>Naver</td>
+      <td><span class="pill broken">Supabase 미지원</span></td>
+      <td><span class="pill broken">Supabase 미지원</span></td>
+      <td><span class="pill broken">Supabase 미지원</span></td>
+      <td>X (dead export)</td>
+    </tr>
+    <tr>
+      <td>Line</td>
+      <td><span class="pill broken">Supabase 미지원</span></td>
+      <td><span class="pill broken">Supabase 미지원</span></td>
+      <td><span class="pill broken">Supabase 미지원</span></td>
+      <td>X (dead export)</td>
+    </tr>
+    <tr>
+      <td>Magic Link (Email)</td>
+      <td><span class="pill ok">동작</span></td>
+      <td><span class="pill broken">콜백 URL 이 tauri:// 스킴 → 브라우저가 열 수 없음</span></td>
+      <td><span class="pill broken">동상</span></td>
+      <td>X</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="architecture">3. 아키텍처 개요 — 두 갈래 flow</h2>
+
+<p><b>웹</b> 은 표준 PKCE — <code>signInWithOAuth</code> 가 같은 탭을 provider 페이지로 full-page redirect, provider 가 <code>https://barosit.com/#/auth/callback</code> 으로 돌려보냄. <code>detectSessionInUrl: true</code> 가 코드를 exchange 하고 <code>AuthCallback</code> 이 보조로 한 번 더 시도. (<code>src/auth/supabase.ts:20-29</code>, <code>src/web/Marketing.tsx:779-832</code>) — 표준대로면 문제없음.</p>
+
+<p><b>Tauri (Mac/Win)</b> 은 implicit flow 로 시도 — <code>signInWithOAuth({ skipBrowserRedirect: true })</code> 로 authorize URL 만 받아서 새 <code>WebviewWindow("oauth-login")</code> 에 띄움. 메인 앱은 <code>setInterval</code> 로 매 1초 <code>supabase.auth.getSession()</code> 폴링. 세션 잡히면 팝업 닫고 메인 <code>window.location.reload()</code>. (<code>src/auth/useAuth.ts:54-132</code>)</p>
+
+<pre>┌─────────────┐    spawn popup     ┌──────────────────────┐
+│  main app   │ ─────────────────► │  oauth-login popup   │
+│ tauri://    │                    │  https://accounts... │
+│ localhost   │                    └──────────┬───────────┘
+│             │                               │ OAuth 완료
+│ getSession  │                               ▼
+│  polling    │                    ┌──────────────────────┐
+│  every 1s   │ ◄─ ❌ origin 격리   │  https://barosit.com │
+│             │     localStorage    │  /#/auth/callback     │
+└─────────────┘     찾을 수 없음    │  session 저장 (여기) │
+                                   └──────────────────────┘</pre>
+
+<p>이 다이어그램이 <a href="#fc1">CRIT-1</a> 의 본질입니다. <b>session 은 팝업의 <code>https://barosit.com</code> origin localStorage 에 들어가고, 메인 앱의 supabase client 는 <code>tauri://localhost</code> origin localStorage 만 읽음.</b> 둘은 영구히 만나지 않습니다.</p>
+
+<h2 id="critical">4. 치명적 결함 (Critical)</h2>
+
+<div class="finding" id="fc1">
+  <div class="head"><span class="sev crit">CRITICAL</span><span class="id">CRIT-1</span><h3>Tauri OAuth 가 메인 앱에 세션을 전달할 수 없음 (Mac + Windows 양쪽 모두 깨짐)</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:54-132</code></div>
+
+  <p><b>원인:</b> 팝업이 <code>https://barosit.com/#/auth/callback</code> 에 착륙 → 세션이 <code>barosit.com</code> origin 에 저장됨. 메인 앱은 <code>tauri://localhost</code> (또는 <code>http://tauri.localhost</code>) origin 의 supabase client 가 자기 origin 의 localStorage 만 읽음. <b>브라우저 표준상 origin-partitioned</b> 이라 메인은 영원히 세션을 볼 수 없음.</p>
+
+  <p><b>증상:</b> 사용자가 로그인 버튼을 누르면 팝업이 뜨고 OAuth provider 페이지에서 로그인까지는 성공함. 팝업이 barosit.com 으로 돌아간 뒤 멈춤 (팝업의 AuthCallback 은 <code>window.location.replace("#/app")</code> 로 자기 origin 의 /app 페이지로 이동만 함). 메인 앱은 calling loop 만 돌리다가 10분 timeout 으로 조용히 종료.</p>
+
+  <p><b>증거:</b></p>
+  <pre>// src/auth/useAuth.ts:65-74
+const { data, error } = await supabase.auth.signInWithOAuth({
+  provider,
+  options: {
+    redirectTo: "https://barosit.com/#/auth/callback",  // ← 웹 origin
+    skipBrowserRedirect: true,
+    ...
+  },
+});
+
+// src/auth/useAuth.ts:99-110
+const checkInterval = setInterval(async () => {
+  const { data: { session } } = await supabase.auth.getSession();  // ← tauri://localhost 의 storage
+  if (session?.user) { ... }
+}, 1000);</pre>
+
+  <p><b>올바른 해법 (택일):</b></p>
+  <ol>
+    <li><b>tauri-plugin-deep-link 도입</b> + 커스텀 스킴 (예: <code>barosit://auth-callback</code>) 등록. provider 에서 <code>barosit://</code> 로 직접 돌려보내고, Rust 측 deep-link handler 가 토큰을 받아 main webview 의 supabase client 에 <code>setSession()</code> 으로 주입. <b>업계 표준 — 가장 권장.</b></li>
+    <li><b>로컬 HTTP loopback 서버</b> 를 Rust 측에서 띄우고, redirect URL 을 <code>http://127.0.0.1:<port>/callback</code> 으로 설정. callback 받으면 IPC 로 main 에 전달. (Google CLI tools 가 쓰는 방식.)</li>
+    <li><b>팝업 webview 와 main webview 의 origin 통일</b> — 팝업도 <code>tauri://localhost/#/auth/callback</code> 으로 redirect. 그러나 Supabase/Google/Kakao 가 <code>tauri://</code> redirect 를 허용하지 않으므로 <b>현실적으로 불가</b>.</li>
+  </ol>
+
+  <div class="affects"><b>영향:</b> macOS 앱, Windows 앱 / <b>현재 사용자 영향:</b> 데스크탑 앱에서 로그인 자체가 불가</div>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev crit">CRITICAL</span><span class="id">CRIT-2</span><h3>Naver / Line provider 가 Supabase 미지원인데 <code>as any</code> 로 우회</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:157-181</code></div>
+
+  <p>Supabase JS SDK v2 의 <code>Provider</code> union 에 <code>naver</code>, <code>line</code> 은 없음. 코드는 <code>provider: "naver" as any</code> 식으로 타입 검사를 우회. 호출되면 Supabase 서버가 "Unsupported provider" 로 4xx 반환.</p>
+
+  <p><b>현재 다행:</b> UI 에서 호출하는 곳이 없음 (dead export). 단 export 되어 있어 외부에서 사용 가능한 상태.</p>
+
+  <p><b>해법:</b> Naver/Line 을 정말 지원할 거면 Supabase Custom OIDC Provider 로 등록 + provider 측 client 설정 필요. 아니라면 dead code 제거.</p>
+
+  <div class="affects"><b>영향:</b> 전 클라이언트 / <b>현재 사용자 영향:</b> 0 (UI 미노출). 다만 향후 잘못 노출되면 즉시 사용자 에러.</div>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev crit">CRITICAL</span><span class="id">CRIT-3</span><h3>Tauri Apple OAuth 는 일반 OAuth 와 다른 요건을 충족 못 함</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:54</code> (provider union 에 <code>"apple"</code> 포함)</div>
+
+  <p>Apple Sign In 은:</p>
+  <ul>
+    <li>Services ID 와 native App ID 가 다름. 데스크탑에서 OAuth 흐름으로 가려면 Services ID + HTTPS redirect 필요 (Apple 정책).</li>
+    <li><code>prompt=select_account</code> 가 무의미하고 query param 처리도 다름 (코드는 google/kakao 만 분기 — 이건 OK).</li>
+    <li>CRIT-1 의 origin 격리 문제는 동일.</li>
+  </ul>
+
+  <p><b>현재 다행:</b> UI 에 Apple 버튼이 없어 호출 불가.</p>
+
+  <div class="affects"><b>영향:</b> Tauri 양쪽 / <b>현재 사용자 영향:</b> 0 (UI 미노출).</div>
+</div>
+
+<h2 id="high">5. 중대 결함 (High)</h2>
+
+<div class="finding">
+  <div class="head"><span class="sev high">HIGH</span><span class="id">HIGH-1</span><h3>Tauri 팝업이 자동으로 닫히지 않음</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:99-110</code></div>
+  <p>팝업 닫힘 조건이 메인의 polling 이 세션을 잡은 다음. CRIT-1 때문에 영영 안 잡힘 → 팝업은 사용자가 수동으로 닫을 때까지 표시. <code>alwaysOnTop: true</code> 라 다른 작업을 가림.</p>
+  <div class="affects"><b>영향:</b> Mac / Windows</div>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev high">HIGH</span><span class="id">HIGH-2</span><h3>ProfileView 의 "popup sandbox" auto-trigger 는 unreachable + 위험</h3></div>
+  <div class="meta">파일 · <code>src/views/ProfileView.tsx:175-196</code></div>
+  <p>URL 에 <code>?is_popup=true&provider=google</code> 가 있으면 자동으로 <code>signInWithGoogle()</code> 호출. 그런데 <code>useAuth.ts</code> 가 팝업을 띄울 때 그 파라미터를 절대 붙이지 않음. 따라서 정상 흐름에서 도달 불가. 단 누군가 URL 을 조작해서 들어오면 <b>Tauri 팝업 안에서 또 팝업을 spawn</b> 하는 무한 재귀 위험. 죽은 코드 + 잠재적 푸트건.</p>
+  <div class="affects"><b>영향:</b> Mac / Windows / <b>현재 사용자 영향:</b> 0 (도달 경로 없음). 코드 단순화 차원에서 제거 권장.</div>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev high">HIGH</span><span class="id">HIGH-3</span><h3>Tauri redirectTo 가 <code>barosit.com</code> 으로 하드코딩 — 환경 무시</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:68</code></div>
+  <p>로컬 dev / staging / preview 어느 환경에서도 <b>무조건 production 웹</b> 으로 돌아감. staging Supabase 프로젝트로 테스트 불가능. <code>VITE_AUTH_REDIRECT_BASE</code> 같은 환경변수로 분기되어야 함.</p>
+  <div class="affects"><b>영향:</b> Mac / Windows 빌드 시 환경별 분리 불가</div>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev high">HIGH</span><span class="id">HIGH-4</span><h3>Supabase URL/anon key 가 하드코딩 — 에러 메시지는 .env.local 안내</h3></div>
+  <div class="meta">파일 · <code>src/auth/supabase.ts:3-4</code></div>
+  <p>코드는 URL/key 를 하드코딩하면서, 미설정 에러 메시지는 <code>".env.local 의 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 를 확인하세요"</code> 라고 안내. 모순. anon key 는 공개되어도 안전하지만 URL 까지 박혀 있어 env 분리가 원천 차단됨.</p>
+  <div class="affects"><b>영향:</b> 전 클라이언트 / 빌드/배포 위생 문제</div>
+</div>
+
+<h2 id="medium">6. 중간 결함 (Medium)</h2>
+
+<div class="finding">
+  <div class="head"><span class="sev med">MEDIUM</span><span class="id">MED-1</span><h3>App.tsx 의 auth callback 브릿지가 hash 만 보고 trigger</h3></div>
+  <div class="meta">파일 · <code>src/App.tsx:296-348</code></div>
+  <p><code>hash.includes("#/auth/callback")</code> 조건이 단순. URL 에 우연히 이 문자열이 섞이면 10초간 풀스크린 로딩 오버레이가 UI 차단. 데스크탑 정상 흐름에선 발생 안 하지만 방어적이지 못함.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev med">MEDIUM</span><span class="id">MED-2</span><h3>10분 polling timer 가 앱 lifecycle 과 분리</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:99-114</code></div>
+  <p><code>setInterval</code> 핸들이 effect 밖에 있어, 컴포넌트 unmount / window 닫힘 / 사용자가 로그인 취소해도 600초간 계속 폴링. 메모리 누수는 아니지만 불필요한 Supabase 호출 + 로그 노이즈.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev med">MEDIUM</span><span class="id">MED-3</span><h3>Tauri 팝업의 사용자 취소 이벤트 미처리</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:89-97</code></div>
+  <p>사용자가 팝업 X 버튼을 눌러도 메인 앱은 모름. <code>WebviewWindow</code> 의 close event listener 없음. 결과: <code>loginLoading</code> 같은 UI 상태가 영구히 busy.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev med">MEDIUM</span><span class="id">MED-4</span><h3>웹 PKCE 가 SDK 자동 + 수동 exchange 이중 시도</h3></div>
+  <div class="meta">파일 · <code>src/auth/supabase.ts:24</code> + <code>src/web/Marketing.tsx:803-813</code></div>
+  <p><code>detectSessionInUrl: true</code> 가 자동으로 code → session exchange. 그 후 <code>AuthCallback</code> 이 <code>!data.session</code> 일 때 또 한 번 <code>exchangeCodeForSession(code)</code> 시도. 보통은 first call 이 성공해 두 번째는 안 가지만, 순서 race 가 발생하면 두 번째가 "invalid grant" 로 실패하며 콘솔 오류. defensive 가드는 있으나 redundant 한 경로.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev med">MEDIUM</span><span class="id">MED-5</span><h3>ProfileView 의 <code>loginLoading</code> 이 OAuth 진행 중 풀림</h3></div>
+  <div class="meta">파일 · <code>src/views/ProfileView.tsx:683-741</code></div>
+  <p><code>await signInWithGoogle()</code> 가 Tauri 분기에선 팝업 spawn + interval 등록 후 <b>즉시 resolve</b>. <code>finally</code> 의 <code>setLoginLoading(false)</code> 가 곧장 실행 → 사용자 입장에서 진행 표시가 사라지지만 로그인은 안 끝남. UX 혼란.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev med">MEDIUM</span><span class="id">MED-6</span><h3>macOS Dock Reopen 만 처리 — Windows 트레이 reopen 미보완</h3></div>
+  <div class="meta">파일 · <code>src-tauri/src/lib.rs:368-380</code> · <code>src-tauri/src/tray.rs:52-65</code></div>
+  <p>Tray.rs 에서 Windows 트레이 클릭으로 <code>main:reopened</code> 를 emit 하긴 함 (<code>tray.rs:64</code>) — 매뉴얼하게 챙긴 것은 OK. 다만 <code>lib.rs</code> 주석은 macOS Reopen 만 다룸 → Windows 의 동등 경로가 tray 에 의존하는데 그 사실이 문서/주석에 명시 안 됨. 로그인 후 window reload 시점 등의 edge case 검증 필요.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev med">MEDIUM</span><span class="id">MED-7</span><h3><code>alwaysOnTop</code> 팝업이 Windows 에서 공격적</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:95</code></div>
+  <p>Mac 은 대체로 무난하나, Windows 에서 alwaysOnTop 팝업은 작업 가림 + 알림 위 표시 등 사용자 거슬림. 게다가 HIGH-1 으로 안 닫히면 더 심각.</p>
+</div>
+
+<h2 id="low">7. 낮은 결함 (Low)</h2>
+
+<div class="finding">
+  <div class="head"><span class="sev low">LOW</span><span class="id">LOW-1</span><h3>tauri-plugin-deep-link 미도입 + custom URL scheme 미등록</h3></div>
+  <div class="meta">파일 · <code>src-tauri/Cargo.toml</code>, <code>src-tauri/tauri.conf.json</code></div>
+  <p>OAuth 콜백을 native 앱으로 직접 받기 위한 표준 메커니즘 부재. CRIT-1 의 근본 해결이 이것 — Critical 로 격상 가능. 분류상 Low 는 "현재 구성 자체의 결함" 보다 "구조적 누락" 으로 표시.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev low">LOW</span><span class="id">LOW-2</span><h3>CSP <code>null</code> — OAuth 팝업이 임의 외부 URL 로드 + 스크립트 실행</h3></div>
+  <div class="meta">파일 · <code>src-tauri/tauri.conf.json:65</code></div>
+  <p>인증 흐름에 직접 영향은 없지만, 팝업 webview 가 외부 페이지를 띄우는 컨텍스트에서 CSP 부재는 XSS 표면 확대.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev low">LOW</span><span class="id">LOW-3</span><h3><code>authRedirectUrl()</code> 이 Tauri 에서 무용지물</h3></div>
+  <div class="meta">파일 · <code>src/auth/supabase.ts:31-38</code></div>
+  <p>Tauri 에서 호출되면 <code>window.location.origin</code> = <code>tauri://localhost</code> 로 평가 → 어떤 OAuth provider 에도 등록되지 않은 URL. <code>signInWithMagicLink</code>, <code>signInWithNaver</code>, <code>signInWithLine</code> 모두 이 함수를 쓰므로 Tauri 에서 호출 시 즉시 깨짐. (Google/Kakao 는 별도로 하드코딩 우회.)</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev low">LOW</span><span class="id">LOW-4</span><h3>OAuth 흐름에 console.log/warn 다수 — 프로덕션 로그 노이즈</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:62, 79, 84, 103, 117</code></div>
+  <p>디버그용 <code>console.warn("[Tauri OAuth] ...")</code> 가 production 빌드에도 남음. 정보 노출은 미미하나 위생 차원에서 정리.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev low">LOW</span><span class="id">LOW-5</span><h3>Magic link 가 Tauri 에선 동작 불가</h3></div>
+  <div class="meta">파일 · <code>src/auth/useAuth.ts:136-151</code></div>
+  <p>이메일 링크가 <code>authRedirectUrl()</code> = <code>tauri://localhost/...</code> 로 생성됨. 사용자 기본 브라우저는 <code>tauri://</code> 를 열 수 없음. UI 노출이 없어 현재 영향 0, 다만 dead 경로.</p>
+</div>
+
+<div class="finding">
+  <div class="head"><span class="sev low">LOW</span><span class="id">LOW-6</span><h3>OAuth 팝업 윈도우 라벨 capability 에 등록되어 있으나 명세 미정리</h3></div>
+  <div class="meta">파일 · <code>src-tauri/capabilities/default.json:5</code></div>
+  <p><code>"oauth-login"</code> 이 windows 배열에 들어 있음 — 동작에는 문제 없으나, OAuth 팝업 전용 capability 분리 (예: 외부 origin 만 접근하는 별도 permission set) 를 두는 게 더 깔끔.</p>
+</div>
+
+<h2 id="recommend">8. 권장 수정 로드맵</h2>
+
+<h3>Phase 1 — Tauri 로그인 부활 (Critical 해소)</h3>
+<ol>
+  <li><b>tauri-plugin-deep-link 도입.</b> Cargo.toml 에 <code>tauri-plugin-deep-link = "2"</code> 추가, <code>tauri.conf.json</code> 의 <code>plugins.deepLink.desktop.schemes: ["barosit"]</code> 등록. macOS 의 <code>Info.plist</code> 자동 생성 처리.</li>
+  <li><b>Supabase 대시보드 + Google/Kakao 콘솔에 추가 redirect URL 등록:</b> <code>barosit://auth-callback</code>.</li>
+  <li><b><code>useAuth.ts</code> 의 Tauri 분기 재작성:</b>
+    <ul>
+      <li><code>redirectTo</code> 를 <code>barosit://auth-callback</code> 으로 변경.</li>
+      <li>팝업 대신 <code>shell.open(data.url)</code> 로 사용자 기본 브라우저에서 OAuth 진행 (Tauri 표준 패턴).</li>
+      <li>Rust 측 deep-link handler 가 callback URL 의 토큰을 main webview 로 IPC emit.</li>
+      <li>main 의 supabase client 가 <code>supabase.auth.setSession({ access_token, refresh_token })</code> 으로 세션 주입.</li>
+    </ul>
+  </li>
+  <li>대안: 외부 브라우저 사용을 원치 않으면 <b>Rust 측 loopback HTTP 서버</b> 패턴 (port=0 으로 띄우고 그 port 를 redirectTo 에 동적 주입).</li>
+</ol>
+
+<h3>Phase 2 — 위생 (High 해소)</h3>
+<ul>
+  <li>HIGH-3: <code>VITE_AUTH_REDIRECT_BASE</code> env 도입, Tauri 빌드 시에도 정상 분기.</li>
+  <li>HIGH-4: Supabase URL 도 <code>import.meta.env</code> 에서 읽도록 통일. 에러 메시지와 동작 일치시킴.</li>
+  <li>HIGH-1, HIGH-2: deep-link 도입 후 자연 해소되거나 dead 코드로 정리.</li>
+</ul>
+
+<h3>Phase 3 — UX (Medium 해소)</h3>
+<ul>
+  <li>MED-3: <code>WebviewWindow</code> close event 구독해서 진행 중 OAuth 취소 시 UI 복원.</li>
+  <li>MED-5: <code>signInWithGoogle()</code> 가 실제 세션 확립까지 await 하도록 변경 (Promise 가 polling resolve 와 연결).</li>
+  <li>MED-2: polling 핸들을 effect/closure 로 scoping.</li>
+  <li>MED-7: <code>alwaysOnTop</code> 제거 또는 사용자 설정.</li>
+</ul>
+
+<h3>Phase 4 — 정리 (Low 해소)</h3>
+<ul>
+  <li>CRIT-2: Naver/Line 정책 결정 — 지원이면 Custom OIDC, 아니면 export 제거.</li>
+  <li>CRIT-3: Apple 정책 결정 — Sign in with Apple JS 별도 통합 또는 export 제거.</li>
+  <li>HIGH-2, LOW-5: dead 코드 제거.</li>
+  <li>LOW-4: 로그 레벨 정리 또는 build flag 로 strip.</li>
+  <li>LOW-2: CSP 정책 도입 검토.</li>
+</ul>
+
+<h2>부록 A — 검토한 파일 목록</h2>
+<ul>
+  <li><code>src/auth/supabase.ts</code> — Supabase client 초기화, flowType 분기</li>
+  <li><code>src/auth/useAuth.ts</code> — OAuth 진입점, Tauri/Web 분기</li>
+  <li><code>src/App.tsx</code> — auth callback 브릿지, profile/admin 라우팅</li>
+  <li><code>src/web/Marketing.tsx</code> — 웹 로그인 UI, AuthCallback 컴포넌트, redirect bookkeeping</li>
+  <li><code>src/views/ProfileView.tsx</code> — 데스크탑 로그인 UI, dead popup-sandbox 코드</li>
+  <li><code>src/views/PricingView.tsx</code> — redirect 후 pricing 진입 분기</li>
+  <li><code>src/lib/syncService.ts</code> — 세션 의존 동기화 호출처</li>
+  <li><code>src-tauri/src/lib.rs</code> — Reopen / single-instance / window event</li>
+  <li><code>src-tauri/src/tray.rs</code> — Windows 트레이 reopen</li>
+  <li><code>src-tauri/Cargo.toml</code> — 플러그인 목록 (deep-link 부재 확인)</li>
+  <li><code>src-tauri/tauri.conf.json</code> — window 정의, CSP, plugin 설정</li>
+  <li><code>src-tauri/capabilities/default.json</code> — capability 명세</li>
+</ul>
+
+<h2>부록 B — 검토 외 항목 (별도 trade-off 필요)</h2>
+<ul>
+  <li>OAuth 동의 화면 UX (provider 별 i18n, scope 최소화) — 정책 결정 영역.</li>
+  <li>로그아웃 시 widget/alert 윈도우의 supabase client 상태 — 본 리뷰는 main 위주.</li>
+  <li>Refresh token rotation 정책 — Supabase 기본 정책에 위임 중, 별도 감사 가치 있음.</li>
+  <li>다중 계정 / 계정 전환 UX — 현재 미구현.</li>
+</ul>
+
+<footer>
+  BaroSit Login Review · 2026-05-28 · Claude code review (Anthropic).<br>
+  본 문서는 정적 분석만으로 작성됨. 런타임 검증 (실 OAuth provider 콘솔, 실제 데스크탑 빌드 시연) 은 별도 진행 권장.
+</footer>
+
+</div>
+</body>
+</html>

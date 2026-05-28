@@ -341,9 +341,25 @@ pub fn run() {
                 let _ = app.emit("monitoring:toggle-pause", ());
             }
         }).build())
+        // OAuth 콜백을 native 앱으로 직접 받기 위한 deep-link 플러그인.
+        // tauri.conf.json 의 plugins."deep-link".desktop.schemes 에서 "barosit" 스킴 등록.
+        // 외부 브라우저에서 barosit://auth-callback?code=... 가 호출되면 OS 가 본 앱으로 라우팅,
+        // 플러그인이 JS 측 onOpenUrl 이벤트로 전달 → useAuth.ts 의 PKCE exchange 실행.
+        .plugin(tauri_plugin_deep_link::init())
+        // 외부 URL (OAuth provider 페이지) 을 사용자 기본 브라우저에서 여는 데 사용.
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             use tauri_plugin_global_shortcut::GlobalShortcutExt;
             tray::setup_tray(app.handle())?;
+
+            // Windows / Linux 는 deep-link 스킴이 install 시점 (MSI/NSIS) 에 OS 에 등록되므로
+            // 개발 빌드 (cargo dev) 에선 미등록 상태. 런타임에 register_all 로 보강해 dev 에서도
+            // 스킴이 동작하도록 함. macOS 는 Info.plist 가 build 시 생성되어 자동 등록되므로 불필요.
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
 
             // 전역 단축키 등록 (Mac: Cmd + Option + P / Win/Linux: Ctrl + Alt + P)
             #[cfg(target_os = "macos")]

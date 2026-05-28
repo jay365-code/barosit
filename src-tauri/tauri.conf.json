@@ -87,6 +87,11 @@
         "https://github.com/jay365-code/barosit/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU0RjMwMTM1NjRGMTFENjIKUldSaUhmRmtOUUh6NUN0VXJLVFVScE1kaUxXZnZkbVhJMk5hbEJxeUpxZUZxcUNzWWR0OGxwaEQK"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["barosit"]
+      }
     }
   }
 }
