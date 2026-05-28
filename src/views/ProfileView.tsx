@@ -195,6 +195,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     }
   }, [signInWithGoogle, signInWithKakao]);
 
+  // Tauri OAuth 완료 시 ProfileView 자동 닫기 — 웹의 Marketing.tsx Login
+  // 컴포넌트가 user state 변화로 #/app 으로 navigate 하는 것과 동기. 데스크탑은
+  // ProfileView 가 overlay 모드 (profileOpen=true, hash 안 바뀜) 로 열렸을 때
+  // hash 변경만으론 안 닫히므로 useAuth 의 명시 이벤트 listen 필요.
+  useEffect(() => {
+    const handler = () => onGoHome();
+    window.addEventListener("barosit:login-completed", handler);
+    return () => window.removeEventListener("barosit:login-completed", handler);
+  }, [onGoHome]);
+
   // 로그인 성공 시 프로필 & 설정 원격 다운로드 복원
   useEffect(() => {
     if (session?.user) {
