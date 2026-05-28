@@ -155,6 +155,18 @@ export function useAuth() {
               /* 포커스 실패는 치명적이지 않음 */
             }
 
+            // 로그인 시작 화면이 ProfileView (#/profile) 였으면 web 처럼
+            // app 화면 (#/app 또는 default) 으로 자동 이동. ProfileView 의
+            // 버튼 핸들러가 미리 barosit:auth_redirect 에 의도 기록해 둠.
+            // 웹 Marketing.tsx 의 Login 컴포넌트와 동일 패턴.
+            try {
+              const saved = localStorage.getItem("barosit:auth_redirect");
+              localStorage.removeItem("barosit:auth_redirect");
+              window.location.hash = saved ?? "#/app";
+            } catch {
+              /* localStorage 접근 실패 — 사용자 수동 이동에 맡김 */
+            }
+
             resolve();
           } catch (err) {
             reject(err);
