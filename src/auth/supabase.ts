@@ -15,10 +15,12 @@ function createStub(): SupabaseClient {
   });
 }
 
+const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI_INTERNALS__);
+
 export const supabase: SupabaseClient = IS_AUTH_CONFIGURED
   ? createClient(url!, anonKey!, {
       auth: {
-        flowType: "pkce",
+        flowType: isTauri ? "implicit" : "pkce",
         detectSessionInUrl: true,
         persistSession: true,
         autoRefreshToken: true,
