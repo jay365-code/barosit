@@ -3289,11 +3289,12 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
     checkPlan();
   }, [user]);
 
+  const currentVer = import.meta.env.PACKAGE_VERSION || "0.1.8";
   const m =
     os === "mac"
       ? {
           name: "macOS",
-          file: "Barosit-0.1.0.dmg",
+          file: `Barosit-${currentVer}.dmg`,
           size: "38 MB",
           req: "macOS 12.0 (Monterey) 이상 · Apple Silicon · Intel",
           other: "Windows",
@@ -3302,7 +3303,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
         }
       : {
           name: "Windows",
-          file: "Barosit-Setup-0.1.0.exe",
+          file: `Barosit-Setup-${currentVer}.exe`,
           size: "42 MB",
           req: "Windows 10 64-bit 이상 · x64 · ARM64",
           other: "macOS",
@@ -3378,7 +3379,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
               {m.name}용 Barosit
             </h1>
             <div className="b-num" style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
-              버전 0.1.0 · {m.size}
+              버전 {currentVer} · {m.size}
             </div>
           </div>
         </div>
@@ -3443,7 +3444,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
           </MiniCard>
         </div>
 
-        <MiniCard title="0.1.0 — 첫 빌드" icon="sparkle">
+        <MiniCard title={`${currentVer} — 최신 빌드`} icon="sparkle">
           <ul
             style={{
               fontSize: 13,

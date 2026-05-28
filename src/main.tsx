@@ -47,7 +47,7 @@ function MarketingHost({ initial }: { initial: MarketingRoute }) {
 
 // 웹에선 #/app 이나 #/qa 외에는 marketing route 우선. hash 비어 있으면 landing 강제.
 const rawMarketingRoute = routeFromHash(window.location.hash);
-const marketingRoute: MarketingRoute | null = (isWebAppRoute || isQaRoute)
+const marketingRoute: MarketingRoute | null = (!IS_WEB || isWebAppRoute || isQaRoute)
   ? null
   : IS_WEB && !rawMarketingRoute
     ? "landing"

@@ -1,5 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, "./package.json"), "utf-8"));
+const PACKAGE_VERSION = pkg.version;
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -40,5 +47,6 @@ export default defineConfig(async () => ({
       },
   define: {
     "import.meta.env.VITE_PLATFORM": JSON.stringify(IS_WEB ? "web" : "tauri"),
+    "import.meta.env.PACKAGE_VERSION": JSON.stringify(PACKAGE_VERSION),
   },
 }));

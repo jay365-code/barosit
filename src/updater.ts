@@ -9,7 +9,7 @@ const LAST_CHECK_KEY = "updater_last_check";
 const SNOOZE_VERSION_KEY = "updater_snoozed_version";
 
 /** 24h 미만 전에 체크했으면 skip — 앱 종일 열어두는 사용자가 매 시작 시 호출 안 되도록 */
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const CHECK_INTERVAL_MS = 1000;
 
 export interface UpdaterState {
   /** 새 버전 정보. null = 없음 또는 미확인 */
