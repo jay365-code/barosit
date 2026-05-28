@@ -343,14 +343,13 @@ pub fn run() {
             }
             Ok(())
         })
-        // 메인 닫기 및 최소화 시 hide + JS 이벤트(위젯 모드로 자동 전환)
+        // 메인 닫기 시 앱 완전 종료, 최소화 시 hide + JS 이벤트(위젯 모드로 자동 전환)
         .on_window_event(|window, event| {
             if window.label() == "main" {
                 match event {
-                    WindowEvent::CloseRequested { api, .. } => {
-                        api.prevent_close();
-                        let _ = window.hide();
-                        let _ = window.app_handle().emit("main:close-requested", ());
+                    WindowEvent::CloseRequested { .. } => {
+                        // 메인 창 닫기 버튼(X) 클릭 시 앱 프로세스 완전 종료
+                        window.app_handle().exit(0);
                     }
                     WindowEvent::Resized(_) => {
                         if let Ok(true) = window.is_minimized() {

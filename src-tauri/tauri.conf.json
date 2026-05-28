@@ -20,7 +20,7 @@
         "minWidth": 800,
         "minHeight": 640,
         "resizable": true,
-        "minimizable": false,
+        "minimizable": true,
         "fullscreen": false,
         "backgroundColor": "#fafaf7",
         "titleBarStyle": "Visible"
