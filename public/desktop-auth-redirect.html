@@ -18,20 +18,76 @@
     text-align: center;
     line-height: 1.55;
   }
-  .box { max-width: 380px; padding: 32px 28px; }
+  .box { max-width: 420px; padding: 32px 28px; }
   h1 { font-size: 18px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em; }
   p { font-size: 14px; color: #aab3bd; margin: 8px 0 0; }
   a { color: #7eb09c; font-weight: 600; }
-  .spinner {
-    width: 28px; height: 28px;
-    border: 3px solid rgba(126,176,156,0.2);
-    border-top-color: #7eb09c;
-    border-radius: 50%;
-    margin: 0 auto 18px;
-    animation: spin 0.9s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
   .err { color: #e15554; }
+
+  /* ─── Posture scene animation ─────────────────────────────────────────
+   * 졸라맨이 바른 자세로 작업 → 거북목으로 슬금슬금 → 노트북이 글로우 +
+   * 알림 톡 → 머리가 휙 제자리 → 반복. 4.5s 루프. 브랜드 sage green
+   * (#7eb09c) 으로 통일. SVG line + circle 만 사용해 Logo 컴포넌트와 같은
+   * 기하 언어 유지. */
+  .posture-scene {
+    width: 220px;
+    height: auto;
+    display: block;
+    margin: 0 auto 22px;
+  }
+  .posture-scene .figure-upper {
+    /* SVG <g> 의 transform-origin 은 browser/버전에 따라 viewport 좌표 vs
+     * bbox 좌표 해석이 다름. transform-box: fill-box 로 명시해 element 의
+     * 자체 bbox 기준 좌표를 사용 — 크로스브라우저 안정.
+     *
+     * .figure-upper bbox: x=171~189, y=65~92 (head circle + neck line).
+     * pivot 으로 원하는 SVG 좌표 (180, 92) 는 bbox 의 (50%, 100%) — 즉
+     * 하단 중앙 (목 base). */
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: barosit-posture-cycle 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  @keyframes barosit-posture-cycle {
+    0%, 18%   { transform: rotate(0deg); }            /* 바른 자세 */
+    40%, 60%  { transform: rotate(-26deg); }          /* 거북목 (앞으로) */
+    66%, 76%  { transform: rotate(-26deg); }          /* 노트북 알림 동안 hold */
+    88%, 100% { transform: rotate(0deg); }            /* 휙 제자리 */
+  }
+  .posture-scene .laptop-glow {
+    opacity: 0;
+    animation: barosit-laptop-glow 4.5s ease-in-out infinite;
+  }
+  @keyframes barosit-laptop-glow {
+    0%, 58%   { opacity: 0; }
+    62%       { opacity: 0.55; }
+    72%       { opacity: 0.18; }
+    78%, 100% { opacity: 0; }
+  }
+  .posture-scene .laptop-alert {
+    opacity: 0;
+    /* alert ✦ bbox: x=71~85, y=78~92. pivot 중앙 = (50%, 50%). */
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    animation: barosit-alert-pop 4.5s ease-in-out infinite;
+  }
+  @keyframes barosit-alert-pop {
+    0%, 58%   { opacity: 0; transform: translateY(4px) scale(0.7); }
+    64%       { opacity: 1; transform: translateY(0) scale(1.15); }
+    72%       { opacity: 1; transform: translateY(0) scale(1); }
+    80%, 100% { opacity: 0; transform: translateY(-3px) scale(1); }
+  }
+  /* 접근성: prefers-reduced-motion 존중. */
+  @media (prefers-reduced-motion: reduce) {
+    .posture-scene .figure-upper,
+    .posture-scene .laptop-glow,
+    .posture-scene .laptop-alert {
+      animation: none;
+    }
+    .posture-scene .laptop-glow,
+    .posture-scene .laptop-alert {
+      opacity: 0;
+    }
+  }
 </style>
 <script>
 /*
@@ -82,9 +138,14 @@
       if (a) a.setAttribute('href', finalUrl);
     });
 
-    // 즉시 deep-link 이동. 사용자 브라우저가 차단/지연하면 fallback UI 가
-    // 표시되고 수동 링크 클릭으로 보완 가능.
-    window.location.replace(finalUrl);
+    // deep-link navigation 을 즉시 호출하면 body paint 가 cancel 되어 빈
+    // 화면이 잠시 표시되는 문제가 있음. 페이지가 한 번 paint + 애니메이션
+    // 첫 cycle 일부를 보여준 뒤 navigation 시도. UX 적으로도 "잠깐 안내
+    // 화면 → 앱 열림" 흐름이 자연스럽고, deep-link 실패 시에도 사용자가
+    // 페이지 안내를 읽고 manual link 누를 수 있음.
+    setTimeout(function () {
+      window.location.replace(finalUrl);
+    }, 1200);
   } catch (e) {
     document.documentElement.setAttribute('data-err', String(e && e.message || e));
   }
@@ -93,7 +154,64 @@
 </head>
 <body>
   <div class="box">
-    <div class="spinner" aria-hidden="true"></div>
+    <!-- ─── BaroSit posture scene ─────────────────────────────────────────
+     * Side view: 노트북(왼쪽) + 졸라맨(오른쪽, 노트북을 향한 옆모습).
+     * .figure-upper 그룹이 거북목 → 노트북 알림 → 회복 사이클을 반복.
+     * 모든 stroke 가 동일한 sage green (#7eb09c) — Logo 컴포넌트와 같은
+     * 기하 언어. -->
+    <svg class="posture-scene" viewBox="0 0 240 170" aria-hidden="true">
+      <!-- 책상 면 -->
+      <line x1="15" y1="140" x2="225" y2="140"
+            stroke="rgba(126,176,156,0.3)" stroke-width="1.5" stroke-linecap="round" />
+
+      <!-- 노트북 -->
+      <g class="laptop">
+        <!-- 키보드 (base) -->
+        <rect x="48" y="132" width="60" height="6" rx="1"
+              fill="rgba(126,176,156,0.08)" stroke="#7eb09c" stroke-width="2" />
+        <!-- 화면 frame -->
+        <rect x="53" y="98" width="50" height="34" rx="2"
+              fill="rgba(126,176,156,0.06)" stroke="#7eb09c" stroke-width="2" />
+        <!-- 화면 글로우 (alert 시점에 펄스). opacity="0" 속성도 명시해서
+             CSS 미적용 순간 (가령 stylesheet 파싱 전) 깜빡임 차단. -->
+        <rect class="laptop-glow" x="53" y="98" width="50" height="34" rx="2"
+              fill="#7eb09c" opacity="0" />
+        <!-- 노트북 위 알림 ✦ (자세 흐트러진 시점에 톡 등장) -->
+        <g class="laptop-alert" opacity="0">
+          <path d="M78 78 L78 92 M71 85 L85 85"
+                stroke="#7eb09c" stroke-width="2.6" stroke-linecap="round" />
+        </g>
+      </g>
+
+      <!-- 의자 (장식용 — 자세 기준점 표시) -->
+      <line x1="160" y1="140" x2="210" y2="140"
+            stroke="rgba(126,176,156,0.3)" stroke-width="1.5" stroke-linecap="round" />
+      <line x1="210" y1="140" x2="210" y2="95"
+            stroke="rgba(126,176,156,0.3)" stroke-width="1.5" stroke-linecap="round" />
+
+      <!-- 졸라맨 하체: 허벅지 + 척추 하부 (정적) -->
+      <line x1="180" y1="140" x2="160" y2="140"
+            stroke="#7eb09c" stroke-width="3" stroke-linecap="round" />
+      <line x1="180" y1="140" x2="180" y2="92"
+            stroke="#7eb09c" stroke-width="3" stroke-linecap="round" />
+
+      <!-- 졸라맨 팔 (정적) — 어깨에서 노트북 키보드로 -->
+      <path d="M180 100 L158 117 L118 134"
+            fill="none" stroke="#7eb09c" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round" />
+
+      <!-- 졸라맨 상체 (animates) — 목 + 머리.
+           pivot 은 어깨/목 base (180, 92). 거북목 시 -26° 회전. -->
+      <g class="figure-upper">
+        <!-- 목 -->
+        <line x1="180" y1="92" x2="180" y2="83"
+              stroke="#7eb09c" stroke-width="3" stroke-linecap="round" />
+        <!-- 머리 -->
+        <circle cx="180" cy="74" r="9"
+                fill="none" stroke="#7eb09c" stroke-width="3" />
+      </g>
+    </svg>
+
     <h1>데스크탑 앱으로 돌아가는 중…</h1>
     <p>잠시 후 BaroSit 앱이 자동으로 열립니다.<br>
        열리지 않으면 <a id="manual-link" href="barosit://auth-callback">여기를 클릭</a>해주세요.</p>

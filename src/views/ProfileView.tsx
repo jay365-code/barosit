@@ -1300,21 +1300,30 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                               cursor: "pointer"
                             }}
                             onClick={async () => {
+                              // Optimistic UI — UI 전환을 await signOut() 이전으로
+                              // 옮겨 즉시 게스트 화면 표시. supabase.auth.signOut() 의
+                              // 기본 'global' scope 는 서버에 refresh token revoke
+                              // 요청을 보내 200ms~1.5s 걸리고, Windows WebView2 에선
+                              // 후속 reload 까지 합쳐 3-4초 답답하게 느껴지던 문제
+                              // 해소. reload 자체는 유지 (cross-window 상태 일괄
+                              // 청소용 — 사용자는 이미 게스트 화면을 보고 있어 깜빡임
+                              // 부담 낮음).
+                              setLogoutConfirmOpen(false);
+                              setSubPlan("free");
+                              setCardInfo(null);
+                              setGracePeriodUntil(null);
+                              localStorage.setItem("barosit:subscription_plan", "free");
+                              localStorage.removeItem("user_profile_v1"); // 🌟 이전 사용자 로컬 프로필 캐시 소거
+                              onGoHome();
+
                               try {
                                 await signOut();
-                                localStorage.removeItem("user_profile_v1"); // 🌟 이전 사용자의 로컬 프로필 캐시 소거
-                                localStorage.setItem("barosit:subscription_plan", "free");
-                                setSubPlan("free");
-                                setCardInfo(null);
-                                setGracePeriodUntil(null);
-                                setLogoutConfirmOpen(false);
-                                onGoHome();
-                                setTimeout(() => {
-                                  window.location.reload();
-                                }, 100);
                               } catch (err) {
                                 console.error("Logout failed:", err);
                               }
+                              setTimeout(() => {
+                                window.location.reload();
+                              }, 100);
                             }}
                           >
                             네, 로그아웃합니다
