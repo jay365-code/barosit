@@ -205,6 +205,9 @@ fn update_status(app: AppHandle, status: PostureStatus) -> Result<(), String> {
 fn show_main_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
         window.show().map_err(|e| e.to_string())?;
+        if let Ok(true) = window.is_minimized() {
+            window.unminimize().map_err(|e| e.to_string())?;
+        }
         window.set_focus().map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -340,15 +343,22 @@ pub fn run() {
             }
             Ok(())
         })
-        // 메인 닫기 시 hide + JS 이벤트(위젯 모드로 자동 전환)
+        // 메인 닫기 및 최소화 시 hide + JS 이벤트(위젯 모드로 자동 전환)
         .on_window_event(|window, event| {
             if window.label() == "main" {
-                if let WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-                    // Rust에서 직접 hide — JS 핸들러가 실패해도 창은 사라짐
-                    let _ = window.hide();
-                    // JS 가 모드 전환 + 위젯 표시를 처리
-                    let _ = window.app_handle().emit("main:close-requested", ());
+                match event {
+                    WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        let _ = window.app_handle().emit("main:close-requested", ());
+                    }
+                    WindowEvent::Resized(_) => {
+                        if let Ok(true) = window.is_minimized() {
+                            let _ = window.hide();
+                            let _ = window.app_handle().emit("main:close-requested", ());
+                        }
+                    }
+                    _ => {}
                 }
             }
         })
