@@ -44,7 +44,6 @@ function getWebAdminUrl(): string {
 export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const {
     session,
-    loading,
     signInWithGoogle,
     signInWithKakao,
     signOut,
@@ -216,14 +215,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     }
   }, [session?.user?.id]);
 
-  // 소셜 로그인 완료 시 디폴트 아바타(🪑) 상태라면 소셜 이미지(avatar_url)로 자동 교체 및 적용
+  // 소셜 로그인 완료 시 디폴트 아바타(🪑) 상태라면 소셜 이미지(avatar_url)로
+  // 1회만 자동 적용. dep 에서 profile.avatar 제거 — 사용자가 의식적으로 🪑
+  // 로 되돌렸을 때 즉시 social URL 로 덮어쓰던 dep 버그 방지. socialAvatarUrl
+  // 이 *처음 도착했을 때* 만 가드된 적용.
   useEffect(() => {
-    if (socialAvatarUrl) {
-      if (profile.avatar === "🪑" || !profile.avatar) {
-        setProfile((prev) => ({ ...prev, avatar: socialAvatarUrl }));
-      }
+    if (socialAvatarUrl && (profile.avatar === "🪑" || !profile.avatar)) {
+      setProfile((prev) => ({ ...prev, avatar: socialAvatarUrl }));
     }
-  }, [socialAvatarUrl, profile.avatar]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socialAvatarUrl]);
 
   // 프로필 실시간 변경 이벤트 감지 및 반영
   useEffect(() => {
@@ -652,35 +653,14 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       </header>
 
       <div className="profile-body">
-        {loading ? (
-          /* ⏳ 비동기 세션 조회 중: 반짝이는 은은한 로딩 스켈레톤 플레이트 */
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "320px",
-            background: "rgba(255, 255, 255, 0.02)",
-            borderRadius: "24px",
-            border: "1px solid rgba(255, 255, 255, 0.04)"
-          }}>
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "14px",
-            }}>
-              <div style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "50%",
-                border: "3px solid rgba(255, 255, 255, 0.08)",
-                borderTopColor: "var(--b-sig)",
-                animation: "spin 1s linear infinite"
-              }} />
-              <div style={{ fontSize: 13, color: "var(--b-fg-4)", letterSpacing: "-0.01em" }}>보안 세션 동기화 중...</div>
-            </div>
-          </div>
-        ) : !session ? (
+        {/*
+          loading 스피너("보안 세션 동기화 중...") 분기 제거 — Windows 저사양
+          에서 useAuth 의 첫 getSession() 응답까지 5~10초 멈춰 보이던 문제.
+          대신 *마지막으로 알려진 세션 상태* 를 즉시 표시하고, 응답이 도착하면
+          자연 재렌더로 갱신. 깜빡임은 1프레임 미만이고 사용자가 기다리지
+          않습니다.
+        */}
+        {!session ? (
           /* 🔐 비로그인 상태: 오직 로그인/인증에만 완벽히 집중할 수 있는 전면 UI */
           <section className="profile-card profile-login-focused" style={{
             background: "linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)",

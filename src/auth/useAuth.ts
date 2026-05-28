@@ -9,6 +9,38 @@ export interface AuthState {
   configured: boolean;
 }
 
+// ─── 전역 동기화 채널 ─────────────────────────────────────────────────
+//
+// useAuth 는 컴포넌트별 격리된 useState 를 갖습니다(같은 supabase client 를
+// share 하지만 React state 는 별개). 한 컴포넌트에서 signOut/signIn 을 호출
+// 했을 때, 다른 컴포넌트의 useAuth 인스턴스가 즉시 갱신되려면 supabase 의
+// onAuthStateChange 발화를 기다려야 합니다. 그런데 Windows + 느린 망에서
+// supabase 의 글로벌 RPC 가 지연되면 onAuthStateChange 발화도 늦어져, 일부
+// 화면이 30초+ 동안 stale 상태로 남는 현상이 관찰됐습니다 (메모리 가드의
+// 1분 reload 가 우연히 fallback 동기화로 작용).
+//
+// 이를 해결하기 위해 useAuth 들끼리 직접 정합되는 custom event 채널을
+// 도입합니다. signOut/signIn 시 즉시 모든 인스턴스에 새 state 를 전파하고,
+// supabase 의 RPC 응답은 백그라운드로 진행. RPC 응답 후 onAuthStateChange
+// 가 다시 발화해도 이미 동기화된 상태라 무영향입니다.
+const AUTH_SYNC_EVENT = "barosit:auth-sync";
+
+interface AuthSyncDetail {
+  session: Session | null;
+}
+
+function dispatchAuthSync(session: Session | null) {
+  try {
+    window.dispatchEvent(
+      new CustomEvent<AuthSyncDetail>(AUTH_SYNC_EVENT, {
+        detail: { session },
+      }),
+    );
+  } catch {
+    /* CustomEvent 미지원 환경 — 백업으로 supabase onAuthStateChange 에 의존 */
+  }
+}
+
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -44,7 +76,26 @@ export function useAuth() {
         loading: false,
       }));
     });
-    unsub = () => data.subscription.unsubscribe();
+
+    // 전역 동기화 채널 — 다른 useAuth 인스턴스가 발화한 state 전파를 수신.
+    // supabase 의 onAuthStateChange 와 같은 setter 를 호출하므로 중복 도착해도
+    // 안전합니다 (마지막 값으로 수렴).
+    const handleSync = (e: Event) => {
+      const detail = (e as CustomEvent<AuthSyncDetail>).detail;
+      const session = detail?.session ?? null;
+      setState((prev) => ({
+        ...prev,
+        session,
+        user: session?.user ?? null,
+        loading: false,
+      }));
+    };
+    window.addEventListener(AUTH_SYNC_EVENT, handleSync);
+
+    unsub = () => {
+      data.subscription.unsubscribe();
+      window.removeEventListener(AUTH_SYNC_EVENT, handleSync);
+    };
 
     return () => {
       unsub?.();
@@ -266,14 +317,12 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     if (!IS_AUTH_CONFIGURED) return;
-    // 옵티미스틱 UI — Windows 저사양에서 supabase 응답까지 1~2초 멈춤 + 그
-    // 사이 로그인 상태 UI 가 잠깐 노출되는 깜빡임을 막기 위해, useAuth 의
-    // session/user state 를 *동기적*으로 먼저 비웁니다. 글로벌 revoke 는
-    // void 로 백그라운드 진행 — supabase-js 가 응답을 받으면 자체적으로
-    // localStorage 토큰 폐기 + onAuthStateChange(SIGNED_OUT) 발화. 이 시점엔
-    // state 가 이미 null 이라 추가 렌더 없음. 글로벌 revoke 실패 시에도 다음
-    // getSession 호출 때 supabase-js 가 재시도하거나 토큰 만료로 자연 정리됨.
-    setState((prev) => ({ ...prev, session: null, user: null }));
+    // 전역 동기화 채널로 *모든* useAuth 인스턴스에 SIGNED_OUT 상태 즉시 전파.
+    // ProfileView / MonitorView / Marketing 등 어디서 호출되든 다른 화면의
+    // useAuth 도 ~16ms 안에 user=null 로 정합됩니다.
+    dispatchAuthSync(null);
+    // supabase 의 글로벌 revoke 는 백그라운드 진행 — 응답 무관. 응답 도착 후
+    // onAuthStateChange(SIGNED_OUT) 가 발화해도 이미 동기화 상태라 무영향.
     void supabase.auth.signOut();
   }, []);
 

@@ -2048,15 +2048,34 @@ export function MonitorView({
                   transition: "transform 0.2s, border-color 0.2s"
                 }}
               >
-                {profile.avatar && (profile.avatar.startsWith("http://") || profile.avatar.startsWith("https://")) ? (
+                {profile.avatar && (profile.avatar.startsWith("http://") || profile.avatar.startsWith("https://") || profile.avatar.startsWith("data:image/")) ? (
                   <img
                     src={profile.avatar}
                     alt="User Profile"
+                    // 카카오 CDN(k.kakaocdn.net) 등은 referer 헤더를 검증해
+                    // tauri://localhost / https://barosit.com referer 가
+                    // 그대로 전송되면 403 차단. no-referrer 로 회피.
+                    referrerPolicy="no-referrer"
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
                       borderRadius: "50%"
+                    }}
+                    // 이미지 로딩 실패 시 깨진 아이콘 대신 기본 이모지로
+                    // fallback. img 를 숨기고 부모 button 의 background 가
+                    // 보이게.
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      img.style.display = "none";
+                      const parent = img.parentElement;
+                      if (parent && !parent.querySelector(".avatar-fallback")) {
+                        const span = document.createElement("span");
+                        span.className = "avatar-fallback";
+                        span.setAttribute("aria-hidden", "true");
+                        span.textContent = "🪑";
+                        parent.appendChild(span);
+                      }
                     }}
                   />
                 ) : (

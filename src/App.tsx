@@ -294,57 +294,76 @@ export default function App() {
   }, []);
 
   // 2. 인증 리다이렉트 브릿지 (window.location.hash = #/auth/callback) 가로채기 Effect
+  //
+  // 사용자 원칙 — "UI 는 즉시, 데이터는 백그라운드".
+  // 이전 구현은 500ms polling + Promise.all(pullProfile, pullSettings) await +
+  // 1.5초 인위 setTimeout 으로 Windows 저사양에선 콜백 화면이 5~10초 멈춰 보이는
+  // 문제가 있었습니다. 이를 다음으로 교체:
+  //   1. polling 대신 supabase 의 onAuthStateChange(SIGNED_IN) 단발 구독 — 0ms
+  //   2. session 확립 즉시 hash 클리어 + authCallbackLoading=false
+  //   3. pullProfile/Settings 는 백그라운드 fire-and-forget — UI 블로킹 안 함
+  //   4. fallback timeout 은 안전망으로 유지 (10초 → 8초)
   useEffect(() => {
-    const checkHash = async () => {
-      const hash = window.location.hash;
-      const isCallback = hash.includes("access_token") || 
-                         hash.includes("id_token") || 
-                         hash.includes("type=signup") || 
-                         hash.includes("error=") || 
-                         hash.includes("#/auth/callback") ||
-                         window.location.search.includes("code=");
-                         
-      if (isCallback) {
-        console.log("[App] Auth callback URL detected. Activating sync overlay.");
-        setAuthCallbackLoading(true);
-        
-        // Supabase 세션 확립 및 원격 프로필/설정 데이터 복원 대기 루프
-        const checkSession = setInterval(async () => {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            clearInterval(checkSession);
-            try {
-              console.log("[App] Session established, pulling profile and settings...");
-              await Promise.all([
-                pullProfileFromServer(),
-                pullSettingsFromServer()
-              ]);
-              console.log("[App] Sync completed. Loading UI...");
-            } catch (err) {
-              console.error("[App] Failed to pull user data during callback:", err);
-            } finally {
-              // URL 해시 및 파라미터 클리어
-              if (window.location.hash) {
-                window.location.hash = "";
-              }
-              // 우아한 전환 연출을 위해 1.5초 지연 시간 부여
-              setTimeout(() => {
-                setAuthCallbackLoading(false);
-                window.dispatchEvent(new Event("barosit:subscription-changed"));
-              }, 1500);
-            }
-          }
-        }, 500);
+    const hash = window.location.hash;
+    const isCallback =
+      hash.includes("access_token") ||
+      hash.includes("id_token") ||
+      hash.includes("type=signup") ||
+      hash.includes("error=") ||
+      hash.includes("#/auth/callback") ||
+      window.location.search.includes("code=");
 
-        // 무한 대기 방지용 타임아웃 예외 처리 (10초)
-        setTimeout(() => {
-          clearInterval(checkSession);
-          setAuthCallbackLoading(false);
-        }, 10000);
+    if (!isCallback) return;
+
+    console.log("[App] Auth callback URL detected. Waiting for session…");
+    setAuthCallbackLoading(true);
+
+    let settled = false;
+    const finalize = () => {
+      if (settled) return;
+      settled = true;
+      // URL 해시 클리어 — 다음 reload 시 콜백 effect 재진입 방지.
+      if (window.location.hash) {
+        window.location.hash = "";
       }
+      setAuthCallbackLoading(false);
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
     };
 
-    checkHash();
+    // 즉시 한 번 검사 — supabase 의 detectSessionInUrl 이 이미 세션을 만들었을
+    // 수도 있음 (특히 hash 기반 implicit grant). 그 경우 onAuthStateChange 가
+    // 마운트보다 *먼저* 발화해 놓쳐도 여기서 회수.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) {
+        console.log("[App] Session already established. Finalizing UI…");
+        // 데이터는 백그라운드 — UI 블로킹 없음. 실패해도 다른 effect 에서 복원.
+        void pullProfileFromServer();
+        void pullSettingsFromServer();
+        finalize();
+      }
+    });
+
+    // SIGNED_IN 이벤트 단발 구독. polling 보다 응답성 좋음.
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        console.log("[App] SIGNED_IN received. Finalizing UI…");
+        void pullProfileFromServer();
+        void pullSettingsFromServer();
+        finalize();
+      }
+    });
+
+    // 안전망 — 8초 안에 세션이 안 오면 콜백 오버레이만 닫음. 사용자가 직접
+    // 재시도하거나 다른 진입 사용. (네트워크 단절 등 비정상 케이스 대비)
+    const timeoutId = window.setTimeout(() => {
+      console.warn("[App] Auth callback timeout (8s). Closing overlay.");
+      finalize();
+    }, 8000);
+
+    return () => {
+      data.subscription.unsubscribe();
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   // 3. 실시간 요금제 및 유예 기간 상태 동기화 Effect
