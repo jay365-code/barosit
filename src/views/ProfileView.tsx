@@ -30,6 +30,16 @@ interface Props {
   onOpenPricing?: () => void;
 }
 
+function getWebAdminUrl(): string {
+  const explicit = import.meta.env.VITE_AUTH_REDIRECT_BASE;
+  if (explicit) {
+    return `${explicit.replace(/\/$/, "")}/#/admin`;
+  }
+  // 로컬 개발 모드에서의 Vite 웹 포트(1430) 혹은 운영 프로덕션 도메인 기본 폴백
+  const isDev = import.meta.env.DEV;
+  return isDev ? "http://localhost:1430/#/admin" : "https://barosit.com/#/admin";
+}
+
 export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const {
     session,
@@ -1232,14 +1242,32 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                   관리자 권한 계정으로 감지되었습니다. 어드민 대시보드 관리 기능을 조작하거나, 모든 사용자의 감지 감도 개선을 위한 표준 가동범위 모델을 보정할 수 있습니다.
                 </p>
                 <div className="profile-card-actions" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="b-btn b-btn-primary"
-                    style={{ background: "linear-gradient(135deg, #5b8c7a, #3c5e52)" }}
-                    onClick={onOpenAdmin}
-                  >
-                    📊 어드민 대시보드 구동
-                  </button>
+                  {!(window as any).__TAURI_INTERNALS__ && !(window as any).__TAURI__ ? (
+                    <button
+                      type="button"
+                      className="b-btn b-btn-primary"
+                      style={{ background: "linear-gradient(135deg, #5b8c7a, #3c5e52)" }}
+                      onClick={onOpenAdmin}
+                    >
+                      📊 어드민 대시보드 구동
+                    </button>
+                  ) : (
+                    <a
+                      href={getWebAdminUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="b-btn b-btn-primary"
+                      style={{
+                        background: "linear-gradient(135deg, #5b8c7a, #3c5e52)",
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      📊 어드민 대시보드 구동 (웹 브라우저로 열기)
+                    </a>
+                  )}
                   <button
                     type="button"
                     className="b-btn b-btn-primary"
