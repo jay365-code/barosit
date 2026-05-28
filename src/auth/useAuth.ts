@@ -59,7 +59,9 @@ export function useAuth() {
 
     if (isTauri) {
       try {
-        console.log(`[Tauri OAuth] Initiating popup auth flow for ${provider}`);
+        const currentSupabaseUrl = (supabase as any).supabaseUrl;
+        console.warn(`[Tauri OAuth] Initiating popup auth flow for ${provider}. Connecting to Supabase Target: ${currentSupabaseUrl}`);
+        
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
@@ -70,9 +72,12 @@ export function useAuth() {
         if (error) throw error;
         if (!data?.url) throw new Error("인증 주소를 생성하지 못했습니다.");
 
+        console.log(`[Tauri OAuth] OAuth Authorize URL Generated: ${data.url}`);
+
         const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
         const existing = await WebviewWindow.getByLabel("oauth-login");
         if (existing) {
+          console.log("[Tauri OAuth] Closing existing oauth-login window label...");
           await existing.close();
         }
 
