@@ -165,7 +165,10 @@ export function useAuth() {
             try {
               const saved = localStorage.getItem("barosit:auth_redirect");
               localStorage.removeItem("barosit:auth_redirect");
-              window.location.hash = saved ?? "#/app";
+              // 저장된 값이 *내부 hash 패턴* 일 때만 적용. 외부 URL /
+              // javascript: URI 주입 방어 (XSS 심층 방어).
+              const safe = saved && /^#\/[a-zA-Z0-9/_?=&-]*$/.test(saved);
+              window.location.hash = safe ? saved! : "#/app";
             } catch {
               /* localStorage 접근 실패 — 사용자 수동 이동에 맡김 */
             }
@@ -263,7 +266,15 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     if (!IS_AUTH_CONFIGURED) return;
-    await supabase.auth.signOut();
+    // 옵티미스틱 UI — Windows 저사양에서 supabase 응답까지 1~2초 멈춤 + 그
+    // 사이 로그인 상태 UI 가 잠깐 노출되는 깜빡임을 막기 위해, useAuth 의
+    // session/user state 를 *동기적*으로 먼저 비웁니다. 글로벌 revoke 는
+    // void 로 백그라운드 진행 — supabase-js 가 응답을 받으면 자체적으로
+    // localStorage 토큰 폐기 + onAuthStateChange(SIGNED_OUT) 발화. 이 시점엔
+    // state 가 이미 null 이라 추가 렌더 없음. 글로벌 revoke 실패 시에도 다음
+    // getSession 호출 때 supabase-js 가 재시도하거나 토큰 만료로 자연 정리됨.
+    setState((prev) => ({ ...prev, session: null, user: null }));
+    void supabase.auth.signOut();
   }, []);
 
   return {

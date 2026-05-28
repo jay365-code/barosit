@@ -207,12 +207,14 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   }, [onGoHome]);
 
   // 로그인 성공 시 프로필 & 설정 원격 다운로드 복원
+  // dep 를 session?.user?.id 로 좁힘 — 토큰 자동 refresh (1시간 주기) 시
+  // session 객체 참조가 바뀌어 매번 무의미한 pull 이 발생하던 비용 제거.
   useEffect(() => {
     if (session?.user) {
       pullProfileFromServer();
       pullSettingsFromServer();
     }
-  }, [session]);
+  }, [session?.user?.id]);
 
   // 소셜 로그인 완료 시 디폴트 아바타(🪑) 상태라면 소셜 이미지(avatar_url)로 자동 교체 및 적용
   useEffect(() => {
@@ -315,9 +317,12 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       window.removeEventListener("barosit:subscription-changed", handleSubChanged);
       window.removeEventListener("storage", handleSubChanged);
     };
-  }, [session]);
+    // dep 를 session?.user?.id 로 좁힘 — 토큰 refresh 시 fetchSub 가 매시간
+    // 재실행되어 user_subscriptions SELECT 가 누적되던 비용 제거.
+  }, [session?.user?.id]);
 
   // 프로필 정보 동기화 및 자동 저장 — 입력 후 600ms debounce
+  // dep 를 session?.user?.id 로 좁힘 — 토큰 refresh 시 불필요 push 방지.
   useEffect(() => {
     const t = setTimeout(() => {
       saveProfile(profile);
@@ -327,7 +332,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [profile, session]);
+  }, [profile, session?.user?.id]);
 
   // 환불 요청 (안전한 우회 방식)
   const handleRefund = async () => {
@@ -1329,33 +1334,35 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                               cursor: "pointer"
                             }}
                             onClick={async () => {
-                              // Optimistic UI — UI 전환을 await signOut() 이전으로
-                              // 옮겨 즉시 게스트 화면 표시. supabase.auth.signOut() 의
-                              // 기본 'global' scope 는 서버에 refresh token revoke
-                              // 요청을 보내 200ms~1.5s 걸리고, Windows WebView2 에선
-                              // 후속 reload 까지 합쳐 3-4초 답답하게 느껴지던 문제
-                              // 해소. reload 자체는 유지 (cross-window 상태 일괄
-                              // 청소용 — 사용자는 이미 게스트 화면을 보고 있어 깜빡임
-                              // 부담 낮음).
+                              // 옵티미스틱 UI — useAuth 의 signOut() 이 session/user
+                              // state 를 동기적으로 비우고 supabase 글로벌 revoke 는
+                              // 백그라운드로 진행. 따라서 클릭 즉시 비로그인 상태로
+                              // 전환되고, Windows WebView2 의 reload 깜빡임(1-2s)도
+                              // 제거. cross-window 구독 상태 동기화는 'barosit:
+                              // subscription-changed' 이벤트 + supabase 의 onAuthState
+                              // Change(SIGNED_OUT) 가 처리.
                               setLogoutConfirmOpen(false);
                               setSubPlan("free");
                               setCardInfo(null);
                               setGracePeriodUntil(null);
                               localStorage.setItem("barosit:subscription_plan", "free");
-                              localStorage.removeItem("user_profile_v1"); // 🌟 이전 사용자 로컬 프로필 캐시 소거
-                              
-                              // [해결] 리로드 시점에 로그인 화면이 깜빡이거나 강제 노출되는 현상을 원천 방지하기 위해 해시를 미리 완전 소거
-                              window.location.hash = "";
+                              localStorage.removeItem("user_profile_v1"); // 이전 사용자 로컬 프로필 캐시 소거 (공용 PC 시나리오)
+
+                              // overlay 가 닫힌 후 MonitorView 가 자연스럽게 비로그인
+                              // 상태로 재렌더됩니다. hash 를 빈 값으로 강제하면
+                              // hashchange 가 추가 발화하므로 overlay 닫기만 호출.
                               onGoHome();
+
+                              // App.tsx / 다른 windows 의 subscription state 가 즉시
+                              // free 로 정합되도록 명시 dispatch. (reload 로 일괄
+                              // 청소하던 동작을 대체)
+                              window.dispatchEvent(new Event("barosit:subscription-changed"));
 
                               try {
                                 await signOut();
                               } catch (err) {
                                 console.error("Logout failed:", err);
                               }
-                              setTimeout(() => {
-                                window.location.reload();
-                              }, 100);
                             }}
                           >
                             네, 로그아웃합니다

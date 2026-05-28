@@ -16,6 +16,47 @@ import {
 
 // const CONTACT_EMAIL = "support@barosit.com";
 
+// ───────── Auth navigation helpers ─────────
+//
+// 로그인 전/후 redirect 흐름을 한 곳에서 관리. 진입 지점이 흩어져 있어
+// 일부 경로에서만 직전 hash 가 저장되던 문제(로그인 후 무조건 #/app 으로
+// 가버리던 현상)를 해소합니다.
+
+// 콜백 후 복귀 시 허용할 safe hash 패턴 — 내부 라우트만 허용해 외부 URL /
+// javascript: URI 주입을 방어 (XSS 가 없다는 전제의 심층 방어).
+const SAFE_HASH_RE = /^#\/[a-zA-Z0-9/_?=&-]*$/;
+export function isSafeRedirectHash(s: string | null | undefined): s is string {
+  if (!s) return false;
+  return SAFE_HASH_RE.test(s);
+}
+
+// 로그인 페이지로 이동하면서 *현재 hash* 를 자동 저장. 로그인 콜백 후 자연
+// 복귀하도록 합니다. 단, 인증 페이지로의 재진입은 redirect 후보에서 제외.
+export function navigateToLogin(e?: { preventDefault?: () => void }) {
+  if (e?.preventDefault) e.preventDefault();
+  const cur = typeof window !== "undefined" ? window.location.hash : "";
+  const isAuthRoute =
+    cur.startsWith("#/login") ||
+    cur.startsWith("#/signup") ||
+    cur.startsWith("#/auth/callback");
+  if (isSafeRedirectHash(cur) && !isAuthRoute) {
+    try {
+      localStorage.setItem("barosit:auth_redirect", cur);
+    } catch {
+      /* localStorage 비활성 환경 — redirect 미저장은 fallback 으로 충분 */
+    }
+  }
+  window.location.hash = "#/login";
+}
+
+// 로그아웃 후 redirect 정책 — 인증 필수 영역에서만 #/landing 으로 보내고,
+// 그 외 페이지(#/pricing, #/about, …)는 *현재 페이지 유지*. React 가 user=
+// null 로 자연 재렌더합니다.
+const PROTECTED_HASH_PREFIXES = ["#/profile", "#/account", "#/app", "#/admin"];
+export function shouldRedirectAfterSignOut(currentHash: string): boolean {
+  return PROTECTED_HASH_PREFIXES.some((p) => currentHash.startsWith(p));
+}
+
 
 export const trackPaymentEvent = (
   eventName:
@@ -138,7 +179,12 @@ function TopNav({ active }: { active?: string }) {
             </span>
           </a>
         ) : (
-          <a href="#/login" className="b-btn b-btn-quiet" style={{ textDecoration: "none" }}>
+          <a
+            href="#/login"
+            onClick={navigateToLogin}
+            className="b-btn b-btn-quiet"
+            style={{ textDecoration: "none" }}
+          >
             로그인
           </a>
         )}
@@ -814,10 +860,12 @@ function AuthCallback() {
 
         if (cancelled) return;
         if (!data.session) throw new Error("세션을 확인할 수 없어요.");
-        
+
         const redirectTo = localStorage.getItem("barosit:auth_redirect");
-        if (redirectTo) {
-          localStorage.removeItem("barosit:auth_redirect");
+        // 저장된 값이 *내부 hash 패턴* 일 때만 적용 — javascript: URI / 외부
+        // URL 주입 방어. 비정상 값이면 #/app 으로 fallback.
+        localStorage.removeItem("barosit:auth_redirect");
+        if (isSafeRedirectHash(redirectTo)) {
           window.location.replace(redirectTo);
         } else {
           window.location.replace("#/app");
@@ -900,6 +948,7 @@ function AuthCallback() {
             </p>
             <a
               href="#/login"
+              onClick={navigateToLogin}
               className="b-btn b-btn-primary"
               style={{ textDecoration: "none" }}
             >
@@ -2916,8 +2965,9 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
   useEffect(() => {
     if (!loading && user) {
       const redirectTo = localStorage.getItem("barosit:auth_redirect");
-      if (redirectTo) {
-        localStorage.removeItem("barosit:auth_redirect");
+      localStorage.removeItem("barosit:auth_redirect");
+      // 저장된 값이 *내부 hash 패턴* 일 때만 적용 (XSS 심층 방어).
+      if (isSafeRedirectHash(redirectTo)) {
         window.location.replace(redirectTo);
       } else {
         window.location.replace("#/app");
@@ -3242,6 +3292,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
                 이미 계정이 있나요?{" "}
                 <a
                   href="#/login"
+                  onClick={navigateToLogin}
                   style={{ color: "var(--b-sig)", fontWeight: 600, textDecoration: "none" }}
                 >
                   로그인
@@ -3318,7 +3369,8 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
         "다운로드 전 회원님의 플랜(FREE / PRO)을 확인하기 위해 로그인이 필요합니다.\n\n" +
         "확인을 누르시면 로그인 페이지로 이동합니다."
       );
-      window.location.hash = "#/login";
+      // 현재 다운로드 페이지를 redirect 로 저장 → 로그인 후 복귀.
+      navigateToLogin();
       return;
     }
 
@@ -5345,8 +5397,14 @@ function Profile() {
     .toUpperCase();
 
   const handleSignOut = async () => {
+    const cur = window.location.hash || "";
     await signOut();
-    window.location.replace("#/landing");
+    // 인증 필수 영역(#/profile, #/account, #/app, #/admin)에서만 #/landing
+    // 으로 강제. 그 외 페이지(#/pricing, #/about 등)는 현재 위치 유지 —
+    // useAuth.user=null 이 되면서 React 가 자연 재렌더합니다.
+    if (shouldRedirectAfterSignOut(cur)) {
+      window.location.replace("#/landing");
+    }
   };
 
   return (
