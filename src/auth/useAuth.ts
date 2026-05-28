@@ -58,27 +58,38 @@ export function useAuth() {
     const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
 
     if (isTauri) {
-      // ─── Tauri OAuth (deep-link 기반) ─────────────────────────────────────
+      // ─── Tauri OAuth (HTTPS bridge → deep-link) ──────────────────────────
       // 1. PKCE 흐름으로 supabase 가 code_verifier 를 main webview localStorage
       //    (tauri://localhost) 에 저장하고 authorize URL 반환.
       // 2. 외부 기본 브라우저에서 그 URL 을 염. provider 인증 완료 후 provider
-      //    가 supabase callback 으로 redirect, supabase 가 다시 barosit://
-      //    스킴으로 redirect.
-      // 3. OS 가 barosit:// 를 본 앱으로 라우팅 → deep-link 플러그인이
+      //    → supabase callback → supabase 가 redirectTo (HTTPS bridge URL) 로
+      //    redirect.
+      // 3. bridge 페이지 (public/desktop-auth-redirect.html) 가 inline JS 로
+      //    즉시 barosit://auth-callback?code=... 로 재이동. supabase-js 를
+      //    로드하지 않아 web 의 detectSessionInUrl 이 code 를 소비하지 않음.
+      // 4. OS 가 barosit:// 를 본 앱으로 라우팅 → deep-link 플러그인이
       //    onOpenUrl 이벤트 발행 → 같은 main webview 의 supabase client 가
       //    저장된 verifier 로 exchangeCodeForSession 실행 → 세션 확립.
       //
-      // 이전 in-app popup 방식은 popup webview 가 https://barosit.com origin
-      // 으로 redirect 되면서 세션이 거기 갇히고 main (tauri://localhost) 에서
-      // origin 격리 때문에 영원히 못 읽는 구조적 결함이 있었음 — 폐기.
+      // Why HTTPS bridge: Supabase 의 URL validator 가 custom URI scheme
+      // (barosit://) 을 silent 하게 reject 하고 Site URL 로 fallback 시키는
+      // 케이스가 관찰됨. HTTPS URL 은 항상 신뢰되어 정확히 redirect.
+      // (Site URL 기존 wildcard `https://barosit.com/**` 가 이 bridge URL 을
+      // 이미 포함하므로 Supabase 대시보드에 추가 등록 불필요.)
 
       const { onOpenUrl } = await import("@tauri-apps/plugin-deep-link");
       const { openUrl } = await import("@tauri-apps/plugin-opener");
 
+      // 환경별 override 허용. 미설정 시 production 웹 사용.
+      // 로컬 개발 시 .env.local 에 VITE_DESKTOP_AUTH_REDIRECT 로
+      // http://localhost:1430/desktop-auth-redirect.html 같이 지정 가능.
+      const bridgeUrl = (import.meta.env.VITE_DESKTOP_AUTH_REDIRECT as string | undefined)
+        ?? "https://barosit.com/desktop-auth-redirect.html";
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: "barosit://auth-callback",
+          redirectTo: bridgeUrl,
           skipBrowserRedirect: true,
           queryParams: provider === "google" || provider === "kakao" ? {
             prompt: "select_account",
