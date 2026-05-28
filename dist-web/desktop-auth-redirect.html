@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="cache-control" content="no-store" />
+<meta name="robots" content="noindex" />
+<title>BaroSit — 데스크탑 앱으로 돌아가는 중</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: #0f1113;
+    color: #e6ebf0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.55;
+  }
+  .box { max-width: 420px; padding: 32px 28px; }
+  h1 { font-size: 18px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em; }
+  p { font-size: 14px; color: #aab3bd; margin: 8px 0 0; }
+  a { color: #7eb09c; font-weight: 600; }
+  .err { color: #e15554; }
+
+  /* ─── Posture scene styling ──────────────────────────────────────────
+   * 애니메이션 자체는 SVG <animate> / <animateTransform> (SMIL) 로 처리.
+   * CSS keyframe + transform-origin 의 브라우저별 SVG 해석 차이를 회피.
+   * SMIL 은 SVG 표준이라 모든 browser 에서 일관 동작 + rotate(angle cx cy)
+   * 로 pivot 좌표 직접 명시 가능 (transform-box 불필요). */
+  .posture-scene {
+    width: 220px;
+    height: auto;
+    display: block;
+    margin: 0 auto 22px;
+  }
+</style>
+<script>
+/*
+ * BaroSit 데스크탑 OAuth bridge.
+ *
+ * 흐름: Supabase 가 OAuth 콜백 시 우리 데스크탑 앱의 custom scheme
+ * (barosit://) 으로 직접 redirect 하는 게 일관되지 않게 동작 (Supabase 의
+ * URL validator 가 custom URI scheme 을 silent 하게 fallback 시키는 케이스
+ * 가 있어 Site URL 로 빠지는 문제). 따라서 Supabase 한테는 정상 HTTPS URL
+ * (이 페이지) 만 보여주고, 이 페이지가 inline JS 로 즉시 barosit:// 로
+ * point.
+ *
+ * 핵심: supabase-js 를 절대 로드하지 않아야 함. supabase client 가 init
+ * 되는 순간 detectSessionInUrl 이 ?code= 를 자동 소비해 데스크탑 앱이
+ * exchange 못 함. 이 페이지는 정적 HTML — SPA 라우터/main.tsx 모두 거치지
+ * 않아 안전.
+ */
+(function () {
+  try {
+    var url = new URL(window.location.href);
+    var code = url.searchParams.get('code');
+    var errParam = url.searchParams.get('error_description') || url.searchParams.get('error');
+
+    // 일부 provider 가 hash 로 토큰을 돌려보내는 케이스도 보존 (implicit fallback).
+    var hash = window.location.hash || '';
+
+    var target = 'barosit://auth-callback';
+    var params = [];
+    if (errParam) {
+      params.push('error=' + encodeURIComponent(errParam));
+    } else if (code) {
+      params.push('code=' + encodeURIComponent(code));
+      // state 도 함께 전달 (PKCE 안 쓰는 provider 호환).
+      var state = url.searchParams.get('state');
+      if (state) params.push('state=' + encodeURIComponent(state));
+    } else if (!hash) {
+      // 아무것도 없으면 어떻게 해줄 수 없음 — 안내 UI 표시.
+      document.documentElement.setAttribute('data-empty', '1');
+      return;
+    }
+
+    var query = params.length > 0 ? ('?' + params.join('&')) : '';
+    var finalUrl = target + query + hash;
+
+    // fallback 링크에도 미리 세팅 (DOMContentLoaded 전이라도 안전하게 시도).
+    document.addEventListener('DOMContentLoaded', function () {
+      var a = document.getElementById('manual-link');
+      if (a) a.setAttribute('href', finalUrl);
+    });
+
+    // deep-link navigation 을 즉시 호출하면 body paint 가 cancel 되어 빈
+    // 화면이 잠시 표시되는 문제가 있음. 페이지가 한 번 paint + 애니메이션
+    // 첫 cycle 일부를 보여준 뒤 navigation 시도. UX 적으로도 "잠깐 안내
+    // 화면 → 앱 열림" 흐름이 자연스럽고, deep-link 실패 시에도 사용자가
+    // 페이지 안내를 읽고 manual link 누를 수 있음.
+    setTimeout(function () {
+      window.location.replace(finalUrl);
+    }, 1200);
+  } catch (e) {
+    document.documentElement.setAttribute('data-err', String(e && e.message || e));
+  }
+})();
+</script>
+</head>
+<body>
+  <div class="box">
+    <!-- ─── BaroSit posture scene ─────────────────────────────────────────
+     * Side view: 노트북(왼쪽) + 졸라맨(오른쪽, 노트북을 향한 옆모습).
+     * .figure-upper 그룹이 거북목 → 노트북 알림 → 회복 사이클을 반복.
+     * 모든 stroke 가 동일한 sage green (#7eb09c) — Logo 컴포넌트와 같은
+     * 기하 언어. -->
+    <svg class="posture-scene" viewBox="0 0 240 170" aria-hidden="true">
+      <!-- 책상 면 -->
+      <line x1="15" y1="140" x2="225" y2="140"
+            stroke="rgba(126,176,156,0.3)" stroke-width="1.5" stroke-linecap="round" />
+
+      <!-- 노트북 (옆모습) — 졸라맨과 시점 일치.
+           키보드 base 는 평면, 화면은 hinge(back-left)에서 ~98° 열린 각도.
+           화면 face 는 figure(오른쪽) 방향으로 보임. -->
+      <g class="laptop">
+        <!-- 키보드 base (옆면 slab, 두께 6) -->
+        <rect x="48" y="132" width="60" height="6" rx="1"
+              fill="rgba(126,176,156,0.08)" stroke="#7eb09c" stroke-width="2" />
+
+        <!-- 화면 face (figure 쪽으로 보이는 면, parallelogram).
+             charging 글로우 — 발사체 발사 직전까지 빛이 모임. -->
+        <path class="laptop-glow"
+              d="M 48 132 L 52 132 L 46 92 L 42 92 Z"
+              fill="#7eb09c" opacity="0">
+          <animate attributeName="opacity"
+                   values="0; 0; 0.35; 0.7; 0.2; 0; 0"
+                   keyTimes="0; 0.48; 0.56; 0.64; 0.70; 0.78; 1"
+                   dur="4.5s"
+                   repeatCount="indefinite" />
+        </path>
+
+        <!-- 화면 outline: back edge (figure 반대쪽) -->
+        <line x1="48" y1="132" x2="42" y2="92"
+              stroke="#7eb09c" stroke-width="2" stroke-linecap="round" />
+        <!-- 화면 outline: front edge (figure 쪽) -->
+        <line x1="52" y1="132" x2="46" y2="92"
+              stroke="#7eb09c" stroke-width="2" stroke-linecap="round" />
+        <!-- 화면 top edge -->
+        <line x1="42" y1="92" x2="46" y2="92"
+              stroke="#7eb09c" stroke-width="2" stroke-linecap="round" />
+
+        <!-- ─── 자세 교정 발사체 ─────────────────────────────────────────────
+             노트북이 charging (글로우 peak) → 작은 발사체가 화면 top (44, 92)
+             에서 슬럼프 머리 (≈ 152, 76) 로 휙 → 명중 → 임팩트 ring 확산 →
+             머리가 휙 바른 자세로. -->
+
+        <!-- 발사체 (작은 sage green 원). cx/cy 동시 animate 해서 직선 궤적. -->
+        <circle r="3" fill="#7eb09c" cx="44" cy="92" opacity="0">
+          <animate attributeName="opacity"
+                   values="0; 0; 1; 1; 0; 0"
+                   keyTimes="0; 0.64; 0.66; 0.74; 0.76; 1"
+                   dur="4.5s"
+                   repeatCount="indefinite" />
+          <animate attributeName="cx"
+                   values="44; 44; 152; 152"
+                   keyTimes="0; 0.66; 0.74; 1"
+                   dur="4.5s"
+                   repeatCount="indefinite" />
+          <animate attributeName="cy"
+                   values="92; 92; 76; 76"
+                   keyTimes="0; 0.66; 0.74; 1"
+                   dur="4.5s"
+                   repeatCount="indefinite" />
+        </circle>
+
+        <!-- 임팩트 ring — 발사체 명중 시점에 머리 위치에서 확산 -->
+        <circle cx="152" cy="76" r="3" fill="none"
+                stroke="#7eb09c" stroke-width="2" opacity="0">
+          <animate attributeName="opacity"
+                   values="0; 0; 0.9; 0; 0"
+                   keyTimes="0; 0.74; 0.76; 0.86; 1"
+                   dur="4.5s"
+                   repeatCount="indefinite" />
+          <animate attributeName="r"
+                   values="3; 3; 5; 18; 18"
+                   keyTimes="0; 0.74; 0.76; 0.86; 1"
+                   dur="4.5s"
+                   repeatCount="indefinite" />
+        </circle>
+      </g>
+
+      <!-- 의자 (장식용 — 자세 기준점 표시). 졸라맨이 노트북 쪽으로 이동
+           해서 의자도 함께 -20px shift. -->
+      <line x1="140" y1="140" x2="190" y2="140"
+            stroke="rgba(126,176,156,0.3)" stroke-width="1.5" stroke-linecap="round" />
+      <line x1="190" y1="140" x2="190" y2="95"
+            stroke="rgba(126,176,156,0.3)" stroke-width="1.5" stroke-linecap="round" />
+
+      <!-- 졸라맨 하체: 허벅지 + 척추 하부 (정적). 노트북에 더 가깝게 -20px. -->
+      <line x1="160" y1="140" x2="140" y2="140"
+            stroke="#7eb09c" stroke-width="3" stroke-linecap="round" />
+      <line x1="160" y1="140" x2="160" y2="92"
+            stroke="#7eb09c" stroke-width="3" stroke-linecap="round" />
+
+      <!-- 졸라맨 팔 (정적) — 어깨에서 키보드 방향으로. 손 끝이 키보드
+           앞쪽에 자연스럽게 닿는 위치. -->
+      <path d="M160 100 L142 118 L117 126"
+            fill="none" stroke="#7eb09c" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round" />
+
+      <!-- 졸라맨 상체 (animates) — 목 + 머리.
+           SMIL <animateTransform type="rotate"> 로 pivot (160, 92) 직접
+           명시. 4.5s 루프 — 발사체 임팩트(74-76%) 와 정확히 동기:
+             0%   바른 자세 (rotate 0°)
+             18%  바른 자세 hold 끝
+             40%  거북목 진입 완료 (rotate -26°, 노트북 쪽으로)
+             74%  거북목 hold 끝 (← 발사체 명중)
+             86%  휙 제자리 (rotate 0°)
+             100% 다시 바른 자세 hold 시작 → loop -->
+      <g class="figure-upper">
+        <!-- 목 -->
+        <line x1="160" y1="92" x2="160" y2="83"
+              stroke="#7eb09c" stroke-width="3" stroke-linecap="round" />
+        <!-- 머리 -->
+        <circle cx="160" cy="74" r="9"
+                fill="none" stroke="#7eb09c" stroke-width="3" />
+        <animateTransform attributeName="transform" type="rotate"
+                          values="0 160 92; 0 160 92; -26 160 92; -26 160 92; 0 160 92; 0 160 92"
+                          keyTimes="0; 0.18; 0.40; 0.74; 0.86; 1"
+                          calcMode="spline"
+                          keySplines="0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1"
+                          dur="4.5s"
+                          repeatCount="indefinite" />
+      </g>
+    </svg>
+
+    <h1>데스크탑 앱으로 돌아가는 중…</h1>
+    <p>잠시 후 BaroSit 앱이 자동으로 열립니다.<br>
+       열리지 않으면 <a id="manual-link" href="barosit://auth-callback">여기를 클릭</a>해주세요.</p>
+    <p class="err" id="err"></p>
+  </div>
+  <script>
+    // 1.5초 후에도 페이지가 그대로면 에러 상황 가능성 — 사용자에게 상태 안내.
+    setTimeout(function () {
+      var emptyFlag = document.documentElement.getAttribute('data-empty');
+      var errFlag = document.documentElement.getAttribute('data-err');
+      var err = document.getElementById('err');
+      if (emptyFlag === '1') {
+        err.textContent = '인증 코드를 찾을 수 없습니다. 데스크탑 앱에서 다시 시도해주세요.';
+      } else if (errFlag) {
+        err.textContent = '오류: ' + errFlag;
+      }
+    }, 1500);
+  </script>
+</body>
+</html>

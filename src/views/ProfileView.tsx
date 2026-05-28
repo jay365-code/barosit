@@ -44,6 +44,7 @@ function getWebAdminUrl(): string {
 export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const {
     session,
+    loading,
     signInWithGoogle,
     signInWithKakao,
     signOut,
@@ -646,7 +647,35 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       </header>
 
       <div className="profile-body">
-        {!session ? (
+        {loading ? (
+          /* ⏳ 비동기 세션 조회 중: 반짝이는 은은한 로딩 스켈레톤 플레이트 */
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "320px",
+            background: "rgba(255, 255, 255, 0.02)",
+            borderRadius: "24px",
+            border: "1px solid rgba(255, 255, 255, 0.04)"
+          }}>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "14px",
+            }}>
+              <div style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                border: "3px solid rgba(255, 255, 255, 0.08)",
+                borderTopColor: "var(--b-sig)",
+                animation: "spin 1s linear infinite"
+              }} />
+              <div style={{ fontSize: 13, color: "var(--b-fg-4)", letterSpacing: "-0.01em" }}>보안 세션 동기화 중...</div>
+            </div>
+          </div>
+        ) : !session ? (
           /* 🔐 비로그인 상태: 오직 로그인/인증에만 완벽히 집중할 수 있는 전면 UI */
           <section className="profile-card profile-login-focused" style={{
             background: "linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)",
@@ -1314,6 +1343,9 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                               setGracePeriodUntil(null);
                               localStorage.setItem("barosit:subscription_plan", "free");
                               localStorage.removeItem("user_profile_v1"); // 🌟 이전 사용자 로컬 프로필 캐시 소거
+                              
+                              // [해결] 리로드 시점에 로그인 화면이 깜빡이거나 강제 노출되는 현상을 원천 방지하기 위해 해시를 미리 완전 소거
+                              window.location.hash = "";
                               onGoHome();
 
                               try {
