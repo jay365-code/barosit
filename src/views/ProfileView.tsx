@@ -50,6 +50,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile>(() => loadProfile());
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [adminModelCalibrateOpen, setAdminModelCalibrateOpen] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -165,6 +166,29 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     checkAdminStatus();
   }, []);
 
+  // 팝업창 전용: provider 쿼리 파라미터 감지 시 자동 OAuth 로그인 트리거 (PKCE 도메인 격리 원천 해소)
+  useEffect(() => {
+    const hashQuery = window.location.hash.split("?")[1] || "";
+    const searchParams = new URLSearchParams(window.location.search || hashQuery);
+    const provider = searchParams.get("provider");
+    const isPopup = searchParams.get("is_popup");
+
+    if (isPopup && provider) {
+      console.warn(`[Tauri OAuth Popup Sandbox] Auto-triggering OAuth flow for: ${provider}`);
+      if (provider === "google") {
+        signInWithGoogle().catch((err) => {
+          console.error("Auto-trigger Google failed:", err);
+          alert(err.message || err);
+        });
+      } else if (provider === "kakao") {
+        signInWithKakao().catch((err) => {
+          console.error("Auto-trigger Kakao failed:", err);
+          alert(err.message || err);
+        });
+      }
+    }
+  }, [signInWithGoogle, signInWithKakao]);
+
   // 로그인 성공 시 프로필 & 설정 원격 다운로드 복원
   useEffect(() => {
     if (session?.user) {
@@ -172,6 +196,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       pullSettingsFromServer();
     }
   }, [session]);
+
+  // 소셜 로그인 완료 시 디폴트 아바타(🪑) 상태라면 소셜 이미지(avatar_url)로 자동 교체 및 적용
+  useEffect(() => {
+    if (session?.user?.user_metadata?.avatar_url) {
+      const socialAvatar = session.user.user_metadata.avatar_url;
+      if (profile.avatar === "🪑" || !profile.avatar) {
+        setProfile((prev) => ({ ...prev, avatar: socialAvatar }));
+      }
+    }
+  }, [session, profile.avatar]);
 
   // 프로필 실시간 변경 이벤트 감지 및 반영
   useEffect(() => {
@@ -1208,23 +1242,87 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     현재 소셜 계정으로 연결되어 있습니다. 모든 디바이스 설정 및 바른자세 측정 로그가 클라우드 서버와 실시간으로 원격 백업 및 동기화됩니다.
                   </p>
                   <div className="profile-card-actions">
-                    <button
-                      type="button"
-                      className="b-btn b-btn-ghost"
-                      onClick={async () => {
-                        if (window.confirm("로그아웃 하시겠습니까?\n로그아웃 시에는 자세 데이터 실시간 백업이 일시 정지됩니다.")) {
-                          await signOut();
-                          localStorage.setItem("barosit:subscription_plan", "free");
-                          setSubPlan("free");
-                          setCardInfo(null);
-                          setGracePeriodUntil(null);
-                          alert("정상적으로 로그아웃되었습니다.");
-                        }
-                      }}
-                      style={{ border: "1px solid rgba(255, 255, 255, 0.1)", color: "#f87171" }}
-                    >
-                      간편 로그아웃
-                    </button>
+                    {!logoutConfirmOpen ? (
+                      <button
+                        type="button"
+                        className="b-btn b-btn-ghost"
+                        onClick={() => setLogoutConfirmOpen(true)}
+                        style={{ border: "1px solid rgba(255, 255, 255, 0.1)", color: "#f87171" }}
+                      >
+                        간편 로그아웃
+                      </button>
+                    ) : (
+                      <div style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                        padding: "12px",
+                        borderRadius: "12px",
+                        background: "rgba(248, 113, 113, 0.05)",
+                        border: "1px solid rgba(248, 113, 113, 0.2)",
+                        width: "100%",
+                        animation: "fadeIn 0.2s ease-out"
+                      }}>
+                        <div style={{ fontSize: "12px", color: "var(--b-fg-2)", fontWeight: 600 }}>
+                          ⚠️ 정말 로그아웃 하시겠습니까?
+                          <span style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", fontWeight: 400, marginTop: 4 }}>
+                            로그아웃 시에는 실시간 자세 데이터 백업이 일시 정지됩니다.
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            className="b-btn"
+                            style={{
+                              background: "#f87171",
+                              color: "#fff",
+                              border: "none",
+                              fontSize: "11px",
+                              padding: "4px 12px",
+                              height: "28px",
+                              fontWeight: 700,
+                              flex: 1,
+                              cursor: "pointer"
+                            }}
+                            onClick={async () => {
+                              try {
+                                await signOut();
+                                localStorage.removeItem("user_profile_v1"); // 🌟 이전 사용자의 로컬 프로필 캐시 소거
+                                localStorage.setItem("barosit:subscription_plan", "free");
+                                setSubPlan("free");
+                                setCardInfo(null);
+                                setGracePeriodUntil(null);
+                                setLogoutConfirmOpen(false);
+                                onGoHome();
+                                setTimeout(() => {
+                                  window.location.reload();
+                                }, 100);
+                              } catch (err) {
+                                console.error("Logout failed:", err);
+                              }
+                            }}
+                          >
+                            네, 로그아웃합니다
+                          </button>
+                          <button
+                            type="button"
+                            className="b-btn b-btn-ghost"
+                            style={{
+                              border: "1px solid var(--b-line)",
+                              color: "var(--b-fg-2)",
+                              fontSize: "11px",
+                              padding: "4px 12px",
+                              height: "28px",
+                              flex: 1,
+                              cursor: "pointer"
+                            }}
+                            onClick={() => setLogoutConfirmOpen(false)}
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}

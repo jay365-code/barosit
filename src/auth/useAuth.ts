@@ -56,24 +56,16 @@ export function useAuth() {
       throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
     }
     const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
+    
+    // 현재 창이 이미 팝업 샌드박스 내부인지 판별
+    const hashQuery = typeof window !== "undefined" ? window.location.hash.split("?")[1] || "" : "";
+    const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search || hashQuery : "");
+    const isPopup = searchParams.get("is_popup") === "true";
 
-    if (isTauri) {
+    if (isTauri && !isPopup) {
       try {
-        const currentSupabaseUrl = (supabase as any).supabaseUrl;
-        console.warn(`[Tauri OAuth] Initiating popup auth flow for ${provider}. Connecting to Supabase Target: ${currentSupabaseUrl}`);
+        console.warn(`[Tauri OAuth] Spawning sandbox login popup for ${provider}...`);
         
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider,
-          options: {
-            redirectTo: "https://barosit.com/#/auth/callback",
-            skipBrowserRedirect: true,
-          },
-        });
-        if (error) throw error;
-        if (!data?.url) throw new Error("인증 주소를 생성하지 못했습니다.");
-
-        console.log(`[Tauri OAuth] OAuth Authorize URL Generated: ${data.url}`);
-
         const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
         const existing = await WebviewWindow.getByLabel("oauth-login");
         if (existing) {
@@ -81,8 +73,11 @@ export function useAuth() {
           await existing.close();
         }
 
+        // 팝업창 내부에서 로그인 프로세스(시작과 끝)를 자생적으로 처리하도록 유도하여 PKCE 격리를 극복합니다.
+        const popupUrl = `${window.location.origin}/#/profile?provider=${provider}&is_popup=true`;
+
         new WebviewWindow("oauth-login", {
-          url: data.url,
+          url: popupUrl,
           title: `${provider === "kakao" ? "카카오" : provider === "google" ? "Google" : "Apple"} 로그인`,
           width: 500,
           height: 650,
@@ -117,6 +112,9 @@ export function useAuth() {
         provider,
         options: {
           redirectTo: authRedirectUrl(),
+          queryParams: provider === "google" || provider === "kakao" ? {
+            prompt: "select_account"
+          } : undefined
         },
       });
       if (error) throw error;

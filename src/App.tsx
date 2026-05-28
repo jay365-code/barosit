@@ -523,6 +523,21 @@ export default function App() {
     );
   }
 
+  const hashPath = currentHash.split("?")[0];
+  const isPopupMode = currentHash.includes("is_popup=true") || window.location.search.includes("is_popup=true");
+
+  if (hashPath === "#/profile" || isPopupMode) {
+    return (
+      <ErrorBoundary>
+        <ProfileView 
+          onGoHome={() => { window.location.hash = ""; }} 
+          onOpenAdmin={() => { window.location.hash = "#/admin"; }}
+          onOpenPricing={() => setPricingOpen(true)}
+        />
+      </ErrorBoundary>
+    );
+  }
+
   const isGracePeriodActive = subStatus === "grace_period" && Boolean(gracePeriodUntil);
   const isUpdateNoticeActive = Boolean(updater.error || updater.info || updater.available);
 

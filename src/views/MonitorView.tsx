@@ -514,6 +514,28 @@ export function MonitorView({
     return () => window.removeEventListener(PROFILE_CHANGED_EVENT, handler);
   }, []);
 
+  // [Race Condition 완화] 로그인 직후 메인 윈도우가 세션을 감지하여 리로드되었을 때, 
+  // 로컬 프로필의 아바타가 디폴트 '🪑' 상태라면 소셜 프로필 이미지(URL)로 자동 동기화 적용
+  useEffect(() => {
+    const autoSyncSocialAvatar = async () => {
+      try {
+        const { supabase } = await import("../auth/supabase");
+        const { data: { session } } = await supabase.auth.getSession();
+        const socialAvatar = session?.user?.user_metadata?.avatar_url;
+        if (socialAvatar && (profile.avatar === "🪑" || !profile.avatar)) {
+          const { saveProfile } = await import("../userProfile");
+          saveProfile({
+            ...profile,
+            avatar: socialAvatar,
+          });
+        }
+      } catch (err) {
+        console.error("[MonitorView] Failed to auto-sync social avatar:", err);
+      }
+    };
+    autoSyncSocialAvatar();
+  }, [profile]);
+
   useEffect(() => {
     const sync = () =>
       setWidgetEnabled(localStorage.getItem("app_mode") === "widget");
