@@ -2001,42 +2001,70 @@ export function MonitorView({
                 홈
               </a>
             )}
-            <button
-              className="b-icon-btn b-tip"
-              aria-label="프로필 열기"
-              data-tip={profile.name ? `${profile.name} · 프로필` : "프로필"}
-              onClick={onOpenProfile}
-              style={{
-                fontSize: 18,
-                lineHeight: 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 32,
-                height: 32,
-                padding: 0,
-                borderRadius: "50%",
-                overflow: "hidden",
-                border: "2px solid var(--b-border-translucent, rgba(255,255,255,0.1))",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                transition: "transform 0.2s, border-color 0.2s"
-              }}
-            >
-              {profile.avatar && (profile.avatar.startsWith("http://") || profile.avatar.startsWith("https://")) ? (
-                <img
-                  src={profile.avatar}
-                  alt="User Profile"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    borderRadius: "50%"
-                  }}
-                />
-              ) : (
-                <span aria-hidden>{profile.avatar || "🪑"}</span>
-              )}
-            </button>
+            {user ? (
+              <button
+                className="b-icon-btn b-tip"
+                aria-label="프로필 열기"
+                data-tip={profile.name ? `${profile.name} · 프로필` : "프로필"}
+                onClick={onOpenProfile}
+                style={{
+                  fontSize: 18,
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 32,
+                  height: 32,
+                  padding: 0,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  border: "2px solid var(--b-border-translucent, rgba(255,255,255,0.1))",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  transition: "transform 0.2s, border-color 0.2s"
+                }}
+              >
+                {profile.avatar && (profile.avatar.startsWith("http://") || profile.avatar.startsWith("https://")) ? (
+                  <img
+                    src={profile.avatar}
+                    alt="User Profile"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      borderRadius: "50%"
+                    }}
+                  />
+                ) : (
+                  <span aria-hidden>{profile.avatar || "🪑"}</span>
+                )}
+              </button>
+            ) : (
+              <button
+                className="b-btn b-btn-ghost b-tip"
+                aria-label="로그인하기"
+                data-tip="로그인하여 자세 데이터를 백업하세요"
+                onClick={onOpenProfile}
+                style={{
+                  height: 32,
+                  padding: "0 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: "20px",
+                  border: "1px solid var(--b-line-2, rgba(255,255,255,0.15))",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  color: "var(--b-fg-1)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: "0 2px 6px rgba(0, 0, 0, 0.05)"
+                }}
+              >
+                <Icon name="shield" size={13} style={{ opacity: 0.8 }} />
+                <span>로그인</span>
+              </button>
+            )}
           </div>
         </div>
 
