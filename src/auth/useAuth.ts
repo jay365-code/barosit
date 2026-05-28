@@ -65,7 +65,7 @@ export function useAuth() {
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
-            redirectTo: authRedirectUrl(),
+            redirectTo: "https://barosit.com/#/auth/callback",
             skipBrowserRedirect: true,
           },
         });
