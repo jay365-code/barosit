@@ -63,7 +63,7 @@ holder._barositRoot = root;
 
 // 웹 + App 페이지(MonitorView/CalibrationView) 에선 hash가 바뀌면 reload 해서
 // 라우터가 다시 평가하게 함. 마케팅 페이지는 MarketingHost가 자체 처리.
-if (IS_WEB && !marketingRoute) {
+if (!isWidget && !isAlert && !marketingRoute) {
   window.addEventListener("hashchange", () => {
     window.location.reload();
   });
