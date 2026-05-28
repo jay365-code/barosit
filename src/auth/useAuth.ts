@@ -51,19 +51,74 @@ export function useAuth() {
     };
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithOAuth = useCallback(async (provider: "google" | "kakao" | "apple") => {
     if (!IS_AUTH_CONFIGURED) {
       throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
     }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: authRedirectUrl(),
-        queryParams: { prompt: "select_account" },
-      },
-    });
-    if (error) throw error;
+    const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
+
+    if (isTauri) {
+      try {
+        console.log(`[Tauri OAuth] Initiating popup auth flow for ${provider}`);
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: authRedirectUrl(),
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error) throw error;
+        if (!data?.url) throw new Error("인증 주소를 생성하지 못했습니다.");
+
+        const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+        const existing = await WebviewWindow.getByLabel("oauth-login");
+        if (existing) {
+          await existing.close();
+        }
+
+        new WebviewWindow("oauth-login", {
+          url: data.url,
+          title: `${provider === "kakao" ? "카카오" : provider === "google" ? "Google" : "Apple"} 로그인`,
+          width: 500,
+          height: 650,
+          resizable: true,
+          alwaysOnTop: true,
+          focus: true,
+        });
+
+        const checkInterval = setInterval(async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            clearInterval(checkInterval);
+            console.log("[Tauri OAuth] Session detected, closing login popup...");
+            const win = await WebviewWindow.getByLabel("oauth-login");
+            if (win) {
+              await win.close();
+            }
+            window.location.reload();
+          }
+        }, 1000);
+
+        setTimeout(() => {
+          clearInterval(checkInterval);
+        }, 600000);
+
+      } catch (err) {
+        console.error("[Tauri OAuth Error]", err);
+        throw err;
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: authRedirectUrl(),
+        },
+      });
+      if (error) throw error;
+    }
   }, []);
+
+  const signInWithGoogle = useCallback(() => signInWithOAuth("google"), [signInWithOAuth]);
 
   const signInWithMagicLink = useCallback(async (email: string) => {
     if (!IS_AUTH_CONFIGURED) {
@@ -82,31 +137,9 @@ export function useAuth() {
     if (error) throw error;
   }, []);
 
-  const signInWithApple = useCallback(async () => {
-    if (!IS_AUTH_CONFIGURED) {
-      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
-    }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: {
-        redirectTo: authRedirectUrl(),
-      },
-    });
-    if (error) throw error;
-  }, []);
+  const signInWithApple = useCallback(() => signInWithOAuth("apple"), [signInWithOAuth]);
 
-  const signInWithKakao = useCallback(async () => {
-    if (!IS_AUTH_CONFIGURED) {
-      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
-    }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "kakao",
-      options: {
-        redirectTo: authRedirectUrl(),
-      },
-    });
-    if (error) throw error;
-  }, []);
+  const signInWithKakao = useCallback(() => signInWithOAuth("kakao"), [signInWithOAuth]);
 
   const signInWithNaver = useCallback(async () => {
     if (!IS_AUTH_CONFIGURED) {
