@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { supabase } from "../auth/supabase";
 
 interface TestCase {
   id: string;
@@ -8,6 +9,7 @@ interface TestCase {
   expected: string;
   status: "Untested" | "Pass" | "Fail" | "N/A";
   actualResult: string;
+  platforms: ("Web" | "Mac" | "Windows")[];
 }
 
 const INITIAL_TEST_CASES: TestCase[] = [
@@ -19,7 +21,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "로그인 화면에서 Google 로그인 버튼을 클릭하여 구글 OAuth 인증 공급자 팝업/이동이 안전하게 활성화되는지 수행합니다.",
     expected: "구글 OAuth 동의 페이지로 정상 리다이렉트되거나 팝업창이 성공적으로 활성화되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "AUTH-02",
@@ -28,7 +31,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "로그인 화면에서 Kakao 로그인 버튼을 클릭하여 카카오 OAuth 공급자 페이지가 정상 기동되는지 수행합니다.",
     expected: "카카오 로그인 동의 페이지로 정상 리다이렉트되거나 인증 팝업이 활성화되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "AUTH-03",
@@ -37,7 +41,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "로그인 화면 이메일 입력 칸에 주소를 입력하고 Magic Link 전송 버튼을 누른 뒤, Supabase Mailpit 메일함(http://localhost:54324)으로 가입/로그인 인증 메일이 도달하는지 확인합니다.",
     expected: "성공 메시지가 화면에 출력되고, 로컬 SMTP 서버 메일함에 인증 메일 링크가 1초 이내에 안전하게 발송 적재되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "AUTH-04",
@@ -46,7 +51,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "이메일 또는 간편 로그인 인증 링크 클릭 후 세션이 수립되는 과도기적 시간 동안, 뒷배경이 흐려지는 반투명 글래스모피즘 '인증 처리 및 프로필 동기화 중...' 오버레이 화면이 표출되는지 검증합니다.",
     expected: "인증 직후 약 0.5초~1.5초 동안 전면 글래스모피즘 동기화 로더 스크린이 보인 후, 로그인 완료 세션 수립과 동시에 부드럽게 대시보드로 이동해야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "AUTH-05",
@@ -55,7 +61,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "기존에 존재하지 않던 테스트 계정으로 최초 가입 로그인 성공 후, Supabase DB 콘솔에서 profiles, user_settings, user_subscriptions 테이블에 가입 유저 UUID 기준으로 행이 자동 삽입되었는지 체크합니다.",
     expected: "가입 즉시 트리거 함수(handle_new_user)가 기동되어 default profile, 기본 settings 정보, 그리고 'free' 플랜의 'active' 상태 구독 행이 자동 생성되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "AUTH-06",
@@ -64,7 +71,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "'jhlee@gubed.co.kr' 혹은 'leejonghyun88@gmail.com' 이메일 주소로 신규 가입을 유도한 뒤 profiles 테이블의 is_admin 값을 확인합니다.",
     expected: "지정된 특정 프로덕션 마스터 이메일로 가입 시, 별도의 백오피스 수동 조작 없이 profiles.is_admin 컬럼에 true가 자동 부여되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
 
   // 2. 인터랙티브 결제 및 플랜 관리 (Billing)
@@ -75,7 +83,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "프로필 화면 -> 카드 정보 등록 위저드 창을 열고, 카드 번호(16자리)를 순차 입력합니다. 유효기간(4자리), 비밀번호 앞 2자리, 생년월일(6자리) 입력 시 다음 입력 창으로 자동 포커싱(Auto-Focus Move)되는지 검증합니다.",
     expected: "각 입력창에 규정된 글자 수가 다 차는 순간, 마우스 조작이나 Tab 키 누름 없이 자동으로 다음 인풋창으로 포커스가 부드럽게 전환되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "BILL-02",
@@ -84,7 +93,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "카드 번호 16자리 입력 중, 마지막 16번째 자리를 입력하여 Luhn 체크썸 공식에 위배되는 가짜 번호일 때 경고를 표출하는지 시험합니다.",
     expected: "Luhn 공식 검증에 실패하면 '올바르지 않은 카드 번호입니다' 빨간색 메시지가 노출되고, 올바른 카드 번호가 완성되면 초록색 체크 마크가 나타나야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "BILL-03",
@@ -93,7 +103,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "신한카드(4673), 현대카드(4311), 삼성카드(5242), KB국민카드(9411) 등 알려진 카드사 고유 식별 번호를 첫 4자리에 입력해 봅니다.",
     expected: "입력된 앞자리 식별자에 맞게 상단 인터랙티브 가상 카드 플레이트의 그라디언트 테마(신한: Deep Blue, 현대: Matte Black, 삼성: Royal Blue, 국민: Yellow Gold 등)가 다이내믹하게 실시간 전환되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "BILL-04",
@@ -102,7 +113,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "테스트 카드로 양식을 모두 정확히 채운 후 '카드 등록 및 정기 구독' 버튼을 클릭하여 토스페이먼츠 비인증 빌링 HTTPS 통신을 유발합니다.",
     expected: "클라이언트 단에서 Toss API 빌링 키 획득 모의 통신이 기동되어, 암호화된 빌링 토큰(billing_key)과 만료 기간 등의 데이터가 정상 수립되어 로컬 프로필 상태에 갱신되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "BILL-05",
@@ -111,7 +123,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "카드 등록 완료 후 프로필 정보 UI에 어떻게 노출되는지 관찰합니다.",
     expected: "보안 강화를 위해 원본 카드 정보는 모두 휘발되며, 마스킹 처리된 포맷(예: '****-****-****-1234') 및 판별된 카드사 텍스트 정보가 프로필 정보 창에 안전하게 바인딩되어 노출되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "BILL-06",
@@ -120,7 +133,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "개발자 도구 콘솔 또는 Supabase API를 이용하여 일반 사용자 세션 상태에서 user_subscriptions 테이블의 plan_id 값을 'free'에서 'pro'로 강제 업데이트(SQL Injection 또는 API 직접 갱신)를 시도합니다.",
     expected: "user_subscriptions에 바인딩된 check_subscription_tampering 트리거가 작동하여 즉각 트랜잭션 에러(403 Security Exception: '보안 경고 - 일반 사용자는 플랜을 직접 변조할 수 없습니다')를 반환하고 차단해야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "BILL-07",
@@ -129,7 +143,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "데이터베이스에서 특정 사용자의 user_subscriptions.grace_period_until 컬럼 값을 현재 시점보다 약 3일 뒤 미래 날짜로 수정하고, user_subscriptions.status를 'payment_failed'로 지정한 채 앱 화면을 로드합니다.",
     expected: "앱 화면 최상단에 주황색 경고 톤의 '🚨 정기 결제 실패 - 유예 기간 동안 프로필에서 카드 정보를 업데이트하세요' 연체 및 만료 예정일 고지 배너가 즉각 슬라이드 노출되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "BILL-08",
@@ -138,7 +153,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "구독자가 프로필 설정 창에서 '구독 즉시 해지 및 환불 신청' 버튼을 클릭합니다.",
     expected: "구독 데이터 직접 수정 대신 RLS 우회 구조인 admin_notifications 테이블에 event_type = 'refund_requested' 속성 정보가 무사 인서트 적재되어 관리자 대시보드 알림 피드에 즉각 소출되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
 
   // 3. 자세 모니터링 엔진 및 기능 격하 (Monitoring & Degradation)
@@ -149,7 +165,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "모니터링 앱 화면으로 진입하여 카메라 권한 승인 후 웹캠 화면 상단에 MediaPipe Pose 분석용 선과 관절 점 스켈레톤 마스크가 렌더링되는지 확인합니다.",
     expected: "캠 비디오가 부드럽게 노출되며 신체 외곽 실루엣 점 33개 랜드마크가 고대비 선으로 어긋남 없이 밀착 추적 렌더링되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "MONI-02",
@@ -158,7 +175,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "모니터링 중 의도적으로 목을 앞으로 빼는 거북목(forward_head), 좌우 어깨 높낮이를 5도 이상 기울이는 어깨 비대칭(shoulder_tilt), 턱을 괴는 동작(chin_resting)을 수행해 봅니다.",
     expected: "위반 판정 기준치를 넘는 순간 프론트 뷰 하단 경고 카드에 불량 자세 유형이 적색 텍스트로 표출되며, 청각 피드백 비프 경보음과 화면 붉은색 글래스모피즘 진동 오버레이가 연계 기동되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "MONI-03",
@@ -167,7 +185,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "가입자 등급을 FREE로 설정한 후 모니터링을 구동하다가 브라우저 탭을 최소화하거나 다른 창 뒤로 완전히 숨깁니다.",
     expected: "불필요한 디바이스 배터리 및 브라우저 성능 누수를 막기 위해, 백그라운드 오프스크린 상태 감지 즉시 모니터링 엔진의 웹캠 루프 사이클 센서가 일시 정지(Occlusion Loop Paused)되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web"]
   },
   {
     id: "MONI-04",
@@ -176,7 +195,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "FREE 플랜 로그인 상태에서 스마트 자세 AI 피드백 탭을 클릭해 봅니다.",
     expected: "스마트 피드백 영역 전체가 반투명 글래스모피즘 락(Lock) 처리되며 자물쇠 기호와 함께 'PRO 전용 혜택' 알림 및 결제 가격 페이지로의 이동 유도 레이어가 팝업 차단되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web"]
   },
   {
     id: "MONI-05",
@@ -185,7 +205,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "FREE 계정 상태에서 일부러 나쁜 자세를 연속으로 지어 posture_events 로컬 누적 로그를 발생시킵니다. 개발자 도구의 Network 탭에서 클라우드 데이터 전송 API 호출 여부를 점검합니다.",
     expected: "고빈도 트래픽 비용을 차단하기 위해 원격 서버 DB로 posture_events API 호출을 전송하지 않아야 하며, 브라우저 LocalStorage에만 캐싱되어 최대 5,000건 제한으로 저장되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web"]
   },
   {
     id: "MONI-06",
@@ -194,7 +215,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "계정 등급을 PRO로 변경한 후 모니터링 엔진을 기동시킵니다. 5분 주기로 로컬 자세 이벤트가 서버 테이블로 안전하게 인서트되는지 네트워크 상태 및 데이터베이스를 확인합니다.",
     expected: "정상적으로 5분마다 누적된 posture_events 데이터와 일일 종합 통계 daily_scores가 Supabase API를 통해 클라우드로 전송 및 안전하게 통합 저장되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
 
   // 4. 오프라인 회복 탄력성 및 싱크 로직 (Offline & Sync)
@@ -205,7 +227,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "모니터링 기기의 인터넷 와이파이를 물리적으로 차단하거나 개발자 도구에서 Network 환경을 'Offline'으로 설정합니다.",
     expected: "네트워크 단절 감지 즉시 앱 하단에 앰버 톤의 '오프라인 상태입니다. 복구 시 자동 동기화됩니다' 반투명 슬라이드 메시지 배너가 스무스하게 팝업되어 사용자 불안을 제거해야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "SYNC-02",
@@ -214,7 +237,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "오프라인 상태에서 모니터링을 지속 기동하며 자세 위반 경고 로그를 인위적으로 생성합니다.",
     expected: "네트워크 에러로 튕기거나 로그가 유실되지 않고, 브라우저 LocalStorage의 미동기 스택에 이벤트 정보가 안전하고 완전하게 순서대로 적재되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "SYNC-03",
@@ -223,7 +247,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "오프라인 상태에서 인터넷을 다시 연결(Online 전환)하거나 개발자 도구의 오프라인 모드를 해제합니다.",
     expected: "온라인 전환 브라우저 이벤트를 즉각 포착하여, 별도의 사용자 조작이나 새로고침 없이 백그라운드에서 즉시 누적 이벤트 동기화 함수가 자동 가동되어 업로드를 수행해야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "SYNC-04",
@@ -232,7 +257,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "미동기 누적 자세 로그를 강제로 100건 이상 채워둔 후 연결 복구 흐름을 유발하여 전송 패키지 구조를 분석합니다.",
     expected: "한꺼번에 다수의 데이터를 쏘아 렌더링 프레임 드랍이나 렉을 유발하지 않도록, requestIdleCallback API를 기반으로 유휴 프레임 타임라인에 맞추어 50개 단위 청크(Chunk)로 나뉘어 스무스하게 분할 업로드되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
 
   // 5. 커뮤니티 Q&A 기능 (Q&A)
@@ -243,7 +269,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "Q&A 게시판에서 우측 상단 '질문 등록' 버튼을 누른 뒤, 유효한 제목과 상세 사연 본문을 채워 업로드합니다.",
     expected: "DB의 posts 테이블에 레코드가 즉시 생성되고, 리스트 최상단에 본인이 쓴 글 카드가 리액티브하게 즉시 바인딩되어 나타나야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "COMM-02",
@@ -252,7 +279,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "작성된 피드 카드를 눌러 상세 페이지로 진입하고, 좋아요(👍) 버튼을 눌러 상태 변화를 관측합니다.",
     expected: "상세 조회 시 views 값이 1 카운트 업되고, 좋아요 클릭 시 즉각 likes 수치가 리액티브하게 갱신되며 Supabase 데이터베이스와 연동 정합성이 보장되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "COMM-03",
@@ -261,7 +289,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "자신이 작성하지 않은 타 유저의 글에 진입하여 수정/삭제가 노출되는지 또는 강제로 삭제 API 전송 시 RLS에 의해 블로킹되는지 검증합니다.",
     expected: "본인의 작성글에만 편집/삭제 버튼이 렌더링되어야 하며, 타 유저의 글에 강제 갱신 API 호출 유발 시 Supabase RLS 정책에 의해 차단 에러를 뿜어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "COMM-04",
@@ -270,7 +299,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "질문 상세 하단 댓글란에 피드백 텍스트를 입력하고 등록을 제출합니다.",
     expected: "comments 테이블에 user_id, post_id와 함께 매핑되어 즉시 적재되고, 하단 댓글 리스트에 깜빡임 없이 리액티브하게 로드되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
 
   // 6. 실시간 어드민 관제 센터 (Admin)
@@ -281,7 +311,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "일반 계정과 어드민 계정으로 번갈아 로그인하여 프로필 화면 하단의 '어드민 제어 센터 열기' 버튼 노출 상태를 체크합니다.",
     expected: "is_admin = true 인 어드민 로그인 시에만 특수한 녹색 'ADMIN' 뱃지와 함께 어드민 센터 진입 링크가 나타나야 하며, 일반 유저 화면에서는 보이지 않아야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "ADMN-02",
@@ -290,7 +321,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "어드민 화면 - [실시간 대시보드] 탭을 눌러 가입자 현황 통계 카드 및 그래프들을 점검합니다.",
     expected: "총 가입 유저 수, Pro 결제자 비율, 누적 로그 수 등이 무사히 바인딩되고, 시간대별 사용량 바 차트와 위반 종류별 점유율을 나타내는 SVG 도넛 차트가 이지러짐 없이 정밀 렌더링되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "ADMN-03",
@@ -299,7 +331,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "어드민 화면 - [가입자 관리] 탭에 진입하여 목록 중 특정 회원의 요금 선택 상자(Select Box) 값을 변경해 봅니다.",
     expected: "마스터 계정의 조작이므로 RLS 차단 없이 즉각 user_subscriptions의 plan_id 및 status가 강제 변경 완료되어 해당 가입자의 화면 권한도 실시간 갱신(Free <-> Pro)되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "ADMN-04",
@@ -308,7 +341,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "어드민 화면 - [Q&A 문의 제어] 탭에서 특정 글을 선택하고 어드민 답변 등록 폼으로 댓글을 달거나 부적절 글을 직접 삭제해 봅니다.",
     expected: "어드민 댓글 등록 시 초록색 고휘도 '댓글 작성자(관리자)' 시그니처 뱃지가 할당되어 출력되고, 부적절 글 삭제 클릭 시 RLS를 우회하여 강제 영구 삭제 정화가 집행되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "ADMN-05",
@@ -317,7 +351,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "어드민 관제 대시보드 - [실시간 알림] 탭을 열어둔 상태로 유지합니다. 동시에 다른 시크릿 창에서 일반 유저 계정으로 카드 결제 실패나 가입, 환불 신청 등의 이벤트를 유도합니다.",
     expected: "관리자 화면을 새로고침하지 않아도, Supabase Realtime 채널 구독에 따라 즉석에서 화면 최상단 피드에 해당 알림 카드가 생동감 넘치게 즉각 적재되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "ADMN-06",
@@ -326,7 +361,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "시크릿 창을 통해 'info', 'warning', 'critical' 등 각기 다른 위험 수준의 가상 어드민 알림을 유발해 수신음 상태를 감청합니다.",
     expected: "브라우저 사운드가 차단되지 않은 한 Web Audio API 기동에 맞춰 고유 주파수 신호음(Critical: 날카로운 사이렌, Warning: 2음 경고 비프, Info: 맑고 영롱한 가입 알림음)이 즉석에서 다이내믹하게 합성되어 재생되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "ADMN-07",
@@ -335,7 +371,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "실시간 알림을 연속으로 유발하며 대시보드 화면 우측 하단의 플로팅 토스트 상태를 관측합니다.",
     expected: "화면 우측 하단에 알림 내용이 담긴 플로팅 토스트 카드가 미끄러지듯 스르륵 나타나고(Slide In), 정확히 4.5초가 흐르는 시점에 스무스하게 사라져야(Fade Out) 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "ADMN-08",
@@ -344,7 +381,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "어드민 화면 - [시스템 제어판] 탭으로 가서 '90일 이전 데이터 모의 실행' 버튼 및 '실제 영구 삭제' 버튼을 클릭합니다.",
     expected: "하단 형광 녹색 테미널 디스플레이에 날짜 연산 및 대상 데이터 로깅 분석 출력이 형광 녹색 폰트 콘솔창에 한 줄씩 스크롤 적재 노출되며 모의/실제 정리가 에러 없이 기동되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
   {
     id: "ADMN-09",
@@ -353,7 +391,78 @@ const INITIAL_TEST_CASES: TestCase[] = [
     method: "어드민 화면 - [시스템 제어판] 탭의 'QA 테스트 데이터 생성 및 주입' 버튼을 누르고 전체 탭의 상태를 재확인합니다.",
     expected: "단 1.5초 이내에 가상 자세 위반 이벤트 20건, 일주일치 일일 통계 7일분, 가상 질문 2개, 답변 1개가 DB에 다이렉트 주입되며 대시보드 차트 수치가 다이내믹하게 갱신되어야 합니다.",
     status: "Untested",
-    actualResult: ""
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "AUTH-07",
+    category: "Auth",
+    title: "구글 프로필 사진 403 차단 우회 및 리퍼러 제거 (Google Avatar Referrer Bypass)",
+    method: "프로필 화면 및 어드민/QA 상단 헤더의 구글 계정 아바타를 로드합니다. 개발자 도구의 Network 탭에서 `tauri://localhost` 리퍼러(Referrer) 헤더 노출 여부를 감시합니다.",
+    expected: "`referrerPolicy='no-referrer'`를 강제 적용함으로써 구글 CDN의 403 Forbidden 차단 없이 아바타 이미지가 리액티브하고 깨끗하게 노출되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "MONI-07",
+    category: "Monitoring",
+    title: "투명 미니바 위젯 레이어 깨짐 및 더블 섀도우 해결 (WebKit 3D Layer & Double Shadow Fix)",
+    method: "데스크톱 위젯 미니바 화면을 켜고, 위젯 주변의 250x54 사각형 회색 투명도 그림자 박스 찌꺼기 혹은 알약 모양 외곽의 뿌연 거품 이중 테두리가 생기는지 면밀히 육안 관찰합니다.",
+    expected: "컴포지팅 강제 레이어 프로모션(`translate3d`)과 투명 배경 적용, 그리고 `html.is-tauri-transparent` 미니바 섀도우 무효화(Quartz 드롭섀도우 일임)에 따라 뿌연 회색 잡티나 이중 테두리 없이 극도로 깔끔하고 선명한 알약 모양 위젯과 부드러운 단일 네이티브 그림자가 출력되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac"]
+  },
+  {
+    id: "ADMN-10",
+    category: "Admin",
+    title: "데스크톱 앱 최소화-투-위젯 파이프라인 (Tauri Minimize-to-Widget)",
+    method: "메인 윈도우의 타이틀 바 최소화(-) 버튼을 클릭하거나 윈도우 최소화 단축키를 입력합니다.",
+    expected: "Dock으로 윈도우가 들어가 숨는 대신, 메인 창은 즉시 안전하게 은닉(`window.hide()`)되고 그 즉시 마우스 호버 차단이 구현된 투명 플로팅 미니바 위젯이 화면에 출현해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "ADMN-11",
+    category: "Admin",
+    title: "메인 윈도우 X 닫기 시 앱 프로세스 완전 종료 (Quit App Policy)",
+    method: "메인 윈도우 타이틀 바의 붉은색 닫기(X) 버튼을 클릭합니다.",
+    expected: "단순히 창이 가려지거나 위젯 모드로 가던 기존 버그에서 완전히 벗어나, `app_handle().exit(0)` 정책에 따라 데스크톱 프로세스가 안전하고 완전하게 죽어 무사 종료되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "ADMN-12",
+    category: "Admin",
+    title: "데스크톱 앱 네이티브 새로고침 단축키 바인딩 (App Native Reload)",
+    method: "메인 윈도우 혹은 미니바 상태에서 키보드 새로고침 단축키(`Cmd+R` / `Ctrl+R` / `F5`)를 무작위로 여러 번 연타해 봅니다.",
+    expected: "웹뷰가 프리징되지 않고 브라우저 표준 리로딩 동작이 데스크톱 환경에서도 안정적이고 신속하게 기동되어 화면 상태가 안전하게 갱신되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "ADMN-13",
+    category: "Admin",
+    title: "어드민 대시보드 OS 기본 브라우저 아웃고잉 (Tauri Native Browser Open)",
+    method: "데스크톱 앱 프로필 뷰 하단의 `📊 어드민 대시보드 구동 (웹 브라우저로 열기)` 버튼을 클릭해 봅니다.",
+    expected: "데스크톱 내부의 좁은 창에서 열리는 대신, Rust 백엔드의 `open_browser` 프로세스 위임을 거쳐 사용자의 시스템 기본 브라우저(Chrome, Safari 등)가 즉시 새 탭으로 실행되며 어드민 대시보드가 넓고 쾌적하게 띄워져야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "ADMN-14",
+    category: "Admin",
+    title: "헤더 프리미엄 글래스모피즘 어드민 계정 정보 카드 (Premium Header Account Card)",
+    method: "어드민 시스템 제어판 및 QA 대시보드 화면에 동시에 진입하여 우측 상단의 계정 카드를 점검합니다.",
+    expected: "로그인 세션 기반의 이름, 이메일, 이니셜/구글 프로필 아바타 및 세련된 ADMIN HSL 배지가 한 줄로 오밀조밀하게 정렬되어 있으며, 테마에 맞추어 완벽한 색상 대비와 세련된 가독성(No Squeezed Wrap)이 실시간 보장되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   }
 ];
 
@@ -377,14 +486,40 @@ export function QaDashboardView() {
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [activeStatusFilter, setActiveStatusFilter] = useState<string>("All");
+  const [activePlatformFilter, setActivePlatformFilter] = useState<"All" | "Web" | "Mac" | "Windows">("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>("AUTH-01");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentUser, setCurrentUser] = useState<{ email?: string; avatarUrl?: string; name?: string } | null>(null);
 
   // 로컬스토리지 자동저장
   useEffect(() => {
     localStorage.setItem("barosit:qa_progress", JSON.stringify(testCases));
   }, [testCases]);
+
+  // 세션 사용자 정보 로드
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        let name = session.user.user_metadata?.name || session.user.user_metadata?.full_name || "어드민";
+        let avatarUrl = session.user.user_metadata?.avatar_url || session.user.user_metadata?.avatar;
+        try {
+          const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+          if (profile) {
+            if (profile.name) name = profile.name;
+            if (profile.avatar) avatarUrl = profile.avatar;
+          }
+        } catch (err) {
+          console.warn("Failed to fetch user profile in QA Dashboard:", err);
+        }
+        setCurrentUser({
+          email: session.user.email,
+          avatarUrl,
+          name,
+        });
+      }
+    });
+  }, []);
 
   // 특정 케이스 상태 변경 토글
   const handleStatusChange = (id: string, newStatus: TestCase["status"]) => {
@@ -469,18 +604,29 @@ export function QaDashboardView() {
     e.target.value = "";
   };
 
-  // 통계 계산
-  const totalCount = testCases.length;
-  const passCount = testCases.filter(c => c.status === "Pass").length;
-  const failCount = testCases.filter(c => c.status === "Fail").length;
-  const naCount = testCases.filter(c => c.status === "N/A").length;
-  const untestedCount = testCases.filter(c => c.status === "Untested").length;
+  // 플랫폼 기준 1차 필터링
+  const platformFilteredCases = testCases.filter(
+    item => activePlatformFilter === "All" || item.platforms.includes(activePlatformFilter)
+  );
+
+  // 통계 계산 (플랫폼 필터 상태에 따라 리액티브하게 계산)
+  const totalCount = platformFilteredCases.length;
+  const passCount = platformFilteredCases.filter(c => c.status === "Pass").length;
+  const failCount = platformFilteredCases.filter(c => c.status === "Fail").length;
+  const naCount = platformFilteredCases.filter(c => c.status === "N/A").length;
+  const untestedCount = platformFilteredCases.filter(c => c.status === "Untested").length;
   const progressPercent = Math.round(((totalCount - untestedCount) / totalCount) * 100) || 0;
 
-  // 필터링 적용
-  const filteredCases = testCases.filter(item => {
+  // 최종 카테고리/상태/검색 필터 적용
+  const filteredCases = platformFilteredCases.filter(item => {
     const matchesCategory = activeCategory === "All" || item.category === activeCategory;
-    const matchesStatus = activeStatusFilter === "All" || item.status === activeStatusFilter;
+    
+    // 상태값 매칭 (대소문자 무관하게 처리)
+    const matchesStatus =
+      activeStatusFilter === "All" ||
+      activeStatusFilter === "all" ||
+      item.status === activeStatusFilter;
+
     const cleanQuery = searchQuery.toLowerCase().trim();
     const matchesSearch =
       item.id.toLowerCase().includes(cleanQuery) ||
@@ -511,6 +657,8 @@ export function QaDashboardView() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexWrap: "wrap",
+            gap: "16px 24px",
             background: "rgba(255, 255, 255, 0.02)",
             border: "1px solid rgba(255, 255, 255, 0.06)",
             borderRadius: 24,
@@ -519,7 +667,7 @@ export function QaDashboardView() {
             boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
             <div
               style={{
                 width: 48,
@@ -535,11 +683,11 @@ export function QaDashboardView() {
             >
               🩺
             </div>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px", whiteSpace: "nowrap" }}>
                 BaroSit 대화형 QA 체크리스트 대시보드
               </h1>
-              <p style={{ margin: "4px 0 0 0", fontSize: 13, opacity: 0.5 }}>
+              <p style={{ margin: "4px 0 0 0", fontSize: 13, opacity: 0.5, whiteSpace: "nowrap" }}>
                 구비드(Gubed) 바로씻 전체 애플리케이션 및 어드민 실시간 관제 검증 시스템
               </p>
             </div>
@@ -547,6 +695,77 @@ export function QaDashboardView() {
 
           {/* 제어 버튼 그룹 */}
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            {currentUser && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "6px 12px",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.07)",
+                  borderRadius: 12,
+                  marginRight: 8,
+                }}
+              >
+                {currentUser.avatarUrl ? (
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt="avatar"
+                    referrerPolicy="no-referrer"
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      background: "#5b8c7a",
+                      color: "#fff",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {(currentUser.name || currentUser.email || "A")[0].toUpperCase()}
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", lineHeight: 1.1, whiteSpace: "nowrap" }}>
+                    {currentUser.name}
+                  </span>
+                  <span style={{ fontSize: 10, opacity: 0.5, lineHeight: 1.1, whiteSpace: "nowrap" }}>
+                    {currentUser.email}
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    background: "rgba(91, 140, 122, 0.25)",
+                    color: "#7eb09c",
+                    padding: "2px 6px",
+                    borderRadius: 6,
+                    marginLeft: 2,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Admin
+                </span>
+              </div>
+            )}
+
             <input
               type="file"
               accept=".json"
@@ -554,7 +773,7 @@ export function QaDashboardView() {
               onChange={handleImportJson}
               style={{ display: "none" }}
             />
-            <button
+             <button
               onClick={() => fileInputRef.current?.click()}
               style={{
                 background: "rgba(255, 255, 255, 0.05)",
@@ -569,6 +788,7 @@ export function QaDashboardView() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
+                whiteSpace: "nowrap",
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
@@ -598,6 +818,7 @@ export function QaDashboardView() {
                 alignItems: "center",
                 gap: 8,
                 boxShadow: "0 4px 15px rgba(91, 140, 122, 0.25)",
+                whiteSpace: "nowrap",
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.transform = "translateY(-1px)";
@@ -623,6 +844,7 @@ export function QaDashboardView() {
                 fontWeight: 700,
                 cursor: "pointer",
                 transition: "all 0.25s",
+                whiteSpace: "nowrap",
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = "rgba(201, 92, 92, 0.2)";
@@ -636,8 +858,8 @@ export function QaDashboardView() {
               🔄 초기화
             </button>
 
-            <a
-              href="#/app"
+            <button
+              onClick={() => window.history.back()}
               style={{
                 background: "rgba(255, 255, 255, 0.05)",
                 color: "#e3e9f0",
@@ -646,8 +868,12 @@ export function QaDashboardView() {
                 padding: "10px 18px",
                 fontSize: 13,
                 fontWeight: 700,
-                textDecoration: "none",
+                cursor: "pointer",
                 transition: "all 0.25s",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                whiteSpace: "nowrap",
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
@@ -656,8 +882,8 @@ export function QaDashboardView() {
                 e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
               }}
             >
-              💻 메인 웹앱 가기
-            </a>
+              ↩️ 이전 화면으로 돌아가기
+            </button>
           </div>
         </header>
 
@@ -748,6 +974,97 @@ export function QaDashboardView() {
           ))}
         </section>
 
+        {/* 플랫폼 구분 탭 필터 (프리미엄 세그먼트 컨트롤러) */}
+        <section
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            background: "rgba(255, 255, 255, 0.02)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            borderRadius: 20,
+            padding: "20px 24px",
+            backdropFilter: "blur(20px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.5px", color: "#7eb09c", display: "flex", alignItems: "center", gap: 6 }}>
+              🖥️ 플랫폼별 클라이언트 항목 구분 (Platform Categorization)
+            </span>
+            <span style={{ fontSize: 11, opacity: 0.5 }}>
+              * 각 플랫폼별 전용 및 연동 검증 시나리오만 필터링하여 확인합니다.
+            </span>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: 8,
+              background: "rgba(0, 0, 0, 0.2)",
+              padding: 4,
+              borderRadius: 14,
+              border: "1px solid rgba(255, 255, 255, 0.03)",
+            }}
+          >
+            {([
+              { key: "All", label: "전체 플랫폼", icon: "✨", desc: "모든 검증 대상 시나리오", count: testCases.length },
+              { key: "Web", label: "Web 전용 / 공통", icon: "🌐", desc: "웹 클라이언트용 코칭 및 잠금 정책", count: testCases.filter(t => t.platforms.includes("Web")).length },
+              { key: "Mac", label: "macOS 전용 / 연동", icon: "🍎", desc: "맥 데스크톱 및 Quartz 섀도우 연동", count: testCases.filter(t => t.platforms.includes("Mac")).length },
+              { key: "Windows", label: "Windows 전용 / 연동", icon: "🪟", desc: "윈도우 데스크톱 최소화 및 단축키", count: testCases.filter(t => t.platforms.includes("Windows")).length },
+            ] as const).map(p => {
+              const isActive = activePlatformFilter === p.key;
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => setActivePlatformFilter(p.key)}
+                  style={{
+                    background: isActive ? "linear-gradient(135deg, rgba(91, 140, 122, 0.25), rgba(53, 83, 72, 0.25))" : "transparent",
+                    border: isActive ? "1px solid rgba(91, 140, 122, 0.5)" : "1px solid transparent",
+                    borderRadius: 10,
+                    padding: "12px 16px",
+                    color: isActive ? "#fff" : "#8a9aa8",
+                    cursor: "pointer",
+                    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
+                      e.currentTarget.style.color = "#fff";
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "#8a9aa8";
+                    }
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13 }}>
+                    <span>{p.icon}</span>
+                    <span>{p.label}</span>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: isActive ? "rgba(91, 140, 122, 0.3)" : "rgba(255,255,255,0.06)",
+                      color: isActive ? "#7eb09c" : "#8a9aa8",
+                      padding: "2px 6px",
+                      borderRadius: 6,
+                    }}>
+                      {p.count}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 10, opacity: isActive ? 0.8 : 0.4 }}>{p.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {/* 필터 및 검색 바 */}
         <section
           style={{
@@ -764,7 +1081,7 @@ export function QaDashboardView() {
           {/* 카테고리 탭 필터 */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {["All", "Auth", "Billing", "Monitoring", "Offline", "Q&A", "Admin"].map(cat => {
-              const count = cat === "All" ? testCases.length : testCases.filter(t => t.category === cat).length;
+              const count = cat === "All" ? platformFilteredCases.length : platformFilteredCases.filter(t => t.category === cat).length;
               const isActive = activeCategory === cat;
               return (
                 <button
@@ -925,10 +1242,45 @@ export function QaDashboardView() {
                           textTransform: "uppercase",
                           letterSpacing: "1px",
                           width: 80,
+                          flexShrink: 0,
                         }}
                       >
                         {item.category}
                       </span>
+
+                      {/* 플랫폼 지원 뱃지 세트 */}
+                      <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0, marginRight: 8 }}>
+                        {item.platforms.map(plat => {
+                          const badgeStyles = {
+                            Web: { bg: "rgba(56, 189, 248, 0.1)", color: "#38bdf8", border: "rgba(56, 189, 248, 0.2)", label: "Web", icon: "🌐" },
+                            Mac: { bg: "rgba(243, 244, 246, 0.06)", color: "#f3f4f6", border: "rgba(243, 244, 246, 0.15)", label: "Mac", icon: "🍎" },
+                            Windows: { bg: "rgba(59, 130, 246, 0.15)", color: "#60a5fa", border: "rgba(59, 130, 246, 0.25)", label: "Win", icon: "🪟" }
+                          }[plat];
+
+                          return (
+                            <span
+                              key={plat}
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                background: badgeStyles.bg,
+                                color: badgeStyles.color,
+                                border: `1px solid ${badgeStyles.border}`,
+                                padding: "2px 6px",
+                                borderRadius: 6,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                                letterSpacing: "0.2px",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <span>{badgeStyles.icon}</span>
+                              <span>{badgeStyles.label}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
 
                       {/* 검증 테스트 제목 */}
                       <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>

@@ -185,4 +185,7 @@ export const webPlatform: PlatformAPI = {
   onVariabilityAlert: async () => () => undefined,
   checkForUpdate: async () => null,
   downloadAndInstallUpdate: async () => undefined,
+  openBrowser: async (url: string) => {
+    window.open(url, "_blank");
+  },
 };

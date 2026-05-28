@@ -7,6 +7,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "../components/Icon";
 import { AdminTemplateView } from "./AdminTemplateView";
+import { platform } from "../platform";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import {
@@ -1252,29 +1253,27 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       📊 어드민 대시보드 구동
                     </button>
                   ) : (
-                    <a
-                      href={getWebAdminUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
                       className="b-btn b-btn-primary"
                       style={{
                         background: "linear-gradient(135deg, #5b8c7a, #3c5e52)",
-                        textDecoration: "none",
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
+                      onClick={() => platform.openBrowser(getWebAdminUrl())}
                     >
                       📊 어드민 대시보드 구동 (웹 브라우저로 열기)
-                    </a>
+                    </button>
                   )}
                   <button
                     type="button"
-                    className="b-btn b-btn-primary"
+                    className="b-btn b-btn-ghost"
                     style={{
-                      background: "rgba(255, 255, 255, 0.05)",
-                      border: "1px solid rgba(255, 255, 255, 0.15)",
-                      color: "#fff",
+                      background: "var(--b-surface)",
+                      border: "1px solid var(--b-line-2)",
+                      color: "var(--b-fg-1)",
                     }}
                     onClick={() => setAdminModelCalibrateOpen(true)}
                   >
@@ -1640,6 +1639,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                 display: "flex",
                 flexDirection: "column",
                 gap: 16,
+                color: "var(--b-fg-1)",
               }}
             >
               {/* 헤더 */}
@@ -1671,10 +1671,13 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                   style={{
                     background: "none",
                     border: "none",
-                    color: "#fff",
+                    color: "var(--b-fg-2)",
                     cursor: "pointer",
                     opacity: 0.6,
+                    transition: "opacity 0.15s",
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = "0.6"}
                 >
                   <Icon name="x" size={20} />
                 </button>

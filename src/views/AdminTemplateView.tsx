@@ -822,8 +822,8 @@ export function AdminTemplateView() {
                       justifyContent: "space-between",
                       alignItems: "center",
                       padding: "10px 14px",
-                      background: "rgba(255, 255, 255, 0.01)",
-                      border: "1px solid rgba(255, 255, 255, 0.04)",
+                      background: "var(--b-bg)",
+                      border: "1px solid var(--b-line)",
                       borderRadius: 8,
                     }}
                   >
@@ -838,7 +838,7 @@ export function AdminTemplateView() {
                         style={{
                           background: "rgba(91, 140, 122, 0.15)",
                           border: "1px solid rgba(91, 140, 122, 0.3)",
-                          color: "#a8d4c4",
+                          color: "var(--b-sig-deep)",
                           borderRadius: 6,
                           padding: "6px 12px",
                           fontSize: 11,
@@ -853,7 +853,7 @@ export function AdminTemplateView() {
                         style={{
                           background: "transparent",
                           border: "none",
-                          color: "rgba(255,255,255,0.2)",
+                          color: "var(--b-fg-4)",
                           cursor: "pointer",
                           padding: 4,
                         }}

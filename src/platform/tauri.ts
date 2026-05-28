@@ -312,4 +312,7 @@ export const tauriPlatform: PlatformAPI = {
   onVariabilityAlert,
   checkForUpdate,
   downloadAndInstallUpdate,
+  openBrowser: async (url: string) => {
+    await invoke("open_browser", { url });
+  },
 };

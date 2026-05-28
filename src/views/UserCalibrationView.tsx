@@ -275,6 +275,7 @@ export function UserCalibrationView({ onClose }: Props) {
           display: "flex",
           flexDirection: "column",
           gap: 20,
+          color: "var(--b-fg-1)",
         }}
       >
         {/* 헤더 */}
@@ -306,10 +307,13 @@ export function UserCalibrationView({ onClose }: Props) {
             style={{
               background: "none",
               border: "none",
-              color: "#fff",
+              color: "var(--b-fg-2)",
               cursor: "pointer",
               opacity: 0.6,
+              transition: "opacity 0.15s",
             }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = "0.6"}
           >
             <Icon name="x" size={20} />
           </button>
@@ -568,7 +572,7 @@ export function UserCalibrationView({ onClose }: Props) {
                   const comp = getComparison();
                   if (!comp.hasPrev) {
                     return (
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", lineHeight: 1.4, textAlign: "left" }}>
+                      <div style={{ fontSize: 11, color: "var(--b-fg-2)", lineHeight: 1.4, textAlign: "left" }}>
                         💡 <strong>최초 보정 등록</strong>: 이전 맞춤 보정 기록이 없습니다. 현재 자세를 나만의 스트레칭 감지 기준으로 신규 등록합니다!
                       </div>
                     );
@@ -576,14 +580,14 @@ export function UserCalibrationView({ onClose }: Props) {
                   return (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, textAlign: "left" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 11, opacity: 0.6 }}>이전 보정값 대비 자세 변화도</span>
+                        <span style={{ fontSize: 11, color: "var(--b-fg-3)" }}>이전 보정값 대비 자세 변화도</span>
                         <span style={{ fontSize: 13, color: "var(--b-sig)", fontWeight: 800 }}>
                           {comp.totalDiffPercent}% 변화 감지
                         </span>
                       </div>
                       
                       {/* 가동범위 변화량 시각화 바 */}
-                      <div style={{ height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: 4, background: "var(--b-line-3)", borderRadius: 2, overflow: "hidden" }}>
                         <div
                           style={{
                             height: "100%",
@@ -594,11 +598,11 @@ export function UserCalibrationView({ onClose }: Props) {
                         />
                       </div>
                       
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", lineHeight: 1.4 }}>
+                      <div style={{ fontSize: 11, color: "var(--b-fg-1)", lineHeight: 1.4 }}>
                         🎯 {comp.description}
                       </div>
                       {comp.maxShiftJointName && (
-                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
+                        <div style={{ fontSize: 10, color: "var(--b-fg-3)", marginTop: 2 }}>
                           * 가장 가동 범위가 커진 부위: <strong>{comp.maxShiftJointName}</strong> (약 {comp.maxShiftPercent}% 변위)
                         </div>
                       )}

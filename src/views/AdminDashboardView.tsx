@@ -92,6 +92,7 @@ interface Props {
 export function AdminDashboardView({ onClose }: Props) {
   const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<{ email?: string; avatarUrl?: string; name?: string } | null>(null);
   
   // 릴리즈 관리 상태
   const [releases, setReleases] = useState<ReleaseData[]>([]);
@@ -169,6 +170,21 @@ export function AdminDashboardView({ onClose }: Props) {
       setComments(commentData || []);
       setNotifications(notifData || []);
       setReleases(relData);
+
+      // 현재 로그인한 어드민 사용자 프로필 로드
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const myProfile = (profData || []).find((p: any) => p.id === session.user.id);
+          setCurrentUser({
+            email: session.user.email,
+            avatarUrl: myProfile?.avatar || session.user.user_metadata?.avatar_url || session.user.user_metadata?.avatar,
+            name: myProfile?.name || session.user.user_metadata?.name || session.user.user_metadata?.full_name || "어드민",
+          });
+        }
+      } catch (err) {
+        console.warn("[AdminDashboard] Failed to fetch current session user info:", err);
+      }
     } catch (err) {
       console.error("[AdminDashboard] Failed to fetch data:", err);
     } finally {
@@ -677,21 +693,96 @@ export function AdminDashboardView({ onClose }: Props) {
               <div style={{ fontSize: 12, opacity: 0.5 }}>구비드 공식 실시간 서비스 관제 모니터</div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#fff",
-              cursor: "pointer",
-              opacity: 0.6,
-              transition: "opacity 0.2s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
-            onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
-          >
-            <Icon name="x" size={20} />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            {currentUser && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "6px 12px",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.07)",
+                  borderRadius: 12,
+                }}
+              >
+                {currentUser.avatarUrl ? (
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt="avatar"
+                    referrerPolicy="no-referrer"
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      background: "#5b8c7a",
+                      color: "#fff",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {(currentUser.name || currentUser.email || "A")[0].toUpperCase()}
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", lineHeight: 1.1 }}>
+                    {currentUser.name}
+                  </span>
+                  <span style={{ fontSize: 10, opacity: 0.5, lineHeight: 1.1 }}>
+                    {currentUser.email}
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    background: "rgba(91, 140, 122, 0.25)",
+                    color: "#7eb09c",
+                    padding: "2px 6px",
+                    borderRadius: 6,
+                    marginLeft: 2,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  Admin
+                </span>
+              </div>
+            )}
+            
+            <button
+              onClick={onClose}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#fff",
+                cursor: "pointer",
+                opacity: 0.6,
+                transition: "opacity 0.2s",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 4,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
+            >
+              <Icon name="x" size={20} />
+            </button>
+          </div>
         </div>
 
         {/* 바디 영역 */}

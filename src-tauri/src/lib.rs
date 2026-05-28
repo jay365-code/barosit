@@ -241,6 +241,32 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
+#[tauri::command]
+fn open_browser(url: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", &url])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// 위반 알림용 풀스크린 오버레이 윈도우 표시 — 항상 최상위 + 마우스 클릭 통과.
 /// 다른 앱 위에 잠깐 떠서 사용자가 인지하게 하고 자동 hide.
 #[tauri::command]
@@ -371,6 +397,7 @@ pub fn run() {
             hide_alert_window,
             quit_app,
             generate_coaching_message,
+            open_browser,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

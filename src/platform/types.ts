@@ -173,6 +173,8 @@ export interface PlatformAPI {
   downloadAndInstallUpdate(
     onProgress?: (event: UpdateProgressEvent) => void,
   ): Promise<void>;
+  /** 기본 브라우저에서 외부 URL 열기 (웹은 window.open) */
+  openBrowser(url: string): Promise<void>;
 }
 
 export type AppMode = "main" | "widget";
