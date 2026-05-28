@@ -1741,7 +1741,7 @@ export function MonitorView({
                   style={{
                     fontSize: "12px",
                     fontWeight: 500,
-                    color: !user ? "rgba(129, 140, 248, 0.85)" : "rgba(251, 191, 36, 0.85)",
+                    color: !user ? "rgba(199, 210, 254, 0.95)" : "rgba(251, 191, 36, 0.85)",
                     letterSpacing: "-0.005em",
                   }}
                 >

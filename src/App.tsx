@@ -523,10 +523,17 @@ export default function App() {
     );
   }
 
+  const isGracePeriodActive = subStatus === "grace_period" && Boolean(gracePeriodUntil);
+  const isUpdateNoticeActive = Boolean(updater.error || updater.info || updater.available);
+
+  let paddingTopVal = 0;
+  if (isGracePeriodActive) paddingTopVal += 40;
+  if (isUpdateNoticeActive) paddingTopVal += 48;
+
   return (
     <ErrorBoundary>
       <SnapshotOverlay />
-      <div className="app" style={subStatus === "grace_period" && gracePeriodUntil ? { paddingTop: "40px" } : undefined}>
+      <div className="app" style={paddingTopVal > 0 ? { paddingTop: `${paddingTopVal}px` } : undefined}>
         {/* 결제 실패 유예기간(Grace Period) 상단 경고 배너 */}
         {subStatus === "grace_period" && gracePeriodUntil && (
           <div style={{
@@ -640,7 +647,10 @@ export default function App() {
           <UserCalibrationView onClose={() => setStretchCalibrateOpen(false)} />
         )}
         <AlertOverlay />
-        <UpdateNotice state={updater} />
+        <UpdateNotice
+          state={updater}
+          style={isGracePeriodActive ? { top: "40px" } : undefined}
+        />
 
         {/* 네트워크 오프라인 엠버색 하단 알림 배너 */}
         {!isOnline && (
