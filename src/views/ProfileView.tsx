@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
 import { AdminTemplateView } from "./AdminTemplateView";
 import { platform } from "../platform";
-import { supabase } from "../auth/supabase";
+import { supabase, extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import {
   syncProfileToServer,
@@ -72,14 +72,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [cardFormError, setCardFormError] = useState("");
   const [cardRegistering, setCardRegistering] = useState(false);
 
-  // 아바타 표시용 이니셜 계산 — 프로필 이미지 변경 기능을 모두 제거하고
-  // 이름 첫 글자 이니셜로 통일.
-  const displayName = profile.name?.trim()
-    || (session?.user?.user_metadata?.full_name as string | undefined)
-    || (session?.user?.user_metadata?.name as string | undefined)
-    || session?.user?.email?.split("@")[0]
-    || "사용자";
-  const initial = displayName.charAt(0).toUpperCase();
+  // 소셜 프로필 이미지 자동 표시 + 로딩 실패 시 이름 이니셜 fallback.
+  // 사용자가 *직접 변경*하는 UI 는 없음 — 소셜 OAuth 가 제공한 정보를
+  // 읽기 전용으로만 사용. MonitorView 와 동일 헬퍼(pickInitial / extract
+  // SocialAvatarUrl)로 양쪽 화면 표시 일관성 보장.
+  const initial = pickInitial(profile.name, session?.user);
+  const socialAvatarUrl = extractSocialAvatarUrl(session?.user);
+  const [avatarImageFailed, setAvatarImageFailed] = useState(false);
+  useEffect(() => {
+    setAvatarImageFailed(false);
+  }, [session?.user?.id]);
 
 
   useEffect(() => {
@@ -1141,23 +1143,42 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     marginBottom: "16px",
                     marginTop: "8px"
                   }}>
-                    <div style={{
-                      width: "56px",
-                      height: "56px",
-                      borderRadius: "50%",
-                      background: "linear-gradient(135deg, var(--b-sig, #5b8c7a), #3c5e52)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "22px",
-                      fontWeight: 700,
-                      color: "#fff",
-                      border: "2px solid var(--b-sig)",
-                      boxShadow: "0 4px 12px rgba(126,176,156,0.3)",
-                      flexShrink: 0
-                    }}>
-                      {initial}
-                    </div>
+                    {/* 소셜 OAuth 이미지 우선 — 실패 시 이름 이니셜 fallback */}
+                    {socialAvatarUrl && !avatarImageFailed ? (
+                      <img
+                        src={socialAvatarUrl}
+                        alt={initial}
+                        referrerPolicy="no-referrer"
+                        onError={() => setAvatarImageFailed(true)}
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          border: "2px solid var(--b-sig)",
+                          boxShadow: "0 4px 12px rgba(126,176,156,0.3)",
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: "56px",
+                        height: "56px",
+                        borderRadius: "50%",
+                        background: "linear-gradient(135deg, var(--b-sig, #5b8c7a), #3c5e52)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "22px",
+                        fontWeight: 700,
+                        color: "#fff",
+                        border: "2px solid var(--b-sig)",
+                        boxShadow: "0 4px 12px rgba(126,176,156,0.3)",
+                        flexShrink: 0
+                      }}>
+                        {initial}
+                      </div>
+                    )}
                     <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                       <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--b-fg-1)" }}>
                         {profile.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || "사용자"}

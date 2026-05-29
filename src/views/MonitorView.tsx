@@ -5,6 +5,7 @@ import {
   type UserProfile,
 } from "../userProfile";
 import { useAuth } from "../auth/useAuth";
+import { extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
 import { loadBaseline, determineAngle, determineAngleSticky } from "../pose/calibration";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
@@ -532,6 +533,16 @@ export function MonitorView({
       }
     })();
   }, [user?.id]);
+
+  // 우상단 프로필 버튼의 소셜 이미지 로딩 실패 추적. user 가 바뀌면 reset.
+  // React state 로 관리해 reconciler 와 충돌 없음 (이전 DOM 직접 조작은
+  // user=null 전환 시 외부 span 잔존 문제가 있었음).
+  const [avatarImageFailed, setAvatarImageFailed] = useState(false);
+  useEffect(() => {
+    setAvatarImageFailed(false);
+  }, [user?.id]);
+  const socialAvatarUrl = extractSocialAvatarUrl(user);
+  const userInitial = pickInitial(profile.name, user);
 
   useEffect(() => {
     const sync = () =>
@@ -2042,24 +2053,43 @@ export function MonitorView({
                   transition: "transform 0.2s, border-color 0.2s"
                 }}
               >
-                {/* 이름 이니셜 표시. 소셜 프로필 사진 / 이모지 선택은 제거 — provider별 CDN 차단·키 차이 등 부수 이슈가 너무 많아 */}
-                <span
-                  aria-hidden
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "100%",
-                    height: "100%",
-                    background: "linear-gradient(135deg, var(--b-sig, #5b8c7a), #3c5e52)",
-                    color: "#fff",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    letterSpacing: 0,
-                  }}
-                >
-                  {(profile.name?.trim() || user.email?.split("@")[0] || "?").charAt(0).toUpperCase()}
-                </span>
+                {/*
+                  소셜 OAuth 로 받은 프로필 이미지를 우선 표시. 로딩 실패
+                  (카카오 CDN referer 차단 등) 시 React state 로 fallback —
+                  이름 이니셜 표시. 사용자가 직접 *변경*하는 UI 는 없음.
+                */}
+                {socialAvatarUrl && !avatarImageFailed ? (
+                  <img
+                    src={socialAvatarUrl}
+                    alt={userInitial}
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarImageFailed(true)}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      borderRadius: "50%",
+                    }}
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                      height: "100%",
+                      background: "linear-gradient(135deg, var(--b-sig, #5b8c7a), #3c5e52)",
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      letterSpacing: 0,
+                    }}
+                  >
+                    {userInitial}
+                  </span>
+                )}
               </button>
             ) : (
               <button
