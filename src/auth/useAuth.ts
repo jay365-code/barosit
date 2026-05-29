@@ -173,22 +173,39 @@ export function useAuth() {
       // deep-link 콜백 대기 — listener 등록 *await* → 외부 브라우저 open
       // → URL 도착까지 await. listener 는 settle 시점 (성공/실패/timeout) 에 정리.
       //
-      // 이전 구현은 Promise constructor 안에서 onOpenUrl(...).then() 으로
-      // listener 를 등록해 *await 되지 않고 race* 가 있었습니다. 또한 Tauri 의
-      // deep-link plugin 이 *직전 시도의 callback URL 을 새 listener 등록 시점에
-      // 재발화*하는 동작 때문에, 로그아웃 → 재로그인 시 직전 시도의 stale URL
-      // 이 즉시 handler 를 호출해 "PKCE code verifier not found" 가 alternating
-      // 으로 발생하던 문제가 있었습니다.
+      // Tauri 의 deep-link plugin 이 *직전 시도의 callback URL 을 새 listener
+      // 등록 시점에 재발화*하는 동작이 있어, 로그아웃 후 재로그인 시 stale URL
+      // 이 handler 를 호출해 "PKCE code verifier not found" / "code challenge
+      // mismatch" / "flow state expired" alert 가 alternating 으로 발생하는
+      // 회귀가 관찰됐습니다 (v0.2.13 의 1000ms 시간 가드만으로는 불완전).
       //
-      // 해결:
-      //   1) onOpenUrl 등록을 await 으로 보장한 *후* openUrl 호출 — race 제거
-      //   2) handler 내부에 *timestamp 가드* — 등록 직후 STALE_URL_THRESHOLD_MS
-      //      이내에 도착하는 URL 은 stale 로 간주하고 discard. 정상 OAuth 는
-      //      외부 브라우저 인증으로 최소 수 초 이상 걸리므로 false-positive
-      //      위험 낮음 (provider 가 이미 로그인 상태로 즉시 callback 하는
-      //      케이스 대비 1000ms 로 설정).
-      const STALE_URL_THRESHOLD_MS = 1000;
+      // 다층 방어 (v0.2.14):
+      //   G1) 디버깅 로그 — elapsed, state, code 출력
+      //   G2) state 파라미터 매칭 — supabase 가 signInWithOAuth URL 에 자동
+      //       추가한 state 를 *expected* 로 캡쳐, callback URL 의 state 와
+      //       동일한 경우만 처리. PKCE 정상 흐름의 표준 방어이며 시간 가드
+      //       보다 정확합니다.
+      //   G3) 시간 가드 500ms — 2차 안전망. state 가 누락된 비표준 케이스
+      //       대비. v0.2.13 의 1000ms → 500ms 로 단축해 false-positive (이미
+      //       provider 에 로그인된 계정의 빠른 callback) 위험 감소.
+      //   G4) stale exchange 에러시 재대기 — verifier mismatch / flow expired
+      //       에러는 stale URL 일 가능성이 높으므로 settled 안 하고 다음
+      //       callback 대기. 진짜 정상 callback 이 늦게 도착하는 케이스 회수.
+      const STALE_URL_THRESHOLD_MS = 500;
       const sessionStartTime = Date.now();
+
+      // G2: signInWithOAuth 가 반환한 URL 에서 state 추출 — 이 시도의 고유
+      // 식별자. supabase v2 의 PKCE 흐름은 state 를 자동 포함하지만, 누락
+      // 가능성 대비 fallback 처리.
+      let expectedState: string | null = null;
+      try {
+        expectedState = new URL(data.url).searchParams.get("state");
+      } catch {
+        /* URL 파싱 실패 시 expectedState=null — 시간 가드만 의존 */
+      }
+      console.log(
+        `[useAuth] OAuth start — provider=${provider} expectedState=${expectedState?.slice(0, 8) ?? "(none)"} startTime=${sessionStartTime}`,
+      );
 
       let resolveSession: () => void = () => {};
       let rejectSession: (err: Error) => void = () => {};
@@ -208,34 +225,57 @@ export function useAuth() {
         rejectSession(new Error("로그인 시간이 초과되었습니다. 다시 시도해주세요."));
       }, 5 * 60 * 1000);
 
+      // G4: PKCE 검증 단계의 stale 에러 패턴. 이 에러들은 *handler 가 stale
+      // URL 로 잘못 호출됐을 가능성*이 높으므로 settled 안 하고 재대기.
+      const STALE_ERROR_PATTERNS = [
+        "flow state",
+        "code challenge",
+        "code verifier",
+        "invalid_grant",
+      ];
+      const isStaleExchangeError = (msg: string | undefined): boolean => {
+        if (!msg) return false;
+        const lower = msg.toLowerCase();
+        return STALE_ERROR_PATTERNS.some((p) => lower.includes(p));
+      };
+
       const handler = async (urls: string[]) => {
         // 한 이벤트에 여러 URL 이 올 수 있음 — barosit://auth-callback 만 필터.
         const url = urls.find((u) => u.startsWith("barosit://auth-callback"));
         if (!url) return;
 
-        // Tauri deep-link 큐가 직전 시도의 URL 을 재발화하는 케이스 차단.
         const elapsed = Date.now() - sessionStartTime;
+        const queryIdx = url.indexOf("?");
+        const query = queryIdx === -1
+          ? new URLSearchParams()
+          : new URLSearchParams(url.slice(queryIdx + 1));
+        const callbackState = query.get("state");
+
+        // G1: 디버깅 로그
+        console.log(
+          `[useAuth] OAuth callback received — elapsed=${elapsed}ms callbackState=${callbackState?.slice(0, 8) ?? "(none)"} expectedState=${expectedState?.slice(0, 8) ?? "(none)"}`,
+        );
+
+        // G2: state 매칭 — 가장 정확한 stale 식별. expected 가 있는데 다르면
+        // 즉시 discard (정상 PKCE 흐름은 같은 state 보존).
+        if (expectedState && callbackState && callbackState !== expectedState) {
+          console.warn(
+            `[useAuth] State mismatch — stale callback discarded (cb=${callbackState.slice(0, 8)} vs expected=${expectedState.slice(0, 8)})`,
+          );
+          return;
+        }
+
+        // G3: 2차 안전망 — state 가 누락된 비표준 케이스 대비 시간 가드.
         if (elapsed < STALE_URL_THRESHOLD_MS) {
           console.warn(
-            `[useAuth] Stale OAuth callback URL discarded (${elapsed}ms < ${STALE_URL_THRESHOLD_MS}ms):`,
-            url,
+            `[useAuth] Stale OAuth callback URL discarded by time guard (${elapsed}ms < ${STALE_URL_THRESHOLD_MS}ms)`,
           );
           return;
         }
 
         if (settled) return;
-        settled = true;
-        window.clearTimeout(timeoutId);
-        unlisten?.();
 
         try {
-          // custom scheme URL 은 표준 URL 파서가 일관되지 않으므로 수동 파싱.
-          // barosit://auth-callback?code=XXX&state=YYY 형태 (PKCE).
-          const queryIdx = url.indexOf("?");
-          const query = queryIdx === -1
-            ? new URLSearchParams()
-            : new URLSearchParams(url.slice(queryIdx + 1));
-
           const errParam = query.get("error_description") ?? query.get("error");
           if (errParam) {
             throw new Error(decodeURIComponent(errParam));
@@ -246,8 +286,26 @@ export function useAuth() {
             throw new Error("인증 응답에 code 파라미터가 없습니다.");
           }
 
+          // settled 를 *exchange 시도 전*에 true 로 하지 않습니다 — G4 의
+          // stale 에러 시 재대기를 위해.
           const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeErr) throw exchangeErr;
+          if (exchangeErr) {
+            // G4: stale 패턴이면 *조용히 다음 callback 대기*. 진짜 stale URL
+            // 이 가드를 우회한 경우 정상 callback 이 뒤늦게 옴.
+            if (isStaleExchangeError(exchangeErr.message)) {
+              console.warn(
+                `[useAuth] Stale exchange error — waiting for next callback: ${exchangeErr.message}`,
+              );
+              return;
+            }
+            throw exchangeErr;
+          }
+
+          // 여기서부터는 *진짜 성공*. settled lock 후 진행.
+          settled = true;
+          window.clearTimeout(timeoutId);
+          unlisten?.();
+          console.log(`[useAuth] OAuth exchange succeeded`);
 
           // 메인 윈도우 포커스 — 사용자가 브라우저에서 돌아오게 안내.
           try {
@@ -285,7 +343,14 @@ export function useAuth() {
 
           resolveSession();
         } catch (err) {
-          rejectSession(err instanceof Error ? err : new Error(String(err)));
+          // 진짜 실패 — settled lock + cleanup 후 reject.
+          // (stale 에러는 위의 G4 분기에서 이미 return 처리되어 여기 도달 안 함)
+          settled = true;
+          window.clearTimeout(timeoutId);
+          unlisten?.();
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.error(`[useAuth] OAuth exchange failed: ${errMsg}`);
+          rejectSession(err instanceof Error ? err : new Error(errMsg));
         }
       };
 

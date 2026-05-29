@@ -524,8 +524,11 @@ export function MonitorView({
     setAvatarLoadError(false);
   }, [profile.avatar]);
 
-  // [Race Condition 완화] 로그인 직후 메인 윈도우가 세션을 감지하여 리로드되었을 때,
-  // 로컬 프로필의 아바타가 디폴트 '🪑' 상태라면 소셜 프로필 이미지(URL)로 자동 동기화 적용
+  // 로그인 직후 자동 동기화: 로컬 프로필 아바타가 디폴트(🪑/빈값)면 소셜
+  // 프로필 이미지로 갱신. dep 에 user?.id 를 *추가*해 세션 도착 시점에 effect
+  // 가 재발동되도록 합니다 — 이전엔 dep 가 [profile] 만이었어서 MonitorView
+  // 마운트 시점(아직 session 없음)에 1회만 시도하고, 세션이 늦게 도착하면
+  // 적용 못 했습니다.
   useEffect(() => {
     const autoSyncSocialAvatar = async () => {
       try {
@@ -546,7 +549,28 @@ export function MonitorView({
       }
     };
     autoSyncSocialAvatar();
-  }, [profile]);
+    // dep 를 좁힘 — profile 전체가 아니라 *avatar 만*. 다른 필드(name 등)
+    // 변경 시 불필요한 재실행 방지. user?.id 추가로 세션 도착 시 재발동.
+  }, [profile.avatar, user?.id]);
+
+  // 로그인 직후 서버 프로필/설정을 백그라운드로 복원. ProfileView 가 마운트
+  // 되지 않은 채 로그인이 진행되는 데스크탑 흐름(메인 화면 → 로그인 → 콜백
+  // → ProfileView 자동 닫힘)에서 pullProfile 이 한 번도 호출되지 않던
+  // 누락을 메웁니다. UI 는 즉시 진행, 데이터는 백그라운드 — 사용자 원칙.
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      try {
+        const { pullProfileFromServer, pullSettingsFromServer } = await import(
+          "../lib/syncService"
+        );
+        void pullProfileFromServer();
+        void pullSettingsFromServer();
+      } catch (err) {
+        console.error("[MonitorView] Failed to pull profile/settings:", err);
+      }
+    })();
+  }, [user?.id]);
 
   useEffect(() => {
     const sync = () =>
