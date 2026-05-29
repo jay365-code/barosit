@@ -9,6 +9,7 @@ import { extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
 import { loadBaseline, determineAngle, determineAngleSticky } from "../pose/calibration";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
+import { usePerformanceProfile } from "../hooks/usePerformanceProfile";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
 import { SilhouetteOverlay } from "../components/SilhouetteOverlay";
 import { usePostureScore } from "../hooks/usePostureScore";
@@ -1052,17 +1053,19 @@ export function MonitorView({
     };
   }, []);
 
+  const loopParams = usePerformanceProfile(visible);
   const { error: detectorError, retry: detectorRetry } = usePoseLoop({
     videoRef,
     enabled: cameraReady && !paused,
     // 윈도우가 다른 앱 뒤로 가려져도 (Tauri/macOS occlusion → document.hidden)
     // 모니터링은 계속해야 함. face/hands 는 자리비움 판정과 chin_resting 검출에
-    // 필수라 항상 ON. fps 만 약간 낮추고 segmentation (실루엣 마스크) 은 어차피
-    // 화면에 안 보이니 OFF.
-    fps: visible ? 15 : 10,
-    segmentEveryN: visible ? 3 : 0,
+    // 필수라 항상 ON. 성능 프로필(Full/Eco)에 따라 fps·모델 실행 주기만 조절.
+    fps: loopParams.fps,
+    segmentEveryN: loopParams.segmentEveryN,
     runFace: true,
     runHands: true,
+    faceEveryN: loopParams.faceEveryN,
+    handsEveryN: loopParams.handsEveryN,
     onFrame: (frame: DetectionFrame) => {
       monitorHeartbeat.tick();
       if (paused) return;

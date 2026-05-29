@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useCamera } from "./useCamera";
 import { usePoseLoop } from "./usePoseLoop";
+import { usePerformanceProfile } from "./usePerformanceProfile";
 import { usePostureScore, type ScoreInputs } from "./usePostureScore";
 import { LandmarkSmoother } from "../pose/smoothing";
 import { analyzeFrame, type AnalysisDebug, type AnalyzerState } from "../pose/analyzer";
@@ -335,6 +336,7 @@ export function useMonitoringEngine(opts: {
     return () => window.clearTimeout(id);
   }, [stretchToast]);
 
+  const loopParams = usePerformanceProfile(opts.visible);
   const { error: detectorError, retry: detectorRetry } = usePoseLoop({
     videoRef,
     // FREE 플랜 기능 격하(Degradation) 정책: 창이 최소화되거나 비활성화(opts.visible=false)되면 백그라운드 모니터링 강제 차단.
@@ -342,12 +344,13 @@ export function useMonitoringEngine(opts: {
     enabled: opts.enabled && cameraReady && !opts.paused && !!baseline && (subPlan === "pro" || opts.visible),
     // 윈도우가 다른 앱 뒤로 가려져도 (Tauri/macOS occlusion → document.hidden)
     // 모니터링은 계속해야 함. face/hands 는 자리비움/턱괴임 판정에 필수라 항상 ON.
-    // segmentation 만 보이지 않을 때 끔. fps는 약간만 낮춤 (브라우저 throttling이
-    // 추가로 누름).
-    fps: opts.visible ? 15 : 10,
-    segmentEveryN: opts.visible ? 3 : 0,
+    // 성능 프로필(Full/Eco)에 따라 fps·모델 실행 주기만 조절.
+    fps: loopParams.fps,
+    segmentEveryN: loopParams.segmentEveryN,
     runFace: true,
     runHands: true,
+    faceEveryN: loopParams.faceEveryN,
+    handsEveryN: loopParams.handsEveryN,
     onFrame: (frame: DetectionFrame) => {
       heartbeat.tick();
       if (!baseline || opts.paused) return;

@@ -12,6 +12,10 @@ export interface UsePoseLoopOptions {
   runFace?: boolean;
   /** Hand Landmarker 실행. 기본 true. */
   runHands?: boolean;
+  /** Face Landmarker를 N틱마다 실행. 기본 1(매 틱). 스킵 틱은 detector가 직전 결과 재사용. */
+  faceEveryN?: number;
+  /** Hand Landmarker를 N틱마다 실행. 기본 1(매 틱). 스킵 틱은 detector가 직전 결과 재사용. */
+  handsEveryN?: number;
   onFrame?: (frame: DetectionFrame) => void;
 }
 
@@ -36,6 +40,8 @@ export function usePoseLoop({
   segmentEveryN = 2,
   runFace = true,
   runHands = true,
+  faceEveryN = 1,
+  handsEveryN = 1,
   onFrame,
 }: UsePoseLoopOptions): {
   ready: boolean;
@@ -96,10 +102,15 @@ export function usePoseLoop({
       tickCount += 1;
       const segment =
         segmentEveryN <= 0 ? false : tickCount % segmentEveryN === 0;
+      // faceEveryN/handsEveryN: N틱당 1회만 모델 실행, 나머지 틱은 detector가
+      // 직전 결과를 재사용. 자세는 느린 신호라 stride 지연이 품질에 영향 없음.
+      const face = runFace && (faceEveryN <= 1 || tickCount % faceEveryN === 0);
+      const hands =
+        runHands && (handsEveryN <= 1 || tickCount % handsEveryN === 0);
       const frame = detectFromVideo(video, safeTs, {
         segment,
-        face: runFace,
-        hands: runHands,
+        face,
+        hands,
       });
       callbackRef.current?.(frame);
       const elapsed = performance.now() - start;
@@ -112,7 +123,7 @@ export function usePoseLoop({
       cancelled = true;
       if (timer != null) window.clearTimeout(timer);
     };
-  }, [ready, enabled, fps, segmentEveryN, runFace, runHands, videoRef]);
+  }, [ready, enabled, fps, segmentEveryN, runFace, runHands, faceEveryN, handsEveryN, videoRef]);
 
   return { ready, error, retry };
 }

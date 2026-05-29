@@ -35,6 +35,57 @@ let handLm: HandLandmarker | null = null;
 let segLm: ImageSegmenter | null = null;
 // 마스크 버퍼 재사용 — 매 프레임 new Uint8Array 하면 GC 압력이 크다.
 let reusableMaskBuf: Uint8Array | null = null;
+// Eco 모드는 face/hands 를 strided 로 돌린다(N틱당 1회). 스킵된 틱에서 frame.face /
+// frame.hands 를 비우면 analyzer 가 깜빡이므로, 직전 결과를 캐시해 재사용한다.
+// 자세는 느린 신호라 1~3틱(수백 ms) 지연은 무의미하다.
+let lastFace: DetectionFrame["face"] = null;
+let lastHands: HandData[] = [];
+
+// ── 성능 계측 (디버그 오버레이용) ─────────────────────────────────────────────
+// 모델별 detectForVideo 소요시간을 EMA 로 평활화해 노출. 저사양 기기(예: Iris Xe
+// 윈도우)에서 어느 모델이 병목인지, Full↔Eco 전환 시 ms 가 얼마나 변하는지 실측용.
+export interface DetectorPerf {
+  /** 직전 실제 추론 1회의 평활화된 소요시간(ms). 스킵(캐시 재사용) 틱은 갱신 안 함. */
+  pose: number;
+  face: number;
+  hands: number;
+  seg: number;
+  /** pose+face+hands+seg 합(최근 실측 기준 ms). 프레임당 CPU 부담의 근사치. */
+  total: number;
+  /** detectFromVideo 가 실제로 불린 빈도(EMA fps). */
+  fps: number;
+  /** 이번 프레임에 각 모델이 실제로 돌았는지(strided 스킵이면 false). */
+  faceRan: boolean;
+  handsRan: boolean;
+  segRan: boolean;
+  /** 생성 시 요청한 delegate. 실제 GPU 작동 여부는 ms 로 판단. */
+  delegate: "GPU";
+}
+
+const perf = { pose: 0, face: 0, hands: 0, seg: 0, fps: 0 };
+let perfFaceRan = false;
+let perfHandsRan = false;
+let perfSegRan = false;
+let lastDetectTs = 0;
+const PERF_EMA = 0.15;
+function ema(prev: number, v: number): number {
+  return prev === 0 ? v : prev * (1 - PERF_EMA) + v * PERF_EMA;
+}
+
+export function getDetectorPerf(): DetectorPerf {
+  return {
+    pose: perf.pose,
+    face: perf.face,
+    hands: perf.hands,
+    seg: perf.seg,
+    total: perf.pose + perf.face + perf.hands + perf.seg,
+    fps: perf.fps,
+    faceRan: perfFaceRan,
+    handsRan: perfHandsRan,
+    segRan: perfSegRan,
+    delegate: "GPU",
+  };
+}
 
 export async function initLandmarkers(): Promise<void> {
   if (poseLm && faceLm && handLm) return;
@@ -161,12 +212,23 @@ export function detectFromVideo(
   const runFace = opts.face !== false;
   const runHands = opts.hands !== false;
 
+  // 실측 fps: detectFromVideo 호출 간격.
+  const detectStart = performance.now();
+  if (lastDetectTs) perf.fps = ema(perf.fps, 1000 / (detectStart - lastDetectTs));
+  lastDetectTs = detectStart;
+  perfFaceRan = false;
+  perfHandsRan = false;
+  perfSegRan = false;
+
   if (poseLm) {
+    const t = performance.now();
     const r = poseLm.detectForVideo(video, timestampMs);
     if (r.landmarks?.length) frame.pose = toPoseLandmarks(r.landmarks[0]);
+    perf.pose = ema(perf.pose, performance.now() - t);
   }
 
   if (faceLm && runFace) {
+    const t = performance.now();
     const r = faceLm.detectForVideo(video, timestampMs);
     const mat = r.facialTransformationMatrixes?.[0];
     if (mat?.data) {
@@ -181,9 +243,16 @@ export function detectFromVideo(
         : [];
       frame.face = { pitch, yaw, roll, tz, landmarks: faceLandmarks };
     }
+    lastFace = frame.face;
+    perf.face = ema(perf.face, performance.now() - t);
+    perfFaceRan = true;
+  } else if (faceLm) {
+    // strided 스킵 틱 — 직전 결과 재사용.
+    frame.face = lastFace;
   }
 
   if (handLm && runHands) {
+    const t = performance.now();
     const r = handLm.detectForVideo(video, timestampMs);
     if (r.landmarks?.length) {
       const hands: HandData[] = [];
@@ -197,9 +266,16 @@ export function detectFromVideo(
       }
       frame.hands = hands;
     }
+    lastHands = frame.hands;
+    perf.hands = ema(perf.hands, performance.now() - t);
+    perfHandsRan = true;
+  } else if (handLm) {
+    // strided 스킵 틱 — 직전 결과 재사용.
+    frame.hands = lastHands;
   }
 
   if (segLm && runSeg) {
+    const t = performance.now();
     segLm.segmentForVideo(video, timestampMs, (result) => {
       const cm = result.categoryMask;
       if (!cm) return;
@@ -215,6 +291,8 @@ export function detectFromVideo(
       };
       cm.close();
     });
+    perf.seg = ema(perf.seg, performance.now() - t);
+    perfSegRan = true;
   }
 
   return frame;
@@ -230,4 +308,6 @@ export function disposeLandmarker(): void {
   handLm = null;
   segLm = null;
   reusableMaskBuf = null;
+  lastFace = null;
+  lastHands = [];
 }

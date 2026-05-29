@@ -1,6 +1,8 @@
 import { useEffect, useState, type RefObject } from "react";
 import type { AnalysisDebug } from "../pose/analyzer";
 import type { PostureType } from "../pose/types";
+import { getDetectorPerf, type DetectorPerf } from "../pose/detector";
+import { loadPerformanceProfile, type PerformanceProfile } from "../performanceConfig";
 
 interface Props {
   debugRef: RefObject<AnalysisDebug | null>;
@@ -23,6 +25,8 @@ function flag(b: boolean): string {
 export function DebugOverlay({ debugRef, violationsRef }: Props) {
   const [snap, setSnap] = useState<AnalysisDebug | null>(null);
   const [activeStr, setActiveStr] = useState<string>("");
+  const [perf, setPerf] = useState<DetectorPerf | null>(null);
+  const [profile, setProfile] = useState<PerformanceProfile>("full");
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -31,14 +35,29 @@ export function DebugOverlay({ debugRef, violationsRef }: Props) {
       setActiveStr(
         v && v.size > 0 ? Array.from(v).join(",") : "(none)",
       );
+      setPerf(getDetectorPerf());
+      setProfile(loadPerformanceProfile());
     }, POLL_MS);
     return () => clearInterval(id);
   }, [debugRef, violationsRef]);
+
+  const perfSection = perf ? (
+    <div style={sectionStyle}>
+      <div style={labelStyle}>perf [{profile}] {perf.delegate}</div>
+      <div>
+        fps={fmt(perf.fps, 1)} total={fmt(perf.total, 1)}ms
+      </div>
+      <div>
+        pose={fmt(perf.pose, 1)} face={fmt(perf.face, 1)}{flag(perf.faceRan)} hand={fmt(perf.hands, 1)}{flag(perf.handsRan)} seg={fmt(perf.seg, 1)}{flag(perf.segRan)}
+      </div>
+    </div>
+  ) : null;
 
   if (!snap) {
     return (
       <div style={overlayStyle}>
         <div style={titleStyle}>DEBUG</div>
+        {perfSection}
         <div>no frame yet</div>
       </div>
     );
@@ -49,6 +68,7 @@ export function DebugOverlay({ debugRef, violationsRef }: Props) {
   return (
     <div style={overlayStyle}>
       <div style={titleStyle}>DEBUG</div>
+      {perfSection}
       <div style={sectionStyle}>
         <div style={labelStyle}>active</div>
         <div>{activeStr}</div>

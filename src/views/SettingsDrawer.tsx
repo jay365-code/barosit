@@ -46,6 +46,11 @@ import {
 import type { PostureType } from "../pose/types";
 import { isPrivacyMode, setPrivacyMode } from "../privacyConfig";
 import {
+  loadPerformanceProfile,
+  setPerformanceProfile,
+  type PerformanceProfile,
+} from "../performanceConfig";
+import {
   isMinibarVisible,
   loadAppMode,
   quitApp,
@@ -115,6 +120,9 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
     return () => clearInterval(timer);
   }, [adaptiveConfig.enabled]);
   const [theme, setTheme] = useState<ThemeMode>(() => loadThemeMode());
+  const [perfProfile, setPerfProfile] = useState<PerformanceProfile>(() =>
+    loadPerformanceProfile(),
+  );
 
   const updateBreakConfig = (next: BreakConfig) => {
     setBreakConfigState(next);
@@ -136,6 +144,11 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
   const pickTheme = (m: ThemeMode) => {
     setTheme(m);
     saveThemeMode(m);
+  };
+
+  const pickPerfProfile = (p: PerformanceProfile) => {
+    setPerfProfile(p);
+    setPerformanceProfile(p);
   };
 
   const setAlertMode = (key: keyof AlertModes, v: boolean) => {
@@ -947,6 +960,48 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             >
               영상은 이 컴퓨터를 떠나지 않습니다. 자세 데이터도 로컬에만 저장됩니다.
             </div>
+          </div>
+        </Section>
+
+        {/* 성능 모드 */}
+        <Section title="성능 모드">
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["full", "eco"] as PerformanceProfile[]).map((p) => {
+              const label = p === "full" ? "최대 품질" : "절약형";
+              const active = perfProfile === p;
+              return (
+                <button
+                  key={p}
+                  className="b-btn b-btn-ghost"
+                  onClick={() => pickPerfProfile(p)}
+                  aria-pressed={active}
+                  style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    fontSize: 12,
+                    height: 34,
+                    color: active ? "var(--b-sig-deep)" : undefined,
+                    background: active ? "var(--b-sig-bg)" : undefined,
+                    borderColor: active ? "var(--b-sig-soft)" : undefined,
+                    fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--b-fg-3)",
+              marginTop: 8,
+              lineHeight: 1.5,
+            }}
+          >
+            <b>절약형</b>: 감지 빈도와 무거운 얼굴·손 인식 주기를 낮춰 CPU·메모리
+            사용을 크게 줄입니다. 자세 알림 품질은 거의 그대로지만, 실루엣 화면이
+            덜 부드러울 수 있어요. 저성능 노트북에 권장.
           </div>
         </Section>
 
