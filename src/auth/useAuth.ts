@@ -42,21 +42,6 @@ interface AuthSyncDetail {
 // (supabase 가 localStorage 토큰으로 즉시 재복원).
 let lastKnownSession: Session | null = null;
 
-// ─── OAuth deep-link 중복 처리 가드 (module-level) ──────────────────────
-//
-// Windows 에서 같은 auth code 가 (1) Tauri onOpenUrl 플러그인, (2) Rust
-// single-instance argv forward, (3) Rust cold-start emit 등 여러 채널로 중복
-// 도착합니다. 게다가 사용자가 로그인을 완료하지 않고 재시도하면 직전 시도의
-// deep-link 리스너가 살아남아 핸들러가 누적 → URL 하나가 N개의 핸들러를 깨워
-// 같은 code 를 N번 exchange 합니다 (첫 성공 후 나머지는 "PKCE code verifier
-// not found"). 아래 두 가드로 차단합니다:
-//   - processedAuthCodes: 이미 처리에 착수한 code 는 재처리하지 않음. auth
-//     code 는 일회성이라 재시도해도 의미가 없으므로 안전.
-//   - activeOAuthCleanup: 새 로그인 시도 시작 시 직전 시도의 리스너를 먼저
-//     해제해 누수를 끊음.
-const processedAuthCodes = new Set<string>();
-let activeOAuthCleanup: (() => void) | null = null;
-
 function dispatchAuthSync(session: Session | null) {
   lastKnownSession = session;
   try {
@@ -162,11 +147,6 @@ export function useAuth() {
       // (Site URL 기존 wildcard `https://barosit.com/**` 가 이 bridge URL 을
       // 이미 포함하므로 Supabase 대시보드에 추가 등록 불필요.)
 
-      // 직전 미완료 로그인 시도가 남긴 deep-link 리스너 정리 — 누수로 인한
-      // 핸들러 누적/중복 exchange 차단.
-      activeOAuthCleanup?.();
-      activeOAuthCleanup = null;
-
       const { onOpenUrl } = await import("@tauri-apps/plugin-deep-link");
       const { openUrl } = await import("@tauri-apps/plugin-opener");
 
@@ -240,24 +220,12 @@ export function useAuth() {
 
       let settled = false;
       let unlisten: (() => void) | null = null;
-      let unlistenCustom: (() => void) | null = null;
-
-      // 성공/실패/timeout/새 시도 어디서 불려도 안전한 통합 정리자 — 리스너
-      // 누수와 중복 exchange 의 근본 차단점. 멱등.
-      const cleanup = () => {
-        window.clearTimeout(timeoutId);
-        try { unlisten?.(); } catch { /* 이미 해제됨 */ }
-        try { unlistenCustom?.(); } catch { /* 이미 해제됨 */ }
-        unlisten = null;
-        unlistenCustom = null;
-        if (activeOAuthCleanup === cleanup) activeOAuthCleanup = null;
-      };
 
       // 5분 timeout. provider 페이지에서 사용자가 충분히 인증할 시간 확보.
       const timeoutId = window.setTimeout(() => {
         if (settled) return;
         settled = true;
-        cleanup();
+        unlisten?.();
         rejectSession(new Error("로그인 시간이 초과되었습니다. 다시 시도해주세요."));
       }, 5 * 60 * 1000);
 
@@ -296,16 +264,6 @@ export function useAuth() {
             throw new Error("인증 응답에 code 파라미터가 없습니다.");
           }
 
-          // 중복 가드 — 같은 code 가 여러 채널/누적 핸들러로 도착해도 한 번만
-          // exchange. await 이전(동기) 시점에 mark 해 동시 도착 race 도 차단.
-          if (processedAuthCodes.has(code)) {
-            console.warn(
-              "[useAuth] Duplicate auth code ignored — already processing/processed",
-            );
-            return;
-          }
-          processedAuthCodes.add(code);
-
           const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeErr) {
             // K2: stale 패턴 에러 — 조용히 다음 callback 대기.
@@ -320,7 +278,8 @@ export function useAuth() {
 
           // 여기서부터 *진짜 성공*. settled lock 후 진행.
           settled = true;
-          cleanup();
+          window.clearTimeout(timeoutId);
+          unlisten?.();
           console.log(`[useAuth] OAuth exchange succeeded`);
 
           // 메인 윈도우 포커스 — 사용자가 브라우저에서 돌아오게 안내.
@@ -373,7 +332,8 @@ export function useAuth() {
 
           // 진짜 실패 — settled lock + cleanup 후 reject.
           settled = true;
-          cleanup();
+          window.clearTimeout(timeoutId);
+          unlisten?.();
           console.error(`[useAuth] OAuth exchange failed: ${errMsg}`);
           // 에러 객체 전체도 디버깅용 로깅 (M2)
           console.error(`[useAuth] OAuth exchange error object:`, err);
@@ -387,7 +347,7 @@ export function useAuth() {
         unlisten = await onOpenUrl(handler);
       } catch (err) {
         settled = true;
-        cleanup();
+        window.clearTimeout(timeoutId);
         throw err;
       }
 
@@ -396,6 +356,7 @@ export function useAuth() {
       // emit. 이걸 listen 해서 handler 호출 — Tauri plugin 의 onOpenUrl 이
       // Windows 의 single-instance launch 경로에서 작동하지 않는 alleged 버그
       // 의 우회.
+      let unlistenCustom: (() => void) | null = null;
       try {
         const { listen } = await import("@tauri-apps/api/event");
         unlistenCustom = await listen<string>("barosit:deep-link", (event) => {
@@ -409,9 +370,6 @@ export function useAuth() {
         console.warn("[useAuth] Failed to register custom deep-link listener (non-fatal):", err);
       }
 
-      // 이번 시도의 정리자를 전역에 등록 — 다음 로그인 시도가 시작될 때 회수.
-      activeOAuthCleanup = cleanup;
-
       // 외부 브라우저에서 provider 인증 페이지 열기.
       await openUrl(data.url);
 
@@ -420,7 +378,7 @@ export function useAuth() {
         // 실제 세션 확립까지 유지되도록 함.
         await sessionPromise;
       } finally {
-        cleanup();
+        unlistenCustom?.();
       }
     } else {
       // ─── 웹 (PKCE, full-page redirect) ───────────────────────────────────
