@@ -278,12 +278,12 @@ export function isShoulderShrug(
   if (re && re.visibility >= 0.15 && Math.abs(re.x - shoulderMidX) < xGuardThresh) return false;
 
   const midY = (ls.y + rs.y) / 2;
-  // baseline 대비 어깨가 sw*0.28 이상 위로 (음수) - 민감도 완화
+  // baseline 대비 어깨가 sw*0.35 이상 위로 (음수) - 민감도 조정 (더 뚜렷한 으쓱임 요구)
   const lift = baseline.shoulderMidY - midY;
-  if (lift < sw * 0.28) return false;
-  // 양쪽 모두 올라가야 (한쪽만이면 사이드 굽힘 또는 비대칭) - 각 어깨 임계값 sw*0.10 -> sw*0.18 완화
-  return ls.y < baseline.meanLandmarks[LANDMARK_INDEX.LEFT_SHOULDER].y - sw * 0.18 &&
-         rs.y < baseline.meanLandmarks[LANDMARK_INDEX.RIGHT_SHOULDER].y - sw * 0.18;
+  if (lift < sw * 0.35) return false;
+  // 양쪽 모두 올라가야 (한쪽만이면 사이드 굽힘 또는 비대칭) - 각 어깨 임계값 sw*0.18 -> sw*0.24로 상향
+  return ls.y < baseline.meanLandmarks[LANDMARK_INDEX.LEFT_SHOULDER].y - sw * 0.24 &&
+         rs.y < baseline.meanLandmarks[LANDMARK_INDEX.RIGHT_SHOULDER].y - sw * 0.24;
 }
 
 /**
@@ -582,6 +582,7 @@ export class StretchTracker {
   private activeKind: StretchKind | null = null;
   private enteredAt = 0;
   private lastDetectedAt = 0;
+  private awarded = false;
   private lastBonusAt: Record<StretchKind, number> = {
     overhead: 0,
     behind_head: 0,
@@ -594,7 +595,7 @@ export class StretchTracker {
 
   constructor(
     private readonly minHoldMs = 2000,
-    private readonly cooldownMs = 0,
+    private readonly cooldownMs = 60000,
     /** 검출이 끊기더라도 이 시간 안에 다시 잡히면 같은 동작으로 본다 */
     private readonly gapToleranceMs = 1000,
   ) {}
@@ -610,6 +611,7 @@ export class StretchTracker {
       ) {
         this.activeKind = null;
         this.enteredAt = 0;
+        this.awarded = false;
       }
       return null;
     }
@@ -619,14 +621,20 @@ export class StretchTracker {
     if (this.activeKind !== kind) {
       this.activeKind = kind;
       this.enteredAt = now;
+      this.awarded = false;
       return null;
     }
+
+    if (this.awarded) {
+      return null;
+    }
+
     const held = now - this.enteredAt;
     if (held < this.minHoldMs) return null;
     if (now - this.lastBonusAt[kind] < this.cooldownMs) return null;
+    
     this.lastBonusAt[kind] = now;
-    this.activeKind = null;
-    this.enteredAt = 0;
+    this.awarded = true;
     return { kind, amount: BONUS_BY_KIND[kind] };
   }
 
@@ -634,6 +642,7 @@ export class StretchTracker {
     this.activeKind = null;
     this.enteredAt = 0;
     this.lastDetectedAt = 0;
+    this.awarded = false;
   }
 }
 
