@@ -150,25 +150,10 @@ export function useAuth() {
       const { onOpenUrl } = await import("@tauri-apps/plugin-deep-link");
       const { openUrl } = await import("@tauri-apps/plugin-opener");
 
-      // I1: signInWithOAuth 호출 *전*에 기존 PKCE verifier 키들을 정리.
-      // 직전 시도의 verifier 가 잔존하면 큐 재발화 + 새 시도 verifier 가
-      // 섞여 alternating "code verifier not found" / "code challenge
-      // mismatch" 가 발생. 깨끗한 상태에서 시작해 alternating 원천 차단.
-      try {
-        const keys: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith("sb-") && k.endsWith("-code-verifier")) {
-            keys.push(k);
-          }
-        }
-        for (const k of keys) {
-          localStorage.removeItem(k);
-          console.log(`[useAuth] Cleared stale PKCE verifier key: ${k}`);
-        }
-      } catch {
-        /* localStorage 비활성 환경 — 가드들이 후속 처리 */
-      }
+      // v0.2.15 의 I1(verifier 사전 클리어) 는 *진행 중* verifier 까지 손상
+      // 시켜 "PKCE code verifier not found" 가 더 자주 발생하는 부작용.
+      // 제거하고, handler 안에서 *verifier 존재 확인* + *stale 패턴 재대기*
+      // 로 방어합니다 (아래 K1, K2 참고).
 
       // 환경별 override 허용. 미설정 시 production 웹 사용.
       // 로컬 개발 시 .env.local 에 VITE_DESKTOP_AUTH_REDIRECT 로
@@ -193,16 +178,47 @@ export function useAuth() {
       // deep-link 콜백 대기 — listener 등록 *await* → 외부 브라우저 open
       // → URL 도착까지 await. listener 는 settle 시점 (성공/실패/timeout) 에 정리.
       //
-      // Tauri 의 deep-link plugin 이 *직전 시도의 callback URL 을 새 listener
-      // 등록 시점에 재발화*하는 동작이 관찰됩니다. 이전 v0.2.13~v0.2.14 의
-      // 다층 가드(G2 state 매칭, G3 시간 가드, G4 stale 에러 재대기) 는
-      // false-positive 가 커서 정상 callback 도 차단해 사용자가 3-5분 정지
-      // 후 우연히 회복되는 회귀가 있었습니다. v0.2.15 부터는 *I1 PKCE
-      // verifier 사전 클리어* (signInWithOAuth 호출 전) 가 root cause 를
-      // 차단하고, 시간 가드는 200ms 의 *큐 즉시 재발화*만 차단하는 최소
-      // 역할로 단순화합니다.
+      // 가드 설계 (v0.2.17):
+      //   - 시간 가드 (200ms): Tauri 의 deep-link 큐가 새 listener 등록 시
+      //     *직전 시도의 callback URL 을 즉시 재발화*하는 동작 차단.
+      //   - K1: exchange *직전* localStorage 에 PKCE verifier 가 *존재하는지*
+      //     확인. 없으면 *조용히 discard + listener 유지* — 다음 callback
+      //     대기. (이전엔 supabase 가 throw 한 "verifier not found" 가 그대로
+      //     사용자 alert 로 노출됐음.)
+      //   - K2: exchange 가 실패해도 *stale 패턴* (verifier / challenge /
+      //     flow state / invalid_grant) 이면 *조용히 재대기*. 진짜 stale URL
+      //     이 가드를 우회한 경우 정상 callback 이 뒤늦게 오면 회수.
+      //   - settled lock: exchange *성공* 시점으로 이동해 K1/K2 재대기 가능.
       const STALE_URL_THRESHOLD_MS = 200;
       const sessionStartTime = Date.now();
+
+      // K2: PKCE 검증 단계 stale 에러 패턴.
+      const STALE_ERROR_PATTERNS = [
+        "code verifier",
+        "code challenge",
+        "flow state",
+        "invalid_grant",
+      ];
+      const isStaleExchangeError = (msg: string | undefined): boolean => {
+        if (!msg) return false;
+        const lower = msg.toLowerCase();
+        return STALE_ERROR_PATTERNS.some((p) => lower.includes(p));
+      };
+
+      // K1: localStorage 에 PKCE verifier 가 *현재* 저장돼 있는지 확인.
+      // supabase 의 keyPrefix 가 환경마다 다를 수 있으므로 모든 *-code-
+      // verifier 키를 탐색.
+      const hasPKCEVerifier = (): boolean => {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.endsWith("-code-verifier") && localStorage.getItem(k)) {
+              return true;
+            }
+          }
+        } catch { /* localStorage 비활성 */ }
+        return false;
+      };
 
       console.log(
         `[useAuth] OAuth start — provider=${provider} startTime=${sessionStartTime}`,
@@ -240,9 +256,7 @@ export function useAuth() {
         // 디버깅 로그
         console.log(`[useAuth] OAuth callback received — elapsed=${elapsed}ms`);
 
-        // 시간 가드 (200ms) — Tauri 큐의 *즉시 재발화* 만 차단. 정상 OAuth
-        // 는 외부 브라우저 인증으로 최소 수 초 이상 걸리므로 거의 false-
-        // positive 없음.
+        // 시간 가드 (200ms) — Tauri 큐의 *즉시 재발화* 만 차단.
         if (elapsed < STALE_URL_THRESHOLD_MS) {
           console.warn(
             `[useAuth] Stale callback discarded by time guard (${elapsed}ms < ${STALE_URL_THRESHOLD_MS}ms)`,
@@ -251,9 +265,16 @@ export function useAuth() {
         }
 
         if (settled) return;
-        settled = true;
-        window.clearTimeout(timeoutId);
-        unlisten?.();
+
+        // K1: verifier 가 localStorage 에 없으면 exchange 호출조차 안 함 —
+        // supabase 가 throw 하는 alert 메시지 방지. listener 유지하고 다음
+        // callback 대기.
+        if (!hasPKCEVerifier()) {
+          console.warn(
+            `[useAuth] PKCE verifier missing in storage — discarding stale callback, waiting for next`,
+          );
+          return;
+        }
 
         try {
           const errParam = query.get("error_description") ?? query.get("error");
@@ -267,7 +288,21 @@ export function useAuth() {
           }
 
           const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeErr) throw exchangeErr;
+          if (exchangeErr) {
+            // K2: stale 패턴 에러 — 조용히 다음 callback 대기.
+            if (isStaleExchangeError(exchangeErr.message)) {
+              console.warn(
+                `[useAuth] Stale exchange error — waiting for next callback: ${exchangeErr.message}`,
+              );
+              return;
+            }
+            throw exchangeErr;
+          }
+
+          // 여기서부터 *진짜 성공*. settled lock 후 진행.
+          settled = true;
+          window.clearTimeout(timeoutId);
+          unlisten?.();
           console.log(`[useAuth] OAuth exchange succeeded`);
 
           // 메인 윈도우 포커스 — 사용자가 브라우저에서 돌아오게 안내.
@@ -306,7 +341,11 @@ export function useAuth() {
 
           resolveSession();
         } catch (err) {
-          // settled, timeout, unlisten 은 try 진입 직전에 이미 처리됨.
+          // 진짜 실패 (stale 이 아닌) — settled lock + cleanup 후 reject.
+          // K2 의 stale 패턴은 위에서 이미 return 처리되어 여기 안 옴.
+          settled = true;
+          window.clearTimeout(timeoutId);
+          unlisten?.();
           const errMsg = err instanceof Error ? err.message : String(err);
           console.error(`[useAuth] OAuth exchange failed: ${errMsg}`);
           rejectSession(err instanceof Error ? err : new Error(errMsg));
