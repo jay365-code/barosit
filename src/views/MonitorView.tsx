@@ -514,45 +514,6 @@ export function MonitorView({
     return () => window.removeEventListener(PROFILE_CHANGED_EVENT, handler);
   }, []);
 
-  // 상단 우측 프로필 <img> 로딩 실패 추적. React state 로 관리해 reconciler
-  // 와 충돌 없는 fallback 렌더링. (v0.2.12 의 onError 안 DOM 직접 조작이
-  // 로그아웃 시 React 가 button 을 reuse 하면서 외부 span 이 잔존해 "의자 +
-  // 로그인" 두 개가 동시 표시되는 회귀 발생. state 기반으로 교체.)
-  const [avatarLoadError, setAvatarLoadError] = useState(false);
-  useEffect(() => {
-    // avatar src 가 바뀌면 새로 시도. 이전 실패 상태 reset.
-    setAvatarLoadError(false);
-  }, [profile.avatar]);
-
-  // 로그인 직후 자동 동기화: 로컬 프로필 아바타가 디폴트(🪑/빈값)면 소셜
-  // 프로필 이미지로 갱신. dep 에 user?.id 를 *추가*해 세션 도착 시점에 effect
-  // 가 재발동되도록 합니다 — 이전엔 dep 가 [profile] 만이었어서 MonitorView
-  // 마운트 시점(아직 session 없음)에 1회만 시도하고, 세션이 늦게 도착하면
-  // 적용 못 했습니다.
-  useEffect(() => {
-    const autoSyncSocialAvatar = async () => {
-      try {
-        const { supabase, extractSocialAvatarUrl } = await import("../auth/supabase");
-        const { data: { session } } = await supabase.auth.getSession();
-        // provider 별 user_metadata 키 차이 흡수 (Google: picture, Kakao:
-        // avatar_url 등) + http:// → https:// 치환.
-        const socialAvatar = extractSocialAvatarUrl(session?.user);
-        if (socialAvatar && (profile.avatar === "🪑" || !profile.avatar)) {
-          const { saveProfile } = await import("../userProfile");
-          saveProfile({
-            ...profile,
-            avatar: socialAvatar,
-          });
-        }
-      } catch (err) {
-        console.error("[MonitorView] Failed to auto-sync social avatar:", err);
-      }
-    };
-    autoSyncSocialAvatar();
-    // dep 를 좁힘 — profile 전체가 아니라 *avatar 만*. 다른 필드(name 등)
-    // 변경 시 불필요한 재실행 방지. user?.id 추가로 세션 도착 시 재발동.
-  }, [profile.avatar, user?.id]);
-
   // 로그인 직후 서버 프로필/설정을 백그라운드로 복원. ProfileView 가 마운트
   // 되지 않은 채 로그인이 진행되는 데스크탑 흐름(메인 화면 → 로그인 → 콜백
   // → ProfileView 자동 닫힘)에서 pullProfile 이 한 번도 호출되지 않던
@@ -2081,31 +2042,24 @@ export function MonitorView({
                   transition: "transform 0.2s, border-color 0.2s"
                 }}
               >
-                {profile.avatar
-                  && !avatarLoadError
-                  && (profile.avatar.startsWith("http://")
-                    || profile.avatar.startsWith("https://")
-                    || profile.avatar.startsWith("data:image/")) ? (
-                  <img
-                    src={profile.avatar}
-                    alt="User Profile"
-                    // 카카오 CDN(k.kakaocdn.net) 등은 referer 헤더를 검증해
-                    // tauri://localhost / https://barosit.com referer 가
-                    // 그대로 전송되면 403 차단. no-referrer 로 회피.
-                    referrerPolicy="no-referrer"
-                    onError={() => setAvatarLoadError(true)}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      borderRadius: "50%"
-                    }}
-                  />
-                ) : (
-                  <span aria-hidden>
-                    {avatarLoadError ? "🪑" : (profile.avatar || "🪑")}
-                  </span>
-                )}
+                {/* 이름 이니셜 표시. 소셜 프로필 사진 / 이모지 선택은 제거 — provider별 CDN 차단·키 차이 등 부수 이슈가 너무 많아 */}
+                <span
+                  aria-hidden
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "100%",
+                    height: "100%",
+                    background: "linear-gradient(135deg, var(--b-sig, #5b8c7a), #3c5e52)",
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    letterSpacing: 0,
+                  }}
+                >
+                  {(profile.name?.trim() || user.email?.split("@")[0] || "?").charAt(0).toUpperCase()}
+                </span>
               </button>
             ) : (
               <button

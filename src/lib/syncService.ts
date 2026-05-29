@@ -1,6 +1,5 @@
 import { supabase } from "../auth/supabase";
 import { loadEvents, type PostureEvent } from "../pose/eventLog";
-import { DEFAULT_AVATAR_OPTIONS } from "../userProfile";
 
 interface SyncableEvent extends PostureEvent {
   uploaded?: boolean;
@@ -347,35 +346,16 @@ export async function syncProfileToServer(): Promise<void> {
   try {
     const profile = JSON.parse(raw);
 
-    // Safety Guard: 만약 로컬 아바타가 기본 이모지(🪑 등)이고,
-    // 이미 서버의 아바타 정보가 소셜 이미지 URL(http/https)이라면
-    // 서버의 소셜 프로필 사진이 초기 게스트 이모지로 덮어씌워지는 경쟁 상황(Race Condition)을 방지합니다.
-    const { data: existingProfile } = await supabase
-      .from("profiles")
-      .select("avatar")
-      .eq("id", userId)
-      .maybeSingle();
-
-    let shouldUpdateAvatar = true;
-    if (existingProfile?.avatar) {
-      const isLocalDefault = DEFAULT_AVATAR_OPTIONS.includes(profile.avatar) || profile.avatar === "😊";
-      const isServerSocialUrl = existingProfile.avatar.startsWith("http://") || existingProfile.avatar.startsWith("https://");
-      if (isLocalDefault && isServerSocialUrl) {
-        shouldUpdateAvatar = false;
-        console.log("[syncService] Guarded server social avatar from being overwritten by guest default emoji.");
-      }
-    }
-
+    // 아바타 필드는 더 이상 사용자가 변경할 수 없는 UI 가 됐습니다. 그러나
+    // 기존 사용자의 프로필 데이터 호환을 위해 *서버에 저장된 값이 있으면
+    // 그대로 둠* — 로컬에서 기본값(🪑)으로 덮어쓰지 않도록 avatar 필드는
+    // upsert payload 에 포함하지 않습니다.
     const updatePayload: any = {
       id: userId,
       name: profile.name,
       work_env: profile.workEnv,
       updated_at: new Date().toISOString(),
     };
-
-    if (shouldUpdateAvatar) {
-      updatePayload.avatar = profile.avatar;
-    }
 
     const { error } = await supabase
       .from("profiles")
@@ -413,25 +393,11 @@ export async function pullProfileFromServer(): Promise<void> {
     }
 
     if (data) {
-      // 만약 DB의 아바타가 기본 이모지(🪑 또는 😊 등)이고, Supabase Auth
-      // 세션의 user_metadata 에 소셜 이미지가 존재한다면 복원해줍니다.
-      // provider 별 키 차이 흡수 — Google(picture)/Kakao(avatar_url) 등.
-      let avatar = data.avatar || "😊";
-      const isDbAvatarDefault = avatar === "🪑" || avatar === "😊" || !avatar;
-      const { extractSocialAvatarUrl } = await import("../auth/supabase");
-      const socialAvatarUrl = extractSocialAvatarUrl(session.user);
-
-      if (isDbAvatarDefault && socialAvatarUrl) {
-        avatar = socialAvatarUrl;
-        console.log("[syncService] Restored social avatar URL from user metadata:", avatar);
-
-        // 서버 DB의 profiles 테이블도 올바른 소셜 이미지로 복원 업데이트.
-        await supabase
-          .from("profiles")
-          .update({ avatar })
-          .eq("id", userId);
-      }
-
+      // 아바타 자동 적용/복원 로직 제거 — provider 별 URL 차이 (Google
+      // picture / Kakao avatar_url) + referer 정책 + CDN 차단 + DOM 충돌
+      // 등 부수 이슈가 너무 많아 UI 에서 표시도 안 함. 서버의 avatar
+      // 값은 그대로 두되 로컬 표시는 이름 이니셜로 통일.
+      const avatar = data.avatar || "🪑";
       const localProfile = {
         name: data.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || "사용자",
         avatar: avatar,
