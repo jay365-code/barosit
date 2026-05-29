@@ -413,17 +413,19 @@ export async function pullProfileFromServer(): Promise<void> {
     }
 
     if (data) {
-      // 만약 DB의 아바타가 기본 이모지(🪑 또는 😊 등)이고,
-      // Supabase Auth 세션의 user_metadata에 소셜 이미지(avatar_url)가 존재한다면 복원해줍니다!
+      // 만약 DB의 아바타가 기본 이모지(🪑 또는 😊 등)이고, Supabase Auth
+      // 세션의 user_metadata 에 소셜 이미지가 존재한다면 복원해줍니다.
+      // provider 별 키 차이 흡수 — Google(picture)/Kakao(avatar_url) 등.
       let avatar = data.avatar || "😊";
       const isDbAvatarDefault = avatar === "🪑" || avatar === "😊" || !avatar;
-      const socialAvatarUrl = session.user.user_metadata?.avatar_url;
-      
-      if (isDbAvatarDefault && socialAvatarUrl && (socialAvatarUrl.startsWith("http://") || socialAvatarUrl.startsWith("https://"))) {
+      const { extractSocialAvatarUrl } = await import("../auth/supabase");
+      const socialAvatarUrl = extractSocialAvatarUrl(session.user);
+
+      if (isDbAvatarDefault && socialAvatarUrl) {
         avatar = socialAvatarUrl;
         console.log("[syncService] Restored social avatar URL from user metadata:", avatar);
-        
-        // 서버 DB의 profiles 테이블도 다시 올바른 소셜 이미지로 복원 업데이트해줍니다.
+
+        // 서버 DB의 profiles 테이블도 올바른 소셜 이미지로 복원 업데이트.
         await supabase
           .from("profiles")
           .update({ avatar })

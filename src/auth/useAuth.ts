@@ -29,7 +29,21 @@ interface AuthSyncDetail {
   session: Session | null;
 }
 
+// ─── 마지막으로 알려진 session 캐시 (module-level) ──────────────────────
+//
+// useAuth 가 매 마운트마다 새 인스턴스를 만드는데 초기 state.session=null 로
+// 시작하면, *이미 로그인된 사용자가 프로필을 열어도* supabase getSession()
+// 응답이 올 때까지 잠깐 비로그인 UI 가 표시되는 깜빡임이 생깁니다 (Windows
+// 저사양에선 1-2초). 이 캐시를 두면 새 마운트가 *직전 known session* 으로
+// 즉시 시작 → 깜빡임 없음.
+//
+// 보안: token 같은 민감 정보를 localStorage/sessionStorage 에 추가 저장하지
+// 않고 *메모리 module-level* 만 사용. 페이지 리로드 시 자연 무효화됨
+// (supabase 가 localStorage 토큰으로 즉시 재복원).
+let lastKnownSession: Session | null = null;
+
 function dispatchAuthSync(session: Session | null) {
+  lastKnownSession = session;
   try {
     window.dispatchEvent(
       new CustomEvent<AuthSyncDetail>(AUTH_SYNC_EVENT, {
@@ -43,9 +57,11 @@ function dispatchAuthSync(session: Session | null) {
 
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
-    user: null,
-    session: null,
-    loading: IS_AUTH_CONFIGURED,
+    user: lastKnownSession?.user ?? null,
+    session: lastKnownSession,
+    // 캐시가 있으면 loading 도 false 로 시작 — Marketing 의 redirect effect
+    // 가 loading=false && !user 시 #/login 으로 보내는 의도와 호환.
+    loading: IS_AUTH_CONFIGURED && !lastKnownSession,
     configured: IS_AUTH_CONFIGURED,
   });
 
@@ -57,6 +73,7 @@ export function useAuth() {
     supabase.auth
       .getSession()
       .then(({ data }) => {
+        lastKnownSession = data.session;
         setState((prev) => ({
           ...prev,
           session: data.session,
@@ -69,6 +86,7 @@ export function useAuth() {
       });
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      lastKnownSession = session;
       setState((prev) => ({
         ...prev,
         session,
@@ -79,7 +97,8 @@ export function useAuth() {
 
     // 전역 동기화 채널 — 다른 useAuth 인스턴스가 발화한 state 전파를 수신.
     // supabase 의 onAuthStateChange 와 같은 setter 를 호출하므로 중복 도착해도
-    // 안전합니다 (마지막 값으로 수렴).
+    // 안전합니다 (마지막 값으로 수렴). dispatchAuthSync 는 caller 측에서 이미
+    // lastKnownSession 을 갱신하므로 여기선 setState 만.
     const handleSync = (e: Event) => {
       const detail = (e as CustomEvent<AuthSyncDetail>).detail;
       const session = detail?.session ?? null;
@@ -151,99 +170,134 @@ export function useAuth() {
       if (error) throw error;
       if (!data?.url) throw new Error("인증 주소를 생성하지 못했습니다.");
 
-      // deep-link 콜백 대기 — listener 등록 → 외부 브라우저 open → URL 도착까지 await.
-      // listener 는 await 가 끝난 시점 (성공/실패/timeout) 에 모두 정리.
+      // deep-link 콜백 대기 — listener 등록 *await* → 외부 브라우저 open
+      // → URL 도착까지 await. listener 는 settle 시점 (성공/실패/timeout) 에 정리.
+      //
+      // 이전 구현은 Promise constructor 안에서 onOpenUrl(...).then() 으로
+      // listener 를 등록해 *await 되지 않고 race* 가 있었습니다. 또한 Tauri 의
+      // deep-link plugin 이 *직전 시도의 callback URL 을 새 listener 등록 시점에
+      // 재발화*하는 동작 때문에, 로그아웃 → 재로그인 시 직전 시도의 stale URL
+      // 이 즉시 handler 를 호출해 "PKCE code verifier not found" 가 alternating
+      // 으로 발생하던 문제가 있었습니다.
+      //
+      // 해결:
+      //   1) onOpenUrl 등록을 await 으로 보장한 *후* openUrl 호출 — race 제거
+      //   2) handler 내부에 *timestamp 가드* — 등록 직후 STALE_URL_THRESHOLD_MS
+      //      이내에 도착하는 URL 은 stale 로 간주하고 discard. 정상 OAuth 는
+      //      외부 브라우저 인증으로 최소 수 초 이상 걸리므로 false-positive
+      //      위험 낮음 (provider 가 이미 로그인 상태로 즉시 callback 하는
+      //      케이스 대비 1000ms 로 설정).
+      const STALE_URL_THRESHOLD_MS = 1000;
+      const sessionStartTime = Date.now();
+
+      let resolveSession: () => void = () => {};
+      let rejectSession: (err: Error) => void = () => {};
       const sessionPromise = new Promise<void>((resolve, reject) => {
-        let unlisten: (() => void) | null = null;
-        let settled = false;
-
-        // 5분 timeout. provider 페이지에서 사용자가 충분히 인증할 시간 확보.
-        const timeoutId = window.setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          unlisten?.();
-          reject(new Error("로그인 시간이 초과되었습니다. 다시 시도해주세요."));
-        }, 5 * 60 * 1000);
-
-        onOpenUrl(async (urls) => {
-          // 한 이벤트에 여러 URL 이 올 수 있음 — barosit://auth-callback 만 필터.
-          const url = urls.find((u) => u.startsWith("barosit://auth-callback"));
-          if (!url) return;
-          if (settled) return;
-          settled = true;
-          window.clearTimeout(timeoutId);
-          unlisten?.();
-
-          try {
-            // custom scheme URL 은 표준 URL 파서가 일관되지 않으므로 수동 파싱.
-            // barosit://auth-callback?code=XXX&state=YYY 형태 (PKCE).
-            const queryIdx = url.indexOf("?");
-            const query = queryIdx === -1
-              ? new URLSearchParams()
-              : new URLSearchParams(url.slice(queryIdx + 1));
-
-            const errParam = query.get("error_description") ?? query.get("error");
-            if (errParam) {
-              throw new Error(decodeURIComponent(errParam));
-            }
-
-            const code = query.get("code");
-            if (!code) {
-              throw new Error("인증 응답에 code 파라미터가 없습니다.");
-            }
-
-            const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-            if (exchangeErr) throw exchangeErr;
-
-            // 메인 윈도우 포커스 — 사용자가 브라우저에서 돌아오게 안내.
-            try {
-              const { getCurrentWindow } = await import("@tauri-apps/api/window");
-              const win = getCurrentWindow();
-              await win.unminimize();
-              await win.show();
-              await win.setFocus();
-            } catch {
-              /* 포커스 실패는 치명적이지 않음 */
-            }
-
-            // 로그인 시작 화면이 ProfileView 였으면 web 처럼 app 화면으로
-            // 자동 이동. ProfileView 는 두 가지 모드로 열림:
-            //  (1) route 모드: hash = "#/profile" → App.tsx 가 full-screen 렌더
-            //  (2) overlay 모드: profileOpen state = true → MonitorView 위에 overlay
-            // 두 모드 모두 커버하기 위해 hash 변경 + custom event 둘 다 발행.
-            // - hash 변경: route 모드일 때 #/app 로 navigate
-            // - 이벤트: overlay 모드일 때 ProfileView 가 listen 해서 onGoHome 호출
-            try {
-              const saved = localStorage.getItem("barosit:auth_redirect");
-              localStorage.removeItem("barosit:auth_redirect");
-              // 저장된 값이 *내부 hash 패턴* 일 때만 적용. 외부 URL /
-              // javascript: URI 주입 방어 (XSS 심층 방어).
-              const safe = saved && /^#\/[a-zA-Z0-9/_?=&-]*$/.test(saved);
-              window.location.hash = safe ? saved! : "#/app";
-            } catch {
-              /* localStorage 접근 실패 — 사용자 수동 이동에 맡김 */
-            }
-            try {
-              window.dispatchEvent(new CustomEvent("barosit:login-completed"));
-            } catch {
-              /* CustomEvent 미지원 환경 — overlay 닫기는 사용자 수동에 맡김 */
-            }
-
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
-        }).then((u) => {
-          unlisten = u;
-          // 등록 전에 이미 settled (예: timeout 즉시 발생) 면 곧장 정리.
-          if (settled) u();
-        }).catch((err) => {
-          if (settled) return;
-          settled = true;
-          window.clearTimeout(timeoutId);
-          reject(err);
-        });
+        resolveSession = resolve;
+        rejectSession = reject;
       });
+
+      let settled = false;
+      let unlisten: (() => void) | null = null;
+
+      // 5분 timeout. provider 페이지에서 사용자가 충분히 인증할 시간 확보.
+      const timeoutId = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        unlisten?.();
+        rejectSession(new Error("로그인 시간이 초과되었습니다. 다시 시도해주세요."));
+      }, 5 * 60 * 1000);
+
+      const handler = async (urls: string[]) => {
+        // 한 이벤트에 여러 URL 이 올 수 있음 — barosit://auth-callback 만 필터.
+        const url = urls.find((u) => u.startsWith("barosit://auth-callback"));
+        if (!url) return;
+
+        // Tauri deep-link 큐가 직전 시도의 URL 을 재발화하는 케이스 차단.
+        const elapsed = Date.now() - sessionStartTime;
+        if (elapsed < STALE_URL_THRESHOLD_MS) {
+          console.warn(
+            `[useAuth] Stale OAuth callback URL discarded (${elapsed}ms < ${STALE_URL_THRESHOLD_MS}ms):`,
+            url,
+          );
+          return;
+        }
+
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        unlisten?.();
+
+        try {
+          // custom scheme URL 은 표준 URL 파서가 일관되지 않으므로 수동 파싱.
+          // barosit://auth-callback?code=XXX&state=YYY 형태 (PKCE).
+          const queryIdx = url.indexOf("?");
+          const query = queryIdx === -1
+            ? new URLSearchParams()
+            : new URLSearchParams(url.slice(queryIdx + 1));
+
+          const errParam = query.get("error_description") ?? query.get("error");
+          if (errParam) {
+            throw new Error(decodeURIComponent(errParam));
+          }
+
+          const code = query.get("code");
+          if (!code) {
+            throw new Error("인증 응답에 code 파라미터가 없습니다.");
+          }
+
+          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeErr) throw exchangeErr;
+
+          // 메인 윈도우 포커스 — 사용자가 브라우저에서 돌아오게 안내.
+          try {
+            const { getCurrentWindow } = await import("@tauri-apps/api/window");
+            const win = getCurrentWindow();
+            await win.unminimize();
+            await win.show();
+            await win.setFocus();
+          } catch {
+            /* 포커스 실패는 치명적이지 않음 */
+          }
+
+          // 로그인 시작 화면이 ProfileView 였으면 web 처럼 app 화면으로
+          // 자동 이동. ProfileView 는 두 가지 모드로 열림:
+          //  (1) route 모드: hash = "#/profile" → App.tsx 가 full-screen 렌더
+          //  (2) overlay 모드: profileOpen state = true → MonitorView 위에 overlay
+          // 두 모드 모두 커버하기 위해 hash 변경 + custom event 둘 다 발행.
+          // - hash 변경: route 모드일 때 #/app 로 navigate
+          // - 이벤트: overlay 모드일 때 ProfileView 가 listen 해서 onGoHome 호출
+          try {
+            const saved = localStorage.getItem("barosit:auth_redirect");
+            localStorage.removeItem("barosit:auth_redirect");
+            // 저장된 값이 *내부 hash 패턴* 일 때만 적용. 외부 URL /
+            // javascript: URI 주입 방어 (XSS 심층 방어).
+            const safe = saved && /^#\/[a-zA-Z0-9/_?=&-]*$/.test(saved);
+            window.location.hash = safe ? saved! : "#/app";
+          } catch {
+            /* localStorage 접근 실패 — 사용자 수동 이동에 맡김 */
+          }
+          try {
+            window.dispatchEvent(new CustomEvent("barosit:login-completed"));
+          } catch {
+            /* CustomEvent 미지원 환경 — overlay 닫기는 사용자 수동에 맡김 */
+          }
+
+          resolveSession();
+        } catch (err) {
+          rejectSession(err instanceof Error ? err : new Error(String(err)));
+        }
+      };
+
+      // listener 를 *await 으로 등록 완료 보장* 후 외부 브라우저 open. 등록이
+      // 비동기인 채로 외부 브라우저가 빨리 callback 보내면 이벤트 손실 위험.
+      try {
+        unlisten = await onOpenUrl(handler);
+      } catch (err) {
+        settled = true;
+        window.clearTimeout(timeoutId);
+        throw err;
+      }
 
       // 외부 브라우저에서 provider 인증 페이지 열기.
       await openUrl(data.url);

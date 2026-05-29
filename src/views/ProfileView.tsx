@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import { Icon } from "../components/Icon";
 import { AdminTemplateView } from "./AdminTemplateView";
 import { platform } from "../platform";
-import { supabase } from "../auth/supabase";
+import { supabase, extractSocialAvatarUrl } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import {
   syncProfileToServer,
@@ -80,11 +80,9 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [customAvatarError, setCustomAvatarError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 카카오 CDN 리소스 Mixed Content 차단 우회를 위해 HTTP를 HTTPS로 강제 변환하는 보안 헬퍼
-  const rawSocialAvatar = session?.user?.user_metadata?.avatar_url;
-  const socialAvatarUrl = rawSocialAvatar && rawSocialAvatar.startsWith("http://")
-    ? rawSocialAvatar.replace("http://", "https://")
-    : rawSocialAvatar;
+  // provider 별 user_metadata 키 차이 흡수 (Google: picture, Kakao: avatar_url
+  // 등) + http:// → https:// 치환. 헬퍼 extractSocialAvatarUrl 사용.
+  const socialAvatarUrl = extractSocialAvatarUrl(session?.user);
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCustomAvatarError("");
@@ -117,7 +115,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
           ctx.drawImage(img, sx, sy, size, size, 0, 0, MAX_WIDTH, MAX_HEIGHT);
           
           const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
-          update("avatar", dataUrl);
+          updateAvatar(dataUrl);
           setSavedAt(Date.now());
         }
       };
@@ -145,7 +143,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       setCustomAvatarError("올바른 이미지 주소(http/https/data:image)를 입력해 주세요.");
       return;
     }
-    update("avatar", cleanUrl);
+    updateAvatar(cleanUrl);
     setSavedAt(Date.now());
   };
 
@@ -215,16 +213,18 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     }
   }, [session?.user?.id]);
 
-  // 소셜 로그인 완료 시 디폴트 아바타(🪑) 상태라면 소셜 이미지(avatar_url)로
-  // 1회만 자동 적용. dep 에서 profile.avatar 제거 — 사용자가 의식적으로 🪑
-  // 로 되돌렸을 때 즉시 social URL 로 덮어쓰던 dep 버그 방지. socialAvatarUrl
-  // 이 *처음 도착했을 때* 만 가드된 적용.
+  // 소셜 로그인 완료 시 디폴트 아바타(🪑) 상태라면 소셜 이미지로 자동 적용.
+  // dep 에 profile.avatar 를 *포함* 합니다 — pullProfileFromServer 등 자동
+  // source 가 늦게 도착해 profile.avatar 를 🪑 로 덮어쓰는 race 시점에 effect
+  // 가 재발동해 social URL 로 복원하기 위해. *사용자 명시 선택*(updateAvatar)
+  // 으로 바뀐 경우는 userExplicitAvatarRef 가드로 침범하지 않음.
   useEffect(() => {
-    if (socialAvatarUrl && (profile.avatar === "🪑" || !profile.avatar)) {
+    if (!socialAvatarUrl) return;
+    if (userExplicitAvatarRef.current) return; // 사용자 의도 우선
+    if (profile.avatar === "🪑" || !profile.avatar) {
       setProfile((prev) => ({ ...prev, avatar: socialAvatarUrl }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socialAvatarUrl]);
+  }, [socialAvatarUrl, profile.avatar]);
 
   // 프로필 실시간 변경 이벤트 감지 및 반영
   useEffect(() => {
@@ -604,6 +604,17 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
   const update = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) =>
     setProfile((p) => ({ ...p, [k]: v }));
+
+  // 사용자가 *의식적으로* 아바타를 선택했는지 추적. socialAvatar 자동 적용
+  // effect 가 이 플래그를 보고 사용자 의도를 침범하지 않도록 합니다.
+  // (자동 source — pullProfileFromServer 의 PROFILE_CHANGED_EVENT 등 — 이
+  // profile.avatar 를 다시 🪑 로 덮어쓴 race 케이스에서는 social URL 로
+  // 복원합니다.)
+  const userExplicitAvatarRef = useRef(false);
+  const updateAvatar = (v: string) => {
+    userExplicitAvatarRef.current = true;
+    update("avatar", v);
+  };
 
   const isCustomAvatar = 
     profile.avatar &&
@@ -1452,7 +1463,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       cursor: "pointer",
                       transition: "transform 0.2s, border-color 0.2s"
                     }}
-                    onClick={() => update("avatar", socialAvatarUrl)}
+                    onClick={() => updateAvatar(socialAvatarUrl)}
                     aria-label="소셜 프로필 이미지"
                   >
                     <img
@@ -1473,7 +1484,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     key={a}
                     type="button"
                     className={`profile-avatar-cell ${profile.avatar === a ? "is-selected" : ""}`}
-                    onClick={() => update("avatar", a)}
+                    onClick={() => updateAvatar(a)}
                     aria-label={`아바타 ${a}`}
                   >
                     {a}
@@ -1497,7 +1508,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       cursor: "pointer",
                       fontSize: "initial"
                     }}
-                    onClick={() => update("avatar", profile.avatar)}
+                    onClick={() => updateAvatar(profile.avatar)}
                     aria-label="커스텀 이미지 아바타"
                   >
                     <img

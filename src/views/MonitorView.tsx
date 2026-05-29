@@ -514,17 +514,26 @@ export function MonitorView({
     return () => window.removeEventListener(PROFILE_CHANGED_EVENT, handler);
   }, []);
 
-  // [Race Condition 완화] 로그인 직후 메인 윈도우가 세션을 감지하여 리로드되었을 때, 
+  // 상단 우측 프로필 <img> 로딩 실패 추적. React state 로 관리해 reconciler
+  // 와 충돌 없는 fallback 렌더링. (v0.2.12 의 onError 안 DOM 직접 조작이
+  // 로그아웃 시 React 가 button 을 reuse 하면서 외부 span 이 잔존해 "의자 +
+  // 로그인" 두 개가 동시 표시되는 회귀 발생. state 기반으로 교체.)
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+  useEffect(() => {
+    // avatar src 가 바뀌면 새로 시도. 이전 실패 상태 reset.
+    setAvatarLoadError(false);
+  }, [profile.avatar]);
+
+  // [Race Condition 완화] 로그인 직후 메인 윈도우가 세션을 감지하여 리로드되었을 때,
   // 로컬 프로필의 아바타가 디폴트 '🪑' 상태라면 소셜 프로필 이미지(URL)로 자동 동기화 적용
   useEffect(() => {
     const autoSyncSocialAvatar = async () => {
       try {
-        const { supabase } = await import("../auth/supabase");
+        const { supabase, extractSocialAvatarUrl } = await import("../auth/supabase");
         const { data: { session } } = await supabase.auth.getSession();
-        const rawAvatar = session?.user?.user_metadata?.avatar_url;
-        const socialAvatar = rawAvatar && rawAvatar.startsWith("http://")
-          ? rawAvatar.replace("http://", "https://")
-          : rawAvatar;
+        // provider 별 user_metadata 키 차이 흡수 (Google: picture, Kakao:
+        // avatar_url 등) + http:// → https:// 치환.
+        const socialAvatar = extractSocialAvatarUrl(session?.user);
         if (socialAvatar && (profile.avatar === "🪑" || !profile.avatar)) {
           const { saveProfile } = await import("../userProfile");
           saveProfile({
@@ -2048,7 +2057,11 @@ export function MonitorView({
                   transition: "transform 0.2s, border-color 0.2s"
                 }}
               >
-                {profile.avatar && (profile.avatar.startsWith("http://") || profile.avatar.startsWith("https://") || profile.avatar.startsWith("data:image/")) ? (
+                {profile.avatar
+                  && !avatarLoadError
+                  && (profile.avatar.startsWith("http://")
+                    || profile.avatar.startsWith("https://")
+                    || profile.avatar.startsWith("data:image/")) ? (
                   <img
                     src={profile.avatar}
                     alt="User Profile"
@@ -2056,30 +2069,18 @@ export function MonitorView({
                     // tauri://localhost / https://barosit.com referer 가
                     // 그대로 전송되면 403 차단. no-referrer 로 회피.
                     referrerPolicy="no-referrer"
+                    onError={() => setAvatarLoadError(true)}
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
                       borderRadius: "50%"
                     }}
-                    // 이미지 로딩 실패 시 깨진 아이콘 대신 기본 이모지로
-                    // fallback. img 를 숨기고 부모 button 의 background 가
-                    // 보이게.
-                    onError={(e) => {
-                      const img = e.currentTarget;
-                      img.style.display = "none";
-                      const parent = img.parentElement;
-                      if (parent && !parent.querySelector(".avatar-fallback")) {
-                        const span = document.createElement("span");
-                        span.className = "avatar-fallback";
-                        span.setAttribute("aria-hidden", "true");
-                        span.textContent = "🪑";
-                        parent.appendChild(span);
-                      }
-                    }}
                   />
                 ) : (
-                  <span aria-hidden>{profile.avatar || "🪑"}</span>
+                  <span aria-hidden>
+                    {avatarLoadError ? "🪑" : (profile.avatar || "🪑")}
+                  </span>
                 )}
               </button>
             ) : (

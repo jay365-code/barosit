@@ -39,3 +39,29 @@ export function authRedirectUrl(path: string = "/#/auth/callback"): string {
   }
   return path;
 }
+
+// ─── 소셜 아바타 URL 추출 헬퍼 ───────────────────────────────────────────
+//
+// provider 별 OAuth 응답의 user_metadata 키 차이를 흡수:
+//   - Kakao, GitHub, etc.: avatar_url
+//   - Google (OIDC 표준 claim): picture
+// 추가 보조: image, profile_image_url 도 시도 (provider 확장 대비).
+// http:// 만 https:// 로 치환 (카카오 CDN 의 Mixed Content 차단 우회).
+export function extractSocialAvatarUrl(
+  user: { user_metadata?: Record<string, unknown> | null } | null | undefined,
+): string | null {
+  if (!user?.user_metadata) return null;
+  const meta = user.user_metadata as Record<string, unknown>;
+  const candidates = [
+    meta.avatar_url,
+    meta.picture,
+    meta.image,
+    meta.profile_image_url,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.length > 0) {
+      return c.startsWith("http://") ? c.replace("http://", "https://") : c;
+    }
+  }
+  return null;
+}
