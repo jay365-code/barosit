@@ -192,7 +192,9 @@ export function useAuth() {
       const STALE_URL_THRESHOLD_MS = 200;
       const sessionStartTime = Date.now();
 
-      // K2: PKCE 검증 단계 stale 에러 패턴.
+      // PKCE 검증 단계 stale 에러 패턴 — supabase 가 *throw* 또는 *error
+      // 반환* 양쪽 모두 같은 메시지 형태이므로 catch 와 if (exchangeErr) 양
+      // 분기에서 모두 검사합니다.
       const STALE_ERROR_PATTERNS = [
         "code verifier",
         "code challenge",
@@ -203,21 +205,6 @@ export function useAuth() {
         if (!msg) return false;
         const lower = msg.toLowerCase();
         return STALE_ERROR_PATTERNS.some((p) => lower.includes(p));
-      };
-
-      // K1: localStorage 에 PKCE verifier 가 *현재* 저장돼 있는지 확인.
-      // supabase 의 keyPrefix 가 환경마다 다를 수 있으므로 모든 *-code-
-      // verifier 키를 탐색.
-      const hasPKCEVerifier = (): boolean => {
-        try {
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && k.endsWith("-code-verifier") && localStorage.getItem(k)) {
-              return true;
-            }
-          }
-        } catch { /* localStorage 비활성 */ }
-        return false;
       };
 
       console.log(
@@ -265,16 +252,6 @@ export function useAuth() {
         }
 
         if (settled) return;
-
-        // K1: verifier 가 localStorage 에 없으면 exchange 호출조차 안 함 —
-        // supabase 가 throw 하는 alert 메시지 방지. listener 유지하고 다음
-        // callback 대기.
-        if (!hasPKCEVerifier()) {
-          console.warn(
-            `[useAuth] PKCE verifier missing in storage — discarding stale callback, waiting for next`,
-          );
-          return;
-        }
 
         try {
           const errParam = query.get("error_description") ?? query.get("error");
@@ -341,13 +318,25 @@ export function useAuth() {
 
           resolveSession();
         } catch (err) {
-          // 진짜 실패 (stale 이 아닌) — settled lock + cleanup 후 reject.
-          // K2 의 stale 패턴은 위에서 이미 return 처리되어 여기 안 옴.
+          const errMsg = err instanceof Error ? err.message : String(err);
+
+          // M1: supabase 가 *throw* 한 PKCE 검증 에러도 stale 패턴이면 *조용히
+          // 재대기*. v0.2.17 의 K2 는 if (exchangeErr) 분기에서만 검사해
+          // throw 경로를 놓쳤습니다. 진짜 실패만 alert 으로 노출.
+          if (isStaleExchangeError(errMsg)) {
+            console.warn(
+              `[useAuth] Stale exchange error (throw) — waiting for next callback: ${errMsg}`,
+            );
+            return;
+          }
+
+          // 진짜 실패 — settled lock + cleanup 후 reject.
           settled = true;
           window.clearTimeout(timeoutId);
           unlisten?.();
-          const errMsg = err instanceof Error ? err.message : String(err);
           console.error(`[useAuth] OAuth exchange failed: ${errMsg}`);
+          // 에러 객체 전체도 디버깅용 로깅 (M2)
+          console.error(`[useAuth] OAuth exchange error object:`, err);
           rejectSession(err instanceof Error ? err : new Error(errMsg));
         }
       };
