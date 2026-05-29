@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { detectFromVideo, initLandmarkers } from "../pose/detector";
+import { detectFromVideo, initLandmarkers, disposeLandmarker } from "../pose/detector";
 import type { DetectionFrame } from "../pose/types";
+
+// enabled 가 이 시간(ms) 이상 false 로 유지되면 모델을 해제해 메모리를 반납한다.
+// 잠깐 멈췄다 재개하는 경우엔 이 grace 안에 들어와 reload 없이 즉시 복귀.
+const IDLE_DISPOSE_MS = 60_000;
 
 export interface UsePoseLoopOptions {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -54,7 +58,13 @@ export function usePoseLoop({
   const callbackRef = useRef(onFrame);
   callbackRef.current = onFrame;
 
+  // [레버 1] 모델 로딩을 실제 감지가 켜질 때(enabled)까지 미룬다. 숨겨진 위젯 창이나
+  // 일시정지 상태에서 모델 4개를 메모리에 올리지 않아 중복·불필요 상주를 막는다.
   useEffect(() => {
+    if (!enabled) {
+      setReady(false);
+      return;
+    }
     let cancelled = false;
 
     (async () => {
@@ -73,7 +83,26 @@ export function usePoseLoop({
     return () => {
       cancelled = true;
     };
-  }, [retryToken]);
+  }, [retryToken, enabled]);
+
+  // [레버 2] 유휴 시 모델 해제. enabled 가 IDLE_DISPOSE_MS 이상 false 면
+  // disposeLandmarker 로 GPU 텍스처·WASM 버퍼를 반납. 재개 시 init effect 가
+  // 다시 로딩(~1~2s). grace 덕에 잠깐 멈춤/재개에선 reload 가 안 일어난다.
+  useEffect(() => {
+    if (enabled) return;
+    const id = window.setTimeout(() => {
+      disposeLandmarker();
+      setReady(false);
+    }, IDLE_DISPOSE_MS);
+    return () => window.clearTimeout(id);
+  }, [enabled]);
+
+  // 언마운트(창 종료/뷰 전환) 시 모델 해제 — 메모리 즉시 반납.
+  useEffect(() => {
+    return () => {
+      disposeLandmarker();
+    };
+  }, []);
 
   const retry = () => {
     setReady(false);
