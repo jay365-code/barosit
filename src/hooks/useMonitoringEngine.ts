@@ -59,8 +59,8 @@ import {
   dispatchVariabilityAlert,
   intensityFromDuration,
 } from "../alertConfig";
-import { startKeepAwake } from "../keepAwake";
 import { logEvent, useHeartbeat, useWatchdog } from "../watchdog";
+import { subscribeWake } from "../wakeDetector";
 import type {
   CalibrationBaseline,
   DetectionFrame,
@@ -234,21 +234,19 @@ export function useMonitoringEngine(opts: {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  // 모니터링이 활성화되면 keepAwake 시작 — WKWebView 가 윈도우 가림 시 페이지를
-  // suspend 시키는 것을 막아 pose loop 가 계속 돌게 함. 첫 사용자 제스처 후에 호출
-  // 해야 AudioContext 가 suspended 로 안 빠지므로, 클릭 이벤트로 한 번 더 시도.
+  // 슬립/덮개 닫힘/화면보호기 해제 후 깨어남(작업 재개) 감지 — absence 타이머 리셋로
+  // 슬립 공백에 의한 자리비움 오판 방지. (카메라 재획득은 useCamera 가 wake 로 처리.)
+  useEffect(() => subscribeWake(() => { lastPresentAtRef.current = Date.now(); }), []);
+
+  // 모니터링 활성화 시 absence 타이머 리셋 — 자리비움 오인 방지.
+  // (keepAwake 는 usePoseLoop 가 enabled 생명주기에 맞춰 시작/중단한다.)
   useEffect(() => {
     if (!opts.enabled) return;
     logEvent("engine", "useMonitoringEngine enabled", {
       visible: opts.visible,
     });
-    // 엔진이 활성화되는 시점에 absence 타이머를 리셋하여 자리비움 오인 방지
     lastPresentAtRef.current = Date.now();
-    startKeepAwake();
-    const onInteract = () => startKeepAwake();
-    window.addEventListener("pointerdown", onInteract, { once: true });
     return () => {
-      window.removeEventListener("pointerdown", onInteract);
       logEvent("engine", "useMonitoringEngine disabled");
     };
   }, [opts.enabled]);
@@ -351,6 +349,8 @@ export function useMonitoringEngine(opts: {
     runHands: true,
     faceEveryN: loopParams.faceEveryN,
     handsEveryN: loopParams.handsEveryN,
+    // 자리비움(status "paused")이면 keepAwake 끔 → 시스템 슬립/화면보호기 허용.
+    present: status !== "paused",
     onFrame: (frame: DetectionFrame) => {
       heartbeat.tick();
       if (!baseline || opts.paused) return;

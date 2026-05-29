@@ -10,6 +10,7 @@ import { loadBaseline, determineAngle, determineAngleSticky } from "../pose/cali
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
 import { usePerformanceProfile } from "../hooks/usePerformanceProfile";
+import { subscribeWake } from "../wakeDetector";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
 import { SilhouetteOverlay } from "../components/SilhouetteOverlay";
 import { usePostureScore } from "../hooks/usePostureScore";
@@ -65,7 +66,6 @@ import {
   dispatchVariabilityAlert,
   intensityFromDuration,
 } from "../alertConfig";
-import { startKeepAwake } from "../keepAwake";
 import { useHeartbeat, useWatchdog } from "../watchdog";
 import { MAIN_SLOGAN, pickSubSlogan } from "../slogans";
 import type {
@@ -738,6 +738,11 @@ export function MonitorView({
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
+  // 슬립/덮개 닫힘/화면보호기 해제 후 깨어남(작업 재개) 감지 — absence 타이머를
+  // 리셋해 슬립 동안의 시간 공백으로 즉시 자리비움 오판하는 것을 막고, 사용자가
+  // 다시 잡히면 정상 재개되게 한다. (카메라 재획득은 useCamera 가 wake 로 처리.)
+  useEffect(() => subscribeWake(() => { lastPresentAtRef.current = Date.now(); }), []);
+
   // 오늘 총 사용 시간, 좋은 자세 시간, 스트레칭 횟수 실시간 동기화 (다중 창 및 백그라운드)
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -755,14 +760,9 @@ export function MonitorView({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // WKWebView 가 윈도우 가림 시 페이지를 suspend 시키는 것을 막기 위해 무음 오디오
-  // 컨텍스트 가동. 첫 사용자 제스처 후에 호출돼야 AudioContext 가 동작.
-  useEffect(() => {
-    startKeepAwake();
-    const onInteract = () => startKeepAwake();
-    window.addEventListener("pointerdown", onInteract, { once: true });
-    return () => window.removeEventListener("pointerdown", onInteract);
-  }, []);
+  // keepAwake(무음 오디오로 webview suspend 방지)는 usePoseLoop 가 enabled
+  // 생명주기에 맞춰 시작/중단한다 — 감지 중에만 깨어 있고 일시정지/유휴면 시스템이
+  // 잠들 수 있게 해 배터리 누수를 막는다.
 
   useEffect(() => {
     if (!stretchToast) return;
@@ -1066,6 +1066,8 @@ export function MonitorView({
     runHands: true,
     faceEveryN: loopParams.faceEveryN,
     handsEveryN: loopParams.handsEveryN,
+    // 자리비움(status "paused")이면 keepAwake 끔 → 시스템 슬립/화면보호기 허용.
+    present: status !== "paused",
     onFrame: (frame: DetectionFrame) => {
       monitorHeartbeat.tick();
       if (paused) return;

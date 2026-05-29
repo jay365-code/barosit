@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { subscribeWake } from "../wakeDetector";
 
 interface UseCameraResult {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -93,24 +94,31 @@ export function useCamera(enabled: boolean = true): UseCameraResult {
       }
     };
 
-    const onVisibility = () => {
-      if (document.hidden) return;
-      // 윈도우가 다시 보였을 때 스트림이 죽었으면 재시작
+    const recover = () => {
+      // 스트림이 죽었으면 재시작, 살아있는데 paused면 resume.
       if (!isStreamLive()) {
         setReady(false);
         start();
       } else {
-        // 스트림 살아있어도 video가 paused 상태일 수 있어 resume 시도
         videoRef.current?.play().catch(() => undefined);
       }
     };
 
+    const onVisibility = () => {
+      if (document.hidden) return;
+      recover();
+    };
+
     start();
     document.addEventListener("visibilitychange", onVisibility);
+    // 슬립/덮개 닫힘에선 visibilitychange 가 안 떠 스트림이 죽은 채 남을 수 있다.
+    // wake(타이머 드리프트) 신호로도 동일 복구.
+    const unsubWake = subscribeWake(recover);
 
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisibility);
+      unsubWake();
       if (retryTimer != null) window.clearTimeout(retryTimer);
       stop();
     };

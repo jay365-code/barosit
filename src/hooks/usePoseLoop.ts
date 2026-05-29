@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { detectFromVideo, initLandmarkers, disposeLandmarker } from "../pose/detector";
+import { startKeepAwake, stopKeepAwake } from "../keepAwake";
 import type { DetectionFrame } from "../pose/types";
 
 // enabled 가 이 시간(ms) 이상 false 로 유지되면 모델을 해제해 메모리를 반납한다.
@@ -20,6 +21,13 @@ export interface UsePoseLoopOptions {
   faceEveryN?: number;
   /** Hand Landmarker를 N틱마다 실행. 기본 1(매 틱). 스킵 틱은 detector가 직전 결과 재사용. */
   handsEveryN?: number;
+  /**
+   * 사용자가 자리에 있는지(자리비움/화면보호기 아님). 기본 true.
+   * keepAwake 는 enabled && present 일 때만 켜진다 — 자리비움이면 keepAwake 를 꺼서
+   * 시스템이 잠들고 화면보호기가 뜰 수 있게 한다. 감지 루프 자체는 enabled 면 계속
+   * 돌아(복귀 감지용) 모델은 유지된다.
+   */
+  present?: boolean;
   onFrame?: (frame: DetectionFrame) => void;
 }
 
@@ -46,6 +54,7 @@ export function usePoseLoop({
   runHands = true,
   faceEveryN = 1,
   handsEveryN = 1,
+  present = true,
   onFrame,
 }: UsePoseLoopOptions): {
   ready: boolean;
@@ -103,6 +112,22 @@ export function usePoseLoop({
       disposeLandmarker();
     };
   }, []);
+
+  // [배터리] keepAwake(무음 오디오로 webview suspend 방지)를 enabled 에 묶는다.
+  // 감지 중일 때만 깨어 있고, 일시정지/자리비움/유휴/언마운트면 즉시 중단해 시스템이
+  // 잠들 수 있게 한다(맥 활성 상태 보기의 "잠자기 방지"가 항상 켜져 있던 배터리 누수
+  // 해결). 모델 해제와 달리 grace 없음 — AudioContext 재시작은 싸고, 빨리 멈출수록
+  // 배터리 이득. AudioContext 는 사용자 제스처 후 동작하므로 pointerdown 으로 재시도.
+  useEffect(() => {
+    if (!enabled || !present) return;
+    startKeepAwake();
+    const onInteract = () => startKeepAwake();
+    window.addEventListener("pointerdown", onInteract, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", onInteract);
+      stopKeepAwake();
+    };
+  }, [enabled, present]);
 
   const retry = () => {
     setReady(false);
