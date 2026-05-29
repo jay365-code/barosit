@@ -135,7 +135,15 @@ fn disable_app_nap() {
         // 두 플래그 합산: 백그라운드에서도 메인 스레드 타이머/렌더링 거의 throttle 없음.
         const NS_ACTIVITY_USER_INITIATED: u64 = 0x00FF_FFFF;
         const NS_ACTIVITY_LATENCY_CRITICAL: u64 = 0xFF_0000_0000;
-        let options: u64 = NS_ACTIVITY_USER_INITIATED | NS_ACTIVITY_LATENCY_CRITICAL;
+        // [배터리] NSActivityIdleSystemSleepDisabled(1<<20) 비트를 제거 →
+        // NSActivityUserInitiatedAllowingIdleSystemSleep 와 동등. App Nap 억제(백그라운드
+        // pose loop throttle 방지)는 그대로 유지하되, 시스템이 유휴 시 잠들 수 있게 한다.
+        // 기존 UserInitiated 는 이 비트를 포함해 프로세스 수명 내내 유휴 슬립을 막아
+        // (pmset: "BaroSit continuous posture monitoring") 배터리 누수를 유발했음.
+        const NS_ACTIVITY_IDLE_SYSTEM_SLEEP_DISABLED: u64 = 0x0010_0000;
+        let options: u64 = (NS_ACTIVITY_USER_INITIATED
+            & !NS_ACTIVITY_IDLE_SYSTEM_SLEEP_DISABLED)
+            | NS_ACTIVITY_LATENCY_CRITICAL;
 
         let activity: *mut AnyObject =
             msg_send![info, beginActivityWithOptions: options, reason: reason];
