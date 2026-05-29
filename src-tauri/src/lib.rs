@@ -321,11 +321,27 @@ async fn generate_coaching_message(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // 두 번째 인스턴스 실행 시도 시 — 첫 인스턴스의 메인 윈도우를 띄움
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
+            }
+            // Windows/Linux 의 deep-link 메커니즘: barosit://... 클릭 시 OS 가
+            // 본 앱을 *새 프로세스* 로 launch 하면서 argv 에 URL 포함. single-
+            // instance plugin 이 검출 후 이 콜백 호출하고 2nd 프로세스는 종료.
+            // 그러나 *argv 의 deep-link URL 이 1st 인스턴스에 전달 안 됨* —
+            // 이게 사용자가 본 Windows OAuth 실패의 root cause. 우리가 직접
+            // 별도 이벤트(`barosit:deep-link`) 로 emit 하고, JS 측 useAuth 가
+            // listen 해서 handler 호출하도록 통로 추가.
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            {
+                for arg in argv.iter() {
+                    if arg.starts_with("barosit://") {
+                        eprintln!("[single-instance] forwarding deep-link to 1st instance: {}", arg);
+                        let _ = app.emit("barosit:deep-link", arg.clone());
+                    }
+                }
             }
         }))
         .plugin(tauri_plugin_notification::init())
@@ -359,6 +375,28 @@ pub fn run() {
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 let _ = app.deep_link().register_all();
+
+                // 콜드 스타트 deep-link: 앱이 *처음 실행* 될 때 argv 의 URL 처리.
+                // single-instance 콜백은 *2nd 인스턴스* 시도일 때만 발화하므로,
+                // 1st 인스턴스 자체가 deep-link 로 launch 된 경우는 여기서 처리.
+                // webview 가 마운트되어 listener 등록할 시간을 주기 위해 약간
+                // 지연 후 emit.
+                let args: Vec<String> = std::env::args().collect();
+                let deep_links: Vec<String> = args
+                    .iter()
+                    .filter(|a| a.starts_with("barosit://"))
+                    .cloned()
+                    .collect();
+                if !deep_links.is_empty() {
+                    let handle = app.handle().clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(1500));
+                        for url in deep_links {
+                            eprintln!("[setup] cold-start deep-link emit: {}", url);
+                            let _ = handle.emit("barosit:deep-link", url);
+                        }
+                    });
+                }
             }
 
             // 전역 단축키 등록 (Mac: Cmd + Option + P / Win/Linux: Ctrl + Alt + P)

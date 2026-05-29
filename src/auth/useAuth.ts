@@ -351,12 +351,35 @@ export function useAuth() {
         throw err;
       }
 
+      // [Windows root cause fix] Rust 측 single-instance 콜백이 *2nd 인스턴스
+      // 의 argv 에서 deep-link URL 을 추출* 해서 `barosit:deep-link` 이벤트로
+      // emit. 이걸 listen 해서 handler 호출 — Tauri plugin 의 onOpenUrl 이
+      // Windows 의 single-instance launch 경로에서 작동하지 않는 alleged 버그
+      // 의 우회.
+      let unlistenCustom: (() => void) | null = null;
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlistenCustom = await listen<string>("barosit:deep-link", (event) => {
+          const payload = event.payload;
+          if (typeof payload === "string" && payload.startsWith("barosit://")) {
+            console.log(`[useAuth] custom deep-link channel received: ${payload}`);
+            void handler([payload]);
+          }
+        });
+      } catch (err) {
+        console.warn("[useAuth] Failed to register custom deep-link listener (non-fatal):", err);
+      }
+
       // 외부 브라우저에서 provider 인증 페이지 열기.
       await openUrl(data.url);
 
-      // 콜백이 돌아올 때까지 await — 호출자 (ProfileView 등) 의 loginLoading 이
-      // 실제 세션 확립까지 유지되도록 함.
-      await sessionPromise;
+      try {
+        // 콜백이 돌아올 때까지 await — 호출자 (ProfileView 등) 의 loginLoading 이
+        // 실제 세션 확립까지 유지되도록 함.
+        await sessionPromise;
+      } finally {
+        unlistenCustom?.();
+      }
     } else {
       // ─── 웹 (PKCE, full-page redirect) ───────────────────────────────────
       const { error } = await supabase.auth.signInWithOAuth({
