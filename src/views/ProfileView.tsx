@@ -89,11 +89,13 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          // 프로필 행이 아직 없는(트리거 이전 가입) 유저는 0행 → .single() 이
+          // 406 을 뱉어 콘솔 노이즈가 됨. maybeSingle 로 0행을 정상 null 처리.
           const { data, error } = await supabase
             .from("profiles")
             .select("is_admin")
             .eq("id", session.user.id)
-            .single();
+            .maybeSingle();
           
           if (!error && data?.is_admin) {
             setIsAdmin(true);
