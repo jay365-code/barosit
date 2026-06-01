@@ -863,8 +863,24 @@ export function MonitorView({
     expectedIntervalMs: 100,
     warnThresholdMs: 30_000,
     reloadThresholdMs: 60_000,
-    active: !paused && !widgetEnabled && !detailedReportOpen,
+    // idleSuspended(자리비움으로 카메라 OFF)면 onFrame 이 의도적으로 멈춘 것이므로
+    // watchdog 가 stale 로 오판해 hard reload 하지 않도록 비활성화.
+    active: !paused && !widgetEnabled && !detailedReportOpen && !idleSuspended,
   });
+
+  // 자리비움으로 카메라가 OFF(idleSuspended)되면 onFrame 이 멈춰 status 가 마지막
+  // 값에 고정된다. 명시적으로 자리비움(paused)으로 표시해 "잘 앉아 있어요"로 남지 않게.
+  // 재개 시엔 heartbeat 를 갱신해 정지 기간의 stale 타임스탬프로 watchdog 가 즉시
+  // reload 하는 레이스를 방지(검출 루프가 재개되면 frame 이 status 를 다시 설정).
+  useEffect(() => {
+    if (idleSuspended) {
+      setStatus("paused");
+      updateStatus("paused").catch(() => undefined);
+      onStatusChange?.("paused");
+    } else {
+      monitorHeartbeat.tick();
+    }
+  }, [idleSuspended, monitorHeartbeat, onStatusChange]);
   /** isResting 히스테리시스 + 최소 유지 시간 — 핑퐁 방지 */
   const restingRef = useRef<{ isResting: boolean; enteredAt: number }>({
     isResting: false,
@@ -1449,8 +1465,12 @@ export function MonitorView({
     ? externalViolations
     : Array.from(violations);
   const sinceAbsence = Date.now() - lastPresentAtRef.current;
+  // idleSuspended(자리비움으로 카메라 OFF)면 cameraReady=false 라 기존 조건이 away 를
+  // 놓친다 → "양호"로 잘못 표시됨. suspend 자체가 자리비움 신호이므로 away 로 인정.
   const away =
-    !paused && !widgetEnabled && cameraReady && sinceAbsence > ABSENCE_GRACE_MS;
+    !paused &&
+    !widgetEnabled &&
+    (idleSuspended || (cameraReady && sinceAbsence > ABSENCE_GRACE_MS));
   const resting = status === "resting";
   const standing = status === "standing";
   const tone: "good" | "amber" | "warn" | "dim" = paused

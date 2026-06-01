@@ -203,7 +203,7 @@ export default function App() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const [, setStatus] = useState<PostureStatus>("good");
+  const [status, setStatus] = useState<PostureStatus>("good");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stretchCalibrateOpen, setStretchCalibrateOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState<boolean>(
@@ -256,7 +256,11 @@ export default function App() {
   useMemoryReloadGuard({
     intervalMs: 60_000,
     idleMs: 10_000,
-    enabled: !isAnyModalOpen && !paused,
+    // 자리비움/일시정지(status "paused") 중엔 비활성화. 그 상태에선 카메라가 꺼지고
+    // 모델이 해제돼(메모리 이미 반납) reload 가 불필요하고, idle reload 가 화면을
+    // 기본값("good")으로 리셋시키는 현상을 유발하기 때문. 활성 사용 중(잠깐 입력만
+    // 멈춤)에는 그대로 동작해 메모리를 회수한다.
+    enabled: !isAnyModalOpen && !paused && status !== "paused",
   });
 
   // 3. 구독 플랜 및 결제 실패 유예기간 상태
