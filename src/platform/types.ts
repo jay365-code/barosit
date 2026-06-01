@@ -175,6 +175,9 @@ export interface PlatformAPI {
   ): Promise<void>;
   /** 기본 브라우저에서 외부 URL 열기 (웹은 window.open) */
   openBrowser(url: string): Promise<void>;
+  /** OS 전역 입력 유휴 시간(초) — 마지막 키보드/마우스 입력 이후 경과.
+   *  포커스 앱과 무관한 시스템 전체 기준. 웹/미지원 시 0(항상 활성 간주). */
+  systemIdleSecs(): Promise<number>;
 }
 
 export type AppMode = "main" | "widget";

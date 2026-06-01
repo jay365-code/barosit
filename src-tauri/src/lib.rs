@@ -160,6 +160,59 @@ fn disable_app_nap() {
 #[cfg(not(target_os = "macos"))]
 fn disable_app_nap() {}
 
+/// OS 전역 입력 유휴 시간(초) — 마지막 키보드/마우스 입력 이후 경과. 포커스된 앱과
+/// 무관하게 시스템 전체 기준이라 "사용자가 작업 중인가"의 신뢰 가능한 신호다.
+/// JS 가 폴링해 자리비움(+얼굴 없음) 지속 시 카메라를 끄고(배터리 보호 허용),
+/// 입력이 다시 들어오면(=작업 재개) 카메라를 켜 모니터링을 재개한다.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn system_idle_secs() -> f64 {
+    #[link(name = "CoreGraphics", kind = "framework")]
+    extern "C" {
+        // double CGEventSourceSecondsSinceLastEventType(CGEventSourceStateID, CGEventType)
+        fn CGEventSourceSecondsSinceLastEventType(state_id: i32, event_type: u32) -> f64;
+    }
+    // kCGEventSourceStateHIDSystemState = 1, kCGAnyInputEventType = 0xFFFFFFFF
+    unsafe { CGEventSourceSecondsSinceLastEventType(1, 0xFFFF_FFFF) }
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn system_idle_secs() -> f64 {
+    #[repr(C)]
+    struct LastInputInfo {
+        cb_size: u32,
+        dw_time: u32,
+    }
+    #[link(name = "user32")]
+    extern "system" {
+        fn GetLastInputInfo(plii: *mut LastInputInfo) -> i32;
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetTickCount() -> u32;
+    }
+    unsafe {
+        let mut info = LastInputInfo {
+            cb_size: core::mem::size_of::<LastInputInfo>() as u32,
+            dw_time: 0,
+        };
+        if GetLastInputInfo(&mut info) == 0 {
+            return 0.0;
+        }
+        // dwTime 은 GetTickCount(ms) 단위 — 마지막 입력 시각. 경과 = now - dwTime.
+        // GetTickCount 는 ~49.7일마다 wrap 하므로 wrapping_sub 으로 안전 처리.
+        let idle_ms = GetTickCount().wrapping_sub(info.dw_time);
+        f64::from(idle_ms) / 1000.0
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[tauri::command]
+fn system_idle_secs() -> f64 {
+    0.0
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostureAlertPayload {
     pub posture_type: String,
@@ -460,6 +513,7 @@ pub fn run() {
             quit_app,
             generate_coaching_message,
             open_browser,
+            system_idle_secs,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

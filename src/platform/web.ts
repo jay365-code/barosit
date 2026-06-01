@@ -188,4 +188,5 @@ export const webPlatform: PlatformAPI = {
   openBrowser: async (url: string) => {
     window.open(url, "_blank");
   },
+  systemIdleSecs: async () => 0,
 };

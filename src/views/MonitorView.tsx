@@ -11,6 +11,7 @@ import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
 import { usePerformanceProfile } from "../hooks/usePerformanceProfile";
 import { subscribeWake } from "../wakeDetector";
+import { useIdleSuspend } from "../hooks/useIdleSuspend";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
 import { SilhouetteOverlay } from "../components/SilhouetteOverlay";
 import { usePostureScore } from "../hooks/usePostureScore";
@@ -564,6 +565,10 @@ export function MonitorView({
 
   const lastPresentAtRef = useRef<number>(Date.now());
 
+  // OS 입력 유휴 + 자리비움이면 카메라까지 끔 → 시스템 배터리 보호 정상 작동.
+  // 입력/깨어남으로 재개(= 작업 재개). 복귀 감지를 카메라가 아닌 OS 입력으로 한다.
+  const idleSuspended = useIdleSuspend(lastPresentAtRef);
+
   const [visible, setVisible] = useState<boolean>(
     typeof document === "undefined" ? true : !document.hidden,
   );
@@ -593,8 +598,14 @@ export function MonitorView({
     }
   }, [cameraActive]);
 
+  // 재개(suspend 해제) 시 자리비움 타이머 리셋 — 카메라 켜질 때 즉시 재-자리비움 오판 방지.
+  useEffect(() => {
+    if (!idleSuspended) lastPresentAtRef.current = Date.now();
+  }, [idleSuspended]);
+
+  // suspend 중엔 카메라 OFF → cameracaptured 어서션 해제로 시스템 슬립/화면보호기 허용.
   const { videoRef, ready: cameraReady, error: cameraError } = useCamera(
-    cameraActive,
+    cameraActive && !idleSuspended,
   );
 
   // useMemoryReloadGuard 가 reload 직전 발행하는 이벤트를 받아 현재 video +

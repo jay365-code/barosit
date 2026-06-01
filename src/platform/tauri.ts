@@ -315,4 +315,11 @@ export const tauriPlatform: PlatformAPI = {
   openBrowser: async (url: string) => {
     await invoke("open_browser", { url });
   },
+  systemIdleSecs: async () => {
+    try {
+      return await invoke<number>("system_idle_secs");
+    } catch {
+      return 0;
+    }
+  },
 };
