@@ -57,14 +57,32 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 자동 업데이트(minisign) 서명 — Apple 코드서명과 별개
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # ── macOS 코드서명 + 공증 (P0-2) ──────────────────────────────
+          # 아래 Secrets 가 비어 있으면 tauri-action 이 서명을 건너뛰고
+          # unsigned 빌드를 만든다(=현재 동작). Apple Developer 승인 후
+          # GitHub Secrets 에 값만 채우면 자동으로 서명·공증·staple 됨.
+          #   APPLE_CERTIFICATE            : Developer ID Application .p12 → base64
+          #   APPLE_CERTIFICATE_PASSWORD   : 위 .p12 내보낼 때 설정한 비밀번호
+          #   APPLE_SIGNING_IDENTITY       : "Developer ID Application: 이름 (TEAMID)"
+          #   APPLE_ID / APPLE_PASSWORD    : Apple ID + 앱 암호(app-specific password)
+          #   APPLE_TEAM_ID                : 10자리 팀 ID
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "BaroSit __VERSION__"
           releaseBody: |
             ## 변경사항
             아래 자산을 다운로드해 설치하세요. 기존 사용자는 앱이 자동으로 업데이트를 안내합니다.
+          # 서명·공증이 검증되면 false 로 바꿔 태그 푸시 시 자동 공개.
+          # (그 전까지는 unsigned 빌드가 공개되지 않도록 draft 유지)
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

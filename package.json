@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "dev:web": "VITE_PLATFORM=web vite --port 1430 --strictPort",
     "build:web": "tsc && VITE_PLATFORM=web vite build --outDir dist-web",
-    "preview:web": "vite preview --outDir dist-web --port 1430 --strictPort"
+    "preview:web": "vite preview --outDir dist-web --port 1430 --strictPort",
+    "test": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
@@ -37,7 +38,9 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "jsdom": "^25.0.1",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^2.1.9"
   }
 }

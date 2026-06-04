@@ -1,0 +1,5 @@
+{
+  "tasks": {
+    "check": "deno check billing-issue/index.ts payment-cancel/index.ts subscription-manage/index.ts toss-webhook/index.ts charge-renewals/index.ts"
+  }
+}
