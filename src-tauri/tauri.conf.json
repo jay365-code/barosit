@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "BaroSit",
-  "version": "0.2.28",
+  "version": "0.2.29",
   "identifier": "com.barosit.app",
   "build": {
     "beforeDevCommand": "npm run dev",

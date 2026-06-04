@@ -15,7 +15,7 @@
   "yearly": "Yearly",
   "saveBadge": "38% off yearly 🔥",
   "free": {
-    "amount": "₩0",
+    "amount": "$0",
     "unit": "/ free forever",
     "tagline": "An onboarding web monitoring engine you can feel with a single browser launch",
     "ctaCurrent": "Your current plan",
@@ -28,10 +28,10 @@
   },
   "pro": {
     "name": "PRO (desktop app only)",
-    "yearAmount": "₩36,000/yr",
-    "yearUnit": "(about ₩3,000/mo)",
-    "monthAmount": "₩4,900/mo",
-    "monthUnit": "/ billed monthly",
+    "yearAmount": "≈ $24/yr",
+    "yearUnit": "≈ $2.0/mo · ₩36,000 (KRW)",
+    "monthAmount": "≈ $3.3/mo",
+    "monthUnit": "/ billed monthly · ₩4,900 (KRW)",
     "tagline": "The ultimate desktop companion with effortless background monitoring and AI coaching",
     "ctaCurrent": "Your professional plan",
     "ctaStart": "Start Professional",
@@ -58,7 +58,7 @@
     "goMain": "Go to main page",
     "title": "Simple pricing, free forever to start",
     "subtitle": "The core of posture detection is free forever. Pro just adds multi-device sync and reports.",
-    "freePrice": "₩0",
+    "freePrice": "$0",
     "freeSub": "Free forever (web browser only)",
     "freeFeats": [
       "7 core real-time posture detections",
@@ -69,10 +69,10 @@
       "Limit: no mini desktop widget mode"
     ],
     "freeCta": "Start for free",
-    "proPriceYear": "₩36,000/yr",
-    "proPriceMonth": "₩4,900/mo",
-    "proSubYear": "Billed yearly (about ₩3,000/mo)",
-    "proSubMonth": "Billed monthly",
+    "proPriceYear": "≈ $24/yr",
+    "proPriceMonth": "≈ $3.3/mo",
+    "proSubYear": "Billed yearly ≈ $2.0/mo · ₩36,000 (KRW)",
+    "proSubMonth": "Billed monthly · ₩4,900 (KRW)",
     "proFeats": [
       "Everything in Free included",
       "Full background monitoring (Tauri app)",
@@ -84,5 +84,6 @@
     "proCtaCurrent": "Your current plan",
     "proCtaStart": "Start Pro",
     "recommend": "Recommended"
-  }
+  },
+  "krwNote": "Foreign prices are approximate, based on exchange rates as of Jun 4, 2026 (≈ ₩1,500 / $1). You're billed in Korean won (KRW): ₩4,900/mo or ₩36,000/yr."
 }

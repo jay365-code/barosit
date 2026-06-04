@@ -4321,6 +4321,19 @@ function Pricing() {
               </div>
             ))}
           </div>
+          {t("krwNote") && (
+            <p
+              style={{
+                marginTop: 24,
+                fontSize: 12,
+                color: "var(--b-fg-3)",
+                lineHeight: 1.6,
+                textAlign: "center",
+              }}
+            >
+              {t("krwNote")}
+            </p>
+          )}
         </div>
       )}
       <Footer />

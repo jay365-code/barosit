@@ -950,6 +950,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
 
               {/* 하단 약관 고지 */}
               <footer className="pricing-legal-footer">
+                {t("krwNote") && <span>{t("krwNote")}</span>}
                 <span>{t("demoNote")}</span>
                 <span>
                   {t("refundNote")}<a onClick={() => alert(t("policyAlert"))}>{t("refundLink")}</a>
