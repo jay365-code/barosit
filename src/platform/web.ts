@@ -142,7 +142,7 @@ export const webPlatform: PlatformAPI = {
     appQuit: false,
     autoUpdate: false,
   },
-  getAppVersion: async () => "0.1.2",
+  getAppVersion: async () => import.meta.env.PACKAGE_VERSION ?? "0.0.0",
   showPostureAlert,
   updateStatus,
   setTrayI18n,

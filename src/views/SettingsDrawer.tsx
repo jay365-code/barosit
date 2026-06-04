@@ -93,7 +93,9 @@ const POSTURE_TYPES: PostureType[] = [
 ];
 
 export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCalibrate }: Props) {
-  const [version, setVersion] = useState("0.1.2");
+  const [version, setVersion] = useState(
+    import.meta.env.PACKAGE_VERSION ?? "",
+  );
   useEffect(() => {
     platform.getAppVersion().then(setVersion);
   }, []);
