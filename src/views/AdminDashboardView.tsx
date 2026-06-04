@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../auth/supabase";
+import { getLaunchMode, setLaunchModeRemote, type LaunchMode } from "../launchMode";
 import { Icon } from "../components/Icon";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -92,6 +93,7 @@ interface Props {
 export function AdminDashboardView({ onClose }: Props) {
   const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
+  const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [currentUser, setCurrentUser] = useState<{ email?: string; avatarUrl?: string; name?: string } | null>(null);
   
   // 릴리즈 관리 상태
@@ -495,6 +497,19 @@ export function AdminDashboardView({ onClose }: Props) {
   };
 
   // 5. 90일 미활동 데이터 만료 청소 (수동 실행)
+  const handleSetLaunchMode = async (mode: LaunchMode) => {
+    if (mode === launchMode) return;
+    const label = mode === "beta_free" ? "무료 베타 (전 기능 무료)" : "유료 정식 (구독 게이팅)";
+    if (!window.confirm(`런치 모드를 [${label}] 로 전환할까요?\n모든 사용자에게 즉시 적용됩니다.`)) return;
+    try {
+      await setLaunchModeRemote(mode);
+      setLaunchModeState(mode);
+      window.alert(`런치 모드가 [${label}] 로 전환되었습니다.`);
+    } catch (e: any) {
+      window.alert("전환 실패 (어드민 권한 필요): " + (e?.message || e));
+    }
+  };
+
   const handlePurgeData = async (dryRun: boolean) => {
     setIsCleaning(true);
     setCleanLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${dryRun ? "모의 실행" : "실제 실행"} 청소 가동...`]);
@@ -1606,6 +1621,45 @@ export function AdminDashboardView({ onClose }: Props) {
                 {/* 4. 시스템 제어판 탭 */}
                 {activeTab === "system" && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    {/* 런치 모드 토글 (베타무료 ↔ 유료정식) */}
+                    <div style={{ gridColumn: "1 / -1", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ color: "#5b8c7a" }}>🚀</span>
+                        런치 모드 (출시 전략)
+                      </div>
+                      <p style={{ fontSize: 12, opacity: 0.6, lineHeight: 1.6 }}>
+                        <strong>무료 베타</strong>: 페이월을 숨기고 전 사용자에게 모든 PRO 기능을 개방합니다(결제 백엔드 완성 전 사용자 확보용).
+                        <strong> 유료 정식</strong>: 정상 구독 게이팅으로 전환합니다. 전환 시 비구독자는 즉시 FREE로 강등됩니다.
+                        현재 모드: <strong style={{ color: launchMode === "beta_free" ? "#d9a752" : "#5b8c7a" }}>{launchMode === "beta_free" ? "무료 베타" : "유료 정식"}</strong>
+                      </p>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button
+                          onClick={() => handleSetLaunchMode("beta_free")}
+                          style={{
+                            flex: 1,
+                            background: launchMode === "beta_free" ? "#d9a752" : "rgba(255,255,255,0.06)",
+                            color: launchMode === "beta_free" ? "#1a1a1a" : "#fff",
+                            border: "none", borderRadius: 8, padding: "10px 16px",
+                            fontSize: 12, fontWeight: 700, cursor: "pointer",
+                          }}
+                        >
+                          무료 베타로 전환
+                        </button>
+                        <button
+                          onClick={() => handleSetLaunchMode("paid")}
+                          style={{
+                            flex: 1,
+                            background: launchMode === "paid" ? "#5b8c7a" : "rgba(255,255,255,0.06)",
+                            color: "#fff",
+                            border: "none", borderRadius: 8, padding: "10px 16px",
+                            fontSize: 12, fontWeight: 700, cursor: "pointer",
+                          }}
+                        >
+                          유료 정식으로 전환
+                        </button>
+                      </div>
+                    </div>
+
                     {/* 데이터 청소기 */}
                     <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>

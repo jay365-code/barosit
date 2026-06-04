@@ -5,8 +5,15 @@
 ## 빠른 요약
 
 **BaroSit** — 데스크톱 자세 모니터링 앱 (Tauri 2 + React + MediaPipe)
-**최신 release**: v0.1.1 (2026-05-19, 자동 업데이트 풀 시연 완료)
-**다음 release 대기**: v0.1.5 (약관 인앱 표시 + 프로필 Phase 0 + 가림 핸드오버 + 적응형 민감도 시각화 + 스트레칭 점수 누적제 개편 및 기지개 감지 완화 + 결제 정보 삭제 기능 추가 + 실시간 사용시간/자세유지율 타이머 정상화 + 연간 공헌도 잔디 그리드 + 소급 패키징 및 배치 동기화 엔진 + 시간 표시 가림 및 점선 튀어나옴 현상 완벽 해결 — 개발 완료, 배포 대기)
+**현재 버전**: v0.2.29 (package.json·tauri.conf·Cargo 일치)
+**출시 준비 계획서**: [launch-readiness-plan.md](./launch-readiness-plan.md) ← 서비스 오픈 블로커/전략의 단일 출처
+
+**서비스 오픈 진행 (2026-06-04)**: 유료 SaaS 정식 오픈 목표 + 무료 베타를 출시 전략으로 토글 가능하게 준비 중.
+- 🟡 외부 의존: Toss Payments 가맹점 **심사 중**, Apple Developer Program **신청 완료**
+- ✅ **런치 모드 토글** 구현 — `src/launchMode.ts` 하이브리드 플래그(원격 `app_config` > 캐시 > `VITE_LAUNCH_MODE` env > `'paid'`), plan 판정 6곳 중앙화(`resolveEffectivePlan`), AdminDashboard 전환 토글. 베타면 페이월 숨김+전원 PRO 개방
+- ✅ **결제 백엔드 P0-1** 구현 — Edge Functions 5종(`billing-issue`/`payment-cancel`/`subscription-manage`/`toss-webhook`/`charge-renewals`) + `_shared`, 마이그레이션 `20260521000009`(app_config)·`20260521000010`(트리거 service_role 허용+customer_key/billing_cycle/멱등), 프론트 결제/환불/해지/카드변경 전부 Edge Function 결선(mock 제거). [supabase/functions/README.md](../supabase/functions/README.md)
+- ✅ **PCI** — ProfileView 자체 카드 입력 위저드(raw 카드 수집) 완전 제거 → 웹 Toss 호스티드 결제창 위임
+- ⬜ 남은 블로커: macOS 코드서명·공증(P0-2), 결제 백엔드 **배포**(functions deploy + TOSS_SECRET_KEY + pg_cron + 웹훅 + live key + E2E QA)
 
 - ✅ macOS 핵심 기능 동작 (자세 6종 + 점수 + 스트레칭 7종 + 위젯 모드 + 장시간 사용성 보호)
 - ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
@@ -25,10 +32,12 @@
 |---|---|---|
 | 1 | 첫 실행 온보딩 | ✅ 완료 |
 | 2 | 자동 업데이트 | ✅ 완료 + 풀 시연 검증 |
-| 3 | 프라이버시 정책 + 이용약관 | ✅ 초안 + 인앱 모달 + 웹사이트 라우트 (변호사 검토 대기) |
-| 4 | macOS 코드 서명 + 공증 | ⬜ 미시작 (Apple Developer $99/년 필요) |
+| 3 | 프라이버시 정책 + 이용약관 | ✅ 사업자 실값(주식회사 구비드) + 인앱 모달 + 웹 라우트 (결제 조항 변호사 검토 권장) |
+| 4 | macOS 코드 서명 + 공증 | 🟡 Apple Developer **신청 완료** — 승인 후 `release.yml`에 APPLE_* + `releaseDraft:false` |
 | 5 | 랜딩 페이지 + 도메인 | ✅ `barosit.com` 라이브 (Cloudflare Pages, 자동 배포) |
-| 6 | 인증 (웹) | ✅ Google OAuth 동작. 매직링크·Kakao 는 별도 sprint |
+| 6 | 인증 (웹) | ✅ Google·Kakao·Apple OAuth + 데스크톱 deep-link |
+| 7 | 결제 백엔드 (Toss) | 🟡 **코드 구현 완료** — 배포/심사/E2E QA 대기 ([계획서 P0-1](./launch-readiness-plan.md)) |
+| 8 | 런치 모드 토글 (베타↔유료) | ✅ 구현 완료 (`src/launchMode.ts` + AdminDashboard) |
 
 ## 핵심 문서 (먼저 읽기)
 

@@ -51,6 +51,7 @@
   "winOnly": "Windows only",
   "backDashboard": "Back to dashboard",
   "web": {
+    "paymentProcessError": "Payment failed: {{error}}",
     "successHeadline": "Your PRO subscription has started!",
     "successDesc": "Your mock payment completed successfully. Now enjoy all of BaroSit PRO's powerful benefits without limits — background monitoring, native notifications, the desktop mini widget, and more!",
     "downloadLabel": "Download the desktop app",

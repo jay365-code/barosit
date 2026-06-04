@@ -27,6 +27,10 @@ port = 54337
 enabled = true
 inspector_port = 8084
 
+# Toss 가 직접 호출하므로 JWT 검증 비활성 (대신 함수 내부에서 S2S 교차검증)
+[functions.toss-webhook]
+verify_jwt = false
+
 [auth]
 site_url = "http://localhost:1430"
 additional_redirect_urls = ["http://localhost:1430/#/auth/callback"]

@@ -1,7 +1,8 @@
-// 사용자 프로필 페이지 — Phase 1: 클라우드 동기화 및 커스텀 인앱 결제 폼 탑재
+// 사용자 프로필 페이지 — Phase 1: 클라우드 동기화 및 구독/결제 관리
 // - 이름·아바타·작업환경 입력 및 Supabase 프로필 자동 연동
-// - Google/Kakao/Email Magic Link 실 서비스 로그인 패널 탑재
-// - 커스텀 인앱 카드 입력 폼 및 토스 비인증 빌링키 발급 시뮬레이션
+// - Google/Kakao 실 서비스 로그인 패널 탑재
+// - 구독 해지/복구·환불은 service_role Edge Function 경유, 결제수단 등록/변경은
+//   웹의 Toss 호스티드 결제창으로 위임 (raw 카드 데이터 미수집 — PCI)
 // - "홈으로" 버튼 → 메인 모니터 화면 복귀
 
 import { useEffect, useState } from "react";
@@ -12,6 +13,7 @@ import { AdminTemplateView } from "./AdminTemplateView";
 import { platform } from "../platform";
 import { supabase, extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
+import { resolveEffectivePlan, isBetaFree } from "../launchMode";
 import {
   syncProfileToServer,
   pullProfileFromServer,
@@ -65,14 +67,6 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [gracePeriodUntil, setGracePeriodUntil] = useState<string | null>(null);
   const [cardFormOpen, setCardFormOpen] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
-
-  // 카드 등록 위저드 상태
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState(""); // MM/YY
-  const [cardPwd, setCardPwd] = useState(""); // 2자리
-  const [cardIdentity, setCardIdentity] = useState(""); // YYMMDD 또는 사업자번호
-  const [cardFormError, setCardFormError] = useState("");
-  const [cardRegistering, setCardRegistering] = useState(false);
 
   // 소셜 프로필 이미지 자동 표시 + 로딩 실패 시 이름 이니셜 fallback.
   // 사용자가 *직접 변경*하는 UI 는 없음 — 소셜 OAuth 가 제공한 정보를
@@ -177,12 +171,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
             .maybeSingle();
 
           if (!error && data) {
-            const isPro = data.plan_id === "pro" && (
-              data.status === "active" ||
-              data.status === "grace_period" ||
-              (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
-            );
-            actualPlan = isPro ? "pro" : "free";
+            actualPlan = resolveEffectivePlan(data);
             setSubStatus(data.status);
             setSubUpdatedAt(data.updated_at);
             setSubPeriodEnd(data.current_period_end);
@@ -190,7 +179,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
             setGracePeriodUntil(data.grace_period_until);
           } else {
             const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
-            actualPlan = localPlan || "free";
+            actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
           }
 
           const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
@@ -269,25 +258,20 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     try {
       if (!session?.user) return;
 
-      // 일반 유저는 status를 직접 수정할 수 없으므로(Security Trigger), admin_notifications에 안전하게 접수만 요청
-      const { error: notifyError } = await supabase.from("admin_notifications").insert({
-        event_type: "refund_requested",
-        severity: "warning",
-        message: `환불 신청 접수: 사용자 ${session.user.email} 님이 7일 이내 즉시 환불(금액 반환) 승인을 정식 요청했습니다.`,
-        payload: {
-          user_id: session.user.id,
-          email: session.user.email,
-          action: "instant_refund_request",
-          refund_requested_at: new Date().toISOString()
-        }
-      });
+      // 서버에서 7일/미사용 재검증 + 실제 Toss 취소 + FREE 강등 + 원장 환불
+      const { data, error } = await supabase.functions.invoke("payment-cancel", { body: {} });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "환불 처리 실패");
+      }
 
-      if (notifyError) throw notifyError;
-
+      setSubPlan("free");
+      setSubStatus("none");
+      setCardInfo(null);
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
       alert(t("refundSuccess"));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Refund request failed:", err);
-      alert(t("refundError"));
+      alert(err?.message || t("refundError"));
     }
   };
 
@@ -298,31 +282,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     try {
       if (!session?.user) return;
 
-      // Toss 정기 결제 중지 - status를 'canceled'로 예약 업데이트
-      // ( prevent_subscription_tampering 트리거에서 일반 유저의 canceled 예약 상태는 보안이 허용되도록 구성하거나 알림 처리 )
-      const { error: subError } = await supabase
-        .from("user_subscriptions")
-        .update({
-          status: "canceled",
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", session.user.id);
-
-      if (subError) throw subError;
-
-      await supabase.from("admin_notifications").insert({
-        event_type: "cancellation",
-        severity: "info",
-        message: `정기 해지 예약: 사용자 ${session.user.email} 님이 정기 구독 갱신 해지를 예약했습니다. (남은 기간 제공)`,
-        payload: {
-          user_id: session.user.id,
-          email: session.user.email,
-          action: "cancel_subscription",
-          canceled_at: new Date().toISOString()
-        }
+      // 해지 예약(status='canceled')은 트리거 때문에 서버(service_role)만 가능
+      const { data, error } = await supabase.functions.invoke("subscription-manage", {
+        body: { action: "cancel" },
       });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "해지 처리 실패");
+      }
 
       setSubStatus("canceled");
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
       alert(t("cancelSuccess"));
     } catch (err) {
       console.error("Cancellation failed:", err);
@@ -335,29 +304,15 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     try {
       if (!session?.user) return;
 
-      const { error: subError } = await supabase
-        .from("user_subscriptions")
-        .update({
-          status: "active",
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", session.user.id);
-
-      if (subError) throw subError;
-
-      await supabase.from("admin_notifications").insert({
-        event_type: "signup",
-        severity: "info",
-        message: `구독 복구: 사용자 ${session.user.email} 님이 취소 해지 예약했던 정기 구독을 다시 철회하고 복구했습니다.`,
-        payload: {
-          user_id: session.user.id,
-          email: session.user.email,
-          action: "resume_subscription",
-          resumed_at: new Date().toISOString()
-        }
+      const { data, error } = await supabase.functions.invoke("subscription-manage", {
+        body: { action: "resume" },
       });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "복구 처리 실패");
+      }
 
       setSubStatus("active");
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
       alert(t("restoreSuccess"));
     } catch (err) {
       console.error("Resume failed:", err);
@@ -365,117 +320,12 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     }
   };
 
-  // 룬(Luhn) 알고리즘 카드번호 검증 헬퍼
-  const validateCardNumber = (num: string): boolean => {
-    const clean = num.replace(/\D/g, "");
-    if (clean.length < 13 || clean.length > 19) return false;
-    let sum = 0;
-    let shouldDouble = false;
-    for (let i = clean.length - 1; i >= 0; i--) {
-      let digit = parseInt(clean.charAt(i), 10);
-      if (shouldDouble) {
-        digit *= 2;
-        if (digit > 9) digit -= 9;
-      }
-      sum += digit;
-      shouldDouble = !shouldDouble;
-    }
-    return sum % 10 === 0;
-  };
-
-  // 카드 번호 첫 자리 기반 카드사명 및 그라디언트 테마 획득
-  const getCardBrandInfo = (num: string) => {
-    const clean = num.replace(/\D/g, "");
-    const first = clean.charAt(0);
-    const firstTwo = clean.substring(0, 2);
-    
-    if (first === "4") {
-      return { name: "Visa", color: "linear-gradient(135deg, #1a1f71 0%, #0077c2 100%)", logo: "💳 VISA" };
-    }
-    if (first === "5" || (Number(firstTwo) >= 51 && Number(firstTwo) <= 55)) {
-      return { name: "Mastercard", color: "linear-gradient(135deg, #cc1c1c 0%, #eb7e13 100%)", logo: "💳 Mastercard" };
-    }
-    if (first === "9") {
-      return { name: t("cardBrand.kbName"), color: "linear-gradient(135deg, #444547 0%, #eab805 100%)", logo: t("cardBrand.kbLogo") };
-    }
-    if (first === "3" && (firstTwo === "34" || firstTwo === "37")) {
-      return { name: "Amex", color: "linear-gradient(135deg, #007bc4 0%, #68b8e7 100%)", logo: "💳 AMEX" };
-    }
-    return { name: t("cardBrand.shinhanName"), color: "linear-gradient(135deg, #0b2265 0%, #1e5cb3 100%)", logo: "💳 SHINHAN" };
-  };
-
-  // 토스 비인증 빌링키 발급 API 모방 및 DB 등록 처리
-  const handleRegisterCard = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCardFormError("");
-    
-    const cleanNum = cardNumber.replace(/\D/g, "");
-    const cleanExpiry = cardExpiry.replace(/\D/g, "");
-    const cleanPwd = cardPwd.replace(/\D/g, "");
-    const cleanId = cardIdentity.replace(/\D/g, "");
-
-    if (!validateCardNumber(cleanNum)) {
-      setCardFormError(t("cardErrInvalidNumber"));
-      return;
-    }
-    if (cleanExpiry.length !== 4) {
-      setCardFormError(t("cardErrExpiry"));
-      return;
-    }
-    if (cleanPwd.length !== 2) {
-      setCardFormError(t("cardErrPwd"));
-      return;
-    }
-    if (cleanId.length !== 6 && cleanId.length !== 10) {
-      setCardFormError(t("cardErrIdentity"));
-      return;
-    }
-
-    setCardRegistering(true);
-    try {
-      // 1. 토스 비인증 카드 등록 API 호출 시뮬레이션 (HTTPS API direct exchange 모방)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const brand = getCardBrandInfo(cleanNum);
-      const masked = `${cleanNum.substring(0, 4)}-****-****-${cleanNum.substring(cleanNum.length - 4)}`;
-      
-      const newCardInfo = {
-        brand: brand.name,
-        number: masked,
-        cardType: "신용",
-        ownerType: cleanId.length === 6 ? "개인" : "법인"
-      };
-
-      const dummyBillingKey = `bln_tosspayments_${Math.random().toString(36).substring(7)}`;
-
-      // 2. Supabase DB user_subscriptions 갱신 (보안 트리거 범위 외로 billing_key, card_info 교체 허용)
-      const { error: subError } = await supabase
-        .from("user_subscriptions")
-        .update({
-          billing_key: dummyBillingKey,
-          card_info: newCardInfo,
-          updated_at: new Date().toISOString(),
-          status: subStatus === "grace_period" ? "active" : subStatus // 결제 유예 상태였을 경우 카드를 재등록하면 자동으로 active 복귀
-        })
-        .eq("user_id", session!.user.id);
-
-      if (subError) throw subError;
-
-      setCardInfo(newCardInfo);
-      setCardFormOpen(false);
-      setSubPlan("pro");
-      if (subStatus === "grace_period") setSubStatus("active");
-      
-      // 상태 변경 알림
-      window.dispatchEvent(new Event("barosit:subscription-changed"));
-
-      alert(t("cardRegSuccess"));
-    } catch (err: any) {
-      console.error("Card registration failed:", err);
-      setCardFormError(t("cardRegError", { error: err.message || err }));
-    } finally {
-      setCardRegistering(false);
-    }
+  // 결제수단 등록/변경은 웹의 Toss 호스티드 결제창에서만 진행 (PCI 범위 최소화).
+  // 데스크톱/웹 모두 기본 브라우저로 결제 관리 페이지를 연다. raw 카드 데이터는
+  // 우리 앱이 절대 수집하지 않는다.
+  const handleOpenWebBilling = () => {
+    platform.openBrowser("https://barosit.com/#/pricing");
+    setCardFormOpen(false);
   };
 
   // 결제 정보 삭제
@@ -772,7 +622,11 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                 </div>
               )}
 
-              {subPlan === "pro" ? (
+              {isBetaFree() ? (
+                <p className="profile-card-sub" style={{ color: "var(--b-fg-2)" }}>
+                  {t("betaPlanBody")}
+                </p>
+              ) : subPlan === "pro" ? (
                 <>
                   <p className="profile-card-sub" style={{ color: "var(--b-fg-2)" }} dangerouslySetInnerHTML={{ __html: t("proDesc") }} />
 
@@ -959,163 +813,35 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                 </>
               )}
 
-              {/* 💳 자체 커스텀 인앱 카드 위저드 입력 폼 */}
+              {/* 결제수단은 웹의 Toss 호스티드 결제창에서만 등록/변경 (PCI 범위 최소화) */}
               {cardFormOpen && session?.user && (
-                <form onSubmit={handleRegisterCard} style={{
+                <div style={{
                   marginTop: "20px",
                   padding: "20px",
                   borderRadius: "16px",
                   background: "rgba(255, 255, 255, 0.02)",
                   border: "1px solid rgba(255, 255, 255, 0.06)",
-                  position: "relative",
-                  overflow: "hidden"
                 }}>
-                  <h4 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 16px 0", color: "var(--b-fg-2)" }}>
-                    {t("cardFormTitle")}
+                  <h4 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 10px 0", color: "var(--b-fg-2)" }}>
+                    {t("cardWebTitle")}
                   </h4>
-
-                  {/* 가상 카드 플레이트 실시간 렌더링 */}
-                  <div style={{
-                    height: "140px",
-                    borderRadius: "12px",
-                    background: getCardBrandInfo(cardNumber).color,
-                    boxShadow: "0 10px 25px rgba(0,0,0,0.4), inset 0 0 20px rgba(255,255,255,0.15)",
-                    padding: "16px",
-                    color: "#fff",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    marginBottom: "20px",
-                    position: "relative",
-                    transition: "all 0.5s ease"
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "1px", opacity: 0.8 }}>BAROSIT PREMIUM CARD</span>
-                      <span style={{ fontSize: "13px", fontWeight: 900, textShadow: "0 2px 4px rgba(0,0,0,0.3)" }}>
-                        {getCardBrandInfo(cardNumber).logo}
-                      </span>
-                    </div>
-                    
-                    {/* 금속 칩 일러스트 */}
-                    <div style={{
-                      width: "32px",
-                      height: "24px",
-                      background: "linear-gradient(135deg, #fce0ad 0%, #dfa538 100%)",
-                      borderRadius: "4px",
-                      border: "1px solid rgba(255,255,255,0.3)",
-                      boxShadow: "inset 0 1px 2px rgba(255,255,255,0.5)"
-                    }} />
-
-                    <div>
-                      <div style={{
-                        fontFamily: "monospace",
-                        fontSize: "16px",
-                        letterSpacing: "2px",
-                        textShadow: "0 1px 2px rgba(0,0,0,0.8)",
-                        marginBottom: "6px"
-                      }}>
-                        {cardNumber ? cardNumber.replace(/(\d{4})/g, "$1 ").trim() : "•••• •••• •••• ••••"}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "9px", opacity: 0.8 }}>
-                        <span>{profile.name.toUpperCase() || "MEMBER"}</span>
-                        <span>VALID THRU: {cardExpiry ? cardExpiry.replace(/(\d{2})/g, "$1/").replace(/\/$/, "") : "MM/YY"}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 입력 제어 폼 */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <div>
-                      <label htmlFor="card-number-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>{t("cardNumberLabel")}</label>
-                      <input
-                        id="card-number-input"
-                        className="profile-input"
-                        type="text"
-                        maxLength={19}
-                        placeholder="4012 0000 0000 0000"
-                        value={cardNumber}
-                        onChange={(e) => {
-                          const clean = e.target.value.replace(/\D/g, "");
-                          setCardNumber(clean);
-                        }}
-                        style={{ fontFamily: "monospace" }}
-                      />
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                      <div>
-                        <label htmlFor="card-expiry-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>{t("cardExpiryLabel")}</label>
-                        <input
-                          id="card-expiry-input"
-                          className="profile-input"
-                          type="text"
-                          maxLength={5}
-                          placeholder="MM/YY"
-                          value={cardExpiry}
-                          onChange={(e) => {
-                            const clean = e.target.value.replace(/\D/g, "");
-                            setCardExpiry(clean);
-                          }}
-                          style={{ fontFamily: "monospace" }}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="card-pwd-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>{t("cardPwdLabel")}</label>
-                        <input
-                          id="card-pwd-input"
-                          className="profile-input"
-                          type="password"
-                          maxLength={2}
-                          placeholder="••"
-                          value={cardPwd}
-                          onChange={(e) => {
-                            const clean = e.target.value.replace(/\D/g, "");
-                            setCardPwd(clean);
-                          }}
-                          style={{ fontFamily: "monospace" }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="card-identity-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>{t("cardIdentityLabel")}</label>
-                      <input
-                        id="card-identity-input"
-                        className="profile-input"
-                        type="text"
-                        maxLength={10}
-                        placeholder="YYMMDD"
-                        value={cardIdentity}
-                        onChange={(e) => {
-                          const clean = e.target.value.replace(/\D/g, "");
-                          setCardIdentity(clean);
-                        }}
-                        style={{ fontFamily: "monospace" }}
-                      />
-                    </div>
-
-                    {cardFormError && (
-                      <div style={{ fontSize: "11px", color: "#f87171", marginTop: "4px" }}>
-                        ⚠️ {cardFormError}
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      className="b-btn b-btn-primary"
-                      disabled={cardRegistering}
-                      style={{
-                        marginTop: "8px",
-                        background: "linear-gradient(135deg, #7eb09c, #5b8c7a)",
-                        border: "none",
-                        justifyContent: "center",
-                        fontWeight: 700
-                      }}
-                    >
-                      {cardRegistering ? t("cardSubmitting") : t("cardSubmit")}
-                    </button>
-                  </div>
-                </form>
+                  <p style={{ fontSize: "12px", color: "var(--b-fg-4)", lineHeight: 1.6, margin: "0 0 16px 0" }}>
+                    {t("cardWebBody")}
+                  </p>
+                  <button
+                    type="button"
+                    className="b-btn b-btn-primary"
+                    onClick={handleOpenWebBilling}
+                    style={{
+                      background: "linear-gradient(135deg, #7eb09c, #5b8c7a)",
+                      border: "none",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {t("cardWebCta")}
+                  </button>
+                </div>
               )}
             </section>
 

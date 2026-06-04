@@ -51,6 +51,7 @@
   "winOnly": "Windows 전용",
   "backDashboard": "대시보드로 돌아가기",
   "web": {
+    "paymentProcessError": "결제 처리에 실패했습니다: {{error}}",
     "successHeadline": "PRO 구독이 시작되었습니다!",
     "successDesc": "가상 결제가 성공적으로 완료되었습니다. 이제 백그라운드 모니터링, 네이티브 알림, 그리고 데스크톱 미니 위젯 등 BaroSit PRO의 모든 막강한 혜택을 제한 없이 누려보세요!",
     "downloadLabel": "데스크톱 전용 앱 다운로드",

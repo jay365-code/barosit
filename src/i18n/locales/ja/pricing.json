@@ -51,6 +51,7 @@
   "winOnly": "Windows専用",
   "backDashboard": "ダッシュボードに戻る",
   "web": {
+    "paymentProcessError": "決済処理に失敗しました: {{error}}",
     "successHeadline": "PROサブスクが開始されました！",
     "successDesc": "仮の決済が正常に完了しました。これからバックグラウンド監視、ネイティブ通知、デスクトップミニウィジェットなど、BaroSit PROのすべての強力な特典を制限なくお楽しみください！",
     "downloadLabel": "デスクトップ専用アプリをダウンロード",

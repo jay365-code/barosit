@@ -20,6 +20,7 @@ import {
   type LegalDocKind,
 } from "./components/LegalDocument";
 import { loadBaseline } from "./pose/calibration";
+import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, LAUNCH_MODE_CHANGED_EVENT } from "./launchMode";
 import type { CalibrationBaseline, PostureStatus } from "./pose/types";
 import {
   hideMainWindow,
@@ -391,27 +392,22 @@ export default function App() {
         if (session?.user) {
           const { data, error } = await supabase
             .from("user_subscriptions")
-            .select("plan_id, status, grace_period_until")
+            .select("plan_id, status, current_period_end, grace_period_until")
             .eq("user_id", session.user.id)
             .maybeSingle();
 
           if (!error && data) {
-            const isPro = data.plan_id === "pro" && (
-              data.status === "active" ||
-              data.status === "grace_period" ||
-              data.status === "canceled"
-            );
-            actualPlan = isPro ? "pro" : "free";
+            actualPlan = resolveEffectivePlan(data);
             status = data.status;
             graceUntil = data.grace_period_until;
           } else {
-            // 오프라인 상태 대비 로컬 스토리지 캐시 검증
+            // 오프라인 상태 대비 로컬 스토리지 캐시 검증 (베타 모드면 전원 PRO)
             const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
-            actualPlan = localPlan || "free";
+            actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
           }
         } else {
           const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
-          actualPlan = localPlan || "free";
+          actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
         }
         
         setSubPlan(actualPlan);
@@ -424,13 +420,15 @@ export default function App() {
       }
     };
 
-    fetchSub();
+    // 부팅 시 런치 모드 원격값을 먼저 읽고(베타↔유료) 그 다음 플랜 해석
+    refreshLaunchMode().finally(() => fetchSub());
 
     const handleSubChanged = () => {
       fetchSub();
     };
     window.addEventListener("barosit:subscription-changed", handleSubChanged);
     window.addEventListener("storage", handleSubChanged);
+    window.addEventListener(LAUNCH_MODE_CHANGED_EVENT, handleSubChanged);
     
     // Supabase 인증 상태 변경 리스너 연동
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -442,6 +440,7 @@ export default function App() {
     return () => {
       window.removeEventListener("barosit:subscription-changed", handleSubChanged);
       window.removeEventListener("storage", handleSubChanged);
+      window.removeEventListener(LAUNCH_MODE_CHANGED_EVENT, handleSubChanged);
       subscription.unsubscribe();
     };
   }, []);

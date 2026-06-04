@@ -6,6 +6,7 @@ import privacyMd from "../../docs/privacy.md?raw";
 import termsMd from "../../docs/terms.md?raw";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
+import { resolveEffectivePlan, isBetaFree, refreshLaunchMode } from "../launchMode";
 import { interpolateLegalTemplate } from "../lib/legal";
 import i18n from "../i18n";
 import { LanguageSelect } from "../components/LanguageSelect";
@@ -3343,11 +3344,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
             .eq("user_id", user.id)
             .maybeSingle();
           if (data) {
-            const isPro = data.plan_id === "pro" && (
-              data.status === "active" ||
-              (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
-            );
-            setUserPlan(isPro ? "pro" : "free");
+            setUserPlan(resolveEffectivePlan(data));
           }
         } catch (e) {
           console.error(e);
@@ -3630,15 +3627,11 @@ function Pricing() {
             .maybeSingle();
 
           if (!error && data) {
-            const isPro = data.plan_id === "pro" && (
-              data.status === "active" ||
-              (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
-            );
-            actualPlan = isPro ? "pro" : "free";
+            actualPlan = resolveEffectivePlan(data);
           } else {
-            // RLS 에러 등으로 조회 불가능하거나 없는 경우 안전하게 로컬 캐시 기준 판단하되 free가 기본값
+            // RLS 에러 등으로 조회 불가능하거나 없는 경우 안전하게 로컬 캐시 기준 판단하되 free가 기본값 (베타 모드면 PRO)
             const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
-            actualPlan = localPlan || "free";
+            actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
           }
 
           const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
@@ -3700,82 +3693,45 @@ function Pricing() {
             const finalAmount = cycleParam === "yearly" ? 36000 : 4900;
             
             setTimeout(async () => {
+              const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
               try {
-                if (userObj) {
-                  // DB 업데이트 (결제 주기에 따라 만료 기한 연장 설정)
-                  const periodEnd = new Date();
-                  if (cycleParam === "yearly") {
-                    periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-                  } else {
-                    periodEnd.setMonth(periodEnd.getMonth() + 1);
-                  }
+                if (!userObj) throw new Error("로그인이 필요합니다.");
 
-                  const { error } = await supabase
-                    .from("user_subscriptions")
-                    .upsert({
-                      user_id: userObj.id,
-                      plan_id: "pro",
-                      status: "active",
-                      billing_key: authKey || `mock_billing_key_${Date.now()}`,
-                      current_period_end: periodEnd.toISOString(),
-                      updated_at: new Date().toISOString()
-                    }, { onConflict: "user_id" });
-                  if (error) {
-                    console.warn("DB subscription upsert failed (possibly RLS), activating locally.", error);
-                  }
-
-                  // 결제 완료 이력 기입
-                  const mockOrderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-                  const mockPaymentKey = authKey || `mock_pay_key_${Date.now()}`;
-                  const { error: historyError } = await supabase
-                    .from("billing_history")
-                    .insert({
-                      user_id: userObj.id,
-                      kind: "payment",
-                      order_id: mockOrderId,
-                      payment_key: mockPaymentKey,
-                      amount: finalAmount,
-                      plan: "pro",
-                      billing_cycle: cycleParam,
-                      status: "completed",
-                      cash_receipt_issued: false,
-                      created_at: new Date().toISOString()
-                    });
-                  if (historyError) {
-                    console.warn("DB billing_history insert failed:", historyError);
-                  }
+                // Toss 가 successUrl 에 authKey + customerKey 를 붙여 리다이렉트함
+                const customerKey = params.get("customerKey");
+                if (!authKey || !customerKey) {
+                  throw new Error("결제 인증 정보를 받지 못했습니다.");
                 }
-                
-                // 로컬 구독 등급 즉시 갱신 동기화 및 트리거 이벤트 로깅
+
+                // 서버 신뢰 단일 경로 — 빌링키 발급 + 첫 청구 + PRO 활성화는 Edge Function 이 수행
+                const { data: issueData, error: issueError } = await supabase.functions.invoke(
+                  "billing-issue",
+                  { body: { authKey, customerKey, billingCycle: cycleParam } }
+                );
+                if (issueError || !issueData?.success) {
+                  throw new Error(issueData?.error || issueError?.message || "결제 처리에 실패했습니다.");
+                }
+
                 localStorage.setItem("barosit:subscription_plan", "pro");
                 setCurrentPlan("pro");
                 setPaymentState("success");
                 triggerConfetti();
-                
-                // 결제 성공 분석 이벤트 전송
+
                 trackPaymentEvent("checkout_completed", {
                   billingCycle: cycleParam,
                   amount: finalAmount,
                   user: userObj?.email
                 });
 
-                const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
                 window.history.replaceState({}, document.title, cleanUrl);
-              } catch (e) {
-                console.error("DB update error", e);
-                localStorage.setItem("barosit:subscription_plan", "pro");
-                setCurrentPlan("pro");
-                setPaymentState("success");
-                triggerConfetti();
-
-                trackPaymentEvent("checkout_completed", {
-                  billingCycle: cycleParam,
-                  amount: finalAmount,
-                  user: userObj?.email,
-                  error: "DB sync exception but local activated"
+              } catch (e: any) {
+                console.error("billing-issue failed:", e);
+                setPaymentState("idle");
+                window.alert(t("web.paymentProcessError", { error: e?.message || String(e) }));
+                trackPaymentEvent("checkout_failed", {
+                  reason: e?.message || String(e),
+                  user: userObj?.email
                 });
-                
-                const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
                 window.history.replaceState({}, document.title, cleanUrl);
               }
             }, 1200);
@@ -3845,6 +3801,11 @@ function Pricing() {
     userOverride?: any,
     cycleOverride?: "monthly" | "yearly"
   ) => {
+    // 베타 무료 기간에는 결제 대신 다운로드로 안내 — 전 기능이 이미 개방돼 있음
+    if (isBetaFree()) {
+      window.location.hash = "#/download/mac";
+      return;
+    }
     setPaymentState("checkout");
     const activeUser = userOverride || currentUser;
     const activeCycle = cycleOverride || billingCycle;
@@ -4607,48 +4568,16 @@ function PlanTab({
 
         if (paymentStatus === "success" && authKey) {
           try {
-            // 1. user_subscriptions 테이블의 billing_key 업데이트
-            const { error: subError } = await supabase
-              .from("user_subscriptions")
-              .update({
-                billing_key: authKey,
-                updated_at: new Date().toISOString()
-              })
-              .eq("user_id", user.id);
+            const customerKey = params.get("customerKey");
+            if (!customerKey) throw new Error("결제 인증 정보를 받지 못했습니다.");
 
-            if (subError) throw subError;
-
-            // 2. billing_history 테이블에 결제수단 변경(card_updated) 이력 기록
-            const mockOrderId = `card-update-${Date.now()}`;
-            const { error: historyError } = await supabase
-              .from("billing_history")
-              .insert({
-                user_id: user.id,
-                kind: "card_updated",
-                order_id: mockOrderId,
-                payment_key: authKey,
-                amount: 0,
-                plan: "pro",
-                billing_cycle: planId === "pro_yearly" ? "yearly" : "monthly",
-                status: "completed",
-                cash_receipt_issued: false,
-                created_at: new Date().toISOString()
-              });
-
-            if (historyError) throw historyError;
-
-            // 3. admin_notifications 테이블에 관리자 공지 적재
-            await supabase.from("admin_notifications").insert({
-              event_type: "signup",
-              severity: "info",
-              message: `결제 정보 변경: 사용자 ${user.email} 님이 대표 청구용 신용카드를 신규 카드로 성공적으로 갱신/변경하였습니다.`,
-              payload: {
-                user_id: user.id,
-                email: user.email,
-                action: "card_renewal",
-                updated_at: new Date().toISOString()
-              }
+            // 서버 신뢰 경로 — 새 빌링키 발급 + 카드 교체 (청구 없음). card_info 는 Toss 응답에서 백엔드가 저장.
+            const { data, error } = await supabase.functions.invoke("billing-issue", {
+              body: { authKey, customerKey, mode: "update_card" },
             });
+            if (error || !data?.success) {
+              throw new Error(data?.error || error?.message || "카드 변경에 실패했습니다.");
+            }
 
             window.alert(t("web.cardChangeSuccess"));
             onUpdateSubscription();
@@ -4722,15 +4651,11 @@ function PlanTab({
 
     if (confirmCancel) {
       try {
-        const { error } = await supabase
-          .from("user_subscriptions")
-          .update({
-            status: "canceled",
-            updated_at: new Date().toISOString()
-          })
-          .eq("user_id", user.id);
+        const { data, error } = await supabase.functions.invoke("subscription-manage", {
+          body: { action: "cancel" },
+        });
 
-        if (!error) {
+        if (!error && data?.success) {
           trackPaymentEvent("subscription_cancel_confirmed");
           window.alert(t("web.cancelSuccess"));
           onUpdateSubscription();
@@ -4753,15 +4678,11 @@ function PlanTab({
 
     if (confirmResume) {
       try {
-        const { error } = await supabase
-          .from("user_subscriptions")
-          .update({
-            status: "active",
-            updated_at: new Date().toISOString()
-          })
-          .eq("user_id", user.id);
+        const { data, error } = await supabase.functions.invoke("subscription-manage", {
+          body: { action: "resume" },
+        });
 
-        if (!error) {
+        if (!error && data?.success) {
           trackPaymentEvent("subscription_resume_confirmed");
           window.alert(t("web.resumeSuccess"));
           onUpdateSubscription();
@@ -4781,51 +4702,18 @@ function PlanTab({
     if (!confirmRefund) return;
 
     try {
-      const { error: subError } = await supabase
-        .from("user_subscriptions")
-        .update({
-          plan_id: "free",
-          status: "none",
-          current_period_end: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", user.id);
-
-      if (subError) throw subError;
-
-      const { error: historyError } = await supabase
-        .from("billing_history")
-        .update({
-          status: "refunded",
-          refunded_amount: latestPayment.amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", latestPayment.id);
-
-      if (historyError) throw historyError;
-
-      await supabase
-        .from("billing_history")
-        .insert({
-          user_id: user.id,
-          kind: "refund",
-          order_id: latestPayment.order_id,
-          payment_key: latestPayment.payment_key,
-          amount: latestPayment.amount,
-          plan: latestPayment.plan,
-          billing_cycle: latestPayment.billing_cycle,
-          status: "completed",
-          cash_receipt_issued: false,
-          refunded_amount: latestPayment.amount,
-          created_at: new Date().toISOString()
-        });
+      // 서버에서 7일/미사용 재검증 + 실제 Toss 취소 + FREE 강등 + 원장 환불 처리
+      const { data, error } = await supabase.functions.invoke("payment-cancel", { body: {} });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "환불 처리 실패");
+      }
 
       localStorage.setItem("barosit:subscription_plan", "free");
       window.alert(t("web.refundSuccess"));
       onUpdateSubscription();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Refund error:", err);
-      window.alert(t("web.refundError"));
+      window.alert(err?.message || t("web.refundError"));
     }
   };
 
@@ -4833,6 +4721,23 @@ function PlanTab({
   const handleMockNotice = () => {
     window.alert(t("web.mockNotice"));
   };
+
+  // 베타 무료 기간: 결제/구독 관리 UI 자체를 비노출하고 안내로 대체
+  if (isBetaFree()) {
+    return (
+      <>
+        <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.022em", marginBottom: 6 }}>
+          {t("web.betaPlanTitle")}
+        </h2>
+        <p style={{ color: "var(--b-fg-2)", lineHeight: 1.7, marginBottom: 20 }}>
+          {t("web.betaPlanBody")}
+        </p>
+        <a href="#/download/mac" className="b-btn b-btn-primary">
+          {t("web.betaPlanCta")}
+        </a>
+      </>
+    );
+  }
 
   if (subPlan === "pro") {
     const isCanceled = subStatus === "canceled";
@@ -5287,11 +5192,7 @@ function Profile() {
         .eq("user_id", user.id)
         .maybeSingle();
       if (!error && data) {
-        const isPro = data.plan_id && data.plan_id.startsWith("pro") && (
-          data.status === "active" ||
-          (data.status === "canceled" && data.current_period_end && new Date(data.current_period_end) > new Date())
-        );
-        const verifiedPlan = isPro ? "pro" : "free";
+        const verifiedPlan = resolveEffectivePlan(data);
         setSubPlan(verifiedPlan);
         setPlanId((data.plan_id as any) || "free");
         setSubStatus(data.status as any);
@@ -5604,6 +5505,11 @@ export function handleContactClick() {
 export function Marketing({ route }: { route: MarketingRoute }) {
   const { t } = useTranslation("marketing");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // 부팅 시 런치 모드 원격값 동기화 (베타↔유료). 실패해도 캐시/env 폴백.
+  useEffect(() => {
+    refreshLaunchMode();
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
