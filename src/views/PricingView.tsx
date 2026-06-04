@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { Icon } from "../components/Icon";
 import { supabase } from "../auth/supabase";
 
@@ -6,7 +8,7 @@ import { supabase } from "../auth/supabase";
 function loadTossPayments(): Promise<any> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined") {
-      reject(new Error("브라우저 환경이 아닙니다."));
+      reject(new Error(i18n.t("pricing:errSdkNotBrowser")));
       return;
     }
     if ((window as any).TossPayments) {
@@ -20,10 +22,10 @@ function loadTossPayments(): Promise<any> {
       if ((window as any).TossPayments) {
         resolve((window as any).TossPayments);
       } else {
-        reject(new Error("토스페이먼츠 SDK 로딩에 실패했습니다."));
+        reject(new Error(i18n.t("pricing:errSdkLoadFail")));
       }
     };
-    script.onerror = () => reject(new Error("토스페이먼츠 SDK를 불러오는 도중 에러가 발생했습니다."));
+    script.onerror = () => reject(new Error(i18n.t("pricing:errSdkLoadError")));
     document.head.appendChild(script);
   });
 }
@@ -56,6 +58,7 @@ interface Props {
 }
 
 export function PricingView({ onClose, onPlanUpdated }: Props) {
+  const { t } = useTranslation("pricing");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentPlan, setCurrentPlan] = useState<"free" | "pro">("free");
@@ -260,7 +263,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
               }
             });
 
-            alert("결제에 실패하였습니다. 다시 시도해주세요.");
+            alert(t("errPaymentFailed"));
             const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
             window.history.replaceState({}, document.title, cleanUrl);
             setPaymentState("idle");
@@ -358,7 +361,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
         }
       });
 
-      alert("결제창을 실행하는 중 오류가 발생했습니다: " + err.message);
+      alert(t("errPaymentWindow") + err.message);
       setPaymentState("idle");
     }
   };
@@ -792,7 +795,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
             type="button"
             className="pricing-close-btn"
             onClick={onClose}
-            aria-label="닫기"
+            aria-label={i18n.t("common:close")}
           >
             <Icon name="x" size={16} />
           </button>
@@ -804,10 +807,10 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
             <div className="spinner" />
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "#fff" }}>
-                결제 승인 진행 중
+                {t("approving")}
               </div>
               <div style={{ fontSize: 12, color: "var(--b-fg-3)" }}>
-                가상의 모의 결제 요청을 안전하게 승인하고 있습니다...
+                {t("approvingDesc")}
               </div>
             </div>
           </div>
@@ -820,8 +823,8 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
             <>
               {/* 타이틀 및 소개 */}
               <header className="pricing-headline">
-                <h2>바른 자세의 시작, BaroSit 요금제</h2>
-                <p>웹 브라우저를 통한 간편 체험부터 데스크톱 전용 앱까지 나에게 맞는 환경을 선택해보세요</p>
+                <h2>{t("title")}</h2>
+                <p>{t("subtitle")}</p>
               </header>
 
               {/* 월간/연간 스위치 */}
@@ -832,15 +835,15 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                     className={`pricing-cycle-btn ${billingCycle === "monthly" ? "active" : ""}`}
                     onClick={() => setBillingCycle("monthly")}
                   >
-                    월간 결제
+                    {t("monthly")}
                   </button>
                   <button
                     type="button"
                     className={`pricing-cycle-btn ${billingCycle === "yearly" ? "active" : ""}`}
                     onClick={() => setBillingCycle("yearly")}
                   >
-                    연간 결제
-                    <span className="pricing-save-badge">연 38% 할인 🔥</span>
+                    {t("yearly")}
+                    <span className="pricing-save-badge">{t("saveBadge")}</span>
                   </button>
                 </div>
               </div>
@@ -851,11 +854,11 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                 <article className="pricing-plan-card">
                   <h3 className="pricing-plan-name">FREE</h3>
                   <div className="pricing-plan-price">
-                    <span className="amount">0원</span>
-                    <span className="unit">/ 평생 무료</span>
+                    <span className="amount">{t("free.amount")}</span>
+                    <span className="unit">{t("free.unit")}</span>
                   </div>
                   <p className="pricing-plan-desc">
-                    브라우저 실행 한 번으로 바로 체감할 수 있는 온보딩 웹 모니터링 엔진
+                    {t("free.tagline")}
                   </p>
 
                   <button
@@ -863,29 +866,29 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                     className={`pricing-action-btn free-btn ${currentPlan === "free" ? "current" : ""}`}
                     disabled
                   >
-                    {currentPlan === "free" ? "현재 이용 중인 플랜" : "웹 브라우저에서 상시 무료"}
+                    {currentPlan === "free" ? t("free.ctaCurrent") : t("free.ctaUse")}
                   </button>
 
                   <ul className="pricing-bullets">
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      7종 핵심 실시간 자세 감지 피드백
+                      {t("free.feat1")}
                     </li>
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      온디바이스 실루엣 프라이버시 필터
+                      {t("free.feat2")}
                     </li>
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      바른 자세 스트레칭 가이드 & 보상 리포트
+                      {t("free.feat3")}
                     </li>
                     <li className="pricing-bullet-item disabled">
                       <span className="bullet-icon x"><Icon name="x" size={14} /></span>
-                      백그라운드 모니터링 (브라우저 숨김 시 연산 정지)
+                      {t("free.feat4")}
                     </li>
                     <li className="pricing-bullet-item disabled">
                       <span className="bullet-icon x"><Icon name="x" size={14} /></span>
-                      미니 데스크톱 위젯 모드 (Tauri 앱 전용)
+                      {t("free.feat5")}
                     </li>
                   </ul>
                 </article>
@@ -893,22 +896,22 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                 {/* 2. PRO PLAN (Recommended) */}
                 <article className="pricing-plan-card pro-card">
                   <div className="pro-badge">RECOMMENDED</div>
-                  <h3 className="pricing-plan-name">PRO (데스크톱 앱 전용)</h3>
+                  <h3 className="pricing-plan-name">{t("pro.name")}</h3>
                   <div className="pricing-plan-price">
                     {billingCycle === "yearly" ? (
                       <>
-                        <span className="amount" style={{ color: "#7eb09c" }}>연 36,000원</span>
-                        <span className="unit" style={{ marginLeft: 4 }}>(월 3,000원 꼴)</span>
+                        <span className="amount" style={{ color: "#7eb09c" }}>{t("pro.yearAmount")}</span>
+                        <span className="unit" style={{ marginLeft: 4 }}>{t("pro.yearUnit")}</span>
                       </>
                     ) : (
                       <>
-                        <span className="amount">월 4,900원</span>
-                        <span className="unit">/ 매월 정기 결제</span>
+                        <span className="amount">{t("pro.monthAmount")}</span>
+                        <span className="unit">{t("pro.monthUnit")}</span>
                       </>
                     )}
                   </div>
                   <p className="pricing-plan-desc">
-                    백그라운드 무자각 관제와 AI 맞춤 코칭을 품은 최고의 데스크톱 동반자
+                    {t("pro.tagline")}
                   </p>
 
                   <button
@@ -917,29 +920,29 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                     onClick={handleUpgradeToPro}
                     disabled={currentPlan === "pro"}
                   >
-                    {currentPlan === "pro" ? "이용 중인 프로페셔널 플랜" : "프로페셔널 시작하기"}
+                    {currentPlan === "pro" ? t("pro.ctaCurrent") : t("pro.ctaStart")}
                   </button>
 
                   <ul className="pricing-bullets">
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      <strong>완벽한 백그라운드 모니터링 (Tauri 앱)</strong>
+                      <strong>{t("pro.feat1")}</strong>
                     </li>
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      OS 네이티브 푸시 알림 & 시스템 트레이 이모지 상태 관제
+                      {t("pro.feat2")}
                     </li>
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      화면 구석에 띄우는 미니 데스크톱 위젯 모드 지원
+                      {t("pro.feat3")}
                     </li>
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      90일 자세 정밀 캘린더 분석 및 세부 시간대 차트
+                      {t("pro.feat4")}
                     </li>
                     <li className="pricing-bullet-item">
                       <span className="bullet-icon check"><Icon name="check" size={14} /></span>
-                      모든 PC/노트북 간 실시간 다중 기기 싱크
+                      {t("pro.feat5")}
                     </li>
                   </ul>
                 </article>
@@ -947,9 +950,9 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
 
               {/* 하단 약관 고지 */}
               <footer className="pricing-legal-footer">
-                <span>* 모의 결제 데모이며 실물 대금이 청구되지 않습니다.</span>
+                <span>{t("demoNote")}</span>
                 <span>
-                  결제 즉시 7일 이내 환불 가능 • <a onClick={() => alert("약관은 docs/pricing-policy.md를 통해 확인하실 수 있습니다.")}>환불 규정 확인</a>
+                  {t("refundNote")}<a onClick={() => alert(t("policyAlert"))}>{t("refundLink")}</a>
                 </span>
               </footer>
             </>
@@ -971,28 +974,28 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
               ))}
 
               <div className="success-circle">🎉</div>
-              <h2 className="success-headline">PRO 구독 결제가 완료되었습니다!</h2>
+              <h2 className="success-headline">{t("successHeadline")}</h2>
               <p className="success-desc">
-                최고의 바른 자세 관제 파트너, BaroSit PRO 패밀리가 되신 것을 진심으로 환영합니다.
-                아래에서 사용하시는 OS용 설치형 데스크톱 전용 앱을 다운로드하여 실행하세요.
+                {t("successDesc1")}
+                {" "}{t("successDesc2")}
               </p>
 
               {/* 다운로드 버튼 */}
               <div className="download-boxes">
                 <a
                   className="download-box"
-                  onClick={() => alert("Tauri macOS용 다운로드(.dmg)가 준비되는 중입니다.")}
+                  onClick={() => alert(t("macSoon"))}
                 >
                   <Icon name="sparkle" size={28} style={{ color: "#7eb09c" }} />
-                  <span className="download-os-name">macOS 전용</span>
+                  <span className="download-os-name">{t("macOnly")}</span>
                   <span className="download-btn-label">Tauri 2 App (.dmg)</span>
                 </a>
                 <a
                   className="download-box"
-                  onClick={() => alert("Tauri Windows용 다운로드(.exe)가 준비되는 중입니다.")}
+                  onClick={() => alert(t("winSoon"))}
                 >
                   <Icon name="cpu" size={28} style={{ color: "#7eb09c" }} />
-                  <span className="download-os-name">Windows 전용</span>
+                  <span className="download-os-name">{t("winOnly")}</span>
                   <span className="download-btn-label">Tauri 2 App (.exe)</span>
                 </a>
               </div>
@@ -1004,7 +1007,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                   onClick={onClose}
                   style={{ padding: "10px 24px", borderRadius: "10px" }}
                 >
-                  대시보드로 돌아가기
+                  {t("backDashboard")}
                 </button>
               </div>
             </div>

@@ -1,0 +1,169 @@
+{
+  "title": "Settings",
+  "close": "Close",
+  "screen": "Appearance",
+  "language": "Language",
+  "theme": {
+    "auto": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "themeAutoHint": "follows your macOS/Windows appearance settings.",
+  "minutesSuffix": " min",
+  "preset": {
+    "strict": "Strict",
+    "normal": "Balanced",
+    "lax": "Relaxed"
+  },
+  "alerts": {
+    "title": "Alerts",
+    "rangeStrict": "Strict",
+    "rangeLax": "Relaxed",
+    "duration": "Alert delay",
+    "durationSecs": "{{secs}}s"
+  },
+  "alertBoost": {
+    "title": "Stronger alerts",
+    "edgeGlow": {
+      "label": "Screen edge glow",
+      "sub": "Pulses around your periphery (won't break your flow)"
+    },
+    "widgetExpand": {
+      "label": "Widget pop-out",
+      "sub": "The minibar expands into a card showing the posture and a tip"
+    },
+    "fullscreenToast": {
+      "label": "Center-screen toast",
+      "sub": "Hardest to miss — briefly interrupts your flow"
+    },
+    "sound": {
+      "label": "Sound",
+      "sub": "A short tone (mind meetings and headphones)"
+    },
+    "hint": "Fires when bad posture <b>lasts {{secs}}s or more</b>. The same posture has a 5-minute cooldown. The longer it lasts, the deeper the color and duration.",
+    "previewLight": "Preview (subtle)",
+    "previewStrong": "Preview (strong)"
+  },
+  "break": {
+    "title": "Break reminders",
+    "intro": "Holding even a good posture too long strains your discs and muscles.<br/>BaroSit suggests staged movement and breaks based on continuous sitting time. It doesn't affect your posture score.",
+    "micro": {
+      "label": "Move suggestion (30 min default)",
+      "sub": "Shoulder shrugs, neck turns, deep breaths — a light toast"
+    },
+    "standup": {
+      "label": "Stand-up suggestion (50 min default)",
+      "sub": "KOSHA guideline — a 1-minute walk or stretch"
+    },
+    "deep": {
+      "label": "Long break suggestion (120 min default)",
+      "sub": "5-minute break + a glass of water + 20-20-20 eye exercise"
+    },
+    "microInterval": "Move interval",
+    "standupInterval": "Stand-up interval",
+    "deepInterval": "Long break interval",
+    "previewMicro": "Preview move",
+    "previewStandup": "Preview stand-up",
+    "previewDeep": "Preview long break",
+    "reset": "Reset to defaults (30 / 50 / 120 min)"
+  },
+  "cumulative": {
+    "title": "Cumulative load alert",
+    "intro": "Alerts when short bad-posture episodes pile up. Even if no single episode crosses the 5-second threshold, you'll get a move suggestion when the 30-minute window reaches 25% accumulation.<br/>(based on the McGill & Callaghan disc-creep model)",
+    "enable": {
+      "label": "Enable cumulative load alert",
+      "sub": "Default 30-min window, 25% threshold, 15-min cooldown"
+    },
+    "window": "Window length",
+    "threshold": "Threshold ratio",
+    "preview": "Preview cumulative load alert",
+    "reset": "Reset to defaults (30 min / 25% / 15-min cooldown)"
+  },
+  "variability": {
+    "title": "Posture variability alert",
+    "intro": "Holding even a good posture too long builds up static pressure on one part of a disc.<br/>If your shoulders and head barely move during a 10-minute window, you get a gentle \"loosen up for a moment\" nudge.<br/>(McGill — \"best posture is the next posture\")",
+    "enable": {
+      "label": "Enable variability alert",
+      "sub": "Default 10-min window, stillness threshold 0.6, 15-min cooldown"
+    },
+    "window": "Window length",
+    "preview": "Preview posture variability alert",
+    "reset": "Reset to defaults (10-min window)"
+  },
+  "adaptive": {
+    "title": "Adaptive sensitivity",
+    "intro": "Your ability to hold posture naturally drops in the late afternoon and during long sessions.<br/>BaroSit automatically relaxes posture thresholds and shortens break intervals.<br/>(Bridger — postural muscle EMG fatigue curve)",
+    "enable": {
+      "label": "Enable adaptive sensitivity",
+      "sub": "Auto-adjusts for 2h+ sessions and 1–3 PM / 4–6 PM"
+    },
+    "active": "Live fatigue adjustment active",
+    "waiting": "Waiting for real-time auto-adjustment",
+    "postureRelax": "• Posture alert sensitivity: <strong style=\"color:var(--b-sig-deep)\">{{pct}}% relaxed</strong> (less sensitive)",
+    "breakShorten": "• Suggested break interval: <strong style=\"color:var(--b-sig-deep)\">{{pct}}% shorter</strong> (rest more often)",
+    "reason": "Reason: {{reason}}",
+    "idleHint": "Your condition is good right now. Thresholds will be smoothly adjusted automatically during long continuous sessions (2+ hours) or afternoon fatigue windows (1–3 PM, 4–6 PM).",
+    "reset": "Reset to defaults (auto-adjust ON)",
+    "reasonSession": "Session {{h}}h",
+    "reasonAfternoon": "Afternoon fatigue",
+    "reasonLunch": "After lunch"
+  },
+  "stretchCalib": {
+    "title": "Stretch calibration",
+    "intro": "Tune the detection criteria of each stretch to your own flexibility, or correct for a camera mounted at a side angle due to a multi-monitor setup.",
+    "button": "🔧 Calibrate stretch range of motion"
+  },
+  "privacy": {
+    "title": "Privacy",
+    "silhouette": {
+      "label": "Silhouette mode",
+      "sub": "Shows only the outline instead of video"
+    },
+    "note": "Video never leaves this computer. Posture data is stored locally only."
+  },
+  "performance": {
+    "title": "Performance mode",
+    "full": "Best quality",
+    "eco": "Eco",
+    "hint": "<b>Eco</b>: Lowers detection frequency and the cadence of heavy face/hand recognition to greatly reduce CPU and memory use. Posture-alert quality stays nearly the same, but the silhouette view may be less smooth. Recommended for low-power laptops."
+  },
+  "desktop": {
+    "title": "Desktop",
+    "autostart": {
+      "label": "Launch at startup",
+      "checking": "Checking status…",
+      "sub": "Turns on automatically when you log in"
+    },
+    "minibar": {
+      "label": "Show widget minibar",
+      "sub": "Floats above your work windows"
+    }
+  },
+  "data": {
+    "title": "Data",
+    "export": "Export",
+    "import": "Import",
+    "importOk": "Restored. Refreshing…",
+    "hint": "Back up and restore your score, history, baseline posture, and sensitivity as JSON. API keys are excluded for security.",
+    "clear": "Clear history",
+    "clearConfirm": "Clear all history? This can't be undone.",
+    "importConfirm": "Importing data overwrites your current score, history, baseline posture, and settings with the backup file's contents. Continue?"
+  },
+  "appQuit": {
+    "title": "App",
+    "confirm": "Click again to quit",
+    "button": "Quit app completely",
+    "hint": "The X button on the main window only switches to widget mode. To quit completely, use the button above."
+  },
+  "desktopApp": {
+    "title": "Desktop app",
+    "note": "Background monitoring, tray alerts, and the floating widget are available only in the desktop app."
+  },
+  "about": {
+    "title": "About",
+    "version": "BaroSit · version {{version}}",
+    "checkUpdate": "Check for updates",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service"
+  }
+}

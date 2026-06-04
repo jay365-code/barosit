@@ -1,0 +1,13 @@
+{
+  "save": "Save",
+  "cancel": "Cancel",
+  "close": "Close",
+  "confirm": "OK",
+  "back": "Back",
+  "next": "Next",
+  "skip": "Skip",
+  "start": "Get started",
+  "retry": "Retry",
+  "refresh": "Refresh",
+  "userFallback": "User"
+}

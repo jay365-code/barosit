@@ -1,0 +1,289 @@
+{
+  "secs": "{{s}}秒",
+  "minsSecs": "{{m}}分{{s}}秒",
+  "shortcut": {
+    "mac": "Space または ⌥⌘P",
+    "win": "Space または Ctrl+Alt+P"
+  },
+  "statusBadge": {
+    "paused": "一時停止",
+    "away": "離席中",
+    "resting": "休憩中",
+    "standing": "立ち作業",
+    "good": "良好",
+    "warn": "注意",
+    "bad": "要改善"
+  },
+  "headline": {
+    "paused": "休憩中です",
+    "away": "少し席を外しました",
+    "resting": "背もたれに寄りかかって休みましょう",
+    "standing": "立って軽く作業中です",
+    "good": "良い姿勢です",
+    "amber": "もう少し正しく",
+    "bad": "ちょっと、肩を伸ばしましょう"
+  },
+  "subline": {
+    "paused": "再開すると姿勢チェックを再び始めます",
+    "away": "戻ると自動で再開します",
+    "resting": "再び正しく座ると自動で見守ります",
+    "standing": "立ち姿勢は背骨を伸ばします。両手を上げて軽くストレッチしましょう。",
+    "good": "今はすべて良好です",
+    "violation": "{{label}} · {{duration}}継続中",
+    "scanning": "姿勢をそっと見守っています"
+  },
+  "card": {
+    "activeViolation": "アクティブな乱れ · {{label}}",
+    "caution": "注意 · {{label}}",
+    "ongoing": "{{duration}}継続中",
+    "holding": "良好に維持中"
+  },
+  "aiGuide": {
+    "none": "本日はまだ姿勢の乱れが検出されていません！とても良い姿勢を保てています。定期的な軽いストレッチで十分です。",
+    "forwardHead": "ストレートネックと画面への近づきすぎが主な乱れです。モニターを今より5〜10cm高くし、目線が画面上部3分の1に来るよう合わせましょう。首後ろの板状筋の緊張を下げ、頚椎症の予防に役立ちます。",
+    "slouching": "猫背が多く検出されました。骨盤を椅子の背もたれに密着させ、膝の角度を90度に保ちましょう。腰椎前弯を維持することで椎間板への圧力を半分以下に抑えられます。",
+    "chinResting": "ほお杖がやや見られました。手根管症候群や肩の左右差を招く習慣です。両肘を机に軽く乗せ、荷重を分散する人間工学的な配置をおすすめします。",
+    "generic": "{{label}}が最も多く検出されました。50分集中したら必ず1分間肩をほぐし、軽い全身ストレッチを行って関節の圧迫を解消しましょう。"
+  },
+  "proBanner": {
+    "guestMsg": "ゲストモードで検出中です。ブラウザのキャッシュを削除すると統計が失われる可能性があります。簡単ログインでクラウドに永久バックアップしましょう。",
+    "guestSub": "🔒 3秒でソーシャルログインして大切な姿勢分析データを守る",
+    "guestCta": "永久バックアップ",
+    "freeMsg": "現在はWEB専用のFREEプランです。常時バックグラウンド検出やミニウィジェットなど、充実したネイティブ機能を備えたデスクトップ版（PRO）をお試しください。",
+    "freeSub": "💻 Windows / macOS で常時バックグラウンド動作＆リアルタイムフローティングウィジェット",
+    "freeCta": "PRO特典を見る"
+  },
+  "break": {
+    "deep": "長めの休憩を推奨 — 5分立ち上がる",
+    "standup": "一度立ち上がりましょう（KOSHA推奨）",
+    "micro": "肩すくめ・首回しでリフレッシュ",
+    "soon": "まもなくリフレッシュ推奨",
+    "sitting": "{{mins}}分連続着席"
+  },
+  "controls": {
+    "resumeAria": "モニタリングを再開",
+    "pauseAria": "モニタリングを一時停止",
+    "resumeTip": "モニタリングを再開（{{shortcut}}）",
+    "pauseTip": "モニタリングを一時停止（{{shortcut}}）",
+    "minibarHideAria": "ミニバーを隠す",
+    "minibarShowAria": "ミニバーを表示",
+    "minibarHideTip": "ミニバーを隠す — フローティングピルをオフ",
+    "minibarShowTip": "ミニバーを表示 — フローティングピルをオン",
+    "widgetMode": "ウィジェットモード",
+    "widgetModeTip": "メイン画面を閉じてミニバーだけ表示",
+    "settings": "設定を開く",
+    "homeAria": "ホームへ（ランディング）",
+    "homeTip": "ホーム",
+    "home": "ホーム",
+    "profileAria": "プロフィールを開く",
+    "profile": "プロフィール",
+    "profileTip": "{{name}} · プロフィール",
+    "loginAria": "ログイン",
+    "loginTip": "ログインして姿勢データをバックアップ",
+    "login": "ログイン"
+  },
+  "angle": {
+    "front": "正面",
+    "left": "左",
+    "right": "右"
+  },
+  "stats": {
+    "groundPrefix": "🔬 科学的根拠: ",
+    "tooltipHeader": "💡 {{label}}について",
+    "health": {
+      "label": "姿勢健康スコア",
+      "tooltip": "リアルタイム検出データを基に算出した本日の姿勢健康スコアと等級です。（S/A/B/C/D等級基準）",
+      "ground": "ナケムソン（Nachemson）脊椎力学測定モデルおよび米国整形外科学会（AAOS）アライメント基準と連動。"
+    },
+    "violations": {
+      "label": "姿勢の乱れ回数",
+      "tooltip": "本日のリアルタイム監視中に、ストレートネック・猫背・ほお杖などの姿勢の乱れが累積検出された頻度です。",
+      "ground": "ハーバード医大ガイドライン：姿勢の乱れの累積曝露は静的筋疲労を引き起こし、痛み症候群リスクを3.1倍に高めます。"
+    },
+    "stretch": {
+      "label": "ストレッチスコア",
+      "tooltip": "本日行った胸開き・肩ストレッチなど、脊椎の静的負荷をリセットした実施スコアです。",
+      "ground": "50分の座位作業後の1分ストレッチは局所酸素供給を25%回復させ、乳酸蓄積を完全に防ぐ骨格筋リセット療法です。"
+    },
+    "usage": {
+      "label": "本日の総使用時間",
+      "tooltip": "リアルタイム姿勢分析エンジンが稼働し、脊椎の健康を精密に守り分析した総アクティブ作業時間です。",
+      "ground": "フィードバック行動介入研究：警告通知と視覚フィードバックを受けた人は、そうでない人より4.2倍積極的に正しい姿勢へ回復します。"
+    },
+    "criteria": {
+      "title": "[姿勢健康等級の基準]",
+      "sRange": "S等級（95点以上）",
+      "sDesc": "完璧（NASA中立アライメント）",
+      "aRange": "A等級（90〜95点）",
+      "aDesc": "優秀（理想的な筋支持）",
+      "bRange": "B等級（80〜90点）",
+      "bDesc": "良好（軽微な張力移動）",
+      "cRange": "C等級（70〜80点）",
+      "cDesc": "注意（垂直負荷1.5倍）",
+      "dRange": "D等級（70点未満）",
+      "dDesc": "危険（首負荷27kg突破）"
+    }
+  },
+  "grade": {
+    "S": {
+      "label": "最優秀",
+      "desc": "完璧な脊椎アライメントの均衡"
+    },
+    "A": {
+      "label": "優秀",
+      "desc": "健康な脊椎アライメントを維持"
+    },
+    "B": {
+      "label": "良好",
+      "desc": "軽い疲労蓄積に注意"
+    },
+    "C": {
+      "label": "注意",
+      "desc": "脊椎関節への圧迫増加"
+    },
+    "D": {
+      "label": "危険",
+      "desc": "慢性痛と頚椎硬直のリスク"
+    }
+  },
+  "sensitivity": {
+    "title": "感度",
+    "more": "詳細",
+    "strict": "厳しい",
+    "lenient": "緩い"
+  },
+  "camera": {
+    "detectedFront": "正面カメラを検出",
+    "detectedLeft": "左45°カメラを検出",
+    "detectedRight": "右45°カメラを検出",
+    "recalibrateTitle": "基準姿勢を再測定します",
+    "recalibrate": "基準を取り直す",
+    "angleChanged": "カメラ角度が変更されました（{{angle}}）",
+    "register": "基準登録",
+    "helpTitle": "📐 マルチアングル自動管理のご案内",
+    "helpBody1": "ノートPC/モニターなどカメラ角度が変わると身体認識に幾何的な歪みが生じます。誤作動を防ぐため新しい基準登録をおすすめします。",
+    "helpBody2": "💡 アングルごと（正面/左/右）に一度だけ登録しておけば、以降はカメラ位置が変わっても追加登録なしでリアルタイム自動認識され、すぐに正常利用できます！"
+  },
+  "report": {
+    "todayPosture": "今日の姿勢",
+    "timeTrend": "時間帯別の着席時間と乱れの推移",
+    "detailReport": "詳細分析レポート",
+    "byType": "姿勢タイプ別の頻度",
+    "cameraError": "カメラエラー: {{error}}",
+    "proTitle": "PRO精密姿勢分析レポート",
+    "proTitleTrial": "PRO精密姿勢分析レポート（体験モード）",
+    "aiClinical": "AI姿勢臨床ガイドライン",
+    "mins": "{{m}}分",
+    "hours": "{{h}}時間",
+    "hoursMins": "{{h}}時間{{m}}分",
+    "perfTitle": "📈 数字で見る姿勢トレーニング成果（昨日比）",
+    "improveIndex": "姿勢改善指数",
+    "up": "上昇",
+    "down": "低下",
+    "gradeImproved": "今日の等級: {{grade}}（{{label}}）で昨日より改善しました！",
+    "gradeKeep": "今日の等級: {{grade}}（{{label}}）。背筋を伸ばしてA等級以上を目指しましょう。",
+    "reactionSpeed": "自己修正の反応速度",
+    "secOnly": "{{v}}秒",
+    "faster": "-{{v}}秒短縮",
+    "slower": "+{{v}}秒遅延",
+    "noViolations": "違反記録なし",
+    "reactionFast": "悪い姿勢を認識した時の反応がとても速いです！",
+    "reactionSlow": "警告通知が出たらすぐ正しい姿勢を取りましょう。",
+    "goodTime": "正しい姿勢の累積時間",
+    "goodTimeUp": "集中維持力が向上しています！",
+    "goodTimeKeep": "昨日より姿勢維持時間を増やしてみましょう。",
+    "basisTitle": "姿勢健康等級算定の科学的・脊椎力学的根拠",
+    "basisBody": "本レポートの等級分類（S/A/B/C/D）は、<strong>ナケムソン（Nachemson）の脊椎生体力学・椎間板内圧測定研究</strong>および<strong>NASA中立姿勢標準（Neutral Body Posture）</strong>ガイドラインに深く基づき、リアルタイム姿勢センシングデータで設計されています。猫背アライメント（C・D等級）では椎間板の垂直負荷が立位比で<strong>1.5〜2.2倍（150%〜220%）に増加</strong>し、ストレートネックは頚椎に最大<strong>27kg</strong>のモーメント剪断荷重を加えます。本レポートの指数改善と反応速度短縮の指標は、脊椎を圧迫する有害な静的負荷の解消レベルを完全に裏付けます。",
+    "trendTitle": "姿勢健康スコアの時間帯別推移（今日）",
+    "unitPoints": "単位: 点",
+    "tooltipScore": "姿勢健康スコア:",
+    "gradeLabel": "{{grade}}等級",
+    "sitTime": "着席時間:",
+    "badPostureTime": "悪い姿勢の保持:",
+    "violationRatio": "姿勢の乱れ比率:",
+    "violationCount": "姿勢の乱れ回数:",
+    "times": "{{n}}回",
+    "yearCompare": "12か月周期の日別姿勢健康分布の比較",
+    "legendTitle": "等級レジェンド（ナケムソン脊椎力学の重み連動）:",
+    "legendSA": "S/A（完璧/優秀な均衡）",
+    "legendB": "B（良好な靭帯分散）",
+    "legendC": "C（注意・1.5倍ディスク負荷）",
+    "legendD": "D（危険・頚椎27kg突破）",
+    "points": "{{n}}点",
+    "weekdays": "日,月,火,水,木,金,土",
+    "todaySuffix": "（今日）",
+    "dateLabel": "{{date}} ({{day}}){{suffix}} ▼",
+    "perfectDay": "正しい姿勢の模範日 💚",
+    "violationSecs": "違反: {{s}}秒",
+    "violationMinsSecs": "違反: {{m}}分{{s}}秒 ⚠️",
+    "safe": "安全",
+    "warn": "警告",
+    "cumulative": "累積 {{duration}}",
+    "perfectAlign": "完璧なアライメント",
+    "clinicalLabel": "臨床的分析:",
+    "secsParen": "({{s}}秒)",
+    "timeSlot": "時間帯:",
+    "hourRange": "{{from}}時〜{{to}}時",
+    "violationDuration": "違反の持続:",
+    "proGiftTitle": "🎁 PROアップグレードの特典:",
+    "proGift1": "• リアルタイム検出データに基づくパーソナル臨床アドバイス",
+    "proGift2": "• 日次/週次/月次の頚椎角度・肩バランス推移レポート",
+    "proGift3": "• 無制限クラウド永久同期バックアップ",
+    "proGift4": "• デスクトップ版連携（ネイティブ・バックグラウンド＋ウィジェット）",
+    "todayViolation": "今日の違反: ",
+    "yesterdayViolation": "昨日の違反: ",
+    "byTypeCount": "{{count}}回検出（{{percent}}%）",
+    "clinicalWarn": {
+      "forward_head": "頚椎前弯が失われ首の骨に最大27kgの負荷が加わり、ストレートネック症候群を引き起こします。",
+      "chin_resting": "顔面の非対称や顎関節ディスクの不均衡な圧迫を招き、関節障害に進行する可能性があります。",
+      "shoulder_tilt": "骨盤のずれや側弯症を引き起こす肩軸の偏った負荷を与えます。",
+      "slouching": "腰椎前弯を崩し、椎間板ヘルニアのリスクを3倍以上に高めます。",
+      "monitor_too_close": "眼の調節筋の激しい疲労と首の筋肉の無意識な過緊張を引き起こします。",
+      "shoulder_asymmetry": "僧帽筋の非対称な張力を促し、慢性的な肩こりや首の筋力学的損傷を引き起こします。",
+      "head_roll": "頚椎後関節の偏った摩耗や肩の筋膜性疼痛症候群の直接的な誘発因子となります。"
+    },
+    "biomechDetail": {
+      "forward_head": "頚椎が前方に変位すると首の関節に約4.5kgの追加負荷が生じ、慢性的なストレートネック症候群を引き起こします。",
+      "slouching": "猫背の脊椎アライメントは腰椎の垂直椎間板内圧を通常の150%以上に急増させ、腰痛や椎間板損傷を誘発します。",
+      "shoulder_tilt": "片側の肩の下降は鎖骨の非対称や両側僧帽筋の激しい不均衡な緊張（筋膜性疼痛）を招きます。",
+      "chin_resting": "顎関節（TMJ）に不均衡な剪断力を加え、椎間板の逸脱や非対称な顔面変位の問題を起こす可能性があります。",
+      "monitor_too_close": "モニターへの近づきすぎは眼の調節筋の持続的緊張を招き、ドライアイや調節性近視を引き起こします。",
+      "shoulder_asymmetry": "骨盤アライメントの不均衡と連動し腰仙関節の片側圧縮応力を引き起こす代表的な骨格非対称の警告です。",
+      "head_roll": "首後ろの板状筋や頚椎周囲の小筋群の不均衡を招き、頚椎関節症のリスクを高めます。",
+      "default": "人間工学的な椅子の高さとモニターの高さ調整により、脊椎の中立アライメントを維持することをおすすめします。"
+    },
+    "legend": {
+      "sRange": "95点以上",
+      "sDesc": "完璧なアライメント",
+      "aRange": "90〜95点",
+      "aDesc": "健康なアライメント",
+      "bRange": "80〜90点",
+      "bDesc": "軽い疲労",
+      "cRange": "70〜80点",
+      "cDesc": "関節圧迫",
+      "dRange": "70点未満",
+      "dDesc": "慢性痛"
+    },
+    "retry": "再試行",
+    "monthDayDist": "1月〜12月 / 1日〜31日の等級分布",
+    "monthLabel": "{{m}}月",
+    "cellAnalysis": "📅 {{m}}月{{d}}日の分析",
+    "cellGrade": "{{grade}}等級（{{label}}）",
+    "pickDate": "📅 分析日を選択",
+    "prevDay": "◀ 前日",
+    "nextDay": "翌日 ▶",
+    "calYearMonth": "{{y}}年{{m}}月",
+    "hourlyTrendTitle": "📈 時間帯別の違反密度トレンド（0時〜23時）",
+    "timestampTitle": "🚨 {{label}}のタイムスタンプ（合計{{count}}回）",
+    "closeX": "閉じる ✕",
+    "noViolationOnDate": "👏 選択した日には{{label}}の違反は記録されませんでした！",
+    "proOnlyTitle": "精密分析レポートはPRO専用です",
+    "proOnlyDesc": "本日累積したデータに基づく**臨床理学療法および人間工学の観点のAIアドバイスフィードバック**と、秒単位で記録された**精密タイムスタンプログ**は、PRO会員にのみ提供される高度な機能です。",
+    "later": "また今度",
+    "checkPro": "PROプランを見る",
+    "todaySeating": "今日の着席: ",
+    "yesterdaySeating": "昨日の着席: ",
+    "nowTime": "現在 {{time}}",
+    "currentTimeLabel": "現在時刻: "
+  }
+}

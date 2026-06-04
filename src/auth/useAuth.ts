@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { IS_AUTH_CONFIGURED, authRedirectUrl, supabase } from "./supabase";
+import i18n from "../i18n";
 
 export interface AuthState {
   user: User | null;
@@ -123,7 +124,7 @@ export function useAuth() {
 
   const signInWithOAuth = useCallback(async (provider: "google" | "kakao" | "apple") => {
     if (!IS_AUTH_CONFIGURED) {
-      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
+      throw new Error(i18n.t("errors:auth.notConfigured"));
     }
     const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
 
@@ -173,7 +174,7 @@ export function useAuth() {
       });
 
       if (error) throw error;
-      if (!data?.url) throw new Error("인증 주소를 생성하지 못했습니다.");
+      if (!data?.url) throw new Error(i18n.t("errors:auth.noAuthUrl"));
 
       // deep-link 콜백 대기 — listener 등록 *await* → 외부 브라우저 open
       // → URL 도착까지 await. listener 는 settle 시점 (성공/실패/timeout) 에 정리.
@@ -226,7 +227,7 @@ export function useAuth() {
         if (settled) return;
         settled = true;
         unlisten?.();
-        rejectSession(new Error("로그인 시간이 초과되었습니다. 다시 시도해주세요."));
+        rejectSession(new Error(i18n.t("errors:auth.loginTimeout")));
       }, 5 * 60 * 1000);
 
       const handler = async (urls: string[]) => {
@@ -261,7 +262,7 @@ export function useAuth() {
 
           const code = query.get("code");
           if (!code) {
-            throw new Error("인증 응답에 code 파라미터가 없습니다.");
+            throw new Error(i18n.t("errors:auth.noCode"));
           }
 
           const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
@@ -399,11 +400,11 @@ export function useAuth() {
 
   const signInWithMagicLink = useCallback(async (email: string) => {
     if (!IS_AUTH_CONFIGURED) {
-      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
+      throw new Error(i18n.t("errors:auth.notConfigured"));
     }
     const normalized = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-      throw new Error("올바른 이메일 주소를 입력해주세요.");
+      throw new Error(i18n.t("errors:auth.invalidEmail"));
     }
     const { error } = await supabase.auth.signInWithOtp({
       email: normalized,
@@ -420,7 +421,7 @@ export function useAuth() {
 
   const signInWithNaver = useCallback(async () => {
     if (!IS_AUTH_CONFIGURED) {
-      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
+      throw new Error(i18n.t("errors:auth.notConfigured"));
     }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "naver" as any,
@@ -433,7 +434,7 @@ export function useAuth() {
 
   const signInWithLine = useCallback(async () => {
     if (!IS_AUTH_CONFIGURED) {
-      throw new Error("Supabase 가 설정되지 않아 로그인할 수 없습니다.");
+      throw new Error(i18n.t("errors:auth.notConfigured"));
     }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "line" as any,

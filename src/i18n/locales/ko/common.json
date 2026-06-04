@@ -1,0 +1,13 @@
+{
+  "save": "저장",
+  "cancel": "취소",
+  "close": "닫기",
+  "confirm": "확인",
+  "back": "뒤로",
+  "next": "다음",
+  "skip": "건너뛰기",
+  "start": "시작하기",
+  "retry": "다시 시도",
+  "refresh": "새로고침",
+  "userFallback": "사용자"
+}

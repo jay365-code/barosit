@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import i18n from "../i18n";
 import { detectFromVideo, initLandmarkers, disposeLandmarker } from "../pose/detector";
 import { startKeepAwake, stopKeepAwake } from "../keepAwake";
 import type { DetectionFrame } from "../pose/types";
@@ -40,9 +41,9 @@ function friendlyModelError(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e);
   // 네트워크/CDN/WASM 로드 실패는 한 줄로 묶어서 안내. 원본 메시지는 콘솔에 남기고 사용자에겐 가림.
   if (/fetch|network|load|wasm|tflite|task/i.test(raw)) {
-    return "자세 감지 모델을 불러올 수 없어요. 인터넷 연결을 확인하고 다시 시도해주세요.";
+    return i18n.t("errors:poseModelLoad");
   }
-  return `자세 감지 초기화 실패: ${raw}`;
+  return i18n.t("errors:poseInitFailed", { error: raw });
 }
 
 export function usePoseLoop({

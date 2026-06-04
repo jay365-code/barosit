@@ -1,0 +1,28 @@
+{
+  "gracePeriod": {
+    "title": "[정기 결제 실패]",
+    "body": "기본 결제 카드 문제로 구독 갱신에 실패했습니다.",
+    "deadline": "만료 예정인 {{date}} 이전까지 프로필에서 카드를 갱신하셔야 PRO 혜택이 중단되지 않습니다.",
+    "cta": "결제 카드 변경하기"
+  },
+  "offline": "오프라인 상태입니다. 온디바이스 AI 자세 진단은 무중단 작동하며, 온라인 상태로 재접속 시 동기화 대기 로그가 클라우드로 즉시 자동 전송됩니다.",
+  "authLoading": {
+    "title": "인증 처리 및 프로필 동기화 중...",
+    "sub": "클라우드 설정과 프로필을 복구하는 중입니다. 잠시만 기다려주세요."
+  },
+  "update": {
+    "errorTitle": "⚠ 오류 발생",
+    "infoTitle": "ℹ 알림",
+    "close": "닫기",
+    "downloadingMsg": "🚀 새 버전 {{version}} 다운로드 중… {{pct}}%",
+    "installingMsg": "🚀 새 버전 {{version}} 설치 및 앱 재시작 중…",
+    "available": "🚀 새 버전 {{version}} 사용 가능",
+    "later": "나중에",
+    "updateRestart": "업데이트 및 재시작",
+    "checkFailed": "업데이트 확인 실패: {{msg}}",
+    "upToDate": "최신 버전입니다",
+    "installFailed": "업데이트 설치 실패: {{msg}}"
+  },
+  "tagline": "바른 자세의 시작, 바로씻",
+  "taglineSub": "건강한 자세 습관을 매일."
+}

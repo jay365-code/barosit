@@ -1,0 +1,12 @@
+{
+  "show": "창 열기",
+  "pause": "모니터링 일시정지",
+  "resume": "모니터링 재개",
+  "quit": "종료",
+  "tooltipMonitoring": "BaroSit — 모니터링 중",
+  "tooltipGood": "BaroSit · 잘 앉아 있어요",
+  "tooltipWarning": "BaroSit · 조금만 더 바르게",
+  "tooltipBad": "BaroSit · 잠깐, 어깨를 펴볼까요",
+  "tooltipPaused": "BaroSit · 쉬고 있어요",
+  "tooltipResting": "BaroSit · 잠깐 등받이에 기대 쉬는 중"
+}

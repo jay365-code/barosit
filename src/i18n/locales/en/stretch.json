@@ -1,0 +1,81 @@
+{
+  "label": {
+    "overhead": "Overhead reach",
+    "behind_head": "Neck release",
+    "cross_body": "Shoulder stretch",
+    "side": "Side bend",
+    "shoulder_shrug": "Shoulder shrug",
+    "neck_side": "Neck side release",
+    "forward_fold": "Forward fold"
+  },
+  "desc": {
+    "overhead": "Reach both arms straight up overhead",
+    "behind_head": "Clasp both hands behind your head",
+    "cross_body": "Pull one arm across to the opposite side",
+    "side": "Raise one arm and bend your upper body to the side",
+    "shoulder_shrug": "Keep your head still and lift only your shoulders toward your ears",
+    "neck_side": "Keep your shoulders level and tilt only your head to the side",
+    "forward_fold": "While seated, fold your upper body forward"
+  },
+  "calib": {
+    "title": "Personalize your stretch range",
+    "subtitle": "Personalizes detection accuracy to 100% for your flexibility and camera mounting angle.",
+    "cameraPos": "Camera position:",
+    "autoAnalyzed": "(auto-detected)",
+    "manualSelect": "Manual:",
+    "angleAuto": "Auto-detect mode",
+    "angle": {
+      "front": "Front (Center)",
+      "left": "Left side (Left 45°)",
+      "right": "Right side (Right 45°)"
+    },
+    "opt": {
+      "front": "Front (Center)",
+      "left": "Left 45° (Left)",
+      "right": "Right 45° (Right)"
+    },
+    "holdPose": "Hold the pose steadily and wait...",
+    "captureTempDone": "Motion captured 🔍",
+    "captureHint": "After checking the joint landmark state,<br />click the <strong>Save this pose</strong> button below!",
+    "saveDone": "Calibration saved!",
+    "saveDoneDesc1": "[{{label}}] custom data has been",
+    "saveDoneDesc2": "safely recorded to local storage.",
+    "calibAnother": "Calibrate another motion",
+    "finishReturn": "Finish and return",
+    "liveResult": "Live calibration analysis",
+    "firstReg": "💡 <strong>First calibration</strong>: No previous custom record. Registering your current pose as your own stretch-detection baseline!",
+    "changeFromPrev": "Change vs previous calibration",
+    "changeDetected": "{{percent}}% change detected",
+    "maxShiftPrefix": "* Joint with the largest range increase:",
+    "maxShiftAmount": "(about {{percent}}% shift)",
+    "retake": "🔄 Retake",
+    "savePose": "💾 Save this pose",
+    "analyzing": "Analyzing...",
+    "captureBtn": "Capture motion (2s)",
+    "selectStretch": "Select a stretch to calibrate",
+    "calibrated": "Calibrated",
+    "defaultVal": "Default",
+    "restoreDefaultTitle": "Restore default",
+    "resetAll": "🔄 Reset all stretch calibration (restore defaults)",
+    "finishClose": "💾 Finish all settings and close",
+    "confirmResetOne": "Delete all angle calibration for this stretch and reset to default detection mode?",
+    "confirmResetAll": "Really reset all stretch calibration and restore the default admin standard data?",
+    "descMinor": "A slight posture change vs before was detected. Fine-tuning to a more comfortable angle.",
+    "descSame": "Almost identical to your previous calibration. Stably fine-tuned.",
+    "descWide": "A wider, more relaxed new range of motion detected. Strong custom personalization applied!",
+    "descSignificant": "Your range of motion changed significantly. Calibrated to your body's current flexibility.",
+    "jointFallback": "Joint",
+    "joints": {
+      "0": "Head (nose)",
+      "7": "Left ear",
+      "8": "Right ear",
+      "11": "Left shoulder",
+      "12": "Right shoulder",
+      "13": "Left elbow",
+      "14": "Right elbow",
+      "15": "Left wrist",
+      "16": "Right wrist"
+    }
+  },
+  "calibDoneReturn": "Finish calibration & return"
+}

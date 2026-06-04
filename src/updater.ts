@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { platform } from "./platform";
 import type { UpdateInfo, UpdateProgressEvent } from "./platform";
+import i18n from "./i18n";
 
 const LAST_CHECK_KEY = "updater_last_check";
 const SNOOZE_VERSION_KEY = "updater_snoozed_version";
@@ -56,7 +57,7 @@ export function useUpdater(): UpdaterState {
       console.warn("[barosit][updater] check error", e);
       if (manual) {
         setInfo(null);
-        setError(`업데이트 확인 실패: ${msg}`);
+        setError(i18n.t("app:update.checkFailed", { msg }));
       }
       return null;
     }
@@ -78,7 +79,7 @@ export function useUpdater(): UpdaterState {
     setError(null);
     setInfo(null);
     const infoResult = await runCheck(true);
-    if (!infoResult && !error) setInfo("최신 버전입니다");
+    if (!infoResult && !error) setInfo(i18n.t("app:update.upToDate"));
   };
 
   const applyUpdate = async (): Promise<void> => {
@@ -106,7 +107,7 @@ export function useUpdater(): UpdaterState {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn("[barosit][updater] install failed", e);
-      setError(`업데이트 설치 실패: ${msg}`);
+      setError(i18n.t("app:update.installFailed", { msg }));
       setProgress(null);
     }
   };

@@ -1,0 +1,9 @@
+{
+  "durationSec": "{{sec}}초째",
+  "sittingMinutes": "{{min}}분 연속 착석",
+  "cumulativeBadge": "누적 부하 · 30분 중 {{pct}}%",
+  "cumulativeFrequent": "{{label}} 잦음",
+  "staticMinutes": "{{min}}분 정자세 유지",
+  "variabilityGood": "잘 유지 중이에요",
+  "variabilityTip": "잠깐 어깨·목을 풀고 자세 바꿔볼까요"
+}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ALERT_EVENT,
   BREAK_REMINDER_EVENT,
@@ -20,50 +21,6 @@ import {
   showAlertWindow,
 } from "../ipc";
 import { platform } from "../platform";
-import type { PostureType } from "../pose/types";
-
-const POSTURE_LABEL: Record<PostureType, string> = {
-  forward_head: "거북목",
-  chin_resting: "턱 괴임",
-  shoulder_tilt: "어깨 기울임",
-  slouching: "등 구부정",
-  monitor_too_close: "모니터가 너무 가까워요",
-  shoulder_asymmetry: "어깨 비대칭",
-  head_roll: "머리 좌우 기울임",
-};
-
-const COACHING: Record<PostureType, string> = {
-  forward_head: "턱을 살짝 당겨볼까요",
-  chin_resting: "손을 책상 위로 내려볼까요",
-  shoulder_tilt: "어깨를 수평으로",
-  slouching: "등을 펴고 가슴을 열어요",
-  monitor_too_close: "모니터에서 한 뼘 더 멀어져볼까요",
-  shoulder_asymmetry: "양쪽 어깨에 고르게 힘을 빼볼까요",
-  head_roll: "머리를 수직으로 세워볼까요",
-};
-
-// 정기 휴식 알림 — 단계별 메시지 (KOSHA H-30, Cornell 50/10, McGill 권고 기반)
-const BREAK_LABEL: Record<BreakReminderDetail["stage"], string> = {
-  micro: "잠깐 환기해볼까요",
-  standup: "한 번 일어서볼까요",
-  deep: "긴 휴식이 필요해요",
-};
-const BREAK_COACHING: Record<BreakReminderDetail["stage"], string> = {
-  micro: "어깨 으쓱·목 좌우 회전·깊은 호흡 10초",
-  standup: "1분 걷기 또는 가벼운 스트레칭",
-  deep: "5분 휴식. 물 한 잔 + 창밖 응시 (20-20-20)",
-};
-
-// Phase 2 — 누적 부하 코칭 (자세 종류별)
-const CUMULATIVE_COACHING: Record<PostureType, string> = {
-  forward_head: "최근 30분 거북목이 잦았어요. 의식적으로 턱을 당겨볼까요",
-  chin_resting: "최근 30분 턱 괴임이 잦았어요. 손을 책상 위로 두는 습관 권유",
-  shoulder_tilt: "최근 30분 어깨 기울임이 잦았어요. 모니터 위치 재점검",
-  slouching: "최근 30분 등 구부정이 잦았어요. 의자 깊이 들어가 앉기",
-  monitor_too_close: "최근 30분 모니터 과근접이 잦았어요. 한 뼘 더 멀리",
-  shoulder_asymmetry: "최근 30분 좌우 비대칭이 잦았어요. 책상 좌우 정리",
-  head_roll: "최근 30분 머리 좌우 기울임이 잦았어요. 보조 모니터 정렬 확인",
-};
 
 interface ActiveAlert {
   id: number;
@@ -130,6 +87,7 @@ function glowColor(intensity: number): string {
 }
 
 export function AlertOverlay() {
+  const { t } = useTranslation(["posture", "coaching", "alerts"]);
   const [modes, setModes] = useState<AlertModes>(() => loadAlertModes());
   const [active, setActive] = useState<ActiveAlert | null>(null);
   const [activeBreak, setActiveBreak] = useState<ActiveBreak | null>(null);
@@ -302,8 +260,8 @@ export function AlertOverlay() {
         return {
           detail,
           color,
-          label: POSTURE_LABEL[detail.postureType],
-          coaching: detail.coachingMessage ?? COACHING[detail.postureType],
+          label: t(`posture:label.${detail.postureType}`),
+          coaching: detail.coachingMessage ?? t(`coaching:tip.${detail.postureType}`),
           thickness: Math.round(60 + detail.intensity * 90),
           alpha: 0.25 + detail.intensity * 0.45,
           animDur: detail.intensity >= 0.7 ? "0.9s" : "1.4s",
@@ -316,8 +274,8 @@ export function AlertOverlay() {
   const breakRender = activeBreak
     ? {
         detail: activeBreak.detail,
-        label: BREAK_LABEL[activeBreak.detail.stage],
-        coaching: BREAK_COACHING[activeBreak.detail.stage],
+        label: t(`coaching:breakLabel.${activeBreak.detail.stage}`),
+        coaching: t(`coaching:break.${activeBreak.detail.stage}`),
         accent:
           activeBreak.detail.stage === "deep"
             ? "#2d8f7e"
@@ -332,8 +290,8 @@ export function AlertOverlay() {
   const cumulativeRender = activeCumulative
     ? {
         detail: activeCumulative.detail,
-        label: POSTURE_LABEL[activeCumulative.detail.postureType],
-        coaching: CUMULATIVE_COACHING[activeCumulative.detail.postureType],
+        label: t(`posture:label.${activeCumulative.detail.postureType}`),
+        coaching: t(`coaching:cumulative.${activeCumulative.detail.postureType}`),
         accent: "#c8964f",
         percent: Math.round(activeCumulative.detail.ratio * 100),
         secs: activeCumulative.detail.secs,
@@ -344,8 +302,8 @@ export function AlertOverlay() {
   const variabilityRender = activeVariability
     ? {
         detail: activeVariability.detail,
-        label: "잘 유지 중이에요",
-        coaching: "잠깐 어깨·목을 풀고 자세 바꿔볼까요",
+        label: t("alerts:variabilityGood"),
+        coaching: t("alerts:variabilityTip"),
         accent: "#5b8fa8",
         durationMin: Math.round(activeVariability.detail.durationSecs / 60),
       }
@@ -403,7 +361,7 @@ export function AlertOverlay() {
                 marginBottom: 4,
               }}
             >
-              {Math.round(postureRender.detail.durationSecs)}초째
+              {t("alerts:durationSec", { sec: Math.round(postureRender.detail.durationSecs) })}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>
               {postureRender.label}
@@ -451,7 +409,7 @@ export function AlertOverlay() {
                 marginBottom: 3,
               }}
             >
-              {breakRender.elapsedMin}분 연속 착석
+              {t("alerts:sittingMinutes", { min: breakRender.elapsedMin })}
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
               {breakRender.label}
@@ -499,10 +457,10 @@ export function AlertOverlay() {
                 marginBottom: 3,
               }}
             >
-              누적 부하 · 30분 중 {cumulativeRender.percent}%
+              {t("alerts:cumulativeBadge", { pct: cumulativeRender.percent })}
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
-              {cumulativeRender.label} 잦음
+              {t("alerts:cumulativeFrequent", { label: cumulativeRender.label })}
             </div>
             <div style={{ fontSize: 13, opacity: 0.85 }}>
               {cumulativeRender.coaching}
@@ -547,7 +505,7 @@ export function AlertOverlay() {
                 marginBottom: 3,
               }}
             >
-              {variabilityRender.durationMin}분 정자세 유지
+              {t("alerts:staticMinutes", { min: variabilityRender.durationMin })}
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
               {variabilityRender.label}

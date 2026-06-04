@@ -1,0 +1,5 @@
+{
+  "fallbackBody": "Poor posture for {{sec}}s. Take a moment to straighten up.",
+  "webTitle": "Posture alert: {{label}}",
+  "webBody": "{{label}} posture held for {{secs}}s — please straighten up"
+}

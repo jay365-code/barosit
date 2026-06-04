@@ -1,0 +1,81 @@
+{
+  "label": {
+    "overhead": "기지개",
+    "behind_head": "목 풀기",
+    "cross_body": "어깨 스트레치",
+    "side": "사이드 굽힘",
+    "shoulder_shrug": "어깨 으쓱",
+    "neck_side": "목 좌우 풀기",
+    "forward_fold": "상체 앞 숙이기"
+  },
+  "desc": {
+    "overhead": "양팔을 머리 위로 쭉 뻗는 기지개 동작",
+    "behind_head": "양손을 깍지 껴 머리 뒤에 대는 동작",
+    "cross_body": "한 팔을 반대편으로 교차하여 당기는 동작",
+    "side": "한 팔을 위로 올린 채 상체를 옆으로 굽히는 동작",
+    "shoulder_shrug": "머리는 두고 양 어깨만 귀 쪽으로 올리는 동작",
+    "neck_side": "어깨는 평평하게 두고 고개만 옆으로 기울이는 동작",
+    "forward_fold": "앉은 상태에서 상체를 앞으로 숙이는 동작"
+  },
+  "calib": {
+    "title": "나만의 스트레칭 가동범위 보정",
+    "subtitle": "내 몸의 유연성과 카메라 장착 각도에 맞춰 감지 정확도를 100%로 개인화합니다.",
+    "cameraPos": "카메라 위치:",
+    "autoAnalyzed": "(자동 분석됨)",
+    "manualSelect": "수동선정:",
+    "angleAuto": "자동 분석 모드",
+    "angle": {
+      "front": "정면 (Center)",
+      "left": "좌측 측면 (Left 45°)",
+      "right": "우측 측면 (Right 45°)"
+    },
+    "opt": {
+      "front": "정면 (Center)",
+      "left": "좌측 45° (Left)",
+      "right": "우측 45° (Right)"
+    },
+    "holdPose": "자세를 지그시 유지하고 기다려주세요...",
+    "captureTempDone": "동작 임시 수집 완료 🔍",
+    "captureHint": "관절 랜드마크 상태를 확인하신 뒤,<br />아래의 <strong>이 자세 저장하기</strong> 단추를 클릭해 주세요!",
+    "saveDone": "보정 값 저장 완료!",
+    "saveDoneDesc1": "[{{label}}] 맞춤 데이터가",
+    "saveDoneDesc2": "로컬 저장소에 안전하게 기록되었습니다.",
+    "calibAnother": "다른 동작 보정하기",
+    "finishReturn": "보정 완료하고 복귀",
+    "liveResult": "실시간 보정 분석 결과",
+    "firstReg": "💡 <strong>최초 보정 등록</strong>: 이전 맞춤 보정 기록이 없습니다. 현재 자세를 나만의 스트레칭 감지 기준으로 신규 등록합니다!",
+    "changeFromPrev": "이전 보정값 대비 자세 변화도",
+    "changeDetected": "{{percent}}% 변화 감지",
+    "maxShiftPrefix": "* 가장 가동 범위가 커진 부위:",
+    "maxShiftAmount": "(약 {{percent}}% 변위)",
+    "retake": "🔄 다시 촬영",
+    "savePose": "💾 이 자세 저장하기",
+    "analyzing": "분석 중...",
+    "captureBtn": "동작 캡처 (2초)",
+    "selectStretch": "보정할 스트레칭 선택",
+    "calibrated": "보정됨",
+    "defaultVal": "기본값",
+    "restoreDefaultTitle": "기본값으로 복원",
+    "resetAll": "🔄 모든 스트레칭 보정 초기화 (기본값 복원)",
+    "finishClose": "💾 모든 보정 설정 완료하고 창 닫기",
+    "confirmResetOne": "이 스트레칭의 모든 각도 보정 값을 삭제하고 기본 감지 모드로 초기화할까요?",
+    "confirmResetAll": "정말 모든 스트레칭 보정 값을 초기화하고 기본 어드민 표준 데이터로 복원하시겠습니까?",
+    "descMinor": "이전 대비 미세한 자세 변화가 감지되었습니다. 더 편안한 각도로 미세 보정됩니다.",
+    "descSame": "이전 보정값과 거의 완벽하게 동일한 자세입니다. 안정적으로 정밀 튜닝됩니다.",
+    "descWide": "넓고 시원한 새로운 가동 범위가 감지되었습니다. 확실한 맞춤형 개인화가 적용됩니다!",
+    "descSignificant": "가동 범위가 유의미하게 변화되었습니다. 몸의 현재 유연성에 맞춤 보정됩니다.",
+    "jointFallback": "관절",
+    "joints": {
+      "0": "머리 (코)",
+      "7": "왼쪽 귀",
+      "8": "오른쪽 귀",
+      "11": "왼쪽 어깨",
+      "12": "오른쪽 어깨",
+      "13": "왼쪽 팔꿈치",
+      "14": "오른쪽 팔꿈치",
+      "15": "왼쪽 손목",
+      "16": "오른쪽 손목"
+    }
+  },
+  "calibDoneReturn": "보정 완료하고 복귀"
+}

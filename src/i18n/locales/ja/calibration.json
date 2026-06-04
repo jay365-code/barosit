@@ -1,0 +1,28 @@
+{
+  "title": "基準姿勢を設定",
+  "back": "戻る",
+  "rejected": {
+    "title": "姿勢が十分に安定しませんでした",
+    "body": "{{secs}}秒中、適合フレームは{{pct}}%でした（65%以上必要）。動きを抑え、下の項目をすべて満たして再試行してください。"
+  },
+  "retry": "再試行",
+  "holdPosture": "正しい姿勢を少し保ってください",
+  "sitNaturally1": "いつもモニターを見るときのように",
+  "sitNaturally2": "楽に座ってください",
+  "okFrames": "適合フレーム {{pct}}%",
+  "holdHint": "{{secs}}秒そのまま — この姿勢を基準にします",
+  "measuring": "測定中",
+  "cameraError": "カメラを起動できません",
+  "cameraConnecting": "カメラ接続中…",
+  "checks": {
+    "bodyVisible": "上半身全体が見えています",
+    "headNotTiltedDown": "頭を上げています",
+    "headUpright": "頭が左右水平です",
+    "noChinRest": "手を机の上に置いてください",
+    "stable": "リラックスして静止しています"
+  },
+  "adjusting": "調整中…",
+  "modelLoading": "姿勢検出モデルを読み込み中…",
+  "startMeasure": "基準姿勢の測定を開始",
+  "needAll": "すべて満たすと開始できます"
+}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
@@ -28,15 +29,16 @@ interface Props {
 const CALIBRATION_DURATION_SECS = 5;
 const MIN_OK_RATIO = 0.65;
 
-const CHECK_LABELS: { key: keyof CalibrationCheck; label: string }[] = [
-  { key: "bodyVisible", label: "전체 상반신이 보여요" },
-  { key: "headNotTiltedDown", label: "고개를 들고 있어요" },
-  { key: "headUpright", label: "머리가 좌우로 수평이에요" },
-  { key: "noChinRest", label: "손을 책상 위에 두세요" },
-  { key: "stable", label: "편안한 자세로 멈춰 있어요" },
+const CHECK_KEYS: (keyof CalibrationCheck)[] = [
+  "bodyVisible",
+  "headNotTiltedDown",
+  "headUpright",
+  "noChinRest",
+  "stable",
 ];
 
 export function CalibrationView({ onComplete, onCancel }: Props) {
+  const { t } = useTranslation(["calibration", "common"]);
   const { videoRef, ready: cameraReady, error: cameraError } = useCamera();
   const [landmarks, setLandmarks] = useState<Landmarks | null>(null);
   const [faceLandmarks, setFaceLandmarks] = useState<Landmark[] | null>(null);
@@ -150,7 +152,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 letterSpacing: "0.08em",
               }}
             >
-              기준 자세 잡기
+              {t("calibration:title")}
             </span>
           </div>
           {!platform.features.multiWindow && onCancel && (
@@ -170,7 +172,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 justifyContent: "center",
               }}
             >
-              돌아가기
+              {t("calibration:back")}
             </button>
           )}
         </div>
@@ -186,7 +188,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 marginBottom: 8,
               }}
             >
-              자세가 충분히 안정되지 않았어요
+              {t("calibration:rejected.title")}
             </h2>
             <p
               style={{
@@ -197,9 +199,10 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 lineHeight: 1.55,
               }}
             >
-              5초 중 적합 프레임이 {Math.round(okRatio * 100)}%였어요 (65% 이상
-              필요). 움직임을 줄이고 아래 항목을 모두 만족시킨 채 다시 시도해
-              주세요.
+              {t("calibration:rejected.body", {
+                secs: CALIBRATION_DURATION_SECS,
+                pct: Math.round(okRatio * 100),
+              })}
             </p>
             <button
               className="b-btn b-btn-primary"
@@ -207,7 +210,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
               style={{ width: "100%", justifyContent: "center", height: 44 }}
             >
               <Icon name="play" size={14} />
-              다시 시도
+              {t("calibration:retry")}
             </button>
           </>
         ) : (
@@ -223,12 +226,12 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
               }}
             >
               {capturing ? (
-                <>바른 자세를 잠시 유지해주세요</>
+                <>{t("calibration:holdPosture")}</>
               ) : (
                 <>
-                  평소 모니터를 볼 때처럼
+                  {t("calibration:sitNaturally1")}
                   <br />
-                  편하게 앉아주세요
+                  {t("calibration:sitNaturally2")}
                 </>
               )}
             </h2>
@@ -241,8 +244,8 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
               }}
             >
               {capturing
-                ? `적합 프레임 ${Math.round(okRatio * 100)}%`
-                : "5초만 그대로 — 이 자세를 기준으로 잡아드릴게요"}
+                ? t("calibration:okFrames", { pct: Math.round(okRatio * 100) })
+                : t("calibration:holdHint", { secs: CALIBRATION_DURATION_SECS })}
             </p>
 
             {/* Camera preview */}
@@ -343,7 +346,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                       zIndex: 4,
                     }}
                   >
-                    측정 중
+                    {t("calibration:measuring")}
                   </div>
                 </>
               )}
@@ -366,7 +369,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                   }}
                 >
                   <Icon name="camera-off" size={28} />
-                  카메라를 켤 수 없어요
+                  {t("calibration:cameraError")}
                   <span style={{ fontSize: 11, opacity: 0.7 }}>
                     {cameraError}
                   </span>
@@ -386,7 +389,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                     fontSize: 12,
                   }}
                 >
-                  카메라 연결 중…
+                  {t("calibration:cameraConnecting")}
                 </div>
               )}
             </div>
@@ -400,7 +403,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 marginBottom: 22,
               }}
             >
-              {CHECK_LABELS.map(({ key, label }) => {
+              {CHECK_KEYS.map((key) => {
                 const ok = liveCheck?.[key] ?? false;
                 return (
                   <div
@@ -437,7 +440,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                         color: ok ? "var(--b-fg-2)" : "var(--b-fg-3)",
                       }}
                     >
-                      {label}
+                      {t(`calibration:checks.${key}`)}
                     </span>
                     {!ok && !capturing && (
                       <span
@@ -448,7 +451,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                           fontWeight: 500,
                         }}
                       >
-                        맞추는 중…
+                        {t("calibration:adjusting")}
                       </span>
                     )}
                   </div>
@@ -466,7 +469,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                   textAlign: "center",
                 }}
               >
-                자세 감지 모델 로딩 중…
+                {t("calibration:modelLoading")}
               </div>
             )}
             {detectorError && (
@@ -492,7 +495,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                   onClick={detectorRetry}
                   style={{ height: 32, fontSize: 12 }}
                 >
-                  다시 시도
+                  {t("calibration:retry")}
                 </button>
               </div>
             )}
@@ -509,7 +512,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 }}
               >
                 <Icon name="play" size={14} />
-                {allOk ? "기준 자세 측정 시작" : "모든 항목 충족 시 시작 가능"}
+                {allOk ? t("calibration:startMeasure") : t("calibration:needAll")}
               </button>
             ) : (
               <button
@@ -518,7 +521,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 style={{ width: "100%", justifyContent: "center" }}
               >
                 <Icon name="x" size={13} />
-                취소
+                {t("common:cancel")}
               </button>
             )}
           </>

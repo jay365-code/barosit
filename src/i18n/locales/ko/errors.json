@@ -1,0 +1,29 @@
+{
+  "render": {
+    "title": "화면 렌더링 중 문제가 발생했어요",
+    "unknown": "알 수 없는 오류",
+    "hint": "아래 버튼을 누르거나 앱을 재시작해주세요."
+  },
+  "poseModelLoad": "자세 감지 모델을 불러올 수 없어요. 인터넷 연결을 확인하고 다시 시도해주세요.",
+  "poseInitFailed": "자세 감지 초기화 실패: {{error}}",
+  "auth": {
+    "notConfigured": "Supabase 가 설정되지 않아 로그인할 수 없습니다.",
+    "noAuthUrl": "인증 주소를 생성하지 못했습니다.",
+    "loginTimeout": "로그인 시간이 초과되었습니다. 다시 시도해주세요.",
+    "noCode": "인증 응답에 code 파라미터가 없습니다.",
+    "invalidEmail": "올바른 이메일 주소를 입력해주세요."
+  },
+  "camera": {
+    "denied": "카메라 권한이 거부됐어요. 시스템 설정에서 BaroSit에 카메라 권한을 허용해주세요.",
+    "notFound": "사용 가능한 카메라를 찾지 못했어요. 외장 웹캠을 연결했다면 USB를 다시 꽂아보세요.",
+    "inUse": "다른 앱이 카메라를 사용 중이에요. Zoom, Photo Booth, 브라우저 탭 등을 종료한 뒤 다시 시도해주세요.",
+    "unsupported": "이 카메라는 요청한 설정을 지원하지 않아요.",
+    "aborted": "카메라 시작이 취소됐어요. 잠시 후 다시 시도해주세요.",
+    "unknown": "알 수 없는 카메라 오류가 발생했어요."
+  },
+  "backup": {
+    "parseError": "백업 파일을 읽을 수 없어요. JSON 형식이 올바른지 확인해주세요.",
+    "notBarosit": "BaroSit 백업 파일이 아니에요.",
+    "newerVersion": "더 새로운 버전(v{{version}})의 백업이에요. 앱을 업데이트한 뒤 다시 시도해주세요."
+  }
+}

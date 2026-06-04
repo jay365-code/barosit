@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import "./styles.css";
+import "./i18n"; // i18n 초기화 (렌더 전 동기 — 깜빡임/누락 방지)
 import { Marketing, routeFromHash, type MarketingRoute } from "./web/Marketing";
 import { applyThemeMode, watchOsTheme } from "./themeConfig";
 

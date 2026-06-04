@@ -1,0 +1,40 @@
+{
+  "status": {
+    "good": "잘 앉아 있어요",
+    "warning": "조금만 더 바르게",
+    "bad": "어깨를 펴볼까요",
+    "paused": "쉬는 중",
+    "resting": "잠깐 쉬는 중",
+    "standing": "가볍게 서 있어요"
+  },
+  "away": "자리비움",
+  "secs": "{{s}}초",
+  "minsSecs": "{{m}}분 {{s}}초",
+  "breakBadge": {
+    "deep": "휴식",
+    "standup": "일어서기",
+    "micro": "환기"
+  },
+  "breakBadgeAria": "{{minutes}}분 연속 착석 — {{label}} 권장",
+  "alertBanner": "{{sec}}초째 · 자세를 바꿔볼까요",
+  "currentPosture": "현재 감지된 자세",
+  "chip": {
+    "standing": "서서 일하는 중",
+    "good": "바른 자세",
+    "caution": "주의"
+  },
+  "coach": {
+    "away": "자리에 돌아오면 자동으로 다시 시작해요",
+    "standing": "선 자세는 척추를 곧게 펴줍니다. 가볍게 양손을 위로 올려 스트레칭을 해볼까요?",
+    "good": "잘 유지하고 있어요"
+  },
+  "violationCoach": "{{duration}}째 {{tip}}",
+  "lastAlarm": "마지막 알림 · {{label}} · {{time}}",
+  "falseAlarm": "잘못된 알림",
+  "title": {
+    "pause": "모니터링 일시정지",
+    "resume": "모니터링 재개",
+    "backToMain": "메인 창으로 돌아가기",
+    "openMain": "메인 창 열기"
+  }
+}

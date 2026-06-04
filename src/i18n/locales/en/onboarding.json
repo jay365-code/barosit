@@ -1,0 +1,42 @@
+{
+  "hero": {
+    "title1": "Live right,",
+    "title2": "sit right",
+    "sub1": "We'll watch your posture with your webcam.",
+    "sub2": "Video never leaves this computer."
+  },
+  "start": "Get started",
+  "skip": "Skip",
+  "howItWorks": "How it works",
+  "rememberThree": "Just remember three things",
+  "steps": {
+    "watch": {
+      "t": "We watch via webcam",
+      "d": "A camera at your side checks your shoulder and neck angles 30 times a second."
+    },
+    "detect": {
+      "t": "We flag poor posture",
+      "d": "Forward head, chin resting, shoulder tilt, slouching, screen too close, shoulder asymmetry — six types."
+    },
+    "adjust": {
+      "t": "Take a moment to adjust",
+      "d": "Gentle nudges, not nagging. We cheer your recovery with a score."
+    }
+  },
+  "back": "Back",
+  "next": "Next",
+  "privacy": {
+    "title1": "Video is processed only",
+    "title2": "on this computer",
+    "body": "Posture recognition runs 100% on-device, with nothing sent outside. It works even offline."
+  },
+  "privacyPoints": {
+    "noSave": "Webcam video is never saved",
+    "localOnly": "Posture data stays on this computer",
+    "cameraOff": "Turn off the camera anytime"
+  },
+  "allowCamera": "Allow camera access",
+  "changeLater": "You can change this later in System Settings",
+  "privacyPolicy": "Privacy Policy",
+  "terms": "Terms of Service"
+}

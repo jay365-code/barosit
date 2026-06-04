@@ -1,0 +1,289 @@
+{
+  "secs": "{{s}}초",
+  "minsSecs": "{{m}}분 {{s}}초",
+  "shortcut": {
+    "mac": "Space 또는 ⌥⌘P",
+    "win": "Space 또는 Ctrl+Alt+P"
+  },
+  "statusBadge": {
+    "paused": "일시정지",
+    "away": "자리비움",
+    "resting": "쉬는 중",
+    "standing": "서 있는 중",
+    "good": "양호",
+    "warn": "주의",
+    "bad": "교정 필요"
+  },
+  "headline": {
+    "paused": "쉬고 있어요",
+    "away": "잠깐 자리를 비웠어요",
+    "resting": "잠깐 등받이에 기대어 쉬세요",
+    "standing": "가볍게 서서 일하고 있어요",
+    "good": "잘 앉아 있어요",
+    "amber": "조금만 더 바르게",
+    "bad": "잠깐, 어깨를 펴볼까요"
+  },
+  "subline": {
+    "paused": "재개하면 자세 살피기를 다시 시작합니다",
+    "away": "자리에 돌아오면 자동으로 다시 시작해요",
+    "resting": "다시 똑바로 앉으면 자동으로 다시 살펴드릴게요",
+    "standing": "선 자세는 척추를 곧게 펴줍니다. 가볍게 양손을 위로 올려 스트레칭을 해볼까요?",
+    "good": "지금은 모두 양호해요",
+    "violation": "{{label}} · {{duration}}째 지속",
+    "scanning": "자세를 부드럽게 살피고 있어요"
+  },
+  "card": {
+    "activeViolation": "활성 위반 · {{label}}",
+    "caution": "주의 · {{label}}",
+    "ongoing": "{{duration}}째 지속 중",
+    "holding": "잘 유지 중"
+  },
+  "aiGuide": {
+    "none": "오늘 감지된 자세 위반이 아직 없습니다! 매우 좋은 자세를 잘 유지하고 계십니다. 주기적인 가벼운 스트레칭만으로도 충분합니다.",
+    "forwardHead": "거북목 및 모니터 거리 근접이 주요 위반 자세입니다. 모니터 높이를 현재보다 5~10cm 높여 눈선과 모니터 상단 3분의 1 지점을 맞춰보세요. 뒷목 판상근 장력을 낮춰 경추 관절염 예방에 큰 도움이 됩니다.",
+    "slouching": "등 구부정(Slouching)이 많이 감지되었습니다. 골반을 의자 등받이에 완전히 밀착시키고 무릎 각도를 90도로 유지해보세요. 요추 전만을 유지하여 디스크 가해 압력을 절반 이하로 완화할 수 있습니다.",
+    "chinResting": "턱 괴기 자세가 다소 관찰되었습니다. 이는 손목 터널 증후군 및 양측 어깨 불균형을 촉진하는 습관입니다. 양 팔꿈치를 책상 위에 가볍게 올려 무게를 분산하는 인체공학적 배치를 추천합니다.",
+    "generic": "{{label}} 자세가 가장 많이 감지되었습니다. 50분 집중 후 반드시 1분간 어깨를 풀고 가벼운 전신 스트레칭을 병행해 관절 압박을 해소하세요."
+  },
+  "proBanner": {
+    "guestMsg": "게스트 모드로 감지 중입니다. 브라우저 캐시 삭제 시 통계 기록이 유실될 수 있으니 간편 로그인하여 클라우드에 평생 백업하세요.",
+    "guestSub": "🔒 3초 만에 소셜 로그인하고 소중한 거북목 분석 데이터 지키기",
+    "guestCta": "평생 백업하기",
+    "freeMsg": "현재 웹 전용 FREE 플랜입니다. 백그라운드 무정지 감지, 미니 위젯 등 풍부한 네이티브 기능이 포함된 데스크톱 설치형 앱 다운로드(PRO 전용)를 이용해보세요.",
+    "freeSub": "💻 Windows / macOS 무정지 백그라운드 구동 & 실시간 플로팅 위젯 지원",
+    "freeCta": "PRO 혜택 확인"
+  },
+  "break": {
+    "deep": "긴 휴식 권장 — 5분 일어나기",
+    "standup": "한 번 일어서볼까요 (KOSHA 권고)",
+    "micro": "어깨 으쓱·목 회전으로 환기",
+    "soon": "곧 환기 권장",
+    "sitting": "{{mins}}분 연속 착석"
+  },
+  "controls": {
+    "resumeAria": "모니터링 재개",
+    "pauseAria": "모니터링 일시정지",
+    "resumeTip": "모니터링 재개 ({{shortcut}})",
+    "pauseTip": "모니터링 일시정지 ({{shortcut}})",
+    "minibarHideAria": "미니바 숨기기",
+    "minibarShowAria": "미니바 표시",
+    "minibarHideTip": "미니바 숨기기 — 플로팅 알약 끔",
+    "minibarShowTip": "미니바 표시 — 플로팅 알약 켬",
+    "widgetMode": "위젯 모드",
+    "widgetModeTip": "메인 창을 닫고 미니바만 표시",
+    "settings": "설정 열기",
+    "homeAria": "홈으로 (랜딩)",
+    "homeTip": "홈으로",
+    "home": "홈",
+    "profileAria": "프로필 열기",
+    "profile": "프로필",
+    "profileTip": "{{name}} · 프로필",
+    "loginAria": "로그인하기",
+    "loginTip": "로그인하여 자세 데이터를 백업하세요",
+    "login": "로그인"
+  },
+  "angle": {
+    "front": "정면",
+    "left": "왼쪽",
+    "right": "오른쪽"
+  },
+  "stats": {
+    "groundPrefix": "🔬 과학적 근거: ",
+    "tooltipHeader": "💡 {{label}} 안내",
+    "health": {
+      "label": "자세 건강 점수",
+      "tooltip": "실시간 감지 데이터를 기반으로 계산된 오늘의 자세 건강 점수와 등급입니다. (S/A/B/C/D 등급 기준)",
+      "ground": "나켐슨(Nachemson) 척추 역학 측정 모델 및 미국 정형외과학회(AAOS) 정렬 기준 연동."
+    },
+    "violations": {
+      "label": "자세 위반 횟수",
+      "tooltip": "오늘 실시간 모니터링 중 거북목, 구부정함, 턱 괴기 등 자세 위반 행동이 누적 감지된 발생 빈도입니다.",
+      "ground": "하버드 의대 가이드라인: 자세 위반 누적 노출은 정적 근육 피로(Static Muscle Fatigue)를 유발하여 통증 증후군 위험을 3.1배 촉진합니다."
+    },
+    "stretch": {
+      "label": "스트레칭 점수",
+      "tooltip": "오늘 수행한 가슴 열기, 어깨 스트레칭 등 척추 정적 부하를 리셋한 수행 점수입니다.",
+      "ground": "50분 좌식 업무 후 1분 스트레칭은 국소 산소 공급률을 25% 회복시키고 젖산 축적을 완전 방지하는 골격근 리셋 치료 요법입니다."
+    },
+    "usage": {
+      "label": "오늘 총 사용 시간",
+      "tooltip": "실시간 자세 분석 모니터링 엔진이 가동되어 척추 건강을 정밀 수호하고 분석한 총 활성 업무 시간입니다.",
+      "ground": "피드백 행동 중재 연구: 경고 알림 및 시각 피드백을 제공받은 직군은 비피드백 직군 대비 바른 자세 회복 능동성이 4.2배 급증합니다."
+    },
+    "criteria": {
+      "title": "[자세 건강 등급 기준]",
+      "sRange": "S 등급 (95점 이상)",
+      "sDesc": "완벽 (NASA 중립 정렬)",
+      "aRange": "A 등급 (90점 ~ 95점)",
+      "aDesc": "우수 (이상적 근육 지지)",
+      "bRange": "B 등급 (80점 ~ 90점)",
+      "bDesc": "양호 (경미 장력 이동)",
+      "cRange": "C 등급 (70점 ~ 80점)",
+      "cDesc": "주의 (수직 부하 1.5배)",
+      "dRange": "D 등급 (70점 미만)",
+      "dDesc": "위험 (목 부하 27kg 돌파)"
+    }
+  },
+  "grade": {
+    "S": {
+      "label": "최우수",
+      "desc": "완벽한 척추 정렬 균형"
+    },
+    "A": {
+      "label": "우수",
+      "desc": "건강한 척추 정렬 유지"
+    },
+    "B": {
+      "label": "양호",
+      "desc": "가벼운 피로 누적 경계"
+    },
+    "C": {
+      "label": "주의",
+      "desc": "척추 관절 압박 가중"
+    },
+    "D": {
+      "label": "위험",
+      "desc": "만성 통증 및 경추 굳어짐 위험"
+    }
+  },
+  "sensitivity": {
+    "title": "민감도",
+    "more": "자세히",
+    "strict": "엄격",
+    "lenient": "관대"
+  },
+  "camera": {
+    "detectedFront": "정면 카메라 감지됨",
+    "detectedLeft": "좌측 45° 카메라 감지됨",
+    "detectedRight": "우측 45° 카메라 감지됨",
+    "recalibrateTitle": "기준 자세를 다시 측정합니다",
+    "recalibrate": "기준 다시 잡기",
+    "angleChanged": "카메라 각도 변경됨 ({{angle}})",
+    "register": "기준등록",
+    "helpTitle": "📐 다중 각도 자동 관제 안내",
+    "helpBody1": "노트북/모니터 등 카메라 각도가 변경되면 인체 인식 기하 왜곡이 일어나 오동작을 방지하기 위해 새로운 기준 등록을 추천합니다.",
+    "helpBody2": "💡 앵글별(정면/좌/우)로 단 한 번씩만 등록해 두시면, 이후에는 카메라 위치가 바뀌어도 추가 등록 없이 실시간 자동 인식되어 즉시 정상 사용이 가능합니다!"
+  },
+  "report": {
+    "todayPosture": "오늘의 자세",
+    "timeTrend": "시간대별 착석 시간 및 위반 추이",
+    "detailReport": "상세 분석 리포트",
+    "byType": "자세 종류별 빈도",
+    "cameraError": "카메라 오류: {{error}}",
+    "proTitle": "PRO 정밀 자세 분석 리포트",
+    "proTitleTrial": "PRO 정밀 자세 분석 리포트 (체험 모드)",
+    "aiClinical": "AI 자세 임상 가이드라인",
+    "mins": "{{m}}분",
+    "hours": "{{h}}시간",
+    "hoursMins": "{{h}}시간 {{m}}분",
+    "perfTitle": "📈 숫자로 보는 자세 훈련 성과 (어제 대비)",
+    "improveIndex": "자세 개선 지수",
+    "up": "상승",
+    "down": "감소",
+    "gradeImproved": "오늘 등급: {{grade}}({{label}})로 어제보다 개선되었습니다!",
+    "gradeKeep": "오늘 등급: {{grade}}({{label}}). 허리를 곧게 펴서 A등급 이상을 조준해보세요.",
+    "reactionSpeed": "자가 교정 반응 속도",
+    "secOnly": "{{v}}초",
+    "faster": "-{{v}}초 단축",
+    "slower": "+{{v}}초 지연",
+    "noViolations": "위반 기록 없음",
+    "reactionFast": "나쁜 자세 인지 시 반응 속도가 아주 빠릅니다!",
+    "reactionSlow": "경고 알림 즉시 바른 자세를 취해보세요.",
+    "goodTime": "바른 자세 누적 시간",
+    "goodTimeUp": "집중 유지 능력이 향상되고 있습니다!",
+    "goodTimeKeep": "어제 대비 자세 유지 시간을 늘려보세요.",
+    "basisTitle": "자세 건강 등급 산정의 과학적 척추역학적 근거",
+    "basisBody": "본 분석 리포트의 등급 분류(S/A/B/C/D)는 <strong>나켐슨(Nachemson)의 척추 생체역학 디스크 가해 내압 측정 연구</strong> 및 <strong>NASA 중립 자세 표준(Neutral Body Posture)</strong> 가이드라인에 깊이 근거하여 실시간 자세 센싱 데이터로 설계되었습니다. 구부정한 정렬(C·D 등급) 시 가중되는 척추 디스크 수직 부하는 서 있을 때 대비 <strong>1.5배 ~ 2.2배(150% ~ 220%) 수준으로 증가</strong>하며, 거북목은 경추에 최대 <strong>27kg</strong>의 모멘트 전단 하중을 가합니다. 본 리포트의 지수 개선 및 반응 속도 단축 지표는 척추를 압박하는 유해 정적 부하(Static Load) 해소 수준을 완벽하게 입증합니다.",
+    "trendTitle": "자세 건강 점수 시간대별 추이 (오늘)",
+    "unitPoints": "단위: 점",
+    "tooltipScore": "자세 건강 점수:",
+    "gradeLabel": "{{grade}}등급",
+    "sitTime": "착석 시간:",
+    "badPostureTime": "나쁜 자세 유지:",
+    "violationRatio": "자세 위반 비율:",
+    "violationCount": "자세 위반 횟수:",
+    "times": "{{n}}회",
+    "yearCompare": "12개월 전주기 일별 자세 건강 분포 비교",
+    "legendTitle": "등급 범례 (나켐슨 척추 역학 가중치 연동):",
+    "legendSA": "S/A (완벽/우수한 균형)",
+    "legendB": "B (양호한 인대 분산)",
+    "legendC": "C (주의·1.5배 디스크 가중)",
+    "legendD": "D (위험·경추 27kg 돌파)",
+    "points": "{{n}}점",
+    "weekdays": "일,월,화,수,목,금,토",
+    "todaySuffix": " (오늘)",
+    "dateLabel": "{{date}} ({{day}}){{suffix}} ▼",
+    "perfectDay": "바른 자세 모범일 💚",
+    "violationSecs": "위반: {{s}}초",
+    "violationMinsSecs": "위반: {{m}}분 {{s}}초 ⚠️",
+    "safe": "안전",
+    "warn": "경고",
+    "cumulative": "누적 {{duration}}",
+    "perfectAlign": "완벽 정렬",
+    "clinicalLabel": "임상적 분석:",
+    "secsParen": "({{s}}초)",
+    "timeSlot": "시간대:",
+    "hourRange": "{{from}}시~{{to}}시",
+    "violationDuration": "위반 지속:",
+    "proGiftTitle": "🎁 PRO 업그레이드 시 제공 혜택:",
+    "proGift1": "• 실시간 감지 데이터 기반 맞춤형 임상 조언 솔루션",
+    "proGift2": "• 일일/주간/월간 경추 각도 및 어깨 균형도 변화 추이 리포트",
+    "proGift3": "• 무제한 클라우드 영구 동기화 백업",
+    "proGift4": "• 데스크톱 설치형 앱 연동 (네이티브 백그라운드 구동 + 위젯 포함)",
+    "todayViolation": "오늘 위반: ",
+    "yesterdayViolation": "어제 위반: ",
+    "byTypeCount": "{{count}}회 감지 ({{percent}}%)",
+    "clinicalWarn": {
+      "forward_head": "경추 전만이 소실되어 목뼈에 최대 27kg 하중이 가중되고 거북목 증후군을 유발합니다.",
+      "chin_resting": "안면 비대칭과 턱관절 디스크의 불균형한 압박을 초래하여 관절 장애로 번질 수 있습니다.",
+      "shoulder_tilt": "골반 변위 및 척추 측만증을 유발하는 어깨 축의 편향성 부하를 줍니다.",
+      "slouching": "요추 전만을 무너뜨려 허리 디스크 탈출 위험을 무려 3배 이상 촉진합니다.",
+      "monitor_too_close": "안구 조절 근육의 극심한 피로 및 목 근육의 무의식적 과긴장을 유발합니다.",
+      "shoulder_asymmetry": "승모근 비대칭 장력을 촉진하여 만성 어깨 뭉침 및 목 근역학 손상을 유발합니다.",
+      "head_roll": "경추 후관절의 편향 마모 및 어깨 근막 통증 증후군의 직접적인 유발 인자가 됩니다."
+    },
+    "biomechDetail": {
+      "forward_head": "경추가 전방으로 변위되면 목뼈 관절에 4.5kg 상당의 추가 부하가 발생하여 만성 거북목 증후군을 유발합니다.",
+      "slouching": "구부정한 척추 정렬은 요추의 수직 디스크 내압을 평소의 150% 이상 폭증시켜 요통 및 디스크 손상을 유도합니다.",
+      "shoulder_tilt": "편측 어깨 하강은 쇄골 비대칭 및 양측 승모근의 극심한 불균형 긴장(Myofascial Pain)을 초래합니다.",
+      "chin_resting": "턱관절(TMJ)에 불균형한 전단력을 가해 추간판 이탈 및 비대칭 안면 변위 문제를 일으킬 수 있습니다.",
+      "monitor_too_close": "모니터와의 과근접은 안구 조절근의 지속 긴장을 야기하여 안구건조 및 조절성 근시를 유발합니다.",
+      "shoulder_asymmetry": "골반 정렬 불균형과 연계된 요선관절 편측 압축 응력을 유발하는 대표적인 골격 비대칭 경고입니다.",
+      "head_roll": "목 뒤쪽 판상근 및 경추 주위 소근육의 불균형을 야기하여 경추 관절염 위험도를 가중시킵니다.",
+      "default": "인체공학적 의자 높이와 모니터 높낮이 조정을 통해 척추 중립 정렬을 유지하는 것을 권장합니다."
+    },
+    "legend": {
+      "sRange": "95점 이상",
+      "sDesc": "완벽한 정렬",
+      "aRange": "90점 ~ 95점",
+      "aDesc": "건강한 정렬",
+      "bRange": "80점 ~ 90점",
+      "bDesc": "가벼운 피로",
+      "cRange": "70점 ~ 80점",
+      "cDesc": "관절 압박",
+      "dRange": "70점 미만",
+      "dDesc": "만성 통증"
+    },
+    "retry": "다시 시도",
+    "monthDayDist": "1월 ~ 12월 / 1일 ~ 31일 등급 분포",
+    "monthLabel": "{{m}}월",
+    "cellAnalysis": "📅 {{m}}월 {{d}}일 분석",
+    "cellGrade": "{{grade}} 등급 ({{label}})",
+    "pickDate": "📅 분석 날짜 선택",
+    "prevDay": "◀ 이전일",
+    "nextDay": "다음일 ▶",
+    "calYearMonth": "{{y}}년 {{m}}월",
+    "hourlyTrendTitle": "📈 시간대별 위반 농도 트렌드 분포 (00시 ~ 23시)",
+    "timestampTitle": "🚨 {{label}} 타임스탬프 (총 {{count}}회)",
+    "closeX": "닫기 ✕",
+    "noViolationOnDate": "👏 선택하신 날짜에는 {{label}} 위반이 기록되지 않았습니다!",
+    "proOnlyTitle": "정밀 분석 리포트 기능은 PRO 전용입니다",
+    "proOnlyDesc": "오늘 누적된 데이터를 기반으로 하는 **임상 물리치료 및 인체공학 관점의 AI 조언 피드백**과 초 단위로 기록된 **정밀 타임스탬프 로그**는 PRO 회원에게만 제공되는 고급 기능입니다.",
+    "later": "다음에 할게요",
+    "checkPro": "PRO 요금제 확인하기",
+    "todaySeating": "오늘 착석: ",
+    "yesterdaySeating": "어제 착석: ",
+    "nowTime": "현재 {{time}}",
+    "currentTimeLabel": "현재 시각: "
+  }
+}

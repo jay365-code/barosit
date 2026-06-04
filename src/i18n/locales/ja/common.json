@@ -1,0 +1,13 @@
+{
+  "save": "保存",
+  "cancel": "キャンセル",
+  "close": "閉じる",
+  "confirm": "OK",
+  "back": "戻る",
+  "next": "次へ",
+  "skip": "スキップ",
+  "start": "はじめる",
+  "retry": "再試行",
+  "refresh": "更新",
+  "userFallback": "ユーザー"
+}

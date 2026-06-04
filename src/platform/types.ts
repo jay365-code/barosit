@@ -27,6 +27,10 @@ export interface AlertPayload {
   duration_secs: number;
   severity: "warning" | "bad";
   coaching_message: string | null;
+  /** OS 알림 제목 — i18n 로컬라이즈 문자열. 네이티브(Rust)로 전달. */
+  title?: string;
+  /** coaching_message 가 없을 때의 로컬라이즈 폴백 본문. */
+  body_fallback?: string;
 }
 
 export type Unsubscribe = () => void;
@@ -75,6 +79,8 @@ export interface PlatformAPI {
   showPostureAlert(payload: AlertPayload): Promise<void>;
   /** 트레이 상태 또는 페이지 타이틀/파비콘 갱신 */
   updateStatus(status: PostureStatus): Promise<void>;
+  /** 트레이 메뉴/툴팁 로컬라이즈 문자열을 네이티브로 전달 (웹: no-op) */
+  setTrayI18n(labels: Record<string, string>): Promise<void>;
   /** 메인 윈도우 표시 (웹: no-op) */
   showMainWindow(): Promise<void>;
   /** 메인 윈도우 숨김 (웹: no-op) */

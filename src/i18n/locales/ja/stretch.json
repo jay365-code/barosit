@@ -1,0 +1,81 @@
+{
+  "label": {
+    "overhead": "背伸び",
+    "behind_head": "首ほぐし",
+    "cross_body": "肩ストレッチ",
+    "side": "サイドベンド",
+    "shoulder_shrug": "肩すくめ",
+    "neck_side": "首の左右ほぐし",
+    "forward_fold": "上体前屈"
+  },
+  "desc": {
+    "overhead": "両腕を頭の上にまっすぐ伸ばす動作",
+    "behind_head": "両手を組んで頭の後ろに当てる動作",
+    "cross_body": "片腕を反対側へ交差して引く動作",
+    "side": "片腕を上げて上体を横に曲げる動作",
+    "shoulder_shrug": "頭は動かさず両肩だけ耳の方へ上げる動作",
+    "neck_side": "肩は水平に保ち頭だけ横に傾ける動作",
+    "forward_fold": "座った状態で上体を前に倒す動作"
+  },
+  "calib": {
+    "title": "自分だけのストレッチ可動域補正",
+    "subtitle": "体の柔軟性とカメラ取付角度に合わせて検出精度を100%にパーソナライズします。",
+    "cameraPos": "カメラ位置:",
+    "autoAnalyzed": "（自動分析）",
+    "manualSelect": "手動選択:",
+    "angleAuto": "自動分析モード",
+    "angle": {
+      "front": "正面 (Center)",
+      "left": "左側面 (Left 45°)",
+      "right": "右側面 (Right 45°)"
+    },
+    "opt": {
+      "front": "正面 (Center)",
+      "left": "左45° (Left)",
+      "right": "右45° (Right)"
+    },
+    "holdPose": "姿勢をじっと保って待ってください...",
+    "captureTempDone": "動作を一時取得しました 🔍",
+    "captureHint": "関節ランドマークの状態を確認してから、<br />下の<strong>この姿勢を保存</strong>ボタンをクリックしてください！",
+    "saveDone": "補正値を保存しました！",
+    "saveDoneDesc1": "[{{label}}] のカスタムデータが",
+    "saveDoneDesc2": "ローカルストレージに安全に記録されました。",
+    "calibAnother": "別の動作を補正する",
+    "finishReturn": "補正を完了して戻る",
+    "liveResult": "リアルタイム補正分析結果",
+    "firstReg": "💡 <strong>初回補正登録</strong>: 以前のカスタム補正記録がありません。現在の姿勢を自分だけのストレッチ検出基準として新規登録します！",
+    "changeFromPrev": "以前の補正値に対する姿勢変化度",
+    "changeDetected": "{{percent}}% の変化を検出",
+    "maxShiftPrefix": "* 最も可動域が広がった部位:",
+    "maxShiftAmount": "（約{{percent}}%変位）",
+    "retake": "🔄 撮り直し",
+    "savePose": "💾 この姿勢を保存",
+    "analyzing": "分析中...",
+    "captureBtn": "動作キャプチャ（2秒）",
+    "selectStretch": "補正するストレッチを選択",
+    "calibrated": "補正済み",
+    "defaultVal": "デフォルト",
+    "restoreDefaultTitle": "デフォルトに復元",
+    "resetAll": "🔄 すべてのストレッチ補正をリセット（デフォルト復元）",
+    "finishClose": "💾 すべての補正設定を完了して閉じる",
+    "confirmResetOne": "このストレッチのすべての角度補正値を削除し、デフォルト検出モードにリセットしますか？",
+    "confirmResetAll": "本当にすべてのストレッチ補正値をリセットし、デフォルトの管理者標準データに復元しますか？",
+    "descMinor": "前回比でわずかな姿勢変化を検出しました。より快適な角度に微調整します。",
+    "descSame": "前回の補正値とほぼ完全に同じ姿勢です。安定して精密チューニングされます。",
+    "descWide": "広くゆとりのある新しい可動域を検出しました。確実なカスタムパーソナライズが適用されます！",
+    "descSignificant": "可動域が有意に変化しました。体の現在の柔軟性に合わせて補正します。",
+    "jointFallback": "関節",
+    "joints": {
+      "0": "頭（鼻）",
+      "7": "左耳",
+      "8": "右耳",
+      "11": "左肩",
+      "12": "右肩",
+      "13": "左肘",
+      "14": "右肘",
+      "15": "左手首",
+      "16": "右手首"
+    }
+  },
+  "calibDoneReturn": "補正を完了して戻る"
+}

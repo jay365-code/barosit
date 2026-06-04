@@ -1,0 +1,28 @@
+{
+  "gracePeriod": {
+    "title": "[定期決済の失敗]",
+    "body": "既定の決済カードの問題でサブスクリプションの更新に失敗しました。",
+    "deadline": "PRO特典を維持するには、{{date}}までにプロフィールでカードを更新してください。",
+    "cta": "決済カードを変更"
+  },
+  "offline": "オフラインです。オンデバイスAIの姿勢検出は継続動作し、オンラインに復帰すると同期待ちのログが自動的にクラウドへ送信されます。",
+  "authLoading": {
+    "title": "認証とプロフィールの同期中...",
+    "sub": "クラウド設定とプロフィールを復元しています。少々お待ちください。"
+  },
+  "update": {
+    "errorTitle": "⚠ エラー発生",
+    "infoTitle": "ℹ お知らせ",
+    "close": "閉じる",
+    "downloadingMsg": "🚀 新バージョン {{version}} をダウンロード中… {{pct}}%",
+    "installingMsg": "🚀 新バージョン {{version}} をインストール・再起動中…",
+    "available": "🚀 新バージョン {{version}} が利用可能",
+    "later": "後で",
+    "updateRestart": "更新して再起動",
+    "checkFailed": "アップデート確認に失敗: {{msg}}",
+    "upToDate": "最新バージョンです",
+    "installFailed": "アップデートのインストールに失敗: {{msg}}"
+  },
+  "tagline": "今すぐ、正しく座ろう。",
+  "taglineSub": "毎日、より健やかな姿勢習慣を。"
+}

@@ -3,6 +3,7 @@
 // 이 윈도우가 받아 풀스크린으로 글로우/토스트를 그리고 일정 시간 후 자동 hide.
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { loadAlertModes, type AlertModes } from "../alertConfig";
 import {
   hideAlertWindow,
@@ -13,26 +14,6 @@ import {
 } from "../ipc";
 import type { PostureType } from "../pose/types";
 import type { BreakStage } from "../pose/breakTracker";
-
-const POSTURE_LABEL: Record<PostureType, string> = {
-  forward_head: "거북목",
-  chin_resting: "턱 괴임",
-  shoulder_tilt: "어깨 기울임",
-  slouching: "등 구부정",
-  monitor_too_close: "모니터가 너무 가까워요",
-  shoulder_asymmetry: "어깨 비대칭",
-  head_roll: "머리 좌우 기울임",
-};
-
-const COACHING: Record<PostureType, string> = {
-  forward_head: "턱을 살짝 당겨볼까요",
-  chin_resting: "손을 책상 위로 내려볼까요",
-  shoulder_tilt: "어깨를 수평으로",
-  slouching: "등을 펴고 가슴을 열어요",
-  monitor_too_close: "모니터에서 한 뼘 더 멀어져볼까요",
-  shoulder_asymmetry: "양쪽 어깨에 고르게 힘을 빼볼까요",
-  head_roll: "머리를 수직으로 세워볼까요",
-};
 
 interface Active {
   id: number;
@@ -50,30 +31,10 @@ interface ActiveBreak {
   expiresAt: number;
 }
 
-const BREAK_LABEL: Record<Exclude<BreakStage, "none">, string> = {
-  micro: "잠깐 환기해볼까요",
-  standup: "한 번 일어서볼까요",
-  deep: "긴 휴식이 필요해요",
-};
-const BREAK_COACHING: Record<Exclude<BreakStage, "none">, string> = {
-  micro: "어깨 으쓱·목 좌우 회전·깊은 호흡 10초",
-  standup: "1분 걷기 또는 가벼운 스트레칭",
-  deep: "5분 휴식. 물 한 잔 + 창밖 응시 (20-20-20)",
-};
 const BREAK_ACCENT: Record<Exclude<BreakStage, "none">, string> = {
   micro: "#5db49f",
   standup: "#3a9d8c",
   deep: "#2d8f7e",
-};
-
-const CUMULATIVE_COACHING: Record<PostureType, string> = {
-  forward_head: "최근 30분 거북목이 잦았어요. 의식적으로 턱을 당겨볼까요",
-  chin_resting: "최근 30분 턱 괴임이 잦았어요. 손을 책상 위로 두는 습관 권유",
-  shoulder_tilt: "최근 30분 어깨 기울임이 잦았어요. 모니터 위치 재점검",
-  slouching: "최근 30분 등 구부정이 잦았어요. 의자 깊이 들어가 앉기",
-  monitor_too_close: "최근 30분 모니터 과근접이 잦았어요. 한 뼘 더 멀리",
-  shoulder_asymmetry: "최근 30분 좌우 비대칭이 잦았어요. 책상 좌우 정리",
-  head_roll: "최근 30분 머리 좌우 기울임이 잦었어요. 보조 모니터 정렬 확인",
 };
 
 interface ActiveCumulative {
@@ -99,6 +60,7 @@ function glowColor(intensity: number): string {
 }
 
 export function AlertWindow() {
+  const { t } = useTranslation(["posture", "coaching", "alerts"]);
   const [modes, setModes] = useState<AlertModes>(() => loadAlertModes());
   const [active, setActive] = useState<Active | null>(null);
   const [activeBreak, setActiveBreak] = useState<ActiveBreak | null>(null);
@@ -243,8 +205,8 @@ export function AlertWindow() {
   const posture = active
     ? {
         color: glowColor(active.intensity),
-        label: POSTURE_LABEL[active.postureType],
-        coaching: active.coachingMessage ?? COACHING[active.postureType],
+        label: t(`posture:label.${active.postureType}`),
+        coaching: active.coachingMessage ?? t(`coaching:tip.${active.postureType}`),
         thickness: Math.round(80 + active.intensity * 140),
         alpha: 0.35 + active.intensity * 0.45,
         animDur: active.intensity >= 0.7 ? "0.8s" : "1.3s",
@@ -301,7 +263,7 @@ export function AlertWindow() {
                 marginBottom: 6,
               }}
             >
-              {Math.round(active.durationSecs)}초째
+              {t("alerts:durationSec", { sec: Math.round(active.durationSecs) })}
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>
               {posture.label}
@@ -347,13 +309,13 @@ export function AlertWindow() {
                 marginBottom: 6,
               }}
             >
-              {Math.round(activeBreak.secs / 60)}분 연속 착석
+              {t("alerts:sittingMinutes", { min: Math.round(activeBreak.secs / 60) })}
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>
-              {BREAK_LABEL[activeBreak.stage]}
+              {t(`coaching:breakLabel.${activeBreak.stage}`)}
             </div>
             <div style={{ fontSize: 16, opacity: 0.88 }}>
-              {BREAK_COACHING[activeBreak.stage]}
+              {t(`coaching:break.${activeBreak.stage}`)}
             </div>
           </div>
         </div>
@@ -393,13 +355,13 @@ export function AlertWindow() {
                 marginBottom: 6,
               }}
             >
-              누적 부하 · 30분 중 {Math.round(activeCumulative.ratio * 100)}%
+              {t("alerts:cumulativeBadge", { pct: Math.round(activeCumulative.ratio * 100) })}
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>
-              {POSTURE_LABEL[activeCumulative.postureType]} 잦음
+              {t("alerts:cumulativeFrequent", { label: t(`posture:label.${activeCumulative.postureType}`) })}
             </div>
             <div style={{ fontSize: 16, opacity: 0.88 }}>
-              {CUMULATIVE_COACHING[activeCumulative.postureType]}
+              {t(`coaching:cumulative.${activeCumulative.postureType}`)}
             </div>
           </div>
         </div>
@@ -439,13 +401,13 @@ export function AlertWindow() {
                 marginBottom: 6,
               }}
             >
-              {Math.round(activeVariability.durationSecs / 60)}분 정자세 유지
+              {t("alerts:staticMinutes", { min: Math.round(activeVariability.durationSecs / 60) })}
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>
-              잘 유지 중이에요
+              {t("alerts:variabilityGood")}
             </div>
             <div style={{ fontSize: 16, opacity: 0.88 }}>
-              잠깐 어깨·목을 풀고 자세 바꿔볼까요
+              {t("alerts:variabilityTip")}
             </div>
           </div>
         </div>

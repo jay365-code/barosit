@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
 import { LandmarkOverlay } from "../components/LandmarkOverlay";
@@ -15,27 +16,22 @@ import {
 } from "../pose/stretchDetector";
 import type { DetectionFrame, Landmarks, Landmark } from "../pose/types";
 
-const STRETCH_LIST: { id: StretchKind; label: string; desc: string }[] = [
-  { id: "overhead", label: "기지개", desc: "양팔을 머리 위로 쭉 뻗는 기지개 동작" },
-  { id: "behind_head", label: "목 풀기", desc: "양손을 깍지 껴 머리 뒤에 대는 동작" },
-  { id: "cross_body", label: "어깨 스트레치", desc: "한 팔을 반대편으로 교차하여 당기는 동작" },
-  { id: "side", label: "사이드 굽힘", desc: "한 팔을 위로 올린 채 상체를 옆으로 굽히는 동작" },
-  { id: "shoulder_shrug", label: "어깨 으쓱", desc: "머리는 두고 양 어깨만 귀 쪽으로 올리는 동작" },
-  { id: "neck_side", label: "목 좌우 풀기", desc: "어깨는 평평하게 두고 고개만 옆으로 기울이는 동작" },
-  { id: "forward_fold", label: "상체 앞 숙이기", desc: "앉은 상태에서 상체를 앞으로 숙이는 동작" },
+const STRETCH_IDS: StretchKind[] = [
+  "overhead",
+  "behind_head",
+  "cross_body",
+  "side",
+  "shoulder_shrug",
+  "neck_side",
+  "forward_fold",
 ];
-
-const ANGLE_LABELS: Record<CameraAngle, string> = {
-  front: "정면 (Center)",
-  left: "좌측 측면 (Left 45°)",
-  right: "우측 측면 (Right 45°)",
-};
 
 interface Props {
   onClose: () => void;
 }
 
 export function UserCalibrationView({ onClose }: Props) {
+  const { t } = useTranslation(["stretch", "common"]);
   const { videoRef, ready: cameraReady } = useCamera(true);
   const [selectedStretch, setSelectedStretch] = useState<StretchKind>("overhead");
   const [cameraAngle, setCameraAngle] = useState<CameraAngle>("front");
@@ -180,15 +176,15 @@ export function UserCalibrationView({ onClose }: Props) {
     let maxDist = 0;
     let maxIdx = -1;
     const JOINT_NAMES: Record<number, string> = {
-      0: "머리 (코)",
-      7: "왼쪽 귀",
-      8: "오른쪽 귀",
-      11: "왼쪽 어깨",
-      12: "오른쪽 어깨",
-      13: "왼쪽 팔꿈치",
-      14: "오른쪽 팔꿈치",
-      15: "왼쪽 손목",
-      16: "오른쪽 손목",
+      0: t("stretch:calib.joints.0"),
+      7: t("stretch:calib.joints.7"),
+      8: t("stretch:calib.joints.8"),
+      11: t("stretch:calib.joints.11"),
+      12: t("stretch:calib.joints.12"),
+      13: t("stretch:calib.joints.13"),
+      14: t("stretch:calib.joints.14"),
+      15: t("stretch:calib.joints.15"),
+      16: t("stretch:calib.joints.16"),
     };
 
     for (const idxStr in prevTemplate.pose) {
@@ -204,16 +200,16 @@ export function UserCalibrationView({ onClose }: Props) {
       }
     }
 
-    const maxShiftJointName = maxIdx !== -1 ? (JOINT_NAMES[maxIdx] ?? "관절") : "";
+    const maxShiftJointName = maxIdx !== -1 ? (JOINT_NAMES[maxIdx] ?? t("stretch:calib.jointFallback")) : "";
     const maxShiftPercent = Math.round(maxDist * 100);
 
-    let description = "이전 대비 미세한 자세 변화가 감지되었습니다. 더 편안한 각도로 미세 보정됩니다.";
+    let description = t("stretch:calib.descMinor");
     if (totalDiffPercent < 3) {
-      description = "이전 보정값과 거의 완벽하게 동일한 자세입니다. 안정적으로 정밀 튜닝됩니다.";
+      description = t("stretch:calib.descSame");
     } else if (totalDiffPercent >= 12) {
-      description = "넓고 시원한 새로운 가동 범위가 감지되었습니다. 확실한 맞춤형 개인화가 적용됩니다!";
+      description = t("stretch:calib.descWide");
     } else if (totalDiffPercent >= 7) {
-      description = "가동 범위가 유의미하게 변화되었습니다. 몸의 현재 유연성에 맞춤 보정됩니다.";
+      description = t("stretch:calib.descSignificant");
     }
 
     return {
@@ -226,7 +222,7 @@ export function UserCalibrationView({ onClose }: Props) {
   };
 
   const handleResetStretch = (kind: StretchKind) => {
-    if (!confirm(`이 스트레칭의 모든 각도 보정 값을 삭제하고 기본 감지 모드로 초기화할까요?`)) return;
+    if (!confirm(t("stretch:calib.confirmResetOne"))) return;
     try {
       const currentTemplates = loadCustomTemplates();
       delete currentTemplates[`${kind}_front`];
@@ -240,7 +236,7 @@ export function UserCalibrationView({ onClose }: Props) {
   };
 
   const handleResetAll = () => {
-    if (!confirm("정말 모든 스트레칭 보정 값을 초기화하고 기본 어드민 표준 데이터로 복원하시겠습니까?")) return;
+    if (!confirm(t("stretch:calib.confirmResetAll"))) return;
     try {
       localStorage.removeItem("barosit:custom_stretch_templates");
       setCustomTemplates({});
@@ -296,9 +292,9 @@ export function UserCalibrationView({ onClose }: Props) {
               <Icon name="target" size={16} />
             </div>
             <div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>나만의 스트레칭 가동범위 보정</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{t("stretch:calib.title")}</h3>
               <p style={{ fontSize: 12, opacity: 0.5, margin: "2px 0 0" }}>
-                내 몸의 유연성과 카메라 장착 각도에 맞춰 감지 정확도를 100%로 개인화합니다.
+                {t("stretch:calib.subtitle")}
               </p>
             </div>
           </div>
@@ -339,13 +335,13 @@ export function UserCalibrationView({ onClose }: Props) {
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--b-sig)" }}>
                 <Icon name="target" size={13} />
                 <span>
-                  카메라 위치: <strong>{ANGLE_LABELS[cameraAngle]}</strong>
-                  {!isManualAngle && <span style={{ fontSize: 10, opacity: 0.5, marginLeft: 6 }}>(자동 분석됨)</span>}
+                  {t("stretch:calib.cameraPos")} <strong>{t(`stretch:calib.angle.${cameraAngle}`)}</strong>
+                  {!isManualAngle && <span style={{ fontSize: 10, opacity: 0.5, marginLeft: 6 }}>{t("stretch:calib.autoAnalyzed")}</span>}
                 </span>
               </div>
               
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 11, opacity: 0.5 }}>수동선정:</span>
+                <span style={{ fontSize: 11, opacity: 0.5 }}>{t("stretch:calib.manualSelect")}</span>
                 <select
                   value={isManualAngle ? cameraAngle : "auto"}
                   onChange={(e) => {
@@ -368,10 +364,10 @@ export function UserCalibrationView({ onClose }: Props) {
                     outline: "none",
                   }}
                 >
-                  <option value="auto">자동 분석 모드</option>
-                  <option value="front">정면 (Center)</option>
-                  <option value="left">좌측 45° (Left)</option>
-                  <option value="right">우측 45° (Right)</option>
+                  <option value="auto">{t("stretch:calib.angleAuto")}</option>
+                  <option value="front">{t("stretch:calib.opt.front")}</option>
+                  <option value="left">{t("stretch:calib.opt.left")}</option>
+                  <option value="right">{t("stretch:calib.opt.right")}</option>
                 </select>
               </div>
             </div>
@@ -429,7 +425,7 @@ export function UserCalibrationView({ onClose }: Props) {
                   }}
                 >
                   <div style={{ fontSize: 28, fontWeight: 800, color: "var(--b-sig)" }}>{progress}%</div>
-                  <div style={{ fontSize: 11, opacity: 0.8 }}>자세를 지그시 유지하고 기다려주세요...</div>
+                  <div style={{ fontSize: 11, opacity: 0.8 }}>{t("stretch:calib.holdPose")}</div>
                 </div>
               )}
 
@@ -462,12 +458,9 @@ export function UserCalibrationView({ onClose }: Props) {
                       fontWeight: 700,
                     }}
                   >
-                    동작 임시 수집 완료 🔍
+                    {t("stretch:calib.captureTempDone")}
                   </div>
-                  <p style={{ fontSize: 10, opacity: 0.9, margin: 0, lineHeight: 1.4 }}>
-                    관절 랜드마크 상태를 확인하신 뒤,<br />
-                    아래의 <strong>이 자세 저장하기</strong> 단추를 클릭해 주세요!
-                  </p>
+                  <p style={{ fontSize: 10, opacity: 0.9, margin: 0, lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: t("stretch:calib.captureHint") }} />
                 </div>
               )}
 
@@ -502,10 +495,10 @@ export function UserCalibrationView({ onClose }: Props) {
                     <Icon name="check" size={24} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>보정 값 저장 완료!</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{t("stretch:calib.saveDone")}</div>
                     <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4, lineHeight: 1.4 }}>
-                      [{STRETCH_LIST.find((s) => s.id === selectedStretch)?.label}] 맞춤 데이터가<br />
-                      로컬 저장소에 안전하게 기록되었습니다.
+                      {t("stretch:calib.saveDoneDesc1", { label: t(`stretch:label.${selectedStretch}`) })}<br />
+                      {t("stretch:calib.saveDoneDesc2")}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
@@ -525,7 +518,7 @@ export function UserCalibrationView({ onClose }: Props) {
                       onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)"}
                       onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"}
                     >
-                      다른 동작 보정하기
+                      {t("stretch:calib.calibAnother")}
                     </button>
                     <button
                       onClick={onClose}
@@ -543,7 +536,7 @@ export function UserCalibrationView({ onClose }: Props) {
                       onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
                       onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
                     >
-                      보정 완료하고 복귀
+                      {t("stretch:calibDoneReturn")}
                     </button>
                   </div>
                 </div>
@@ -565,24 +558,22 @@ export function UserCalibrationView({ onClose }: Props) {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--b-sig)", fontWeight: 700 }}>
                   <Icon name="target" size={13} />
-                  <span>실시간 보정 분석 결과</span>
+                  <span>{t("stretch:calib.liveResult")}</span>
                 </div>
                 
                 {(() => {
                   const comp = getComparison();
                   if (!comp.hasPrev) {
                     return (
-                      <div style={{ fontSize: 11, color: "var(--b-fg-2)", lineHeight: 1.4, textAlign: "left" }}>
-                        💡 <strong>최초 보정 등록</strong>: 이전 맞춤 보정 기록이 없습니다. 현재 자세를 나만의 스트레칭 감지 기준으로 신규 등록합니다!
-                      </div>
+                      <div style={{ fontSize: 11, color: "var(--b-fg-2)", lineHeight: 1.4, textAlign: "left" }} dangerouslySetInnerHTML={{ __html: t("stretch:calib.firstReg") }} />
                     );
                   }
                   return (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, textAlign: "left" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 11, color: "var(--b-fg-3)" }}>이전 보정값 대비 자세 변화도</span>
+                        <span style={{ fontSize: 11, color: "var(--b-fg-3)" }}>{t("stretch:calib.changeFromPrev")}</span>
                         <span style={{ fontSize: 13, color: "var(--b-sig)", fontWeight: 800 }}>
-                          {comp.totalDiffPercent}% 변화 감지
+                          {t("stretch:calib.changeDetected", { percent: comp.totalDiffPercent })}
                         </span>
                       </div>
                       
@@ -603,7 +594,7 @@ export function UserCalibrationView({ onClose }: Props) {
                       </div>
                       {comp.maxShiftJointName && (
                         <div style={{ fontSize: 10, color: "var(--b-fg-3)", marginTop: 2 }}>
-                          * 가장 가동 범위가 커진 부위: <strong>{comp.maxShiftJointName}</strong> (약 {comp.maxShiftPercent}% 변위)
+                          {t("stretch:calib.maxShiftPrefix")} <strong>{comp.maxShiftJointName}</strong> {t("stretch:calib.maxShiftAmount", { percent: comp.maxShiftPercent })}
                         </div>
                       )}
                     </div>
@@ -635,7 +626,7 @@ export function UserCalibrationView({ onClose }: Props) {
                   onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
                 >
-                  🔄 다시 촬영
+                  {t("stretch:calib.retake")}
                 </button>
                 <button
                   onClick={commitTempPose}
@@ -657,7 +648,7 @@ export function UserCalibrationView({ onClose }: Props) {
                   onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
                   onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
                 >
-                  💾 이 자세 저장하기
+                  {t("stretch:calib.savePose")}
                 </button>
               </div>
             ) : (
@@ -683,14 +674,14 @@ export function UserCalibrationView({ onClose }: Props) {
                 }}
               >
                 <Icon name="target" size={15} />
-                {capturing ? "분석 중..." : "동작 캡처 (2초)"}
+                {capturing ? t("stretch:calib.analyzing") : t("stretch:calib.captureBtn")}
               </button>
             )}
           </div>
 
           {/* 우측: 스트레칭 리스트 및 보정 현황 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)" }}>보정할 스트레칭 선택</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)" }}>{t("stretch:calib.selectStretch")}</div>
             
             <div
               className="b-scroll"
@@ -703,21 +694,21 @@ export function UserCalibrationView({ onClose }: Props) {
                 paddingRight: 6,
               }}
             >
-              {STRETCH_LIST.map((item) => {
+              {STRETCH_IDS.map((id) => {
                 const isCustomized =
-                  customTemplates[`${item.id}_front`] ||
-                  customTemplates[`${item.id}_left`] ||
-                  customTemplates[`${item.id}_right`];
-                  
+                  customTemplates[`${id}_front`] ||
+                  customTemplates[`${id}_left`] ||
+                  customTemplates[`${id}_right`];
+
                 return (
                   <div
-                    key={item.id}
-                    onClick={() => !capturing && setSelectedStretch(item.id)}
+                    key={id}
+                    onClick={() => !capturing && setSelectedStretch(id)}
                     style={{
                       padding: "10px 14px",
                       borderRadius: 12,
-                      background: selectedStretch === item.id ? "rgba(255,255,255,0.03)" : "transparent",
-                      border: selectedStretch === item.id ? "1px solid var(--b-sig)" : "1px solid rgba(255, 255, 255, 0.05)",
+                      background: selectedStretch === id ? "rgba(255,255,255,0.03)" : "transparent",
+                      border: selectedStretch === id ? "1px solid var(--b-sig)" : "1px solid rgba(255, 255, 255, 0.05)",
                       cursor: capturing ? "not-allowed" : "pointer",
                       display: "flex",
                       alignItems: "center",
@@ -726,10 +717,10 @@ export function UserCalibrationView({ onClose }: Props) {
                     }}
                   >
                     <div style={{ display: "flex", flexDirection: "column", gap: 2, textAlign: "left" }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: selectedStretch === item.id ? "var(--b-sig)" : "var(--b-fg-1)" }}>
-                        {item.label}
+                      <span style={{ fontSize: 13, fontWeight: 600, color: selectedStretch === id ? "var(--b-sig)" : "var(--b-fg-1)" }}>
+                        {t(`stretch:label.${id}`)}
                       </span>
-                      <span style={{ fontSize: 11, color: "var(--b-fg-4)" }}>{item.desc}</span>
+                      <span style={{ fontSize: 11, color: "var(--b-fg-4)" }}>{t(`stretch:desc.${id}`)}</span>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -744,19 +735,19 @@ export function UserCalibrationView({ onClose }: Props) {
                             borderRadius: 6,
                           }}
                         >
-                          보정됨
+                          {t("stretch:calib.calibrated")}
                         </span>
                       ) : (
-                        <span style={{ fontSize: 10, color: "var(--b-fg-4)", opacity: 0.5 }}>기본값</span>
+                        <span style={{ fontSize: 10, color: "var(--b-fg-4)", opacity: 0.5 }}>{t("stretch:calib.defaultVal")}</span>
                       )}
 
                       {isCustomized && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleResetStretch(item.id);
+                            handleResetStretch(id);
                           }}
-                          title="기본값으로 복원"
+                          title={t("stretch:calib.restoreDefaultTitle")}
                           style={{
                             background: "none",
                             border: "none",
@@ -793,7 +784,7 @@ export function UserCalibrationView({ onClose }: Props) {
                 opacity: Object.keys(customTemplates).length === 0 ? 0.5 : 1,
               }}
             >
-              🔄 모든 스트레칭 보정 초기화 (기본값 복원)
+              {t("stretch:calib.resetAll")}
             </button>
 
             {/* 최종 저장 및 종료 버튼 */}
@@ -819,7 +810,7 @@ export function UserCalibrationView({ onClose }: Props) {
               onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
             >
               <Icon name="check" size={15} />
-              💾 모든 보정 설정 완료하고 창 닫기
+              {t("stretch:calib.finishClose")}
             </button>
           </div>
         </div>

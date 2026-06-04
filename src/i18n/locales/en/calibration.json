@@ -1,0 +1,28 @@
+{
+  "title": "Set your baseline posture",
+  "back": "Go back",
+  "rejected": {
+    "title": "Your posture wasn't stable enough",
+    "body": "Only {{pct}}% of frames over {{secs}}s qualified (65% required). Reduce movement, meet all the items below, and try again."
+  },
+  "retry": "Try again",
+  "holdPosture": "Hold a good posture for a moment",
+  "sitNaturally1": "Sit just like you normally",
+  "sitNaturally2": "view your monitor",
+  "okFrames": "Qualifying frames {{pct}}%",
+  "holdHint": "Hold for just {{secs}}s — we'll set this as your baseline",
+  "measuring": "Measuring",
+  "cameraError": "Can't turn on the camera",
+  "cameraConnecting": "Connecting camera…",
+  "checks": {
+    "bodyVisible": "Your upper body is fully visible",
+    "headNotTiltedDown": "Your head is up",
+    "headUpright": "Your head is level",
+    "noChinRest": "Keep your hands on the desk",
+    "stable": "You're holding still and relaxed"
+  },
+  "adjusting": "Adjusting…",
+  "modelLoading": "Loading posture detection model…",
+  "startMeasure": "Start baseline measurement",
+  "needAll": "Meet all items to start"
+}

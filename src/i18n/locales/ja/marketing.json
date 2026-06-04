@@ -1,0 +1,265 @@
+{
+  "nav": {
+    "features": "機能",
+    "pricing": "料金",
+    "download": "ダウンロード",
+    "community": "コミュニティ"
+  },
+  "login": "ログイン",
+  "download": "ダウンロード",
+  "footer": {
+    "company": "株式会社グビド | 代表者: イ・ジョンヒョン",
+    "address": "住所: ソウル特別市松坡区五琴路15ギル5-12, 3階3425号（芳荑洞、ジョンファンビル）",
+    "registration": "事業者登録番号: 512-88-00059 | 通信販売業申告: 第2025-ソウル松坡-2552号",
+    "changelog": "更新履歴",
+    "privacy": "プライバシーポリシー",
+    "terms": "利用規約",
+    "community": "コミュニティ"
+  },
+  "landing": {
+    "badge": "オンデバイス · 映像は外部に出ません",
+    "hero": {
+      "title1": "今すぐ、",
+      "title2": "正しく座ろう。",
+      "sub": "あなたのウェブカメラが姿勢コーチに。",
+      "desc": "ウェブカメラで姿勢を見守ります。ストレートネック・ほお杖・肩の傾き・猫背・画面との距離・肩の左右差・首の傾きの7種類を見分け、悪い姿勢が一定時間続くとそっとお知らせします。"
+    },
+    "cta": {
+      "webStart": "ブラウザですぐ開始",
+      "mac": "Mac版をダウンロード",
+      "win": "Windows版をダウンロード",
+      "note": "インストール不要でブラウザからすぐ · デスクトップ版はバックグラウンド・ウィジェット対応"
+    },
+    "how": {
+      "eyebrow": "仕組み",
+      "title1": "覚えることは",
+      "title2": "3つだけ",
+      "steps": {
+        "watch": {
+          "t": "ウェブカメラで見守ります",
+          "d": "横に置いたカメラが肩と首の角度を1秒に30回チェックします。サイドモニターの上にノートPCを置くのがおすすめです。"
+        },
+        "detect": {
+          "t": "悪い姿勢を指摘します",
+          "d": "ストレートネック · ほお杖 · 肩の傾き · 猫背 · 画面との距離 · 肩の左右差 · 首の傾き。7種類を見分けます。"
+        },
+        "adjust": {
+          "t": "少し姿勢を変えましょう",
+          "d": "小言ではなく優しく。スコアとともに回復を応援し、ストレッチはボーナス点で還元します。"
+        }
+      }
+    },
+    "privacy": {
+      "title": "映像はこのPC内だけで処理します",
+      "body": "姿勢認識は100%オンデバイスで処理されます。映像も姿勢データも外部サーバーに送信されません。オフラインでも動作します。",
+      "points": {
+        "noSave": "ウェブカメラ映像は保存されません",
+        "localOnly": "姿勢データはこのPCにのみ残ります",
+        "neverLeaves": "カメラ映像は外部サーバーに決して送信されません"
+      },
+      "stats": {
+        "ondeviceLabel": "オンデバイス",
+        "ondeviceValue": "100%",
+        "cloudLabel": "クラウド",
+        "cloudValue": "0%",
+        "offlineLabel": "オフライン",
+        "offlineValue": "動作",
+        "analysisLabel": "姿勢分析",
+        "analysisValue": "7種類"
+      }
+    },
+    "features": {
+      "title": "必要な機能だけ",
+      "items": {
+        "detect7": {
+          "t": "姿勢7種類を検出",
+          "d": "ストレートネック · ほお杖 · 肩の傾き · 猫背 · 画面との距離 · 肩の左右差 · 首の傾きを見分けて指摘します"
+        },
+        "score": {
+          "t": "0–100スコアシステム",
+          "d": "良い姿勢で回復が加速、違反は2秒の猶予の後にペナルティ"
+        },
+        "widget": {
+          "t": "ウィジェットモード",
+          "d": "小さなピル1つで、作業を妨げずスコアだけそっと表示します"
+        },
+        "dark": {
+          "t": "ダークモード",
+          "d": "シグネチャーカラーそのままに、夜間作業でも目に優しく"
+        }
+      }
+    },
+    "final": {
+      "title": "今日から正しく座りませんか",
+      "sub": "無料で始めて、Proはいつでも。",
+      "mac": "Mac版をダウンロード",
+      "win": "Windows版をダウンロード"
+    }
+  },
+  "legalTitle": {
+    "privacy": "プライバシーポリシー",
+    "terms": "利用規約"
+  },
+  "auth": {
+    "errSupabase": "Supabase がまだ設定されていません。.env.local の VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY を確認してください。",
+    "errNoSession": "セッションを確認できませんでした。",
+    "errCantComplete": "ログインを完了できませんでした。",
+    "finishing": "ログインを完了しています…",
+    "finishingDesc": "アカウント情報を確認しています。少々お待ちください。",
+    "failed": "ログインを完了できませんでした",
+    "backToLogin": "ログイン画面に戻る"
+  },
+  "loginPage": {
+    "errNotConnected": "認証がまだ接続されていません。.env.local の Supabase 設定を確認してください。",
+    "providerKakao": "Kakao",
+    "errProviderFail": "{{provider}} ログインに失敗しました。",
+    "heroSub1": "ウェブカメラで姿勢を見守ります。",
+    "heroSub2": "映像はこのPCの外に出ません。",
+    "privacyNote": "姿勢データは同期をオンにしたときだけクラウドに送られます。",
+    "welcomeBack": "おかえりなさい",
+    "welcomeNew": "はじめましょう",
+    "subSignin": "かんたんソーシャルログインで続行",
+    "subSignup": "1秒で会員登録できます",
+    "googleGoing": "Googleへ移動中…",
+    "googleContinue": "Googleで続ける",
+    "kakaoGoing": "Kakaoへ移動中…",
+    "kakaoContinue": "Kakaoで続ける",
+    "agreePrefix": "続行すると、",
+    "agreeMid": "と",
+    "agreeSuffix": "に同意したことになります。",
+    "newHere": "はじめてですか？ ",
+    "signup": "登録する",
+    "haveAccount": "すでにアカウントをお持ちですか？ ",
+    "signin": "ログイン"
+  },
+  "downloadPage": {
+    "macReq": "macOS 12.0 (Monterey) 以降 · Apple Silicon · Intel",
+    "macInstallSecond": "アプリケーションフォルダに移動します",
+    "winReq": "Windows 10 64-bit 以降 · x64 · ARM64",
+    "winInstallSecond": "案内に従ってインストールします",
+    "loginNeeded": "💡 インストール型デスクトップアプリ（Tauri）はPROプラン限定特典です。\n\nダウンロード前に、プラン（FREE / PRO）を確認するためログインが必要です。\n\nOKを押すとログインページに移動します。",
+    "freeUpsell": "💡 インストール型デスクトップアプリ（Tauri）はPROプラン限定特典です。\n\n現在お客様はFREEプラン（Webブラウザ専用）をご利用中です。\nFree会員はいつでもWeb版で無料で検出を続けられ、PROにすぐアップグレードすると常時バックグラウンド検出・ミニウィジェット・システムトレイ管理の特典が利用できます。\n\nOKを押すと料金/プラン案内ページに移動します。",
+    "proSuccess": "🎉 PRO会員の認証に成功！ {{name}} インストーラー（{{file}}）のダウンロードを開始します。",
+    "downloadName": "{{name}} をダウンロード",
+    "forName": "{{name}}版 Barosit",
+    "version": "バージョン {{ver}} · {{size}}",
+    "downloadFile": "{{file}} をダウンロード",
+    "agreePrefix": "ダウンロードすると、",
+    "agreeMid": "と",
+    "agreeSuffix": "に同意したことになります。",
+    "privacyPolicy": "プライバシーポリシー",
+    "sysReq": "システム要件",
+    "camNote": "内蔵またはUSBウェブカメラが必要です。横から映る位置に置くと精度が最も高くなります。",
+    "installHow": "インストール方法",
+    "installStep1": "ダウンロードしたファイルを開きます",
+    "installStep3": "初回起動時にカメラを許可します",
+    "latestBuild": "{{ver}} — 最新ビルド",
+    "feat1": "姿勢7種を検出（ストレートネック · ほお杖 · 肩の傾き · 猫背 · 画面との距離 · 肩の左右差 · 首の傾き）",
+    "feat2": "0–100スコアシステム + ストレッチボーナス",
+    "feat3": "ウィジェットモード（ドラッグ・位置保存）",
+    "feat4": "ダークモード · シグネチャー sage",
+    "releaseNotes": "リリースノート全体",
+    "otherOsQ": "{{other}}をお使いですか？",
+    "otherOsDesc": "{{other}}版ビルドもご用意しています",
+    "otherOsBtn": "{{other}} 版"
+  },
+  "community": {
+    "boardLabel": "COMMUNITY BOARD",
+    "listTitle": "活発な考えと意見を分かち合う場",
+    "writeTitle": "新しい話を投稿",
+    "listSubtitle": "役立つ情報や姿勢のコツ、機能の提案、自由な議論を分かち合いましょう。みんなの健やかな姿勢のための専門的な交流の場です。",
+    "writeSubtitle": "投稿いただいた大切な文章は、コミュニティの全ユーザーとリアルタイムで共有されます。",
+    "detailMeta": "投稿者: {{author}} · 投稿日: {{date}}",
+    "searchPlaceholder": "タイトル・本文・投稿者を検索...",
+    "sortRecent": "新着順",
+    "sortLikes": "おすすめ順",
+    "writeCta": "話を投稿する",
+    "loading": "コミュニティの投稿を読み込み中です...",
+    "emptyTitle": "投稿がまだありません。",
+    "emptyDesc": "いちばん最初の、温かく有益な話を始めてみましょう！",
+    "member": "会員",
+    "anon": "匿名",
+    "authorLabel": "投稿者:",
+    "formCategory": "トピックを選択",
+    "nickname": "ニックネーム",
+    "nicknamePlaceholder": "投稿者のニックネーム",
+    "formPassword": "編集/削除パスワード",
+    "formPasswordPlaceholder": "4文字以上",
+    "memberNotice": "ログイン中の会員アカウントで投稿されます。パスワードを入力せずに手軽に削除できます。",
+    "formTitle": "タイトル",
+    "formTitlePlaceholder": "投稿のタイトルを入力してください。",
+    "formContent": "本文",
+    "formContentPlaceholder": "役立つ姿勢の習慣、レビュー、機能の提案、チャレンジの認証など、BaroSitユーザーとさまざまな考えを共有しましょう！",
+    "formCancel": "キャンセル",
+    "formSubmitting": "投稿中...",
+    "formSubmit": "話を共有する",
+    "detailBack": "一覧に戻る",
+    "likeCount": "おすすめ {{count}}",
+    "deletePost": "投稿を削除",
+    "commentsHeading": "コメント（{{count}}件）",
+    "commentsLoading": "コメントを読み込み中です...",
+    "commentsEmpty": "まだコメントがありません。最初のひと言を交わしてみましょう！",
+    "commentDeleteTitle": "コメントを削除",
+    "commentPasswordPlaceholder": "削除用パスワード（4文字以上）",
+    "commentPlaceholderMember": "会員アカウントで温かいコメントを残してみましょう...",
+    "commentPlaceholderGuest": "温かく有益なコメントを入力してください...",
+    "commentSubmitting": "投稿中",
+    "commentSubmit": "投稿",
+    "verifyTitle": "パスワード認証",
+    "verifyDescPost": "投稿を安全に削除するため、投稿時に入力したパスワードを入力してください。",
+    "verifyDescComment": "コメントを完全に削除するため、登録時に設定したパスワードを入力してください。",
+    "verifyPlaceholder": "パスワードを入力",
+    "modalCancel": "キャンセル",
+    "verifySubmit": "認証して削除",
+    "mailTitle": "直接メールを送信",
+    "mailDesc": "公開の議論に適さない、または非公開でお伝えする重要な提携・決済関連のご用件は、下のボタンをクリックして公式サポートメールを手軽にコピーしてください。",
+    "mailCopy": "メールアドレスをコピー",
+    "guideTitle": "利用案内とご提案",
+    "guideDesc": "投稿いただいたコミュニティの考えは、他のユーザーにとって良い情報になります。快適なコミュニティづくりのため、健全で正しい会話のマナーをお願いします。",
+    "monitoring": "365日24時間リアルタイムで監視中",
+    "cat": {
+      "all": "すべて",
+      "feature": "💡 機能の提案",
+      "challenge": "🔥 姿勢認証チャレンジ",
+      "free": "📢 自由な議論",
+      "qna": "❓ 質問/回答",
+      "fallback": "自由"
+    },
+    "corp": {
+      "name": "株式会社グビド (GUBED)",
+      "line1": "代表取締役 : イ・ジョンヒョン · 事業者登録番号 : 512-88-00059",
+      "line2": "住所 : ソウル特別市松坡区五琴路15ギル5-12, 3階3425号",
+      "line3": "通信販売業申告番号 : 第2025-ソウル松坡-2552号"
+    },
+    "errFetch": "投稿一覧の読み込み中にエラーが発生しました。",
+    "alertAlreadyLiked": "すでにこの投稿をおすすめしています。",
+    "errFillAll": "すべての空欄をもれなく入力してください。",
+    "errPwMin": "パスワードは4文字以上で入力してください。",
+    "errCreatePost": "投稿の作成中にエラーが発生しました。",
+    "alertFillAll": "すべての空欄を入力してください。",
+    "alertCommentPwMin": "コメントのパスワードは4文字以上で入力してください。",
+    "errCreateComment": "コメントの登録に失敗しました。",
+    "confirmDeletePost": "本当にこの投稿を削除しますか？",
+    "confirmDeleteComment": "本当にこのコメントを削除しますか？",
+    "errNoPermPost": "削除権限がないか、すでに削除された投稿です。",
+    "errNoPermComment": "削除権限がないか、すでに削除されたコメントです。",
+    "errServerDelete": "削除処理中にサーバーエラーが発生しました。",
+    "errPwWrongPost": "パスワードが正しくないか、会員の投稿はパスワードでは削除できません。",
+    "errPwWrongComment": "パスワードが正しくないか、会員のコメントはパスワードでは削除できません。"
+  },
+  "copyEmailToast": "メールアドレス（support@barosit.com）をコピーしました。",
+  "legal": {
+    "viewOther": "{{title}}を見る",
+    "communityLink": "コミュニティへ",
+    "refundAlert": "[BaroSit サブスク料金・返金ポリシー要約]\n\n1. クーリングオフ（決済後7日以内）:\n - サービス利用履歴がない場合、決済手数料の控除なしで100%全額返金。\n\n2. 中途返金および解約（利用履歴がある、または7日経過）:\n - 月額プラン: 当月の残り期間まで利用後、次回決済日に定期決済が自動終了（推奨）。\n - 中途即時返金: 決済金額の10%の違約金および利用日数（1日300ウォン）を控除後、残額を返金。\n - 年額プランの中途即時返金: 年間割引特典が遡及して消滅し、利用日数（定価基準で日割り計算）および10%の違約金を控除後、残額を返金。\n\n3. 返金申請およびお問い合わせ:\n - プロフィールメニュー [サブスク管理 -> 返金/解約申請] をご利用ください。\n - または代表CSメール（support@barosit.com）へお問い合わせください。"
+  },
+  "changelog": {
+    "title": "お知らせ・更新履歴",
+    "subtitle": "BaroSitの最新アップデート情報と機能変更のお知らせを一目で確認できます。",
+    "loading": "更新履歴を読み込み中です...",
+    "empty": "登録された更新履歴はまだありません。",
+    "error": "リリース履歴の読み込み中にエラーが発生しました。（データベースに'releases'テーブルが登録されているかご確認ください。）",
+    "home": "ホームへ",
+    "viewPrivacy": "プライバシーポリシーを見る"
+  }
+}

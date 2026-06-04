@@ -1,0 +1,5 @@
+{
+  "fallbackBody": "{{sec}}초 동안 자세가 흐트러졌어요. 잠시 자세를 바로잡아 보세요.",
+  "webTitle": "자세 알림: {{label}}",
+  "webBody": "{{label}} 자세가 {{secs}}초 지속 — 자세를 바르게 해주세요"
+}

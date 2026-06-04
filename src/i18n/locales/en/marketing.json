@@ -1,0 +1,265 @@
+{
+  "nav": {
+    "features": "Features",
+    "pricing": "Pricing",
+    "download": "Download",
+    "community": "Community"
+  },
+  "login": "Log in",
+  "download": "Download",
+  "footer": {
+    "company": "Gubed Inc. | CEO: Lee Jonghyun",
+    "address": "Address: #3425, 3F, 5-12 Ogeum-ro 15-gil, Songpa-gu, Seoul, Korea",
+    "registration": "Business Reg. No.: 512-88-00059 | Mail-order License: 2025-Seoul Songpa-2552",
+    "changelog": "Changelog",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "community": "Community"
+  },
+  "landing": {
+    "badge": "On-device · Your video never leaves your computer",
+    "hero": {
+      "title1": "Sit right,",
+      "title2": "right now.",
+      "sub": "Your webcam becomes your posture coach.",
+      "desc": "We watch your posture through your webcam. We track seven types — forward head, chin resting, shoulder tilt, slouching, screen distance, shoulder asymmetry, head tilt — and gently let you know when poor posture lingers."
+    },
+    "cta": {
+      "webStart": "Start in your browser",
+      "mac": "Download for Mac",
+      "win": "Download for Windows",
+      "note": "Run instantly in your browser, no install · The desktop app adds background mode and a widget"
+    },
+    "how": {
+      "eyebrow": "How it works",
+      "title1": "Just remember",
+      "title2": "three things",
+      "steps": {
+        "watch": {
+          "t": "We watch via webcam",
+          "d": "A camera at your side checks your shoulder and neck angles 30 times a second. Place your laptop on top of a side monitor for the best view."
+        },
+        "detect": {
+          "t": "We flag poor posture",
+          "d": "Forward head · chin resting · shoulder tilt · slouching · screen distance · shoulder asymmetry · head tilt. We tell apart all seven."
+        },
+        "adjust": {
+          "t": "Take a moment to adjust",
+          "d": "Gentle nudges, not nagging. We cheer your recovery with a score, and stretches earn bonus points."
+        }
+      }
+    },
+    "privacy": {
+      "title": "Your video is only viewed on this computer",
+      "body": "Posture recognition runs 100% on-device. Neither your video nor your posture data is sent to any external server. It works even offline.",
+      "points": {
+        "noSave": "Webcam video is never saved",
+        "localOnly": "Posture data stays on this computer",
+        "neverLeaves": "Camera video never leaves for an external server"
+      },
+      "stats": {
+        "ondeviceLabel": "On-device",
+        "ondeviceValue": "100%",
+        "cloudLabel": "Cloud",
+        "cloudValue": "0%",
+        "offlineLabel": "Offline",
+        "offlineValue": "Works",
+        "analysisLabel": "Posture types",
+        "analysisValue": "7"
+      }
+    },
+    "features": {
+      "title": "Only the features you need",
+      "items": {
+        "detect7": {
+          "t": "Detects 7 posture types",
+          "d": "Tells apart forward head · chin resting · shoulder tilt · slouching · screen distance · shoulder asymmetry · head tilt"
+        },
+        "score": {
+          "t": "0–100 score system",
+          "d": "Good posture speeds recovery; violations incur a penalty after a 2-second grace period"
+        },
+        "widget": {
+          "t": "Widget mode",
+          "d": "A tiny pill shows just your score without getting in the way of your work"
+        },
+        "dark": {
+          "t": "Dark mode",
+          "d": "Signature colors intact, easy on the eyes for night work"
+        }
+      }
+    },
+    "final": {
+      "title": "Shall we start sitting right today?",
+      "sub": "Start for free, upgrade to Pro anytime.",
+      "mac": "Download for Mac",
+      "win": "Download for Windows"
+    }
+  },
+  "legalTitle": {
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service"
+  },
+  "auth": {
+    "errSupabase": "Supabase isn't configured yet. Check VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY in .env.local.",
+    "errNoSession": "Couldn't verify the session.",
+    "errCantComplete": "Couldn't complete sign-in.",
+    "finishing": "Finishing sign-in…",
+    "finishingDesc": "Verifying your account info. Just a moment.",
+    "failed": "Couldn't complete sign-in",
+    "backToLogin": "Back to the login screen"
+  },
+  "loginPage": {
+    "errNotConnected": "Authentication isn't connected yet. Check your Supabase settings in .env.local.",
+    "providerKakao": "Kakao",
+    "errProviderFail": "{{provider}} sign-in failed.",
+    "heroSub1": "We'll watch your posture with your webcam.",
+    "heroSub2": "Video never leaves this computer.",
+    "privacyNote": "Posture data only goes to the cloud when you turn on sync.",
+    "welcomeBack": "Welcome back",
+    "welcomeNew": "Let's get started",
+    "subSignin": "Continue with easy social login",
+    "subSignup": "Sign up in one second",
+    "googleGoing": "Going to Google…",
+    "googleContinue": "Continue with Google",
+    "kakaoGoing": "Going to Kakao…",
+    "kakaoContinue": "Continue with Kakao",
+    "agreePrefix": "By continuing, you agree to the ",
+    "agreeMid": " and ",
+    "agreeSuffix": ".",
+    "newHere": "New here? ",
+    "signup": "Sign up",
+    "haveAccount": "Already have an account? ",
+    "signin": "Log in"
+  },
+  "downloadPage": {
+    "macReq": "macOS 12.0 (Monterey) or later · Apple Silicon · Intel",
+    "macInstallSecond": "Move it to your Applications folder",
+    "winReq": "Windows 10 64-bit or later · x64 · ARM64",
+    "winInstallSecond": "Follow the installer prompts",
+    "loginNeeded": "💡 The installable desktop app (Tauri) is a PRO-only benefit.\n\nBefore downloading, you need to log in so we can check your plan (FREE / PRO).\n\nClick OK to go to the login page.",
+    "freeUpsell": "💡 The installable desktop app (Tauri) is a PRO-only benefit.\n\nYou're currently on the FREE plan (web browser only).\nFree members can always use the web version for free forever, and can upgrade to PRO anytime for nonstop background detection, the mini widget, and system-tray status.\n\nClick OK to go to the pricing/plan page.",
+    "proSuccess": "🎉 PRO membership verified! Starting the download of the {{name}} installer ({{file}}).",
+    "downloadName": "Download {{name}}",
+    "forName": "Barosit for {{name}}",
+    "version": "Version {{ver}} · {{size}}",
+    "downloadFile": "Download {{file}}",
+    "agreePrefix": "By downloading, you agree to the ",
+    "agreeMid": " and ",
+    "agreeSuffix": ".",
+    "privacyPolicy": "Privacy Policy",
+    "sysReq": "System requirements",
+    "camNote": "A built-in or USB webcam is required. Placing it to your side gives the best accuracy.",
+    "installHow": "How to install",
+    "installStep1": "Open the downloaded file",
+    "installStep3": "Allow camera access on first launch",
+    "latestBuild": "{{ver}} — latest build",
+    "feat1": "Detects 7 posture types (forward head · chin resting · shoulder tilt · slouching · screen distance · shoulder asymmetry · head tilt)",
+    "feat2": "0–100 score system + stretch bonus",
+    "feat3": "Widget mode (drag · position saved)",
+    "feat4": "Dark mode · signature sage",
+    "releaseNotes": "Full release notes",
+    "otherOsQ": "Using {{other}}?",
+    "otherOsDesc": "A {{other}} build is ready too",
+    "otherOsBtn": "{{other}} version"
+  },
+  "community": {
+    "boardLabel": "COMMUNITY BOARD",
+    "listTitle": "A space to share lively thoughts and opinions",
+    "writeTitle": "Post a new story",
+    "listSubtitle": "Share useful info, posture tips, feature ideas, and open discussion. A professional space for everyone's healthier posture.",
+    "writeSubtitle": "Your post is shared in real time with all members of the community.",
+    "detailMeta": "By {{author}} · {{date}}",
+    "searchPlaceholder": "Search title, content, author...",
+    "sortRecent": "Newest",
+    "sortLikes": "Most liked",
+    "writeCta": "Post a story",
+    "loading": "Loading community posts...",
+    "emptyTitle": "No posts yet.",
+    "emptyDesc": "Be the first to start a warm and useful story!",
+    "member": "Member",
+    "anon": "Guest",
+    "authorLabel": "By",
+    "formCategory": "Choose a topic",
+    "nickname": "Nickname",
+    "nicknamePlaceholder": "Author nickname",
+    "formPassword": "Edit/delete password",
+    "formPasswordPlaceholder": "4+ characters",
+    "memberNotice": "This post will be published under your member account. You can delete it conveniently without entering a password.",
+    "formTitle": "Title",
+    "formTitlePlaceholder": "Enter the post title.",
+    "formContent": "Content",
+    "formContentPlaceholder": "Share useful posture habits, reviews, feature ideas, challenge check-ins, and more with BaroSit users!",
+    "formCancel": "Cancel",
+    "formSubmitting": "Posting...",
+    "formSubmit": "Share story",
+    "detailBack": "Back to list",
+    "likeCount": "Like {{count}}",
+    "deletePost": "Delete post",
+    "commentsHeading": "Comments ({{count}})",
+    "commentsLoading": "Loading comments...",
+    "commentsEmpty": "No comments yet. Be the first to say hello!",
+    "commentDeleteTitle": "Delete comment",
+    "commentPasswordPlaceholder": "Delete password (4+ chars)",
+    "commentPlaceholderMember": "Leave a warm comment under your member account...",
+    "commentPlaceholderGuest": "Please leave a warm and helpful comment...",
+    "commentSubmitting": "Posting",
+    "commentSubmit": "Post",
+    "verifyTitle": "Password verification",
+    "verifyDescPost": "To safely delete this post, please enter the password you set when writing it.",
+    "verifyDescComment": "To permanently delete this comment, please enter the password you set when posting it.",
+    "verifyPlaceholder": "Enter password",
+    "modalCancel": "Cancel",
+    "verifySubmit": "Verify & delete",
+    "mailTitle": "Email us directly",
+    "mailDesc": "For matters not suited to public discussion, or private partnership/billing inquiries, click the button below to easily copy our official support email.",
+    "mailCopy": "Copy email address",
+    "guideTitle": "Guidelines & suggestions",
+    "guideDesc": "Your community posts become helpful information for other users. For a pleasant community, please keep conversations healthy and courteous.",
+    "monitoring": "Monitored in real time, 24/7/365",
+    "cat": {
+      "all": "All",
+      "feature": "💡 Feature ideas",
+      "challenge": "🔥 Posture challenge",
+      "free": "📢 Open discussion",
+      "qna": "❓ Q&A",
+      "fallback": "General"
+    },
+    "corp": {
+      "name": "Gubed Inc. (GUBED)",
+      "line1": "CEO: Lee Jonghyun · Business Reg. No.: 512-88-00059",
+      "line2": "Address: #3425, 3F, 5-12 Ogeum-ro 15-gil, Songpa-gu, Seoul, Korea",
+      "line3": "Mail-order License: 2025-Seoul Songpa-2552"
+    },
+    "errFetch": "An error occurred while loading the post list.",
+    "alertAlreadyLiked": "You've already liked this post.",
+    "errFillAll": "Please fill in all fields.",
+    "errPwMin": "The password must be at least 4 characters.",
+    "errCreatePost": "An error occurred while creating the post.",
+    "alertFillAll": "Please fill in all fields.",
+    "alertCommentPwMin": "The comment password must be at least 4 characters.",
+    "errCreateComment": "Failed to post the comment.",
+    "confirmDeletePost": "Are you sure you want to delete this post?",
+    "confirmDeleteComment": "Are you sure you want to delete this comment?",
+    "errNoPermPost": "You don't have permission, or the post has already been deleted.",
+    "errNoPermComment": "You don't have permission, or the comment has already been deleted.",
+    "errServerDelete": "A server error occurred during deletion.",
+    "errPwWrongPost": "The password is incorrect, or member posts can't be deleted with a password.",
+    "errPwWrongComment": "The password is incorrect, or member comments can't be deleted with a password."
+  },
+  "copyEmailToast": "Email address (support@barosit.com) copied.",
+  "legal": {
+    "viewOther": "View {{title}}",
+    "communityLink": "Go to community",
+    "refundAlert": "[BaroSit Subscription & Refund Policy Summary]\n\n1. Cooling-off withdrawal (within 7 days of payment):\n - If the service has not been used, a 100% full refund with no payment-fee deduction.\n\n2. Mid-term refund and cancellation (service used, or 7 days elapsed):\n - Monthly plan: Use through the rest of the current month, with auto-renewal ending automatically on the next billing date (recommended).\n - Immediate mid-term refund: Refund of the balance after deducting a 10% penalty and the days used (KRW 300/day).\n - Immediate mid-term refund of an annual plan: The annual discount is retroactively forfeited; the balance is refunded after deducting days used (pro-rated at the regular price) and a 10% penalty.\n\n3. Refund requests and inquiries:\n - Use the Profile menu [Manage subscription -> Request refund/cancellation].\n - Or contact our main CS email (support@barosit.com)."
+  },
+  "changelog": {
+    "title": "Announcements & changelog",
+    "subtitle": "See BaroSit's latest updates and feature changes at a glance.",
+    "loading": "Loading the changelog...",
+    "empty": "No updates have been posted yet.",
+    "error": "An error occurred while loading the release notes. (Please make sure the 'releases' table exists in the database.)",
+    "home": "Go home",
+    "viewPrivacy": "View Privacy Policy"
+  }
+}

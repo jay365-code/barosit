@@ -1,0 +1,289 @@
+{
+  "secs": "{{s}}s",
+  "minsSecs": "{{m}}m {{s}}s",
+  "shortcut": {
+    "mac": "Space or ⌥⌘P",
+    "win": "Space or Ctrl+Alt+P"
+  },
+  "statusBadge": {
+    "paused": "Paused",
+    "away": "Away",
+    "resting": "Resting",
+    "standing": "Standing",
+    "good": "Good",
+    "warn": "Caution",
+    "bad": "Needs fixing"
+  },
+  "headline": {
+    "paused": "Taking a break",
+    "away": "You stepped away",
+    "resting": "Lean back and rest a moment",
+    "standing": "Working while standing",
+    "good": "Sitting well",
+    "amber": "A little straighter",
+    "bad": "Take a moment — straighten your shoulders"
+  },
+  "subline": {
+    "paused": "Resume to start checking your posture again",
+    "away": "We'll resume automatically when you return",
+    "resting": "We'll resume automatically when you sit up straight",
+    "standing": "Standing straightens your spine. Try raising both arms for a light stretch.",
+    "good": "Everything looks good right now",
+    "violation": "{{label}} · ongoing for {{duration}}",
+    "scanning": "Gently checking your posture"
+  },
+  "card": {
+    "activeViolation": "Active issue · {{label}}",
+    "caution": "Caution · {{label}}",
+    "ongoing": "Ongoing for {{duration}}",
+    "holding": "Holding well"
+  },
+  "aiGuide": {
+    "none": "No posture issues detected today yet! You're maintaining excellent posture. Periodic light stretching is all you need.",
+    "forwardHead": "Forward head and sitting too close to the screen are your main issues. Raise your monitor 5–10 cm so your eye line meets the top third of the screen. This lowers tension in the splenius muscles and helps prevent cervical arthritis.",
+    "slouching": "Slouching was detected often. Press your pelvis fully against the chair back and keep your knees at 90°. Maintaining lumbar lordosis can cut disc pressure by more than half.",
+    "chinResting": "Chin resting was observed somewhat. It's a habit that promotes carpal tunnel syndrome and shoulder imbalance. Rest both elbows lightly on the desk to distribute the load ergonomically.",
+    "generic": "{{label}} was detected most often. After 50 minutes of focus, always loosen your shoulders for 1 minute and add light full-body stretching to relieve joint pressure."
+  },
+  "proBanner": {
+    "guestMsg": "Detecting in guest mode. Clearing your browser cache may lose your stats — sign in quickly to back up to the cloud forever.",
+    "guestSub": "🔒 Social login in 3 seconds and protect your posture analytics",
+    "guestCta": "Back up forever",
+    "freeMsg": "You're on the web-only FREE plan. Try the installable desktop app (PRO) with rich native features like nonstop background detection and a mini widget.",
+    "freeSub": "💻 Nonstop background on Windows / macOS & real-time floating widget",
+    "freeCta": "See PRO benefits"
+  },
+  "break": {
+    "deep": "Long break recommended — stand up for 5 min",
+    "standup": "Time to stand up (KOSHA advised)",
+    "micro": "Shrug your shoulders & roll your neck for a refresh",
+    "soon": "A refresh is coming up",
+    "sitting": "Seated for {{mins}} min"
+  },
+  "controls": {
+    "resumeAria": "Resume monitoring",
+    "pauseAria": "Pause monitoring",
+    "resumeTip": "Resume monitoring ({{shortcut}})",
+    "pauseTip": "Pause monitoring ({{shortcut}})",
+    "minibarHideAria": "Hide minibar",
+    "minibarShowAria": "Show minibar",
+    "minibarHideTip": "Hide minibar — turn off the floating pill",
+    "minibarShowTip": "Show minibar — turn on the floating pill",
+    "widgetMode": "Widget mode",
+    "widgetModeTip": "Close the main window and show only the minibar",
+    "settings": "Open settings",
+    "homeAria": "Home (landing)",
+    "homeTip": "Home",
+    "home": "Home",
+    "profileAria": "Open profile",
+    "profile": "Profile",
+    "profileTip": "{{name}} · Profile",
+    "loginAria": "Log in",
+    "loginTip": "Log in to back up your posture data",
+    "login": "Log in"
+  },
+  "angle": {
+    "front": "Front",
+    "left": "Left",
+    "right": "Right"
+  },
+  "stats": {
+    "groundPrefix": "🔬 Scientific basis: ",
+    "tooltipHeader": "💡 About {{label}}",
+    "health": {
+      "label": "Posture health score",
+      "tooltip": "Today's posture health score and grade, calculated from real-time detection data. (S/A/B/C/D grading)",
+      "ground": "Linked to the Nachemson spinal mechanics model and the American Academy of Orthopaedic Surgeons (AAOS) alignment criteria."
+    },
+    "violations": {
+      "label": "Posture violations",
+      "tooltip": "How often posture violations such as forward head, slouching, and chin resting were detected during today's real-time monitoring.",
+      "ground": "Harvard Medical School guideline: cumulative posture-violation exposure causes static muscle fatigue, raising pain-syndrome risk by 3.1×."
+    },
+    "stretch": {
+      "label": "Stretch score",
+      "tooltip": "Today's score for resetting static spinal load with chest openers, shoulder stretches, and more.",
+      "ground": "After 50 minutes of sitting, 1 minute of stretching restores local oxygen supply by 25% and fully prevents lactic-acid buildup — a skeletal-muscle reset therapy."
+    },
+    "usage": {
+      "label": "Total time today",
+      "tooltip": "Total active work time during which the real-time posture analysis engine ran to precisely protect your spinal health.",
+      "ground": "Feedback behavioral-intervention research: workers given alerts and visual feedback recover good posture 4.2× more proactively than those without."
+    },
+    "criteria": {
+      "title": "[Posture health grade criteria]",
+      "sRange": "Grade S (95+)",
+      "sDesc": "Perfect (NASA neutral alignment)",
+      "aRange": "Grade A (90–95)",
+      "aDesc": "Great (ideal muscular support)",
+      "bRange": "Grade B (80–90)",
+      "bDesc": "Good (slight tension shift)",
+      "cRange": "Grade C (70–80)",
+      "cDesc": "Caution (1.5× vertical load)",
+      "dRange": "Grade D (under 70)",
+      "dDesc": "At risk (neck load exceeds 27 kg)"
+    }
+  },
+  "grade": {
+    "S": {
+      "label": "Excellent",
+      "desc": "Perfect spinal alignment balance"
+    },
+    "A": {
+      "label": "Great",
+      "desc": "Maintaining healthy spinal alignment"
+    },
+    "B": {
+      "label": "Good",
+      "desc": "Watch for mild fatigue buildup"
+    },
+    "C": {
+      "label": "Caution",
+      "desc": "Increasing spinal joint pressure"
+    },
+    "D": {
+      "label": "At risk",
+      "desc": "Risk of chronic pain and neck stiffness"
+    }
+  },
+  "sensitivity": {
+    "title": "Sensitivity",
+    "more": "Details",
+    "strict": "Strict",
+    "lenient": "Lenient"
+  },
+  "camera": {
+    "detectedFront": "Front camera detected",
+    "detectedLeft": "Left 45° camera detected",
+    "detectedRight": "Right 45° camera detected",
+    "recalibrateTitle": "Re-measure your baseline posture",
+    "recalibrate": "Recalibrate",
+    "angleChanged": "Camera angle changed ({{angle}})",
+    "register": "Set baseline",
+    "helpTitle": "📐 Multi-angle auto-monitoring",
+    "helpBody1": "When your camera angle changes (laptop/monitor, etc.), body recognition can distort geometrically. We recommend setting a new baseline to prevent misdetection.",
+    "helpBody2": "💡 Register each angle (front/left/right) just once, and afterward it auto-recognizes in real time even if the camera moves — no extra setup needed!"
+  },
+  "report": {
+    "todayPosture": "Today's posture",
+    "timeTrend": "Sitting time & violation trend by hour",
+    "detailReport": "Detailed analysis report",
+    "byType": "Frequency by posture type",
+    "cameraError": "Camera error: {{error}}",
+    "proTitle": "PRO precision posture report",
+    "proTitleTrial": "PRO precision posture report (trial mode)",
+    "aiClinical": "AI posture clinical guideline",
+    "mins": "{{m}} min",
+    "hours": "{{h}} h",
+    "hoursMins": "{{h}} h {{m}} min",
+    "perfTitle": "📈 Your posture-training results in numbers (vs yesterday)",
+    "improveIndex": "Posture improvement index",
+    "up": "Up",
+    "down": "Down",
+    "gradeImproved": "Today's grade: {{grade}} ({{label}}) — improved over yesterday!",
+    "gradeKeep": "Today's grade: {{grade}} ({{label}}). Straighten your back and aim for grade A or higher.",
+    "reactionSpeed": "Self-correction reaction speed",
+    "secOnly": "{{v}}s",
+    "faster": "-{{v}}s faster",
+    "slower": "+{{v}}s slower",
+    "noViolations": "No violations recorded",
+    "reactionFast": "You react very quickly when you notice bad posture!",
+    "reactionSlow": "Correct your posture right when you get an alert.",
+    "goodTime": "Good-posture total time",
+    "goodTimeUp": "Your focus endurance is improving!",
+    "goodTimeKeep": "Try to increase your posture-holding time vs yesterday.",
+    "basisTitle": "Scientific spinal-mechanics basis for the posture health grade",
+    "basisBody": "The grade classification (S/A/B/C/D) in this report is deeply based on <strong>Nachemson's spinal biomechanics research on intradiscal pressure</strong> and the <strong>NASA Neutral Body Posture</strong> guideline, designed with real-time posture-sensing data. With slumped alignment (grades C·D), the vertical disc load rises to <strong>1.5×–2.2× (150%–220%)</strong> versus standing, and forward head applies up to <strong>27 kg</strong> of moment shear load on the cervical spine. The index improvement and faster-reaction metrics in this report fully demonstrate how well harmful static load on the spine is being relieved.",
+    "trendTitle": "Posture health score trend by hour (today)",
+    "unitPoints": "Unit: points",
+    "tooltipScore": "Posture health score:",
+    "gradeLabel": "Grade {{grade}}",
+    "sitTime": "Sitting time:",
+    "badPostureTime": "Bad posture held:",
+    "violationRatio": "Violation ratio:",
+    "violationCount": "Violations:",
+    "times": "{{n}}x",
+    "yearCompare": "12-month daily posture-health distribution comparison",
+    "legendTitle": "Grade legend (linked to Nachemson spinal-mechanics weighting):",
+    "legendSA": "S/A (perfect/excellent balance)",
+    "legendB": "B (good ligament distribution)",
+    "legendC": "C (caution · 1.5× disc load)",
+    "legendD": "D (risk · neck exceeds 27 kg)",
+    "points": "{{n}} pts",
+    "weekdays": "Sun,Mon,Tue,Wed,Thu,Fri,Sat",
+    "todaySuffix": " (today)",
+    "dateLabel": "{{date}} ({{day}}){{suffix}} ▼",
+    "perfectDay": "Model posture day 💚",
+    "violationSecs": "Violation: {{s}}s",
+    "violationMinsSecs": "Violation: {{m}}m {{s}}s ⚠️",
+    "safe": "Safe",
+    "warn": "Warning",
+    "cumulative": "Total {{duration}}",
+    "perfectAlign": "Perfect alignment",
+    "clinicalLabel": "Clinical analysis:",
+    "secsParen": "({{s}}s)",
+    "timeSlot": "Time slot:",
+    "hourRange": "{{from}}:00–{{to}}:00",
+    "violationDuration": "Violation duration:",
+    "proGiftTitle": "🎁 What you get with PRO:",
+    "proGift1": "• Personalized clinical advice based on real-time detection data",
+    "proGift2": "• Daily/weekly/monthly trend reports of neck angle and shoulder balance",
+    "proGift3": "• Unlimited permanent cloud sync backup",
+    "proGift4": "• Desktop app integration (native background + widget included)",
+    "todayViolation": "Today's violations: ",
+    "yesterdayViolation": "Yesterday's violations: ",
+    "byTypeCount": "{{count}} detected ({{percent}}%)",
+    "clinicalWarn": {
+      "forward_head": "Loss of cervical lordosis adds up to 27 kg of load on the neck bones and causes forward-head (tech neck) syndrome.",
+      "chin_resting": "Causes facial asymmetry and uneven pressure on the TMJ disc, which can progress to joint disorders.",
+      "shoulder_tilt": "Applies biased load on the shoulder axis, causing pelvic displacement and scoliosis.",
+      "slouching": "Collapses lumbar lordosis, increasing the risk of a herniated disc by more than 3×.",
+      "monitor_too_close": "Causes severe fatigue of the eye-focusing muscles and unconscious over-tension of the neck muscles.",
+      "shoulder_asymmetry": "Promotes asymmetric trapezius tension, causing chronic shoulder knots and damage to neck muscle mechanics.",
+      "head_roll": "A direct trigger for biased wear of the cervical facet joints and shoulder myofascial pain syndrome."
+    },
+    "biomechDetail": {
+      "forward_head": "When the cervical spine shifts forward, about 4.5 kg of extra load occurs on the neck joints, causing chronic forward-head syndrome.",
+      "slouching": "Slumped spinal alignment surges lumbar vertical disc pressure to over 150% of normal, inducing back pain and disc damage.",
+      "shoulder_tilt": "One-sided shoulder drop causes clavicular asymmetry and severe imbalanced tension in both trapezius muscles (myofascial pain).",
+      "chin_resting": "Applies uneven shear force to the TMJ, which can cause disc displacement and asymmetric facial shift.",
+      "monitor_too_close": "Sitting too close to the monitor causes sustained tension of the eye-focusing muscles, leading to dry eye and accommodative myopia.",
+      "shoulder_asymmetry": "A representative skeletal-asymmetry warning that causes one-sided compressive stress on the lumbosacral joint, linked to pelvic misalignment.",
+      "head_roll": "Causes imbalance of the splenius and small muscles around the cervical spine, raising the risk of cervical arthritis.",
+      "default": "We recommend maintaining neutral spinal alignment by adjusting your chair and monitor heights ergonomically."
+    },
+    "legend": {
+      "sRange": "95+",
+      "sDesc": "Perfect alignment",
+      "aRange": "90–95",
+      "aDesc": "Healthy alignment",
+      "bRange": "80–90",
+      "bDesc": "Mild fatigue",
+      "cRange": "70–80",
+      "cDesc": "Joint pressure",
+      "dRange": "Under 70",
+      "dDesc": "Chronic pain"
+    },
+    "retry": "Retry",
+    "monthDayDist": "Jan–Dec / Day 1–31 grade distribution",
+    "monthLabel": "{{m}}",
+    "cellAnalysis": "📅 {{m}}/{{d}} analysis",
+    "cellGrade": "Grade {{grade}} ({{label}})",
+    "pickDate": "📅 Select analysis date",
+    "prevDay": "◀ Prev day",
+    "nextDay": "Next day ▶",
+    "calYearMonth": "{{m}}/{{y}}",
+    "hourlyTrendTitle": "📈 Hourly violation density trend (00:00–23:00)",
+    "timestampTitle": "🚨 {{label}} timestamps (total {{count}})",
+    "closeX": "Close ✕",
+    "noViolationOnDate": "👏 No {{label}} violations were recorded on the selected date!",
+    "proOnlyTitle": "The precision analysis report is a PRO feature",
+    "proOnlyDesc": "Based on today's accumulated data, **clinical physical-therapy and ergonomic AI advice feedback** and **second-level precision timestamp logs** are advanced features available only to PRO members.",
+    "later": "Maybe later",
+    "checkPro": "View PRO plans",
+    "todaySeating": "Today's sitting: ",
+    "yesterdaySeating": "Yesterday's sitting: ",
+    "nowTime": "Now {{time}}",
+    "currentTimeLabel": "Current time: "
+  }
+}

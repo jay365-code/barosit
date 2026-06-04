@@ -1,5 +1,6 @@
 import { supabase } from "../auth/supabase";
 import { loadEvents, type PostureEvent } from "../pose/eventLog";
+import i18n from "../i18n";
 
 interface SyncableEvent extends PostureEvent {
   uploaded?: boolean;
@@ -399,7 +400,7 @@ export async function pullProfileFromServer(): Promise<void> {
       // 값은 그대로 두되 로컬 표시는 이름 이니셜로 통일.
       const avatar = data.avatar || "🪑";
       const localProfile = {
-        name: data.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || "사용자",
+        name: data.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || i18n.t("common:userFallback"),
         avatar: avatar,
         workEnv: data.work_env || "mixed",
       };

@@ -1,0 +1,12 @@
+{
+  "show": "ウィンドウを開く",
+  "pause": "モニタリングを一時停止",
+  "resume": "モニタリングを再開",
+  "quit": "終了",
+  "tooltipMonitoring": "BaroSit — モニタリング中",
+  "tooltipGood": "BaroSit · 良い姿勢です",
+  "tooltipWarning": "BaroSit · もう少し正しく",
+  "tooltipBad": "BaroSit · ちょっと、肩を伸ばしましょう",
+  "tooltipPaused": "BaroSit · 休憩中",
+  "tooltipResting": "BaroSit · 背もたれに寄りかかって休憩中"
+}

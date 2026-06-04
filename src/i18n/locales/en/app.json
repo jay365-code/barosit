@@ -1,0 +1,28 @@
+{
+  "gracePeriod": {
+    "title": "[Payment failed]",
+    "body": "Subscription renewal failed due to a problem with your default payment card.",
+    "deadline": "Update your card in your profile before {{date}} to keep your PRO benefits.",
+    "cta": "Update payment card"
+  },
+  "offline": "You're offline. On-device AI posture detection keeps running, and queued sync logs are sent to the cloud automatically once you're back online.",
+  "authLoading": {
+    "title": "Authenticating and syncing your profile...",
+    "sub": "Restoring your cloud settings and profile. Please wait a moment."
+  },
+  "update": {
+    "errorTitle": "⚠ Error",
+    "infoTitle": "ℹ Notice",
+    "close": "Close",
+    "downloadingMsg": "🚀 New version {{version}} downloading… {{pct}}%",
+    "installingMsg": "🚀 New version {{version}} installing & restarting…",
+    "available": "🚀 New version {{version}} available",
+    "later": "Later",
+    "updateRestart": "Update & restart",
+    "checkFailed": "Update check failed: {{msg}}",
+    "upToDate": "You're on the latest version",
+    "installFailed": "Update install failed: {{msg}}"
+  },
+  "tagline": "Sit right, right now.",
+  "taglineSub": "A healthier posture habit, every day."
+}

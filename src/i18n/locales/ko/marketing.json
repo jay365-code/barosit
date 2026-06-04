@@ -1,0 +1,265 @@
+{
+  "nav": {
+    "features": "기능",
+    "pricing": "가격",
+    "download": "다운로드",
+    "community": "커뮤니티"
+  },
+  "login": "로그인",
+  "download": "다운로드",
+  "footer": {
+    "company": "주식회사 구비드 | 대표자: 이종현",
+    "address": "주소: 서울특별시 송파구 오금로15길 5-12, 3층 3425호 (방이동, 정환빌딩)",
+    "registration": "사업자등록번호: 512-88-00059 | 통신판매업신고: 제 2025-서울송파-2552호",
+    "changelog": "업데이트 내역",
+    "privacy": "개인정보 처리방침",
+    "terms": "이용약관",
+    "community": "커뮤니티"
+  },
+  "landing": {
+    "badge": "온디바이스 · 영상은 외부로 나가지 않습니다",
+    "hero": {
+      "title1": "지금 바로, 바르게 Sit.",
+      "title2": "바로씻!",
+      "sub": "당신의 웹캠이 자세 코치가 되어드립니다.",
+      "desc": "웹캠으로 자세를 살펴드릴게요. 거북목·턱 괴임·어깨 기울임·등 구부정·모니터 거리·어깨 비대칭·머리 갸우뚱 7종을 살펴보다 잘못된 자세가 일정 시간 이어지면 부드럽게 알려드립니다."
+    },
+    "cta": {
+      "webStart": "웹에서 바로 시작",
+      "mac": "Mac 다운로드",
+      "win": "Windows 다운로드",
+      "note": "설치 없이 브라우저에서 바로 · 데스크탑 앱은 백그라운드·위젯 지원"
+    },
+    "how": {
+      "eyebrow": "작동 원리",
+      "title1": "세 가지만 기억하면",
+      "title2": "됩니다",
+      "steps": {
+        "watch": {
+          "t": "웹캠으로 살펴봐요",
+          "d": "측면에 둔 카메라가 어깨와 목 각도를 1초에 30번 살펴요. 사이드 모니터 위에 노트북을 두면 좋아요."
+        },
+        "detect": {
+          "t": "잘못된 자세를 짚어드려요",
+          "d": "거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱. 7종을 구분해 알려드려요."
+        },
+        "adjust": {
+          "t": "잠깐 자세를 바꿔봐요",
+          "d": "잔소리 대신 부드럽게. 점수와 함께 회복을 응원하고, 스트레칭은 보너스 점수로 돌려드려요."
+        }
+      }
+    },
+    "privacy": {
+      "title": "영상은 이 컴퓨터 안에서만 살펴봅니다",
+      "body": "자세 인식은 100% 온디바이스에서 처리됩니다. 영상도, 자세 데이터도 외부 서버로 나가지 않아요. 인터넷이 끊겨도 작동합니다.",
+      "points": {
+        "noSave": "웹캠 영상은 저장되지 않아요",
+        "localOnly": "자세 데이터는 이 컴퓨터에만 남아요",
+        "neverLeaves": "카메라 영상은 외부 서버로 절대 나가지 않아요"
+      },
+      "stats": {
+        "ondeviceLabel": "On-device",
+        "ondeviceValue": "100%",
+        "cloudLabel": "클라우드",
+        "cloudValue": "0%",
+        "offlineLabel": "오프라인",
+        "offlineValue": "작동",
+        "analysisLabel": "동작 분석",
+        "analysisValue": "7가지"
+      }
+    },
+    "features": {
+      "title": "꼭 필요한 기능만",
+      "items": {
+        "detect7": {
+          "t": "자세 7종 감지",
+          "d": "거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱을 구분해 짚어드려요"
+        },
+        "score": {
+          "t": "0–100 점수 시스템",
+          "d": "좋은 자세 유지 시 회복 가속, 위반은 그레이스 2초 후 패널티"
+        },
+        "widget": {
+          "t": "위젯 모드",
+          "d": "작은 알약 하나로 작업을 방해하지 않고 점수만 살짝 보여드려요"
+        },
+        "dark": {
+          "t": "다크 모드",
+          "d": "시그니처 색 그대로, 야간 작업에도 눈 편하게"
+        }
+      }
+    },
+    "final": {
+      "title": "오늘부터 바르게 앉아볼까요",
+      "sub": "무료로 시작하고, Pro는 언제든 결제하세요.",
+      "mac": "Mac 다운로드",
+      "win": "Windows 다운로드"
+    }
+  },
+  "legalTitle": {
+    "privacy": "개인정보 처리방침",
+    "terms": "이용약관"
+  },
+  "auth": {
+    "errSupabase": "Supabase 가 아직 설정되지 않았어요. .env.local 의 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 확인하세요.",
+    "errNoSession": "세션을 확인할 수 없어요.",
+    "errCantComplete": "로그인을 완료할 수 없어요.",
+    "finishing": "로그인 마무리 중…",
+    "finishingDesc": "계정 정보를 확인하고 있어요. 잠시만요.",
+    "failed": "로그인을 완료하지 못했어요",
+    "backToLogin": "로그인 화면으로 돌아가기"
+  },
+  "loginPage": {
+    "errNotConnected": "아직 인증이 연결되지 않았습니다. .env.local 의 Supabase 설정을 확인하세요.",
+    "providerKakao": "카카오",
+    "errProviderFail": "{{provider}} 로그인에 실패했어요.",
+    "heroSub1": "웹캠으로 자세를 살펴드릴게요.",
+    "heroSub2": "영상은 이 컴퓨터를 떠나지 않습니다.",
+    "privacyNote": "자세 데이터는 사용자가 동기화를 켤 때만 클라우드로 갑니다.",
+    "welcomeBack": "다시 오셨군요",
+    "welcomeNew": "시작해볼까요",
+    "subSignin": "간편한 소셜 로그인으로 계속하세요",
+    "subSignup": "1초 만에 회원 가입이 가능합니다",
+    "googleGoing": "Google 로 이동 중…",
+    "googleContinue": "Google로 계속하기",
+    "kakaoGoing": "카카오로 이동 중…",
+    "kakaoContinue": "카카오로 계속하기",
+    "agreePrefix": "계속하시면 ",
+    "agreeMid": "과 ",
+    "agreeSuffix": "에 동의하게 됩니다.",
+    "newHere": "처음이신가요? ",
+    "signup": "가입하기",
+    "haveAccount": "이미 계정이 있나요? ",
+    "signin": "로그인"
+  },
+  "downloadPage": {
+    "macReq": "macOS 12.0 (Monterey) 이상 · Apple Silicon · Intel",
+    "macInstallSecond": "응용 프로그램 폴더로 옮겨요",
+    "winReq": "Windows 10 64-bit 이상 · x64 · ARM64",
+    "winInstallSecond": "안내에 따라 설치해요",
+    "loginNeeded": "💡 데스크톱 전용 설치형 앱(Tauri)은 PRO 플랜 전용 혜택입니다.\n\n다운로드 전 회원님의 플랜(FREE / PRO)을 확인하기 위해 로그인이 필요합니다.\n\n확인을 누르시면 로그인 페이지로 이동합니다.",
+    "freeUpsell": "💡 데스크톱 전용 설치형 앱(Tauri)은 PRO 플랜 전용 혜택입니다.\n\n현재 회원님은 FREE 플랜(웹 브라우저 전용)을 이용 중이십니다.\nFree 회원은 언제든 웹 버전에서 평생 무료로 감지를 진행하실 수 있으며, PRO 플랜으로 즉시 업그레이드하여 백그라운드 무정지 감지와 미니 위젯, 시스템 트레이 관제 혜택을 누릴 수 있습니다.\n\n확인을 누르시면 가격/플랜 안내 페이지로 이동합니다.",
+    "proSuccess": "🎉 PRO 회원 인증 성공! {{name}} 설치 프로그램({{file}}) 다운로드를 시작합니다.",
+    "downloadName": "{{name}} 다운로드",
+    "forName": "{{name}}용 Barosit",
+    "version": "버전 {{ver}} · {{size}}",
+    "downloadFile": "{{file}} 다운로드",
+    "agreePrefix": "다운로드 시 ",
+    "agreeMid": "과 ",
+    "agreeSuffix": "에 동의하게 됩니다.",
+    "privacyPolicy": "프라이버시 정책",
+    "sysReq": "시스템 요구사항",
+    "camNote": "내장 카메라 또는 USB 웹캠 필요. 측면에서 잡히도록 두면 정확도가 가장 높아요.",
+    "installHow": "설치 방법",
+    "installStep1": "다운로드한 파일을 열어요",
+    "installStep3": "처음 실행 시 카메라 권한을 허용해요",
+    "latestBuild": "{{ver}} — 최신 빌드",
+    "feat1": "자세 7종 감지 (거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱)",
+    "feat2": "0–100 점수 시스템 + 스트레칭 보너스",
+    "feat3": "위젯 모드 (드래그·위치 저장)",
+    "feat4": "다크 모드 · 시그니처 sage",
+    "releaseNotes": "전체 릴리스 노트",
+    "otherOsQ": "{{other}}를 쓰시나요?",
+    "otherOsDesc": "{{other}}용 빌드도 준비되어 있어요",
+    "otherOsBtn": "{{other}} 버전"
+  },
+  "community": {
+    "boardLabel": "COMMUNITY BOARD",
+    "listTitle": "활발한 생각과 의견의 나눔터",
+    "writeTitle": "새로운 이야기 등록",
+    "listSubtitle": "유용한 정보와 자세 꿀팁, 기능 제안 및 자유 토론을 나누어보세요. 우리 모두의 건강한 자세를 위한 전문적인 소통 공간입니다.",
+    "writeSubtitle": "작성하신 소중한 글은 커뮤니티 모든 유저들과 실시간으로 공유됩니다.",
+    "detailMeta": "작성자: {{author}} · 작성일: {{date}}",
+    "searchPlaceholder": "제목, 내용, 작성자 검색...",
+    "sortRecent": "최신순",
+    "sortLikes": "추천순",
+    "writeCta": "이야기 등록하기",
+    "loading": "커뮤니티 글을 불러오는 중입니다...",
+    "emptyTitle": "등록된 게시글이 없습니다.",
+    "emptyDesc": "가장 먼저 따뜻하고 유익한 첫 이야기를 시작해 보세요!",
+    "member": "회원",
+    "anon": "익명",
+    "authorLabel": "작성자:",
+    "formCategory": "주제 선택",
+    "nickname": "닉네임",
+    "nicknamePlaceholder": "작성자 별명",
+    "formPassword": "수정/삭제 비밀번호",
+    "formPasswordPlaceholder": "4자리 이상",
+    "memberNotice": "로그인된 회원 계정으로 글이 등록됩니다. 비밀번호 입력 없이 편리하게 삭제가 가능합니다.",
+    "formTitle": "제목",
+    "formTitlePlaceholder": "게시글의 제목을 입력하세요.",
+    "formContent": "글 내용",
+    "formContentPlaceholder": "유용한 자세 습관, 후기, 기능 제안 및 챌린지 인증 등 BaroSit 사용자들과 다양한 생각을 공유해 보세요!",
+    "formCancel": "취소하기",
+    "formSubmitting": "등록 중...",
+    "formSubmit": "이야기 공유하기",
+    "detailBack": "목록으로 돌아가기",
+    "likeCount": "추천 {{count}}",
+    "deletePost": "글 삭제",
+    "commentsHeading": "댓글 ({{count}}개)",
+    "commentsLoading": "댓글을 로딩 중입니다...",
+    "commentsEmpty": "아직 등록된 댓글이 없습니다. 첫 마디를 나누어보세요!",
+    "commentDeleteTitle": "댓글 삭제",
+    "commentPasswordPlaceholder": "삭제용 비밀번호(4자 이상)",
+    "commentPlaceholderMember": "회원 계정으로 따뜻한 댓글을 남겨보세요...",
+    "commentPlaceholderGuest": "따뜻하고 유익한 댓글을 입력해 주세요...",
+    "commentSubmitting": "등록 중",
+    "commentSubmit": "등록",
+    "verifyTitle": "비밀번호 인증",
+    "verifyDescPost": "게시글을 안전하게 삭제하기 위해 글을 쓸 때 입력했던 비밀번호를 입력해 주세요.",
+    "verifyDescComment": "댓글을 영구히 삭제하기 위해 등록 시 설정했던 비밀번호를 입력해 주세요.",
+    "verifyPlaceholder": "비밀번호 입력",
+    "modalCancel": "취소",
+    "verifySubmit": "인증 및 삭제",
+    "mailTitle": "직접 메일 발송",
+    "mailDesc": "공개 토론에 적합하지 않거나, 비공개로 전달하실 중요 제휴/결제 관련 용건은 아래 버튼을 클릭하여 공식 지원 이메일을 간편하게 복사하세요.",
+    "mailCopy": "메일 주소 복사하기",
+    "guideTitle": "이용 안내 및 건의",
+    "guideDesc": "작성하신 커뮤니티 생각들은 다른 사용자들에게 좋은 정보가 됩니다. 쾌적한 커뮤니티 조성을 위해 건전하고 올바른 대화 예절을 부탁드립니다.",
+    "monitoring": "365일 24시간 실시간 모니터링 중",
+    "cat": {
+      "all": "전체",
+      "feature": "💡 기능 제안",
+      "challenge": "🔥 자세인증 챌린지",
+      "free": "📢 자유 토론",
+      "qna": "❓ 질문/답변",
+      "fallback": "자유"
+    },
+    "corp": {
+      "name": "주식회사 구비드 (GUBED)",
+      "line1": "대표이사 : 이종현 · 사업자등록번호 : 512-88-00059",
+      "line2": "주소 : 서울특별시 송파구 오금로15길 5-12, 3층 3425호",
+      "line3": "통신판매업신고번호 : 제 2025-서울송파-2552호"
+    },
+    "errFetch": "게시글 목록을 불러오는 도중 오류가 발생했습니다.",
+    "alertAlreadyLiked": "이미 이 글을 추천하셨습니다.",
+    "errFillAll": "모든 빈칸을 빠짐없이 채워주세요.",
+    "errPwMin": "비밀번호는 최소 4자리 이상 입력해주세요.",
+    "errCreatePost": "글 작성 도중 오류가 발생했습니다.",
+    "alertFillAll": "모든 빈칸을 채워주세요.",
+    "alertCommentPwMin": "댓글 비밀번호는 최소 4자리 이상 입력해주세요.",
+    "errCreateComment": "댓글 등록에 실패했습니다.",
+    "confirmDeletePost": "정말로 이 게시글을 삭제하시겠습니까?",
+    "confirmDeleteComment": "정말로 이 댓글을 삭제하시겠습니까?",
+    "errNoPermPost": "삭제 권한이 없거나 이미 삭제된 게시글입니다.",
+    "errNoPermComment": "삭제 권한이 없거나 이미 삭제된 댓글입니다.",
+    "errServerDelete": "삭제 작업 중 서버 오류가 발생했습니다.",
+    "errPwWrongPost": "비밀번호가 올바르지 않거나 회원 글은 비밀번호로 삭제할 수 없습니다.",
+    "errPwWrongComment": "비밀번호가 올바르지 않거나 회원 댓글은 비밀번호로 삭제할 수 없습니다."
+  },
+  "copyEmailToast": "이메일 주소(support@barosit.com)가 복사되었습니다.",
+  "legal": {
+    "viewOther": "{{title}} 보기",
+    "communityLink": "커뮤니티 바로가기",
+    "refundAlert": "[BaroSit 구독 요금 및 환불 정책 요약]\n\n1. 청약철회 (결제 후 7일 이내):\n - 서비스 이용 이력이 없는 경우, 결제 수수료 공제 없이 100% 전액 환불\n\n2. 중도 환불 및 해지 (이용 이력이 있거나 7일 경과):\n - 월간 구독: 당월 잔여 기간까지 이용 후 다음 결제일에 정기 결제 자동 종료 (권장)\n - 중도 즉시 환불: 결제 대금의 10% 위약금 및 이용 일수(일일 300원) 공제 후 잔액 환불\n - 연간 구독 중도 즉시 환불: 연간 할인혜택이 소급 소멸되며, 이용 일수(정가 기준 일할 계산) 및 10% 위약금 공제 후 잔액 환불\n\n3. 환불 신청 및 문의:\n - 프로필 메뉴 [구독 관리 -> 환불/구독 해지 신청] 이용\n - 또는 대표 CS 이메일 (support@barosit.com)로 접수"
+  },
+  "changelog": {
+    "title": "공지사항 및 업데이트 내역",
+    "subtitle": "BaroSit의 최신 업데이트 정보와 기능 변경 소식을 한눈에 확인하세요.",
+    "loading": "업데이트 내역을 불러오는 중입니다...",
+    "empty": "등록된 업데이트 내역이 아직 없습니다.",
+    "error": "릴리즈 내역을 불러오는 중 오류가 발생했습니다. (데이터베이스에 'releases' 테이블이 등록되었는지 확인해주세요.)",
+    "home": "홈으로 가기",
+    "viewPrivacy": "개인정보 처리방침 보기"
+  }
+}

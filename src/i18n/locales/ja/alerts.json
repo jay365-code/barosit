@@ -1,0 +1,9 @@
+{
+  "durationSec": "{{sec}}秒経過",
+  "sittingMinutes": "{{min}}分連続着席",
+  "cumulativeBadge": "累積負荷・30分中{{pct}}%",
+  "cumulativeFrequent": "{{label}}が頻発",
+  "staticMinutes": "{{min}}分間ほぼ静止",
+  "variabilityGood": "よく保てています",
+  "variabilityTip": "肩と首をほぐして姿勢を変えてみましょう"
+}

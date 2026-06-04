@@ -1,0 +1,30 @@
+{
+  "tip": {
+    "forward_head": "턱을 살짝 당겨볼까요",
+    "chin_resting": "손을 책상 위로 내려볼까요",
+    "shoulder_tilt": "양쪽 어깨를 수평으로",
+    "slouching": "등을 펴고 가슴을 열어요",
+    "monitor_too_close": "모니터에서 한 뼘 더 멀어져볼까요",
+    "shoulder_asymmetry": "양쪽 어깨에 고르게 힘을 빼볼까요",
+    "head_roll": "머리를 수직으로 세워볼까요"
+  },
+  "cumulative": {
+    "forward_head": "최근 30분 거북목이 잦았어요. 의식적으로 턱을 당겨볼까요",
+    "chin_resting": "최근 30분 턱 괴임이 잦았어요. 손을 책상 위로 두는 습관 권유",
+    "shoulder_tilt": "최근 30분 어깨 기울임이 잦았어요. 모니터 위치 재점검",
+    "slouching": "최근 30분 등 구부정이 잦았어요. 의자 깊이 들어가 앉기",
+    "monitor_too_close": "최근 30분 모니터 과근접이 잦았어요. 한 뼘 더 멀리",
+    "shoulder_asymmetry": "최근 30분 좌우 비대칭이 잦았어요. 책상 좌우 정리",
+    "head_roll": "최근 30분 머리 좌우 기울임이 잦았어요. 보조 모니터 정렬 확인"
+  },
+  "breakLabel": {
+    "micro": "잠깐 환기해볼까요",
+    "standup": "한 번 일어서볼까요",
+    "deep": "긴 휴식이 필요해요"
+  },
+  "break": {
+    "micro": "어깨 으쓱·목 좌우 회전·깊은 호흡 10초",
+    "standup": "1분 걷기 또는 가벼운 스트레칭",
+    "deep": "5분 휴식. 물 한 잔 + 창밖 응시 (20-20-20)"
+  }
+}

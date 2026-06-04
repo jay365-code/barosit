@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import privacyMd from "../../docs/privacy.md?raw";
@@ -6,11 +7,11 @@ import termsMd from "../../docs/terms.md?raw";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import { interpolateLegalTemplate } from "../lib/legal";
+import i18n from "../i18n";
+import { LanguageSelect } from "../components/LanguageSelect";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import {
-  MAIN_SLOGAN_LINE1,
-  MAIN_SLOGAN_LINE2,
   pickSubSlogan,
 } from "../slogans";
 
@@ -84,11 +85,12 @@ export const trackPaymentEvent = (
 
 function TopNav({ active }: { active?: string }) {
   const { user } = useAuth();
+  const { t } = useTranslation("marketing");
   const items = [
-    { label: "기능", hash: "#/landing" },
-    { label: "가격", hash: "#/pricing" },
-    { label: "다운로드", hash: "#/download/mac" },
-    { label: "커뮤니티", hash: "#/community" },
+    { key: "features", label: t("nav.features"), hash: "#/landing" },
+    { key: "pricing", label: t("nav.pricing"), hash: "#/pricing" },
+    { key: "download", label: t("nav.download"), hash: "#/download/mac" },
+    { key: "community", label: t("nav.community"), hash: "#/community" },
   ];
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   let customName = "";
@@ -132,13 +134,13 @@ function TopNav({ active }: { active?: string }) {
       <div style={{ display: "flex", gap: 4, marginLeft: 32 }}>
         {items.map((i) => (
           <a
-            key={i.label}
+            key={i.key}
             href={i.hash}
             style={{
               padding: "8px 12px",
               fontSize: 13,
               fontWeight: 500,
-              color: i.label === active ? "var(--b-fg-1)" : "var(--b-fg-3)",
+              color: i.key === active ? "var(--b-fg-1)" : "var(--b-fg-3)",
               borderRadius: 6,
               textDecoration: "none",
             }}
@@ -148,6 +150,7 @@ function TopNav({ active }: { active?: string }) {
         ))}
       </div>
       <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+        <LanguageSelect />
         {user ? (
           <a
             href="#/profile"
@@ -185,7 +188,7 @@ function TopNav({ active }: { active?: string }) {
             className="b-btn b-btn-quiet"
             style={{ textDecoration: "none" }}
           >
-            로그인
+            {t("login")}
           </a>
         )}
         <a
@@ -194,7 +197,7 @@ function TopNav({ active }: { active?: string }) {
           style={{ textDecoration: "none" }}
         >
           <Icon name="arrow-r" size={13} />
-          다운로드
+          {t("download")}
         </a>
       </div>
     </div>
@@ -202,6 +205,7 @@ function TopNav({ active }: { active?: string }) {
 }
 
 function Footer() {
+  const { t } = useTranslation("marketing");
   return (
     <div
       style={{
@@ -241,28 +245,27 @@ function Footer() {
               gap: 4,
             }}
           >
-            <div>주식회사 구비드 | 대표자: 이종현</div>
-            <div>주소: 서울특별시 송파구 오금로15길 5-12, 3층 3425호 (방이동, 정환빌딩)</div>
-            <div>
-              사업자등록번호: 512-88-00059 | 통신판매업신고: 제 2025-서울송파-2552호
-            </div>
+            <div>{t("footer.company")}</div>
+            <div>{t("footer.address")}</div>
+            <div>{t("footer.registration")}</div>
           </div>
         </div>
 
         {/* 법적 고지 및 링크 */}
-        <div style={{ display: "flex", gap: 24, fontSize: 13, fontWeight: 500 }}>
+        <div style={{ display: "flex", gap: 24, fontSize: 13, fontWeight: 500, alignItems: "center" }}>
           <a href="#/changelog" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
-            업데이트 내역
+            {t("footer.changelog")}
           </a>
           <a href="#/privacy" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
-            개인정보 처리방침
+            {t("footer.privacy")}
           </a>
           <a href="#/terms" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
-            이용약관
+            {t("footer.terms")}
           </a>
           <a href="#/community" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
-            커뮤니티
+            {t("footer.community")}
           </a>
+          <LanguageSelect variant="inline" />
         </div>
       </div>
 
@@ -366,7 +369,7 @@ function Avatar({
         flexShrink: 0,
       }}
     >
-      {initial ?? "김"}
+      {initial ?? "?"}
     </div>
   );
 }
@@ -374,7 +377,10 @@ function Avatar({
 // ───────── Landing ─────────
 
 function Landing() {
-  const subSlogan = pickSubSlogan();
+  const { t } = useTranslation("marketing");
+  // 히어로 서브 슬로건: ko는 시간대 로테이션 말장난 유지, en/ja는 정적 카피.
+  const subSlogan =
+    i18n.language === "ko" ? pickSubSlogan() : t("landing.hero.sub");
   return (
     <div style={{ background: "var(--b-bg)" }}>
       <TopNav />
@@ -396,7 +402,7 @@ function Landing() {
           }}
         >
           <Icon name="shield" size={12} />
-          온디바이스 · 영상은 외부로 나가지 않습니다
+          {t("landing.badge")}
         </div>
         <h1
           style={{
@@ -409,9 +415,9 @@ function Landing() {
             maxWidth: 900,
           }}
         >
-          {MAIN_SLOGAN_LINE1}
+          {t("landing.hero.title1")}
           <br />
-          <span style={{ color: "var(--b-sig-deep)" }}>{MAIN_SLOGAN_LINE2}</span>
+          <span style={{ color: "var(--b-sig-deep)" }}>{t("landing.hero.title2")}</span>
         </h1>
         <p
           style={{
@@ -437,9 +443,7 @@ function Landing() {
             marginBottom: 36,
           }}
         >
-          웹캠으로 자세를 살펴드릴게요. 거북목·턱 괴임·어깨 기울임·등 구부정·모니터
-          거리·어깨 비대칭·머리 갸우뚱 7종을 살펴보다 잘못된 자세가 일정 시간 이어지면
-          부드럽게 알려드립니다.
+          {t("landing.hero.desc")}
         </p>
         <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
           <a
@@ -447,25 +451,25 @@ function Landing() {
             className="b-btn b-btn-primary"
             style={{ height: 48, padding: "0 22px", fontSize: 14, textDecoration: "none" }}
           >
-            <Icon name="arrow-r" size={14} /> 웹에서 바로 시작
+            <Icon name="arrow-r" size={14} /> {t("landing.cta.webStart")}
           </a>
           <a
             href="#/download/mac"
             className="b-btn b-btn-ghost"
             style={{ height: 48, padding: "0 20px", fontSize: 14, textDecoration: "none" }}
           >
-            Mac 다운로드
+            {t("landing.cta.mac")}
           </a>
           <a
             href="#/download/win"
             className="b-btn b-btn-ghost"
             style={{ height: 48, padding: "0 20px", fontSize: 14, textDecoration: "none" }}
           >
-            Windows 다운로드
+            {t("landing.cta.win")}
           </a>
         </div>
         <div className="b-num" style={{ fontSize: 12, color: "var(--b-fg-4)" }}>
-          설치 없이 브라우저에서 바로 · 데스크탑 앱은 백그라운드·위젯 지원
+          {t("landing.cta.note")}
         </div>
       </div>
 
@@ -479,7 +483,7 @@ function Landing() {
             marginBottom: 12,
           }}
         >
-          작동 원리
+          {t("landing.how.eyebrow")}
         </div>
         <h2
           style={{
@@ -490,29 +494,17 @@ function Landing() {
             maxWidth: 700,
           }}
         >
-          세 가지만 기억하면
+          {t("landing.how.title1")}
           <br />
-          됩니다
+          {t("landing.how.title2")}
         </h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
           {(
             [
-              {
-                icon: "camera",
-                t: "웹캠으로 살펴봐요",
-                d: "측면에 둔 카메라가 어깨와 목 각도를 1초에 30번 살펴요. 사이드 모니터 위에 노트북을 두면 좋아요.",
-              },
-              {
-                icon: "target",
-                t: "잘못된 자세를 짚어드려요",
-                d: "거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱. 7종을 구분해 알려드려요.",
-              },
-              {
-                icon: "sparkle",
-                t: "잠깐 자세를 바꿔봐요",
-                d: "잔소리 대신 부드럽게. 점수와 함께 회복을 응원하고, 스트레칭은 보너스 점수로 돌려드려요.",
-              },
-            ] as Array<{ icon: IconName; t: string; d: string }>
+              { icon: "camera", id: "watch" },
+              { icon: "target", id: "detect" },
+              { icon: "sparkle", id: "adjust" },
+            ] as Array<{ icon: IconName; id: string }>
           ).map((s, i) => (
             <div
               key={i}
@@ -557,10 +549,10 @@ function Landing() {
                   letterSpacing: "-0.018em",
                 }}
               >
-                {s.t}
+                {t(`landing.how.steps.${s.id}.t`)}
               </div>
               <div style={{ fontSize: 14, color: "var(--b-fg-3)", lineHeight: 1.6 }}>
-                {s.d}
+                {t(`landing.how.steps.${s.id}.d`)}
               </div>
             </div>
           ))}
@@ -610,7 +602,7 @@ function Landing() {
                 lineHeight: 1.15,
               }}
             >
-              영상은 이 컴퓨터 안에서만 살펴봅니다
+              {t("landing.privacy.title")}
             </h2>
             <p
               style={{
@@ -620,15 +612,10 @@ function Landing() {
                 marginBottom: 24,
               }}
             >
-              자세 인식은 100% 온디바이스에서 처리됩니다. 영상도, 자세 데이터도 외부
-              서버로 나가지 않아요. 인터넷이 끊겨도 작동합니다.
+              {t("landing.privacy.body")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[
-                "웹캠 영상은 저장되지 않아요",
-                "자세 데이터는 이 컴퓨터에만 남아요",
-                "카메라 영상은 외부 서버로 절대 나가지 않아요",
-              ].map((t, i) => (
+              {(["noSave", "localOnly", "neverLeaves"] as const).map((pid, i) => (
                 <div
                   key={i}
                   style={{
@@ -640,17 +627,17 @@ function Landing() {
                   }}
                 >
                   <Icon name="check" size={16} style={{ color: "var(--b-sig)" }} />
-                  {t}
+                  {t(`landing.privacy.points.${pid}`)}
                 </div>
               ))}
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {[
-              { k: "On-device", v: "100%" },
-              { k: "클라우드", v: "0%" },
-              { k: "오프라인", v: "작동" },
-              { k: "동작 분석", v: "7가지" },
+              { k: t("landing.privacy.stats.ondeviceLabel"), v: t("landing.privacy.stats.ondeviceValue") },
+              { k: t("landing.privacy.stats.cloudLabel"), v: t("landing.privacy.stats.cloudValue") },
+              { k: t("landing.privacy.stats.offlineLabel"), v: t("landing.privacy.stats.offlineValue") },
+              { k: t("landing.privacy.stats.analysisLabel"), v: t("landing.privacy.stats.analysisValue") },
             ].map((c, i) => (
               <div
                 key={i}
@@ -691,28 +678,16 @@ function Landing() {
             marginBottom: 36,
           }}
         >
-          꼭 필요한 기능만
+          {t("landing.features.title")}
         </h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {(
             [
-              {
-                i: "target",
-                t: "자세 7종 감지",
-                d: "거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱을 구분해 짚어드려요",
-              },
-              {
-                i: "sparkle",
-                t: "0–100 점수 시스템",
-                d: "좋은 자세 유지 시 회복 가속, 위반은 그레이스 2초 후 패널티",
-              },
-              {
-                i: "minimize",
-                t: "위젯 모드",
-                d: "작은 알약 하나로 작업을 방해하지 않고 점수만 살짝 보여드려요",
-              },
-              { i: "moon", t: "다크 모드", d: "시그니처 색 그대로, 야간 작업에도 눈 편하게" },
-            ] as Array<{ i: IconName; t: string; d: string }>
+              { i: "target", id: "detect7" },
+              { i: "sparkle", id: "score" },
+              { i: "minimize", id: "widget" },
+              { i: "moon", id: "dark" },
+            ] as Array<{ i: IconName; id: string }>
           ).map((f, i) => (
             <div
               key={i}
@@ -741,9 +716,9 @@ function Landing() {
                 <Icon name={f.i} size={18} />
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{f.t}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{t(`landing.features.items.${f.id}.t`)}</div>
                 <div style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.55 }}>
-                  {f.d}
+                  {t(`landing.features.items.${f.id}.d`)}
                 </div>
               </div>
             </div>
@@ -768,10 +743,10 @@ function Landing() {
             lineHeight: 1.15,
           }}
         >
-          오늘부터 바르게 앉아볼까요
+          {t("landing.final.title")}
         </h2>
         <p style={{ fontSize: 16, color: "var(--b-fg-2)", marginBottom: 28 }}>
-          무료로 시작하고, Pro는 언제든 결제하세요.
+          {t("landing.final.sub")}
         </p>
         <div style={{ display: "inline-flex", gap: 10 }}>
           <a
@@ -784,7 +759,7 @@ function Landing() {
               textDecoration: "none",
             }}
           >
-            Mac 다운로드
+            {t("landing.final.mac")}
           </a>
           <a
             href="#/download/win"
@@ -796,7 +771,7 @@ function Landing() {
               textDecoration: "none",
             }}
           >
-            Windows 다운로드
+            {t("landing.final.win")}
           </a>
         </div>
       </div>
@@ -823,6 +798,7 @@ function findAuthParam(key: string): string | null {
 }
 
 function AuthCallback() {
+  const { t } = useTranslation("marketing");
   const { configured } = useAuth();
   const [status, setStatus] = useState<"loading" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -833,9 +809,7 @@ function AuthCallback() {
       if (!configured) {
         if (!cancelled) {
           setStatus("error");
-          setErrorMsg(
-            "Supabase 가 아직 설정되지 않았어요. .env.local 의 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY 확인하세요.",
-          );
+          setErrorMsg(t("auth.errSupabase"));
         }
         return;
       }
@@ -859,7 +833,7 @@ function AuthCallback() {
         }
 
         if (cancelled) return;
-        if (!data.session) throw new Error("세션을 확인할 수 없어요.");
+        if (!data.session) throw new Error(t("auth.errNoSession"));
 
         const redirectTo = localStorage.getItem("barosit:auth_redirect");
         // 저장된 값이 *내부 hash 패턴* 일 때만 적용 — javascript: URI / 외부
@@ -874,7 +848,7 @@ function AuthCallback() {
         if (cancelled) return;
         setStatus("error");
         setErrorMsg(
-          e instanceof Error ? e.message : "로그인을 완료할 수 없어요.",
+          e instanceof Error ? e.message : t("auth.errCantComplete"),
         );
       }
     })();
@@ -918,10 +892,10 @@ function AuthCallback() {
                 marginBottom: 6,
               }}
             >
-              로그인 마무리 중…
+              {t("auth.finishing")}
             </h2>
             <p style={{ fontSize: 13, color: "var(--b-fg-3)", margin: 0 }}>
-              계정 정보를 확인하고 있어요. 잠시만요.
+              {t("auth.finishingDesc")}
             </p>
           </>
         ) : (
@@ -934,7 +908,7 @@ function AuthCallback() {
                 marginBottom: 6,
               }}
             >
-              로그인을 완료하지 못했어요
+              {t("auth.failed")}
             </h2>
             <p
               style={{
@@ -952,7 +926,7 @@ function AuthCallback() {
               className="b-btn b-btn-primary"
               style={{ textDecoration: "none" }}
             >
-              로그인 화면으로 돌아가기
+              {t("auth.backToLogin")}
             </a>
           </>
         )}
@@ -963,19 +937,23 @@ function AuthCallback() {
 
 // ───────── Legal (Privacy / Terms) ─────────
 
-const LEGAL_TITLE: Record<"privacy" | "terms", string> = {
-  privacy: "개인정보 처리방침",
-  terms: "이용약관",
-};
-
 const LEGAL_SOURCE: Record<"privacy" | "terms", string> = {
   privacy: privacyMd,
   terms: termsMd,
 };
 
+// 법적 문서 제목은 footer.privacy / footer.terms 키 재사용
+const LEGAL_TITLE_KEY: Record<"privacy" | "terms", string> = {
+  privacy: "footer.privacy",
+  terms: "footer.terms",
+};
+
 function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
+  const { t, i18n } = useTranslation("marketing");
   const md = useMemo(() => interpolateLegalTemplate(LEGAL_SOURCE[kind]), [kind]);
   const otherKind = kind === "privacy" ? "terms" : "privacy";
+  // 법적 본문은 한국어 정본만 유지 — ko 외 언어에서는 상단 안내 배너 표시
+  const showLangNotice = i18n.language !== "ko";
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
       <TopNav />
@@ -1007,8 +985,29 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
             lineHeight: 1.15,
           }}
         >
-          {LEGAL_TITLE[kind]}
+          {t(LEGAL_TITLE_KEY[kind])}
         </h1>
+
+        {showLangNotice && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              padding: "12px 16px",
+              marginBottom: 20,
+              borderRadius: 10,
+              background: "var(--b-sig-bg)",
+              border: "1px solid var(--b-sig-soft)",
+              fontSize: 13,
+              color: "var(--b-fg-2)",
+              lineHeight: 1.5,
+            }}
+          >
+            <Icon name="info" size={15} style={{ color: "var(--b-sig)", marginTop: 1, flexShrink: 0 }} />
+            <span>{t("legal:langNotice")}</span>
+          </div>
+        )}
 
         <div
           className="b-legal-body"
@@ -1031,18 +1030,7 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
                       style={{ cursor: "pointer", textDecoration: "underline" }}
                       onClick={(e) => {
                         e.preventDefault();
-                        alert(
-                          `[BaroSit 구독 요금 및 환불 정책 요약]\n\n` +
-                          `1. 청약철회 (결제 후 7일 이내):\n` +
-                          ` - 서비스 이용 이력이 없는 경우, 결제 수수료 공제 없이 100% 전액 환불\n\n` +
-                          `2. 중도 환불 및 해지 (이용 이력이 있거나 7일 경과):\n` +
-                          ` - 월간 구독: 당월 잔여 기간까지 이용 후 다음 결제일에 정기 결제 자동 종료 (권장)\n` +
-                          ` - 중도 즉시 환불: 결제 대금의 10% 위약금 및 이용 일수(일일 300원) 공제 후 잔액 환불\n` +
-                          ` - 연간 구독 중도 즉시 환불: 연간 할인혜택이 소급 소멸되며, 이용 일수(정가 기준 일할 계산) 및 10% 위약금 공제 후 잔액 환불\n\n` +
-                          `3. 환불 신청 및 문의:\n` +
-                          ` - 프로필 메뉴 [구독 관리 -> 환불/구독 해지 신청] 이용\n` +
-                          ` - 또는 대표 CS 이메일 (support@barosit.com)로 접수`
-                        );
+                        alert(t("legal.refundAlert"));
                       }}
                     >
                       {children}
@@ -1108,14 +1096,15 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
             className="b-btn b-btn-ghost"
             style={{ textDecoration: "none" }}
           >
-            <Icon name="arrow-r" size={12} /> {LEGAL_TITLE[otherKind]} 보기
+            <Icon name="arrow-r" size={12} />{" "}
+            {t("legal.viewOther", { title: t(LEGAL_TITLE_KEY[otherKind]) })}
           </a>
           <a
             href="#/community"
             className="b-btn b-btn-quiet"
             style={{ textDecoration: "none" }}
           >
-            커뮤니티 바로가기
+            {t("legal.communityLink")}
           </a>
         </div>
       </div>
@@ -1125,6 +1114,7 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
 }
 
 function ChangelogPage() {
+  const { t, i18n } = useTranslation("marketing");
   const [releases, setReleases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1144,7 +1134,7 @@ function ChangelogPage() {
         setReleases(data || []);
       } catch (err: any) {
         console.error("Failed to fetch releases:", err);
-        setError("릴리즈 내역을 불러오는 중 오류가 발생했습니다. (데이터베이스에 'releases' 테이블이 등록되었는지 확인해주세요.)");
+        setError(t("changelog.error"));
       } finally {
         setLoading(false);
       }
@@ -1183,7 +1173,7 @@ function ChangelogPage() {
             lineHeight: 1.15,
           }}
         >
-          공지사항 및 업데이트 내역
+          {t("changelog.title")}
         </h1>
         <p
           style={{
@@ -1193,12 +1183,12 @@ function ChangelogPage() {
             marginBottom: 32,
           }}
         >
-          BaroSit의 최신 업데이트 정보와 기능 변경 소식을 한눈에 확인하세요.
+          {t("changelog.subtitle")}
         </p>
 
         {loading ? (
           <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--b-fg-3)", fontSize: 14 }}>
-            업데이트 내역을 불러오는 중입니다...
+            {t("changelog.loading")}
           </div>
         ) : error ? (
           <div style={{ padding: "40px", border: "1px solid #ff4d4f", borderRadius: 14, background: "rgba(255, 77, 79, 0.05)", color: "#ff4d4f", fontSize: 14, textAlign: "center" }}>
@@ -1206,7 +1196,7 @@ function ChangelogPage() {
           </div>
         ) : releases.length === 0 ? (
           <div style={{ padding: "80px 40px", border: "1px solid var(--b-line)", borderRadius: 14, background: "var(--b-surface)", color: "var(--b-fg-3)", fontSize: 14, textAlign: "center" }}>
-            등록된 업데이트 내역이 아직 없습니다.
+            {t("changelog.empty")}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
@@ -1241,7 +1231,7 @@ function ChangelogPage() {
                     </span>
                   </div>
                   <span style={{ fontSize: 13, color: "var(--b-fg-3)", fontWeight: 500 }}>
-                    {new Date(release.released_at).toLocaleString("ko-KR", {
+                    {new Date(release.released_at).toLocaleString(i18n.language, {
                       year: "numeric",
                       month: "2-digit",
                       day: "2-digit",
@@ -1294,14 +1284,14 @@ function ChangelogPage() {
             className="b-btn b-btn-ghost"
             style={{ textDecoration: "none" }}
           >
-            홈으로 가기
+            {t("changelog.home")}
           </a>
           <a
             href="#/privacy"
             className="b-btn b-btn-quiet"
             style={{ textDecoration: "none" }}
           >
-            개인정보 처리방침 보기
+            {t("changelog.viewPrivacy")}
           </a>
         </div>
       </div>
@@ -1312,8 +1302,26 @@ function ChangelogPage() {
 
 // ───────── Contact ─────────
 
+// 카테고리는 DB의 category 컬럼에 저장되는 정규값(한국어+이모지)이므로 값은 유지하고
+// 표시 라벨만 번역한다. 새 글 작성 시에도 정규값으로 저장돼 기존 데이터와 정합성 유지.
+const COMMUNITY_CATEGORIES = [
+  { value: "💡 기능 제안", key: "community.cat.feature" },
+  { value: "🔥 자세인증 챌린지", key: "community.cat.challenge" },
+  { value: "📢 자유 토론", key: "community.cat.free" },
+  { value: "❓ 질문/답변", key: "community.cat.qna" },
+];
+const COMMUNITY_ALL_CATEGORY = "전체";
+
 function Contact() {
   const { user } = useAuth();
+  const { t } = useTranslation("marketing");
+
+  // 저장된 카테고리 정규값 → 표시 라벨
+  const categoryLabel = (value: string | null | undefined): string => {
+    if (!value) return t("community.cat.fallback");
+    const found = COMMUNITY_CATEGORIES.find((c) => c.value === value);
+    return found ? t(found.key) : value;
+  };
 
   // --- States ---
   const [posts, setPosts] = useState<any[]>([]);
@@ -1326,14 +1334,14 @@ function Contact() {
   // Filter & Sort & Category
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "likes">("recent");
-  const [activeCategory, setActiveCategory] = useState<string>("전체");
+  const [activeCategory, setActiveCategory] = useState<string>(COMMUNITY_ALL_CATEGORY);
 
   // Post Form States
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
   const [writeAuthor, setWriteAuthor] = useState("");
   const [writePassword, setWritePassword] = useState("");
-  const [writeCategory, setWriteCategory] = useState("💡 기능 제안");
+  const [writeCategory, setWriteCategory] = useState(COMMUNITY_CATEGORIES[0].value);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -1404,7 +1412,7 @@ function Contact() {
         );
       }
 
-      if (activeCategory !== "전체") {
+      if (activeCategory !== COMMUNITY_ALL_CATEGORY) {
         query = query.eq("category", activeCategory);
       }
 
@@ -1419,7 +1427,7 @@ function Contact() {
       setPosts(data || []);
     } catch (err: any) {
       console.error("Error fetching posts:", err);
-      setErrorMsg("게시글 목록을 불러오는 도중 오류가 발생했습니다.");
+      setErrorMsg(t("community.errFetch"));
     } finally {
       setLoading(false);
     }
@@ -1482,7 +1490,7 @@ function Contact() {
     e.stopPropagation();
     const likeKey = `barosit_liked_${post.id}`;
     if (localStorage.getItem(likeKey)) {
-      alert("이미 이 글을 추천하셨습니다.");
+      alert(t("community.alertAlreadyLiked"));
       return;
     }
 
@@ -1511,11 +1519,11 @@ function Contact() {
     const needsPassword = !user;
 
     if (!writeTitle.trim() || !writeContent.trim() || !writeAuthor.trim() || (needsPassword && !writePassword.trim())) {
-      setErrorMsg("모든 빈칸을 빠짐없이 채워주세요.");
+      setErrorMsg(t("community.errFillAll"));
       return;
     }
     if (needsPassword && writePassword.length < 4) {
-      setErrorMsg("비밀번호는 최소 4자리 이상 입력해주세요.");
+      setErrorMsg(t("community.errPwMin"));
       return;
     }
 
@@ -1546,7 +1554,7 @@ function Contact() {
       fetchPosts();
     } catch (err: any) {
       console.error("Error creating post:", err);
-      setErrorMsg(err.message || "글 작성 도중 오류가 발생했습니다.");
+      setErrorMsg(err.message || t("community.errCreatePost"));
     } finally {
       setSubmitting(false);
     }
@@ -1558,11 +1566,11 @@ function Contact() {
 
     const needsPassword = !user;
     if (!commentAuthor.trim() || !commentContent.trim() || (needsPassword && !commentPassword.trim())) {
-      alert("모든 빈칸을 채워주세요.");
+      alert(t("community.alertFillAll"));
       return;
     }
     if (needsPassword && commentPassword.length < 4) {
-      alert("댓글 비밀번호는 최소 4자리 이상 입력해주세요.");
+      alert(t("community.alertCommentPwMin"));
       return;
     }
 
@@ -1587,7 +1595,7 @@ function Contact() {
       fetchComments(activePost.id);
     } catch (err) {
       console.error("Error creating comment:", err);
-      alert("댓글 등록에 실패했습니다.");
+      alert(t("community.errCreateComment"));
     } finally {
       setCommentSubmitting(false);
     }
@@ -1596,7 +1604,7 @@ function Contact() {
   // --- Deletion Handler with Direct Member Option ---
   const handlePostDeleteClick = () => {
     if (activePost.user_id && user && activePost.user_id === user.id) {
-      if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+      if (confirm(t("community.confirmDeletePost"))) {
         executeDirectDelete("post_delete", activePost.id);
       }
     } else {
@@ -1606,7 +1614,7 @@ function Contact() {
 
   const handleCommentDeleteClick = (comment: any) => {
     if (comment.user_id && user && comment.user_id === user.id) {
-      if (confirm("정말로 이 댓글을 삭제하시겠습니까?")) {
+      if (confirm(t("community.confirmDeleteComment"))) {
         executeDirectDelete("comment_delete", comment.id);
       }
     } else {
@@ -1628,7 +1636,7 @@ function Contact() {
         if (error) throw error;
 
         if (!data || data.length === 0) {
-          alert("삭제 권한이 없거나 이미 삭제된 게시글입니다.");
+          alert(t("community.errNoPermPost"));
           return;
         }
 
@@ -1646,7 +1654,7 @@ function Contact() {
         if (error) throw error;
 
         if (!data || data.length === 0) {
-          alert("삭제 권한이 없거나 이미 삭제된 댓글입니다.");
+          alert(t("community.errNoPermComment"));
           return;
         }
 
@@ -1656,7 +1664,7 @@ function Contact() {
       }
     } catch (err) {
       console.error("Error executing direct delete:", err);
-      alert("삭제 작업 중 서버 오류가 발생했습니다.");
+      alert(t("community.errServerDelete"));
     }
   };
 
@@ -1697,7 +1705,7 @@ function Contact() {
         if (!data || data.length === 0) {
           setPasswordModal((prev) => ({
             ...prev,
-            error: "비밀번호가 올바르지 않거나 회원 글은 비밀번호로 삭제할 수 없습니다.",
+            error: t("community.errPwWrongPost"),
           }));
           return;
         }
@@ -1721,7 +1729,7 @@ function Contact() {
         if (!data || data.length === 0) {
           setPasswordModal((prev) => ({
             ...prev,
-            error: "비밀번호가 올바르지 않거나 회원 댓글은 비밀번호로 삭제할 수 없습니다.",
+            error: t("community.errPwWrongComment"),
           }));
           return;
         }
@@ -1736,7 +1744,7 @@ function Contact() {
       console.error("Error deleting:", err);
       setPasswordModal((prev) => ({
         ...prev,
-        error: "삭제 작업 중 서버 오류가 발생했습니다.",
+        error: t("community.errServerDelete"),
       }));
     }
   };
@@ -1754,7 +1762,7 @@ function Contact() {
 
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
-      <TopNav active="커뮤니티" />
+      <TopNav active="community" />
       <div
         style={{
           maxWidth: 720,
@@ -1785,8 +1793,8 @@ function Contact() {
             textAlign: "center",
           }}
         >
-          {view === "list" && "활발한 생각과 의견의 나눔터"}
-          {view === "write" && "새로운 이야기 등록"}
+          {view === "list" && t("community.listTitle")}
+          {view === "write" && t("community.writeTitle")}
           {view === "detail" && activePost?.title}
         </h1>
         <p
@@ -1800,9 +1808,13 @@ function Contact() {
             marginInline: "auto",
           }}
         >
-          {view === "list" && "유용한 정보와 자세 꿀팁, 기능 제안 및 자유 토론을 나누어보세요. 우리 모두의 건강한 자세를 위한 전문적인 소통 공간입니다."}
-          {view === "write" && "작성하신 소중한 글은 커뮤니티 모든 유저들과 실시간으로 공유됩니다."}
-          {view === "detail" && `작성자: ${activePost?.author_name} · 작성일: ${formatDate(activePost?.created_at || "")}`}
+          {view === "list" && t("community.listSubtitle")}
+          {view === "write" && t("community.writeSubtitle")}
+          {view === "detail" &&
+            t("community.detailMeta", {
+              author: activePost?.author_name,
+              date: formatDate(activePost?.created_at || ""),
+            })}
         </p>
 
         {/* ───────── VIEW 1: BOARD LIST ───────── */}
@@ -1820,7 +1832,10 @@ function Contact() {
                 scrollbarWidth: "none",
               }}
             >
-              {["전체", "💡 기능 제안", "🔥 자세인증 챌린지", "📢 자유 토론", "❓ 질문/답변"].map((cat) => (
+              {[
+                { value: COMMUNITY_ALL_CATEGORY, key: "community.cat.all" },
+                ...COMMUNITY_CATEGORIES,
+              ].map(({ value: cat, key }) => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
@@ -1839,7 +1854,7 @@ function Contact() {
                     boxShadow: activeCategory === cat ? "0 4px 12px var(--b-sig-soft)" : "none",
                   }}
                 >
-                  {cat}
+                  {t(key)}
                 </button>
               ))}
             </div>
@@ -1870,7 +1885,7 @@ function Contact() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleSearchKeyDown}
-                    placeholder="제목, 내용, 작성자 검색..."
+                    placeholder={t("community.searchPlaceholder")}
                     style={{
                       width: "100%",
                       padding: "9px 16px 9px 36px",
@@ -1934,8 +1949,8 @@ function Contact() {
                     cursor: "pointer",
                   }}
                 >
-                  <option value="recent">최신순</option>
-                  <option value="likes">추천순</option>
+                  <option value="recent">{t("community.sortRecent")}</option>
+                  <option value="likes">{t("community.sortLikes")}</option>
                 </select>
               </div>
 
@@ -1956,7 +1971,7 @@ function Contact() {
                 }}
               >
                 <Icon name="plus" size={14} />
-                <span>이야기 등록하기</span>
+                <span>{t("community.writeCta")}</span>
               </button>
             </div>
 
@@ -1970,7 +1985,7 @@ function Contact() {
                   fontSize: 15,
                 }}
               >
-                커뮤니티 글을 불러오는 중입니다...
+                {t("community.loading")}
               </div>
             ) : posts.length === 0 ? (
               <div
@@ -1987,10 +2002,10 @@ function Contact() {
                   <Icon name="info" size={32} style={{ opacity: 0.6 }} />
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "var(--b-fg-1)" }}>
-                  등록된 게시글이 없습니다.
+                  {t("community.emptyTitle")}
                 </div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>
-                  가장 먼저 따뜻하고 유익한 첫 이야기를 시작해 보세요!
+                  {t("community.emptyDesc")}
                 </div>
               </div>
             ) : (
@@ -2077,7 +2092,7 @@ function Contact() {
                                 color: "var(--b-fg-2)",
                               }}
                             >
-                              {post.category || "자유"}
+                              {categoryLabel(post.category)}
                             </span>
                             <h3
                               style={{
@@ -2136,7 +2151,7 @@ function Contact() {
                           }}
                         >
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            작성자: <strong style={{ color: "var(--b-fg-2)" }}>{post.author_name}</strong>
+                            {t("community.authorLabel")} <strong style={{ color: "var(--b-fg-2)" }}>{post.author_name}</strong>
                             {post.user_id ? (
                               <span style={{
                                 fontSize: 10,
@@ -2145,7 +2160,7 @@ function Contact() {
                                 background: "rgba(16, 185, 129, 0.1)",
                                 color: "#10b981",
                                 fontWeight: 700,
-                              }}>👑 회원</span>
+                              }}>👑 {t("community.member")}</span>
                             ) : (
                               <span style={{
                                 fontSize: 10,
@@ -2154,7 +2169,7 @@ function Contact() {
                                 background: "rgba(107, 114, 128, 0.1)",
                                 color: "#6b7280",
                                 fontWeight: 600,
-                              }}>🌱 익명</span>
+                              }}>🌱 {t("community.anon")}</span>
                             )}
                           </span>
                           <span>{formatDate(post.created_at)}</span>
@@ -2208,10 +2223,10 @@ function Contact() {
             {/* Category Selector Pill */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--b-fg-2)" }}>
-                주제 선택 <span style={{ color: "var(--b-sig)" }}>*</span>
+                {t("community.formCategory")} <span style={{ color: "var(--b-sig)" }}>*</span>
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {["💡 기능 제안", "🔥 자세인증 챌린지", "📢 자유 토론", "❓ 질문/답변"].map((cat) => (
+                {COMMUNITY_CATEGORIES.map(({ value: cat, key }) => (
                   <button
                     key={cat}
                     type="button"
@@ -2229,7 +2244,7 @@ function Contact() {
                       transition: "all 0.2s ease",
                     }}
                   >
-                    {cat}
+                    {t(key)}
                   </button>
                 ))}
               </div>
@@ -2239,14 +2254,14 @@ function Contact() {
             <div style={{ display: "grid", gridTemplateColumns: user ? "1fr" : "1fr 1fr", gap: 16 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: "var(--b-fg-2)" }}>
-                  닉네임 <span style={{ color: "var(--b-sig)" }}>*</span>
+                  {t("community.nickname")} <span style={{ color: "var(--b-sig)" }}>*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={writeAuthor}
                   onChange={(e) => setWriteAuthor(e.target.value)}
-                  placeholder="작성자 별명"
+                  placeholder={t("community.nicknamePlaceholder")}
                   disabled={submitting}
                   onFocus={() => setFocusedField("author")}
                   onBlur={() => setFocusedField(null)}
@@ -2266,14 +2281,14 @@ function Contact() {
               {!user && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <label style={{ fontSize: 13, fontWeight: 600, color: "var(--b-fg-2)" }}>
-                    수정/삭제 비밀번호 <span style={{ color: "var(--b-sig)" }}>*</span>
+                    {t("community.formPassword")} <span style={{ color: "var(--b-sig)" }}>*</span>
                   </label>
                   <input
                     type="password"
                     required
                     value={writePassword}
                     onChange={(e) => setWritePassword(e.target.value)}
-                    placeholder="4자리 이상"
+                    placeholder={t("community.formPasswordPlaceholder")}
                     disabled={submitting}
                     onFocus={() => setFocusedField("password")}
                     onBlur={() => setFocusedField(null)}
@@ -2295,21 +2310,21 @@ function Contact() {
             {user && (
               <div style={{ fontSize: 12, color: "var(--b-sig)", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                 <Icon name="check" size={14} />
-                <span>로그인된 회원 계정으로 글이 등록됩니다. 비밀번호 입력 없이 편리하게 삭제가 가능합니다.</span>
+                <span>{t("community.memberNotice")}</span>
               </div>
             )}
 
             {/* Title */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--b-fg-2)" }}>
-                제목 <span style={{ color: "var(--b-sig)" }}>*</span>
+                {t("community.formTitle")} <span style={{ color: "var(--b-sig)" }}>*</span>
               </label>
               <input
                 type="text"
                 required
                 value={writeTitle}
                 onChange={(e) => setWriteTitle(e.target.value)}
-                placeholder="게시글의 제목을 입력하세요."
+                placeholder={t("community.formTitlePlaceholder")}
                 disabled={submitting}
                 onFocus={() => setFocusedField("title")}
                 onBlur={() => setFocusedField(null)}
@@ -2329,14 +2344,14 @@ function Contact() {
             {/* Content */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: "var(--b-fg-2)" }}>
-                글 내용 <span style={{ color: "var(--b-sig)" }}>*</span>
+                {t("community.formContent")} <span style={{ color: "var(--b-sig)" }}>*</span>
               </label>
               <textarea
                 required
                 rows={8}
                 value={writeContent}
                 onChange={(e) => setWriteContent(e.target.value)}
-                placeholder="유용한 자세 습관, 후기, 기능 제안 및 챌린지 인증 등 BaroSit 사용자들과 다양한 생각을 공유해 보세요!"
+                placeholder={t("community.formContentPlaceholder")}
                 disabled={submitting}
                 onFocus={() => setFocusedField("content")}
                 onBlur={() => setFocusedField(null)}
@@ -2374,7 +2389,7 @@ function Contact() {
                   cursor: submitting ? "not-allowed" : "pointer",
                 }}
               >
-                취소하기
+                {t("community.formCancel")}
               </button>
               <button
                 type="submit"
@@ -2393,7 +2408,7 @@ function Contact() {
                   opacity: submitting ? 0.85 : 1,
                 }}
               >
-                {submitting ? "등록 중..." : "이야기 공유하기"}
+                {submitting ? t("community.formSubmitting") : t("community.formSubmit")}
                 {!submitting && <Icon name="arrow-r" size={14} />}
               </button>
             </div>
@@ -2427,7 +2442,7 @@ function Contact() {
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-2)")}
             >
               <Icon name="chev-l" size={16} />
-              <span>목록으로 돌아가기</span>
+              <span>{t("community.detailBack")}</span>
             </button>
 
             {/* Post Main Body Card */}
@@ -2454,7 +2469,7 @@ function Contact() {
                     color: "var(--b-sig)",
                   }}
                 >
-                  {activePost.category || "자유"}
+                  {categoryLabel(activePost.category)}
                 </span>
               </div>
 
@@ -2510,7 +2525,7 @@ function Contact() {
                     }}
                   >
                     <Icon name="chev-u" size={13} stroke={2.4} />
-                    <span>추천 {activePost.likes}</span>
+                    <span>{t("community.likeCount", { count: activePost.likes })}</span>
                   </button>
                 </div>
 
@@ -2541,7 +2556,7 @@ function Contact() {
                   }}
                 >
                   <Icon name="trash" size={13} />
-                  <span>글 삭제</span>
+                  <span>{t("community.deletePost")}</span>
                 </button>
               </div>
             </div>
@@ -2559,15 +2574,15 @@ function Contact() {
               }}
             >
               <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--b-fg-1)", margin: 0 }}>
-                댓글 ({comments.length}개)
+                {t("community.commentsHeading", { count: comments.length })}
               </h3>
 
               {/* Comments List */}
               {commentsLoading ? (
-                <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>댓글을 로딩 중입니다...</div>
+                <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>{t("community.commentsLoading")}</div>
               ) : comments.length === 0 ? (
                 <div style={{ fontSize: 13, color: "var(--b-fg-3)", padding: "8px 0" }}>
-                  아직 등록된 댓글이 없습니다. 첫 마디를 나누어보세요!
+                  {t("community.commentsEmpty")}
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -2599,7 +2614,7 @@ function Contact() {
                               background: "rgba(16, 185, 129, 0.1)",
                               color: "#10b981",
                               fontWeight: 700,
-                            }}>회원</span>
+                            }}>{t("community.member")}</span>
                           ) : (
                             <span style={{
                               fontSize: 9,
@@ -2608,7 +2623,7 @@ function Contact() {
                               background: "rgba(107, 114, 128, 0.1)",
                               color: "#6b7280",
                               fontWeight: 600,
-                            }}>익명</span>
+                            }}>{t("community.anon")}</span>
                           )}
                         </span>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2627,7 +2642,7 @@ function Contact() {
                             }}
                             onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
                             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
-                            title="댓글 삭제"
+                            title={t("community.commentDeleteTitle")}
                           >
                             <Icon name="x" size={13} />
                           </button>
@@ -2659,7 +2674,7 @@ function Contact() {
                   <input
                     type="text"
                     required
-                    placeholder="닉네임"
+                    placeholder={t("community.nickname")}
                     value={commentAuthor}
                     onChange={(e) => setCommentAuthor(e.target.value)}
                     disabled={commentSubmitting}
@@ -2676,7 +2691,7 @@ function Contact() {
                     <input
                       type="password"
                       required
-                      placeholder="삭제용 비밀번호(4자 이상)"
+                      placeholder={t("community.commentPasswordPlaceholder")}
                       value={commentPassword}
                       onChange={(e) => setCommentPassword(e.target.value)}
                       disabled={commentSubmitting}
@@ -2697,7 +2712,7 @@ function Contact() {
                   <textarea
                     required
                     rows={2}
-                    placeholder={user ? "회원 계정으로 따뜻한 댓글을 남겨보세요..." : "따뜻하고 유익한 댓글을 입력해 주세요..."}
+                    placeholder={user ? t("community.commentPlaceholderMember") : t("community.commentPlaceholderGuest")}
                     value={commentContent}
                     onChange={(e) => setCommentContent(e.target.value)}
                     disabled={commentSubmitting}
@@ -2729,7 +2744,7 @@ function Contact() {
                       justifyContent: "center",
                     }}
                   >
-                    {commentSubmitting ? "등록 중" : "등록"}
+                    {commentSubmitting ? t("community.commentSubmitting") : t("community.commentSubmit")}
                   </button>
                 </div>
               </form>
@@ -2772,7 +2787,7 @@ function Contact() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h4 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--b-fg-1)" }}>
-                  비밀번호 인증
+                  {t("community.verifyTitle")}
                 </h4>
                 <button
                   type="button"
@@ -2785,15 +2800,15 @@ function Contact() {
 
               <p style={{ fontSize: 13, color: "var(--b-fg-3)", margin: 0, lineHeight: 1.5 }}>
                 {passwordModal.type === "post_delete"
-                  ? "게시글을 안전하게 삭제하기 위해 글을 쓸 때 입력했던 비밀번호를 입력해 주세요."
-                  : "댓글을 영구히 삭제하기 위해 등록 시 설정했던 비밀번호를 입력해 주세요."}
+                  ? t("community.verifyDescPost")
+                  : t("community.verifyDescComment")}
               </p>
 
               <input
                 type="password"
                 required
                 autoFocus
-                placeholder="비밀번호 입력"
+                placeholder={t("community.verifyPlaceholder")}
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 style={{
@@ -2828,7 +2843,7 @@ function Contact() {
                     cursor: "pointer",
                   }}
                 >
-                  취소
+                  {t("community.modalCancel")}
                 </button>
                 <button
                   type="submit"
@@ -2844,7 +2859,7 @@ function Contact() {
                     cursor: "pointer",
                   }}
                 >
-                  인증 및 삭제
+                  {t("community.verifySubmit")}
                 </button>
               </div>
             </form>
@@ -2869,10 +2884,10 @@ function Contact() {
             >
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
-                  직접 메일 발송
+                  {t("community.mailTitle")}
                 </div>
                 <p style={{ fontSize: 12, color: "var(--b-fg-3)", margin: 0, marginBottom: 14, lineHeight: 1.5 }}>
-                  공개 토론에 적합하지 않거나, 비공개로 전달하실 중요 제휴/결제 관련 용건은 아래 버튼을 클릭하여 공식 지원 이메일을 간편하게 복사하세요.
+                  {t("community.mailDesc")}
                 </p>
               </div>
               <button
@@ -2881,7 +2896,7 @@ function Contact() {
                 className="b-btn b-btn-ghost"
                 style={{ fontSize: 12, height: 36, padding: "0 14px", display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: 6 }}
               >
-                <span>메일 주소 복사하기</span> <Icon name="sparkle" size={10} />
+                <span>{t("community.mailCopy")}</span> <Icon name="sparkle" size={10} />
               </button>
             </div>
 
@@ -2900,16 +2915,16 @@ function Contact() {
             >
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
-                  이용 안내 및 건의
+                  {t("community.guideTitle")}
                 </div>
                 <p style={{ fontSize: 12, color: "var(--b-fg-3)", margin: 0, marginBottom: 14, lineHeight: 1.5 }}>
-                  작성하신 커뮤니티 생각들은 다른 사용자들에게 좋은 정보가 됩니다. 쾌적한 커뮤니티 조성을 위해 건전하고 올바른 대화 예절을 부탁드립니다.
+                  {t("community.guideDesc")}
                 </p>
               </div>
               <div
                 style={{ fontSize: 12, fontWeight: 600, color: "var(--b-sig-deep)", display: "inline-flex", alignItems: "center", gap: 4 }}
               >
-                <Icon name="info" size={12} /> <span>365일 24시간 실시간 모니터링 중</span>
+                <Icon name="info" size={12} /> <span>{t("community.monitoring")}</span>
               </div>
             </div>
           </div>
@@ -2934,12 +2949,12 @@ function Contact() {
               marginBottom: 12,
             }}
           >
-            주식회사 구비드 (GUBED)
+            {t("community.corp.name")}
           </div>
           <div style={{ fontSize: 12, color: "var(--b-fg-2)", lineHeight: 1.8 }}>
-            <div>대표이사 : 이종현 · 사업자등록번호 : 512-88-00059</div>
-            <div>주소 : 서울특별시 송파구 오금로15길 5-12, 3층 3425호</div>
-            <div>통신판매업신고번호 : 제 2025-서울송파-2552호</div>
+            <div>{t("community.corp.line1")}</div>
+            <div>{t("community.corp.line2")}</div>
+            <div>{t("community.corp.line3")}</div>
           </div>
         </div>
       </div>
@@ -2951,7 +2966,9 @@ function Contact() {
 // ───────── Login / Signup ─────────
 
 function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
-  const subSlogan = pickSubSlogan();
+  const { t } = useTranslation("marketing");
+  const subSlogan =
+    i18n.language === "ko" ? pickSubSlogan() : t("landing.hero.sub");
   const {
     signInWithGoogle,
     signInWithKakao,
@@ -2978,7 +2995,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
   const handleOAuth = async (provider: "google" | "kakao", signInFn: () => Promise<void>) => {
     setOauthError(null);
     if (!configured) {
-      setOauthError("아직 인증이 연결되지 않았습니다. .env.local 의 Supabase 설정을 확인하세요.");
+      setOauthError(t("loginPage.errNotConnected"));
       return;
     }
     setOauthBusy(provider);
@@ -2988,9 +3005,9 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
       setOauthBusy(null);
       const provName = {
         google: "Google",
-        kakao: "카카오",
+        kakao: t("loginPage.providerKakao"),
       }[provider];
-      setOauthError(e instanceof Error ? e.message : `${provName} 로그인에 실패했어요.`);
+      setOauthError(e instanceof Error ? e.message : t("loginPage.errProviderFail", { provider: provName }));
     }
   };
 
@@ -3035,9 +3052,9 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
               marginBottom: 12,
             }}
           >
-            {MAIN_SLOGAN_LINE1}
+            {t("landing.hero.title1")}
             <br />
-            <span style={{ color: "var(--b-sig-deep)" }}>{MAIN_SLOGAN_LINE2}</span>
+            <span style={{ color: "var(--b-sig-deep)" }}>{t("landing.hero.title2")}</span>
           </h1>
           <p
             style={{
@@ -3060,9 +3077,9 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
               maxWidth: 380,
             }}
           >
-            웹캠으로 자세를 살펴드릴게요.
+            {t("loginPage.heroSub1")}
             <br />
-            영상은 이 컴퓨터를 떠나지 않습니다.
+            {t("loginPage.heroSub2")}
           </p>
         </div>
         <div
@@ -3074,8 +3091,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
             gap: 8,
           }}
         >
-          <Icon name="shield" size={12} /> 자세 데이터는 사용자가 동기화를 켤 때만
-          클라우드로 갑니다.
+          <Icon name="shield" size={12} /> {t("loginPage.privacyNote")}
         </div>
       </div>
 
@@ -3097,10 +3113,10 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
               marginBottom: 6,
             }}
           >
-            {mode === "signin" ? "다시 오셨군요" : "시작해볼까요"}
+            {mode === "signin" ? t("loginPage.welcomeBack") : t("loginPage.welcomeNew")}
           </h2>
           <p style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 28 }}>
-            {mode === "signin" ? "간편한 소셜 로그인으로 계속하세요" : "1초 만에 회원 가입이 가능합니다"}
+            {mode === "signin" ? t("loginPage.subSignin") : t("loginPage.subSignup")}
           </p>
 
           {/* 메인 소셜 로그인 세트 */}
@@ -3167,7 +3183,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              {oauthBusy === "google" ? "Google 로 이동 중…" : "Google로 계속하기"}
+              {oauthBusy === "google" ? t("loginPage.googleGoing") : t("loginPage.googleContinue")}
             </button>
 
             {/* Kakao */}
@@ -3220,7 +3236,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
                   d="M12 3C6.48 3 2 6.48 2 10.8c0 2.75 1.85 5.16 4.63 6.55l-1.18 4.34c-.05.19.05.39.23.47.06.03.13.04.2.04.13 0 .26-.05.36-.13l5.07-3.36c.23.02.46.04.69.04 5.52 0 10-3.48 10-7.8S17.52 3 12 3z"
                 />
               </svg>
-              {oauthBusy === "kakao" ? "카카오로 이동 중…" : "카카오로 계속하기"}
+              {oauthBusy === "kakao" ? t("loginPage.kakaoGoing") : t("loginPage.kakaoContinue")}
             </button>
           </div>
 
@@ -3252,21 +3268,21 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
               marginBottom: 0,
             }}
           >
-            계속하시면{" "}
+            {t("loginPage.agreePrefix")}
             <a
               href="#/terms"
               style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
             >
-              이용약관
+              {t("legalTitle.terms")}
             </a>
-            과{" "}
+            {t("loginPage.agreeMid")}
             <a
               href="#/privacy"
               style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}
             >
-              개인정보 처리방침
+              {t("legalTitle.privacy")}
             </a>
-            에 동의하게 됩니다.
+            {t("loginPage.agreeSuffix")}
           </p>
 
           <div
@@ -3279,23 +3295,23 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
           >
             {mode === "signin" ? (
               <>
-                처음이신가요?{" "}
+                {t("loginPage.newHere")}
                 <a
                   href="#/signup"
                   style={{ color: "var(--b-sig)", fontWeight: 600, textDecoration: "none" }}
                 >
-                  가입하기
+                  {t("loginPage.signup")}
                 </a>
               </>
             ) : (
               <>
-                이미 계정이 있나요?{" "}
+                {t("loginPage.haveAccount")}
                 <a
                   href="#/login"
                   onClick={navigateToLogin}
                   style={{ color: "var(--b-sig)", fontWeight: 600, textDecoration: "none" }}
                 >
-                  로그인
+                  {t("loginPage.signin")}
                 </a>
               </>
             )}
@@ -3309,6 +3325,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
 // ───────── Download ─────────
 
 function Download({ os = "mac" }: { os?: "mac" | "win" }) {
+  const { t } = useTranslation("marketing");
   const { user } = useAuth();
   const [userPlan, setUserPlan] = useState<"free" | "pro">("free");
 
@@ -3347,44 +3364,34 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
           name: "macOS",
           file: `BaroSit_${currentVer}_universal.dmg`,
           size: "38 MB",
-          req: "macOS 12.0 (Monterey) 이상 · Apple Silicon · Intel",
+          req: t("downloadPage.macReq"),
           other: "Windows",
           otherUrl: "#/download/win",
-          installSecond: "응용 프로그램 폴더로 옮겨요",
+          installSecond: t("downloadPage.macInstallSecond"),
         }
       : {
           name: "Windows",
           file: `BaroSit_${currentVer}_x64-setup.exe`,
           size: "42 MB",
-          req: "Windows 10 64-bit 이상 · x64 · ARM64",
+          req: t("downloadPage.winReq"),
           other: "macOS",
           otherUrl: "#/download/mac",
-          installSecond: "안내에 따라 설치해요",
+          installSecond: t("downloadPage.winInstallSecond"),
         };
 
   const handleDownloadClick = () => {
     if (!user) {
-      alert(
-        "💡 데스크톱 전용 설치형 앱(Tauri)은 PRO 플랜 전용 혜택입니다.\n\n" +
-        "다운로드 전 회원님의 플랜(FREE / PRO)을 확인하기 위해 로그인이 필요합니다.\n\n" +
-        "확인을 누르시면 로그인 페이지로 이동합니다."
-      );
+      alert(t("downloadPage.loginNeeded"));
       // 현재 다운로드 페이지를 redirect 로 저장 → 로그인 후 복귀.
       navigateToLogin();
       return;
     }
 
     if (userPlan !== "pro") {
-      alert(
-        "💡 데스크톱 전용 설치형 앱(Tauri)은 PRO 플랜 전용 혜택입니다.\n\n" +
-        "현재 회원님은 FREE 플랜(웹 브라우저 전용)을 이용 중이십니다.\n" +
-        "Free 회원은 언제든 웹 버전에서 평생 무료로 감지를 진행하실 수 있으며, " +
-        "PRO 플랜으로 즉시 업그레이드하여 백그라운드 무정지 감지와 미니 위젯, 시스템 트레이 관제 혜택을 누릴 수 있습니다.\n\n" +
-        "확인을 누르시면 가격/플랜 안내 페이지로 이동합니다."
-      );
+      alert(t("downloadPage.freeUpsell"));
       window.location.hash = "#/pricing";
     } else {
-      alert(`🎉 PRO 회원 인증 성공! ${m.name} 설치 프로그램(${m.file}) 다운로드를 시작합니다.`);
+      alert(t("downloadPage.proSuccess", { name: m.name, file: m.file }));
       const downloadUrl = `https://github.com/jay365-code/barosit/releases/download/v${currentVer}/${m.file}`;
       window.location.href = downloadUrl;
     }
@@ -3392,7 +3399,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
 
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
-      <TopNav active="다운로드" />
+      <TopNav active="download" />
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "70px 56px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 30 }}>
           <div
@@ -3419,7 +3426,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
                 marginBottom: 6,
               }}
             >
-              {m.name.toUpperCase()} 다운로드
+              {t("downloadPage.downloadName", { name: m.name.toUpperCase() })}
             </div>
             <h1
               style={{
@@ -3430,10 +3437,10 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
                 lineHeight: 1.15,
               }}
             >
-              {m.name}용 Barosit
+              {t("downloadPage.forName", { name: m.name })}
             </h1>
             <div className="b-num" style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
-              버전 {currentVer} · {m.size}
+              {t("downloadPage.version", { ver: currentVer, size: m.size })}
             </div>
           </div>
         </div>
@@ -3443,18 +3450,18 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
           className="b-btn b-btn-primary"
           style={{ height: 52, padding: "0 28px", fontSize: 15, marginBottom: 14 }}
         >
-          <Icon name="arrow-r" size={15} /> {m.file} 다운로드
+          <Icon name="arrow-r" size={15} /> {t("downloadPage.downloadFile", { file: m.file })}
         </button>
         <div style={{ fontSize: 12, color: "var(--b-fg-4)", marginBottom: 36 }}>
-          다운로드 시{" "}
+          {t("downloadPage.agreePrefix")}
           <a style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}>
-            이용약관
+            {t("legalTitle.terms")}
           </a>
-          과{" "}
+          {t("downloadPage.agreeMid")}
           <a style={{ color: "var(--b-fg-3)", textDecoration: "underline" }}>
-            프라이버시 정책
+            {t("downloadPage.privacyPolicy")}
           </a>
-          에 동의하게 됩니다.
+          {t("downloadPage.agreeSuffix")}
         </div>
 
         <div
@@ -3465,7 +3472,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
             marginBottom: 36,
           }}
         >
-          <MiniCard title="시스템 요구사항" icon="cpu">
+          <MiniCard title={t("downloadPage.sysReq")} icon="cpu">
             <div style={{ fontSize: 13, color: "var(--b-fg-2)", lineHeight: 1.7 }}>
               {m.req}
             </div>
@@ -3477,11 +3484,10 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
                 lineHeight: 1.6,
               }}
             >
-              내장 카메라 또는 USB 웹캠 필요. 측면에서 잡히도록 두면 정확도가 가장
-              높아요.
+              {t("downloadPage.camNote")}
             </div>
           </MiniCard>
-          <MiniCard title="설치 방법" icon="info">
+          <MiniCard title={t("downloadPage.installHow")} icon="info">
             <ol
               style={{
                 fontSize: 13,
@@ -3491,14 +3497,14 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
                 lineHeight: 1.8,
               }}
             >
-              <li>다운로드한 파일을 열어요</li>
+              <li>{t("downloadPage.installStep1")}</li>
               <li>{m.installSecond}</li>
-              <li>처음 실행 시 카메라 권한을 허용해요</li>
+              <li>{t("downloadPage.installStep3")}</li>
             </ol>
           </MiniCard>
         </div>
 
-        <MiniCard title={`${currentVer} — 최신 빌드`} icon="sparkle">
+        <MiniCard title={t("downloadPage.latestBuild", { ver: currentVer })} icon="sparkle">
           <ul
             style={{
               fontSize: 13,
@@ -3508,10 +3514,10 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
               lineHeight: 1.8,
             }}
           >
-            <li>자세 7종 감지 (거북목 · 턱 괴임 · 어깨 기울임 · 등 구부정 · 모니터 거리 · 어깨 비대칭 · 머리 갸우뚱)</li>
-            <li>0–100 점수 시스템 + 스트레칭 보너스</li>
-            <li>위젯 모드 (드래그·위치 저장)</li>
-            <li>다크 모드 · 시그니처 sage</li>
+            <li>{t("downloadPage.feat1")}</li>
+            <li>{t("downloadPage.feat2")}</li>
+            <li>{t("downloadPage.feat3")}</li>
+            <li>{t("downloadPage.feat4")}</li>
           </ul>
           <a
             style={{
@@ -3524,7 +3530,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
               fontWeight: 600,
             }}
           >
-            전체 릴리스 노트 <Icon name="chev-r" size={11} />
+            {t("downloadPage.releaseNotes")} <Icon name="chev-r" size={11} />
           </a>
         </MiniCard>
 
@@ -3542,10 +3548,10 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
         >
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
-              {m.other}를 쓰시나요?
+              {t("downloadPage.otherOsQ", { other: m.other })}
             </div>
             <div style={{ fontSize: 12, color: "var(--b-fg-3)" }}>
-              {m.other}용 빌드도 준비되어 있어요
+              {t("downloadPage.otherOsDesc", { other: m.other })}
             </div>
           </div>
           <a
@@ -3553,7 +3559,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
             className="b-btn b-btn-ghost"
             style={{ textDecoration: "none" }}
           >
-            {m.other} 버전 <Icon name="arrow-r" size={12} />
+            {t("downloadPage.otherOsBtn", { other: m.other })} <Icon name="arrow-r" size={12} />
           </a>
         </div>
       </div>
@@ -3568,7 +3574,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
 function loadTossPayments(): Promise<any> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined") {
-      reject(new Error("브라우저 환경이 아닙니다."));
+      reject(new Error(i18n.t("pricing:errSdkNotBrowser")));
       return;
     }
     if ((window as any).TossPayments) {
@@ -3582,10 +3588,10 @@ function loadTossPayments(): Promise<any> {
       if ((window as any).TossPayments) {
         resolve((window as any).TossPayments);
       } else {
-        reject(new Error("토스페이먼츠 SDK 로딩에 실패했습니다."));
+        reject(new Error(i18n.t("pricing:errSdkLoadFail")));
       }
     };
-    script.onerror = () => reject(new Error("토스페이먼츠 SDK를 불러오는 도중 에러가 발생했습니다."));
+    script.onerror = () => reject(new Error(i18n.t("pricing:errSdkLoadError")));
     document.head.appendChild(script);
   });
 }
@@ -3593,6 +3599,7 @@ function loadTossPayments(): Promise<any> {
 const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
 
 function Pricing() {
+  const { t } = useTranslation("pricing");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentPlan, setCurrentPlan] = useState<"free" | "pro">("free");
@@ -3792,7 +3799,7 @@ function Pricing() {
               }
             });
 
-            alert("결제에 실패하였습니다. 다시 시도해주세요.");
+            alert(t("errPaymentFailed"));
             const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
             window.history.replaceState({}, document.title, cleanUrl);
             setPaymentState("idle");
@@ -3885,14 +3892,14 @@ function Pricing() {
         }
       });
 
-      alert("결제창을 실행하는 중 오류가 발생했습니다: " + err.message);
+      alert(t("errPaymentWindow") + err.message);
       setPaymentState("idle");
     }
   };
 
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh", position: "relative" }}>
-      <TopNav active="가격" />
+      <TopNav active="pricing" />
       
       <style>{`
         /* Checkout Spinner Overlay */
@@ -4041,10 +4048,10 @@ function Pricing() {
           <div className="spinner" />
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: "#fff" }}>
-              결제 승인 진행 중
+              {t("approving")}
             </div>
             <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
-              가상의 모의 결제 요청을 안전하게 승인하고 있습니다...
+              {t("approvingDesc")}
             </div>
           </div>
         </div>
@@ -4072,26 +4079,25 @@ function Pricing() {
             <Icon name="check" size={36} />
           </div>
 
-          <h2 className="success-headline">PRO 구독이 시작되었습니다!</h2>
+          <h2 className="success-headline">{t("web.successHeadline")}</h2>
           <p className="success-desc">
-            가상 결제가 성공적으로 완료되었습니다. 이제 백그라운드 모니터링, 네이티브 알림, 
-            그리고 데스크톱 미니 위젯 등 BaroSit PRO의 모든 막강한 혜택을 제한 없이 누려보세요!
+            {t("web.successDesc")}
           </p>
 
           <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--b-fg-3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "16px" }}>
-            데스크톱 전용 앱 다운로드
+            {t("web.downloadLabel")}
           </div>
 
           <div className="download-boxes">
             <a href="#/download/mac" className="download-box">
               <Icon name="sparkle" size={32} style={{ color: "#7eb09c" }} />
               <div className="download-os-name">macOS Apple Silicon</div>
-              <div className="download-btn-label">PRO 빌드 즉시 다운로드</div>
+              <div className="download-btn-label">{t("web.downloadCta")}</div>
             </a>
             <a href="#/download/win" className="download-box">
               <Icon name="cpu" size={32} style={{ color: "#e08866" }} />
               <div className="download-os-name">Windows x64</div>
-              <div className="download-btn-label">PRO 빌드 즉시 다운로드</div>
+              <div className="download-btn-label">{t("web.downloadCta")}</div>
             </a>
           </div>
 
@@ -4104,7 +4110,7 @@ function Pricing() {
               window.location.hash = "#/landing";
             }}
           >
-            메인 페이지로 가기
+            {t("web.goMain")}
           </button>
         </div>
       ) : (
@@ -4119,11 +4125,10 @@ function Pricing() {
                 lineHeight: 1.1,
               }}
             >
-              간단한 가격, 평생 무료 시작
+              {t("web.title")}
             </h1>
             <p style={{ fontSize: 16, color: "var(--b-fg-2)", marginBottom: 32 }}>
-              자세 감지의 핵심은 평생 무료입니다. Pro는 다기기 동기화와 리포트만
-              추가해요.
+              {t("web.subtitle")}
             </p>
 
             {/* 결제 주기 토글 스위치 */}
@@ -4153,7 +4158,7 @@ function Pricing() {
                     transition: "all 0.2s",
                   }}
                 >
-                  월간 결제
+                  {t("monthly")}
                 </button>
                 <button
                   type="button"
@@ -4173,7 +4178,7 @@ function Pricing() {
                     gap: 6,
                   }}
                 >
-                  연간 결제
+                  {t("yearly")}
                   <span
                     style={{
                       background: "var(--b-sig)",
@@ -4184,7 +4189,7 @@ function Pricing() {
                       borderRadius: 999,
                     }}
                   >
-                    연 38% 할인 🔥
+                    {t("saveBadge")}
                   </span>
                 </button>
               </div>
@@ -4195,32 +4200,18 @@ function Pricing() {
             {[
               {
                 name: "Free",
-                price: "0원",
-                sub: "평생 무료 (웹 브라우저 전용)",
-                feats: [
-                  "7종 핵심 실시간 자세 감지",
-                  "실시간 웹 화면 경고 피드백",
-                  "온디바이스 실루엣 프라이버시 필터",
-                  "바른 자세 스트레칭 복구 가이드",
-                  "제약: 백그라운드 모니터링 불가",
-                  "제약: 미니 데스크톱 위젯 모드 불가",
-                ],
-                cta: "무료로 시작",
+                price: t("web.freePrice"),
+                sub: t("web.freeSub"),
+                feats: t("web.freeFeats", { returnObjects: true }) as string[],
+                cta: t("web.freeCta"),
                 primary: false,
               },
               {
                 name: "Pro",
-                price: billingCycle === "yearly" ? "연 36,000원" : "월 4,900원",
-                sub: billingCycle === "yearly" ? "연간 결제 (월 3,000원 꼴)" : "매월 정기 결제",
-                feats: [
-                  "Free의 모든 기능 기본 포함",
-                  "완벽한 백그라운드 모니터링 (Tauri 앱)",
-                  "OS 네이티브 푸시 알림 & 트레이 이모지 관제",
-                  "화면 구석에 띄우는 미니 데스크톱 위젯 모드",
-                  "90일 자세 정밀 캘린더 분석 및 차트",
-                  "다중 기기 실시간 설정 및 이력 동기화",
-                ],
-                cta: currentPlan === "pro" ? "현재 이용 중인 플랜" : "Pro 시작하기",
+                price: billingCycle === "yearly" ? t("web.proPriceYear") : t("web.proPriceMonth"),
+                sub: billingCycle === "yearly" ? t("web.proSubYear") : t("web.proSubMonth"),
+                feats: t("web.proFeats", { returnObjects: true }) as string[],
+                cta: currentPlan === "pro" ? t("web.proCtaCurrent") : t("web.proCtaStart"),
                 primary: true,
               },
             ].map((p, i) => (
@@ -4250,7 +4241,7 @@ function Pricing() {
                       letterSpacing: "0.04em",
                     }}
                   >
-                    추천
+                    {t("web.recommend")}
                   </span>
                 )}
                 <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
@@ -4379,6 +4370,7 @@ function AccountTab({
   user: import("@supabase/supabase-js").User | null;
   subPlan: "free" | "pro";
 }) {
+  const { t, i18n } = useTranslation("profile");
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   let customName = "";
   if (typeof window !== "undefined") {
@@ -4400,7 +4392,7 @@ function AccountTab({
       | string
       | undefined) ?? "—";
   const createdAt = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString("ko-KR")
+    ? new Date(user.created_at).toLocaleDateString(i18n.language)
     : "—";
   const initial = (fullName || user?.email || "?").trim().charAt(0).toUpperCase();
 
@@ -4414,10 +4406,10 @@ function AccountTab({
           marginBottom: 6,
         }}
       >
-        계정
+        {t("web.accountTitle")}
       </h2>
       <p style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 28 }}>
-        소셜 로그인 정보를 보여드려요. 표시 이름·아바타 편집은 곧 지원할 예정이에요.
+        {t("web.accountSubtitle")}
       </p>
 
       <div
@@ -4440,14 +4432,14 @@ function AccountTab({
                 marginBottom: 4,
               }}
             >
-              {fullName || user?.email || "사용자"}
+              {fullName || user?.email || t("web.userFallback")}
             </div>
             <div style={{ fontSize: 12, color: "var(--b-fg-3)" }}>
               {provider === "google"
-                ? "Google 로 로그인됨"
+                ? t("web.loggedInGoogle")
                 : provider === "—"
-                  ? "로그인 정보 없음"
-                  : `${provider} 로 로그인됨`}
+                  ? t("web.loggedInNone")
+                  : t("web.loggedInProvider", { provider })}
             </div>
           </div>
           <div style={{ marginLeft: "auto" }}>
@@ -4476,10 +4468,10 @@ function AccountTab({
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <ReadOnlyField label="표시 이름" value={fullName} />
-          <ReadOnlyField label="이메일" value={user?.email ?? ""} />
-          <ReadOnlyField label="로그인 방식" value={provider} />
-          <ReadOnlyField label="가입일" value={createdAt} />
+          <ReadOnlyField label={t("web.fieldName")} value={fullName} />
+          <ReadOnlyField label={t("web.fieldEmail")} value={user?.email ?? ""} />
+          <ReadOnlyField label={t("web.fieldProvider")} value={provider} />
+          <ReadOnlyField label={t("web.fieldJoined")} value={createdAt} />
         </div>
       </div>
 
@@ -4494,15 +4486,14 @@ function AccountTab({
           lineHeight: 1.6,
         }}
       >
-        BaroSit 은 비밀번호 가입을 사용하지 않습니다. 소셜 로그인 또는 이메일 매직링크로
-        로그인하세요. 계정 삭제·데이터 내려받기는{" "}
+        {t("web.noPasswordPre")}
         <a
           href="#/contact"
           style={{ color: "var(--b-sig-deep)", textDecoration: "underline" }}
         >
-          문의
+          {t("web.noPasswordLink")}
         </a>
-        로 요청 주시면 처리해드립니다.
+        {t("web.noPasswordPost")}
       </div>
     </>
   );
@@ -4521,6 +4512,7 @@ function PlanTab({
   periodEnd: string | null;
   onUpdateSubscription: () => void;
 }) {
+  const { t, i18n } = useTranslation("profile");
   const { user } = useAuth();
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -4645,11 +4637,11 @@ function PlanTab({
               }
             });
 
-            window.alert("🎉 결제 카드가 성공적으로 변경 및 갱신되었습니다!");
+            window.alert(t("web.cardChangeSuccess"));
             onUpdateSubscription();
           } catch (err) {
             console.error("Failed to update card:", err);
-            window.alert("결제 카드 정보 변경 중 문제가 발생했습니다.");
+            window.alert(t("web.cardChangeError"));
           }
         } else if (paymentStatus === "fail") {
           // 결제수단 변경 실패 알림 적재
@@ -4664,7 +4656,7 @@ function PlanTab({
               failed_at: new Date().toISOString()
             }
           });
-          window.alert("결제 카드 등록이 중단되었거나 실패했습니다. 다시 시도해 주세요.");
+          window.alert(t("web.cardRegAborted"));
         }
       }
     };
@@ -4695,7 +4687,7 @@ function PlanTab({
         reason: err.message,
         user: user.email
       });
-      alert("카드 등록창을 호출하는 중 오류가 발생했습니다: " + err.message);
+      alert(t("web.cardWindowError") + err.message);
     }
   };
 
@@ -4705,14 +4697,14 @@ function PlanTab({
     
     trackPaymentEvent("subscription_cancel_initiated");
 
-    const formattedDate = periodEnd ? new Date(periodEnd).toLocaleDateString("ko-KR", {
+    const formattedDate = periodEnd ? new Date(periodEnd).toLocaleDateString(i18n.language, {
       year: "numeric",
       month: "long",
       day: "numeric",
-    }) : "다음 결제일";
+    }) : t("web.nextBillingFallback");
 
     const confirmCancel = window.confirm(
-      `구독을 취소하시겠습니까?\n\n취소하시더라도 이번 결제 주기 만료일인 ${formattedDate}까지는 PRO 플랜의 모든 프리미엄 기능(데스크톱 앱 백그라운드 무정지 모니터링, AI 코칭 등)을 계속 정상 이용하실 수 있습니다.\n이후 추가 결제 없이 FREE 플랜으로 안전하게 자동 전환됩니다.`
+      t("web.cancelConfirm", { date: formattedDate })
     );
 
     if (confirmCancel) {
@@ -4727,15 +4719,15 @@ function PlanTab({
 
         if (!error) {
           trackPaymentEvent("subscription_cancel_confirmed");
-          window.alert("구독 취소(해지) 신청이 성공적으로 완료되었습니다. 남은 기간 동안은 PRO 혜택이 정상 유지됩니다.");
+          window.alert(t("web.cancelSuccess"));
           onUpdateSubscription();
         } else {
           console.error("Cancel subscription error:", error);
-          window.alert("구독 취소 중 오류가 발생했습니다. 고객센터(support@barosit.com)로 문의주시면 신속히 처리해 드리겠습니다.");
+          window.alert(t("web.cancelError"));
         }
       } catch (err) {
         console.error(err);
-        window.alert("구독 취소 중 오류가 발생했습니다.");
+        window.alert(t("web.cancelErrorShort"));
       }
     }
   };
@@ -4744,9 +4736,7 @@ function PlanTab({
   const handleResumeSubscription = async () => {
     if (!user) return;
 
-    const confirmResume = window.confirm(
-      "구독 취소 신청을 철회하고 PRO 플랜 구독을 계속 유지하시겠습니까?\n이전과 동일하게 만료일에 자동으로 결제 및 기간 연장이 수행됩니다."
-    );
+    const confirmResume = window.confirm(t("web.resumeConfirm"));
 
     if (confirmResume) {
       try {
@@ -4760,11 +4750,11 @@ function PlanTab({
 
         if (!error) {
           trackPaymentEvent("subscription_resume_confirmed");
-          window.alert("구독 취소 신청이 성공적으로 철회되었습니다. PRO 플랜 구독을 계속 유지합니다!");
+          window.alert(t("web.resumeSuccess"));
           onUpdateSubscription();
         } else {
           console.error("Resume subscription error:", error);
-          window.alert("구독 재개 중 오류가 발생했습니다.");
+          window.alert(t("web.resumeError"));
         }
       } catch (err) {
         console.error(err);
@@ -4774,9 +4764,7 @@ function PlanTab({
 
   const handleImmediateRefund = async () => {
     if (!user || !latestPayment) return;
-    const confirmRefund = window.confirm(
-      "정말로 결제를 즉시 취소하고 전액 환불을 신청하시겠습니까?\n\n환불이 완료되면 즉시 PRO 등급에서 FREE 등급으로 강등되며 백그라운드 모니터링 및 모든 프리미엄 혜택 이용이 불가능해집니다."
-    );
+    const confirmRefund = window.confirm(t("web.refundConfirm"));
     if (!confirmRefund) return;
 
     try {
@@ -4820,36 +4808,34 @@ function PlanTab({
         });
 
       localStorage.setItem("barosit:subscription_plan", "free");
-      window.alert("즉시 환불 및 결제 취소가 완료되었습니다. 이용해 주셔서 감사합니다.");
+      window.alert(t("web.refundSuccess"));
       onUpdateSubscription();
     } catch (err) {
       console.error("Refund error:", err);
-      window.alert("환불 처리 중 문제가 발생했습니다. 고객센터(support@barosit.com)로 문의주시면 신속히 확인하여 도와드리겠습니다.");
+      window.alert(t("web.refundError"));
     }
   };
 
   // 모의 테스트 결제 수단 / 주기 변경 알림
   const handleMockNotice = () => {
-    window.alert(
-      "현재 결제 연동은 통합 모의 테스트 상태입니다.\n결제 주기 전환은 고객센터(support@barosit.com)를 통해 수동으로 즉시 안전하게 처리해 드리고 있습니다. 메일 주시면 신속히 도와드리겠습니다!"
-    );
+    window.alert(t("web.mockNotice"));
   };
 
   if (subPlan === "pro") {
     const isCanceled = subStatus === "canceled";
-    const formattedDate = periodEnd ? new Date(periodEnd).toLocaleDateString("ko-KR", {
+    const formattedDate = periodEnd ? new Date(periodEnd).toLocaleDateString(i18n.language, {
       year: "numeric",
       month: "long",
       day: "numeric",
-    }) : "2026년 6월 11일";
+    }) : t("web.dateFallback");
 
     const isYearly = planId === "pro_yearly";
-    const planPriceText = isYearly ? "연 36,000원" : "월 4,900원";
+    const planPriceText = isYearly ? t("web.priceYear") : t("web.priceMonth");
     const planPeriodText = isCanceled
-      ? `구독 해지 예정일 · ${formattedDate} (만료 후 FREE 등급 자동 전환)`
+      ? t("web.periodCanceled", { date: formattedDate })
       : isYearly
-        ? `다음 결제일 · ${formattedDate} (연간 결제 - 월 3,000원 꼴)`
-        : `다음 결제일 · ${formattedDate} (월간 결제)`;
+        ? t("web.periodYear", { date: formattedDate })
+        : t("web.periodMonth", { date: formattedDate });
 
     return (
       <>
@@ -4861,10 +4847,10 @@ function PlanTab({
             marginBottom: 6,
           }}
         >
-          플랜과 결제
+          {t("web.planTitle")}
         </h2>
         <p style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 28 }}>
-          구독 상태와 결제 수단을 관리합니다.
+          {t("web.planSubtitle")}
         </p>
 
         <div
@@ -4893,7 +4879,7 @@ function PlanTab({
                     fontWeight: 600,
                   }}
                 >
-                  구독 해지 대기 중 (PRO 혜택 활성)
+                  {t("web.chipCanceled")}
                 </span>
               ) : (
                 <span
@@ -4905,7 +4891,7 @@ function PlanTab({
                     marginBottom: 12,
                   }}
                 >
-                  현재 플랜 · PRO
+                  {t("web.chipPro")}
                 </span>
               )}
               <div
@@ -4924,7 +4910,7 @@ function PlanTab({
               </div>
             </div>
             {!isCanceled && (
-              <button onClick={handleUpdatePaymentCard} className="b-btn b-btn-ghost">결제수단 변경</button>
+              <button onClick={handleUpdatePaymentCard} className="b-btn b-btn-ghost">{t("web.changeCard")}</button>
             )}
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 18, alignItems: "center" }}>
@@ -4939,12 +4925,12 @@ function PlanTab({
                   fontWeight: 700,
                 }}
               >
-                구독 계속 유지하기 (해지 철회)
+                {t("web.resume")}
               </button>
             ) : (
               <>
                 <button onClick={handleMockNotice} className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
-                  {isYearly ? "월간으로 변경 (월 4,900원)" : "연간으로 변경 (연 36,000원)"}
+                  {isYearly ? t("web.changeToMonthly") : t("web.changeToYearly")}
                 </button>
                 {isRefundable && latestPayment && (
                   <button
@@ -4959,11 +4945,11 @@ function PlanTab({
                       borderRadius: 8
                     }}
                   >
-                    즉시 환불 및 결제 취소
+                    {t("web.immediateRefund")}
                   </button>
                 )}
                 <button onClick={handleCancelSubscription} className="b-btn b-btn-quiet" style={{ color: "var(--b-warn)" }}>
-                  플랜 취소
+                  {t("web.cancelPlan")}
                 </button>
               </>
             )}
@@ -4979,12 +4965,12 @@ function PlanTab({
             marginBottom: 14,
           }}
         >
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>이번 달 사용</div>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>{t("web.usageThisMonth")}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
             {[
-              { k: "모니터링 시간", v: "128h", s: "+12% 지난 달" },
-              { k: "활성 일수", v: "24일", s: "한 달 중" },
-              { k: "평균 점수", v: "78", s: "+6 지난 달" },
+              { k: t("web.usageMonitorTime"), v: "128h", s: t("web.usageMonitorDelta") },
+              { k: t("web.usageActiveDays"), v: t("web.usageDaysValue"), s: t("web.usageActiveSub") },
+              { k: t("web.usageAvgScore"), v: "78", s: t("web.usageScoreDelta") },
             ].map((u, i) => (
               <div key={i}>
                 <div
@@ -5029,19 +5015,19 @@ function PlanTab({
               marginBottom: 10,
             }}
           >
-            결제 내역
+            {t("web.billingHistory")}
           </div>
           {loadingHistory ? (
             <div style={{ fontSize: 13, color: "var(--b-fg-3)", padding: "16px 0", textAlign: "center" }}>
-              결제 내역을 불러오는 중…
+              {t("web.billingLoading")}
             </div>
           ) : billingHistory.length === 0 ? (
             <div style={{ fontSize: 13, color: "var(--b-fg-3)", padding: "24px 0", textAlign: "center", borderBottom: "1px solid var(--b-line)" }}>
-              결제 내역이 존재하지 않습니다.
+              {t("web.billingEmpty")}
             </div>
           ) : (
             billingHistory.map((r, i) => {
-              const dateStr = new Date(r.created_at).toLocaleDateString("ko-KR", {
+              const dateStr = new Date(r.created_at).toLocaleDateString(i18n.language, {
                 year: "numeric",
                 month: "2-digit",
                 day: "2-digit"
@@ -5072,9 +5058,9 @@ function PlanTab({
                       color: isRefunded ? "rgb(224, 102, 102)" : "var(--b-fg-1)"
                     }}
                   >
-                    {isRefunded 
-                      ? `-${r.refunded_amount.toLocaleString()}원 (환불)`
-                      : `${r.amount.toLocaleString()}원`
+                    {isRefunded
+                      ? t("web.refundedAmount", { amount: r.refunded_amount.toLocaleString() })
+                      : t("web.paidAmount", { amount: r.amount.toLocaleString() })
                     }
                   </span>
                   <span
@@ -5086,7 +5072,7 @@ function PlanTab({
                       fontWeight: 600
                     }}
                   >
-                    {isRefunded ? "환불 완료" : "결제 완료"}
+                    {isRefunded ? t("web.statusRefunded") : t("web.statusPaid")}
                   </span>
                 </div>
               );
@@ -5106,15 +5092,15 @@ function PlanTab({
             lineHeight: 1.6,
           }}
         >
-          ℹ️ <strong>환불 및 자동 결제 안내</strong><br />
-          결제일로부터 7일 이내이면서 서비스 사용 이력(데스크톱 앱 모니터링 가동)이 전혀 없는 경우 즉시 셀프 100% 전액 환불 신청이 가능합니다. 7일이 경과했거나 단 1회라도 모니터링을 사용한 경우에는 자동 결제 갱신 해지만 지원됩니다. 결제 오류 등으로 인한 예외 환불은 결제 정보와 함께{" "}
+          ℹ️ <strong>{t("web.refundNoticeTitle")}</strong><br />
+          {t("web.refundNoticePre")}
           <a
             href="mailto:support@barosit.com"
             style={{ color: "var(--b-sig-deep)", fontWeight: 600, textDecoration: "underline" }}
           >
             support@barosit.com
           </a>
-          으로 접수해 주시면 신속히 확인하여 전원 수동 처리해 드리겠습니다.
+          {t("web.refundNoticePost")}
         </div>
       </>
     );
@@ -5130,10 +5116,10 @@ function PlanTab({
           marginBottom: 6,
         }}
       >
-        플랜과 결제
+        {t("web.planTitle")}
       </h2>
       <p style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 28 }}>
-        구독 상태와 결제 수단을 관리합니다.
+        {t("web.planSubtitle")}
       </p>
 
       <div
@@ -5156,7 +5142,7 @@ function PlanTab({
                 marginBottom: 12,
               }}
             >
-              현재 플랜 · FREE
+              {t("web.chipFree")}
             </span>
             <div
               style={{
@@ -5167,10 +5153,10 @@ function PlanTab({
                 marginTop: 12,
               }}
             >
-              기본 무료 플랜
+              {t("web.freePlanName")}
             </div>
             <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.5, maxWidth: 500, margin: "8px 0 0 0" }}>
-              현재 웹 브라우저 전용 기본 무료 체험 요금제를 이용 중입니다. 데스크톱 설치형 앱을 다운로드하고 백그라운드 무자각 관제 및 실시간 AI 코칭 피드백 혜택을 누리시려면 PRO 요금제로 업그레이드하세요!
+              {t("web.freePlanDesc")}
             </p>
           </div>
         </div>
@@ -5187,7 +5173,7 @@ function PlanTab({
               padding: "10px 20px",
             }}
           >
-            PRO 플랜으로 업그레이드하기
+            {t("web.upgradeBtn")}
           </button>
         </div>
       </div>
@@ -5202,12 +5188,12 @@ function PlanTab({
           pointerEvents: "none",
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>이번 달 사용 (PRO 기능)</div>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>{t("web.usageThisMonthPro")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {[
-            { k: "모니터링 시간", v: "0h", s: "PRO 전용" },
-            { k: "활성 일수", v: "0일", s: "PRO 전용" },
-            { k: "평균 점수", v: "—", s: "PRO 전용" },
+            { k: t("web.usageMonitorTime"), v: "0h", s: t("web.usageProOnly") },
+            { k: t("web.usageActiveDays"), v: t("web.usageDaysZero"), s: t("web.usageProOnly") },
+            { k: t("web.usageAvgScore"), v: "—", s: t("web.usageProOnly") },
           ].map((u, i) => (
             <div key={i}>
               <div
@@ -5246,6 +5232,7 @@ function PlanTab({
 }
 
 function ProfileLoading() {
+  const { t } = useTranslation("profile");
   return (
     <div
       style={{
@@ -5258,12 +5245,13 @@ function ProfileLoading() {
         color: "var(--b-fg-3)",
       }}
     >
-      불러오는 중…
+      {t("web.loadingText")}
     </div>
   );
 }
 
 function Profile() {
+  const { t } = useTranslation("profile");
   const { user, loading, configured, signOut } = useAuth();
   const [tab, setTab] = useState<"account" | "plan">("account");
   const [subPlan, setSubPlan] = useState<"free" | "pro">("free");
@@ -5354,19 +5342,18 @@ function Profile() {
               marginBottom: 8,
             }}
           >
-            인증이 아직 연결되지 않았어요
+            {t("web.notConfiguredTitle")}
           </h2>
-          <p style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 20 }}>
-            <code>.env.local</code> 의 <code>VITE_SUPABASE_URL</code> /{" "}
-            <code>VITE_SUPABASE_ANON_KEY</code> 를 채우고 다시 시작하세요. 자세한 셋업은{" "}
-            <code>docs/auth-google-setup.md</code> 참고.
-          </p>
+          <p
+            style={{ fontSize: 13, color: "var(--b-fg-3)", marginBottom: 20 }}
+            dangerouslySetInnerHTML={{ __html: t("web.notConfiguredBody") }}
+          />
           <a
             href="#/landing"
             className="b-btn b-btn-ghost"
             style={{ textDecoration: "none" }}
           >
-            랜딩으로 돌아가기
+            {t("web.backToLanding")}
           </a>
         </div>
       </div>
@@ -5441,7 +5428,7 @@ function Profile() {
                   textOverflow: "ellipsis",
                 }}
               >
-                {fullName || user.email || "사용자"}
+                {fullName || user.email || t("web.userFallback")}
               </div>
               <div
                 style={{
@@ -5459,8 +5446,8 @@ function Profile() {
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {(
               [
-                { k: "account", i: "settings", t: "계정" },
-                { k: "plan", i: "sparkle", t: "플랜과 결제" },
+                { k: "account", i: "settings", t: t("web.navAccount") },
+                { k: "plan", i: "sparkle", t: t("web.navPlan") },
               ] as Array<{ k: "account" | "plan"; i: IconName; t: string }>
             ).map((it) => (
               <button
@@ -5501,7 +5488,7 @@ function Profile() {
                 color: "var(--b-warn)",
               }}
             >
-              <Icon name="arrow-r" size={13} /> 로그아웃
+              <Icon name="arrow-r" size={13} /> {t("web.logout")}
             </button>
           </div>
         </div>
@@ -5602,12 +5589,13 @@ export function handleContactClick() {
 }
 
 export function Marketing({ route }: { route: MarketingRoute }) {
+  const { t } = useTranslation("marketing");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
     (window as any).showContactToast = () => {
-      setToastMessage("이메일 주소(support@barosit.com)가 복사되었습니다.");
+      setToastMessage(t("copyEmailToast"));
       clearTimeout(timer);
       timer = setTimeout(() => {
         setToastMessage(null);

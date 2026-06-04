@@ -1,0 +1,40 @@
+{
+  "status": {
+    "good": "良い姿勢です",
+    "warning": "もう少し正しく",
+    "bad": "肩を伸ばしましょう",
+    "paused": "休止中",
+    "resting": "休憩中",
+    "standing": "立っています"
+  },
+  "away": "離席中",
+  "secs": "{{s}}秒",
+  "minsSecs": "{{m}}分{{s}}秒",
+  "breakBadge": {
+    "deep": "休憩",
+    "standup": "起立",
+    "micro": "換気"
+  },
+  "breakBadgeAria": "{{minutes}}分連続着席 — {{label}}推奨",
+  "alertBanner": "{{sec}}秒経過 · 姿勢を変えましょう",
+  "currentPosture": "検出された姿勢",
+  "chip": {
+    "standing": "立ち作業中",
+    "good": "良い姿勢",
+    "caution": "注意"
+  },
+  "coach": {
+    "away": "戻ると自動で再開します",
+    "standing": "立ち姿勢は背骨を伸ばします。両手を上げて軽くストレッチしましょう。",
+    "good": "よく保てています"
+  },
+  "violationCoach": "{{duration}}経過 · {{tip}}",
+  "lastAlarm": "前回の通知 · {{label}} · {{time}}",
+  "falseAlarm": "誤検知",
+  "title": {
+    "pause": "モニタリングを一時停止",
+    "resume": "モニタリングを再開",
+    "backToMain": "メイン画面に戻る",
+    "openMain": "メイン画面を開く"
+  }
+}

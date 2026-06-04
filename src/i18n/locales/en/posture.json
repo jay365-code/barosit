@@ -1,0 +1,20 @@
+{
+  "label": {
+    "forward_head": "Forward head",
+    "chin_resting": "Chin resting",
+    "shoulder_tilt": "Shoulder tilt",
+    "slouching": "Slouching",
+    "monitor_too_close": "Screen distance",
+    "shoulder_asymmetry": "Shoulder asymmetry",
+    "head_roll": "Head tilt"
+  },
+  "alertTitle": {
+    "forward_head": "Forward head detected",
+    "chin_resting": "Chin resting detected",
+    "shoulder_tilt": "Shoulder tilt detected",
+    "slouching": "Slouching detected",
+    "monitor_too_close": "You're too close to the screen",
+    "shoulder_asymmetry": "Shoulder asymmetry detected",
+    "head_roll": "Head tilt detected"
+  }
+}

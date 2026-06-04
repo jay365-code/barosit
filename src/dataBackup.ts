@@ -1,5 +1,7 @@
 // localStorage 백업/복원. API 키는 보안상 제외.
 
+import i18n from "./i18n";
+
 const BACKUP_KEYS = [
   "calibration_baseline",
   "posture_events",
@@ -70,7 +72,7 @@ export async function importData(file: File): Promise<void> {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error("백업 파일을 읽을 수 없어요. JSON 형식이 올바른지 확인해주세요.");
+    throw new Error(i18n.t("errors:backup.parseError"));
   }
   if (
     !parsed ||
@@ -79,13 +81,11 @@ export async function importData(file: File): Promise<void> {
     typeof (parsed as BackupFile).version !== "number" ||
     typeof (parsed as BackupFile).data !== "object"
   ) {
-    throw new Error("BaroSit 백업 파일이 아니에요.");
+    throw new Error(i18n.t("errors:backup.notBarosit"));
   }
   const file_ = parsed as BackupFile;
   if (file_.version > BACKUP_VERSION) {
-    throw new Error(
-      `더 새로운 버전(v${file_.version})의 백업이에요. 앱을 업데이트한 뒤 다시 시도해주세요.`,
-    );
+    throw new Error(i18n.t("errors:backup.newerVersion", { version: file_.version }));
   }
   for (const [k, v] of Object.entries(file_.data)) {
     if (!BACKUP_KEYS.includes(k as (typeof BACKUP_KEYS)[number])) continue;

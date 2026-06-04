@@ -1,0 +1,40 @@
+{
+  "status": {
+    "good": "Sitting well",
+    "warning": "A little straighter",
+    "bad": "Straighten your shoulders",
+    "paused": "Paused",
+    "resting": "Taking a break",
+    "standing": "Standing"
+  },
+  "away": "Away",
+  "secs": "{{s}}s",
+  "minsSecs": "{{m}}m {{s}}s",
+  "breakBadge": {
+    "deep": "Rest",
+    "standup": "Stand up",
+    "micro": "Breathe"
+  },
+  "breakBadgeAria": "Seated for {{minutes}} min — {{label}} recommended",
+  "alertBanner": "{{sec}}s so far · time to adjust",
+  "currentPosture": "Detected posture",
+  "chip": {
+    "standing": "Standing",
+    "good": "Good posture",
+    "caution": "Caution"
+  },
+  "coach": {
+    "away": "Monitoring resumes automatically when you return",
+    "standing": "Standing straightens your spine. Try raising both arms for a light stretch.",
+    "good": "You're holding it well"
+  },
+  "violationCoach": "{{duration}} so far · {{tip}}",
+  "lastAlarm": "Last alert · {{label}} · {{time}}",
+  "falseAlarm": "Wrong alert",
+  "title": {
+    "pause": "Pause monitoring",
+    "resume": "Resume monitoring",
+    "backToMain": "Back to main window",
+    "openMain": "Open main window"
+  }
+}

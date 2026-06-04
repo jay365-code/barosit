@@ -1,0 +1,9 @@
+{
+  "durationSec": "{{sec}}s in",
+  "sittingMinutes": "Seated for {{min}} min",
+  "cumulativeBadge": "Cumulative load · {{pct}}% of 30 min",
+  "cumulativeFrequent": "Frequent {{label}}",
+  "staticMinutes": "Still for {{min}} min",
+  "variabilityGood": "You're holding it well",
+  "variabilityTip": "Loosen your shoulders and neck, and shift your posture"
+}

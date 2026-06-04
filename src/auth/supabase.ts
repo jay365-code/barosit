@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import i18n from "../i18n";
 
 const url = "https://kllcnllkcewnutxodwhx.supabase.co";
 const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbGNubGxrY2V3bnV0eG9kd2h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTY4MjksImV4cCI6MjA5NDgzMjgyOX0.nzl2oKDUpuAn0cDvG9oIpHNRVAuasYJixW4rapQVTOY";
@@ -91,7 +92,7 @@ export function pickDisplayName(
   if (name) return name;
   const emailLocal = user?.email?.split("@")[0];
   if (emailLocal) return emailLocal;
-  return "사용자";
+  return i18n.t("common:userFallback");
 }
 
 // 표시 이름의 첫 글자 (대문자) — 이미지 로딩 실패 시 이니셜 fallback 용.

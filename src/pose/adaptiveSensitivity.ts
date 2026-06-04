@@ -14,6 +14,8 @@
  * 임계값에 곱하기만 하면 됨.
  */
 
+import i18n from "../i18n";
+
 export interface AdaptiveSensitivityConfig {
   /** 활성화 여부. false 면 항상 1.0 반환. */
   enabled: boolean;
@@ -72,13 +74,13 @@ export function computeSensitivityModifier(
     const hours = (now - config.sessionStartedAt) / (1000 * 60 * 60);
     if (hours >= 6) {
       sessionBonus = 0.3;
-      sessionLabel = `세션 ${hours.toFixed(1)}h`;
+      sessionLabel = i18n.t("settings:adaptive.reasonSession", { h: hours.toFixed(1) });
     } else if (hours >= 4) {
       sessionBonus = 0.2;
-      sessionLabel = `세션 ${hours.toFixed(1)}h`;
+      sessionLabel = i18n.t("settings:adaptive.reasonSession", { h: hours.toFixed(1) });
     } else if (hours >= 2) {
       sessionBonus = 0.1;
-      sessionLabel = `세션 ${hours.toFixed(1)}h`;
+      sessionLabel = i18n.t("settings:adaptive.reasonSession", { h: hours.toFixed(1) });
     }
   }
 
@@ -88,10 +90,10 @@ export function computeSensitivityModifier(
   let timeLabel = "";
   if (hour >= 16 && hour < 18) {
     timeOfDayBonus = 0.15;
-    timeLabel = "오후 피로";
+    timeLabel = i18n.t("settings:adaptive.reasonAfternoon");
   } else if (hour >= 13 && hour < 15) {
     timeOfDayBonus = 0.05;
-    timeLabel = "점심 후";
+    timeLabel = i18n.t("settings:adaptive.reasonLunch");
   }
 
   // 두 보정 중 큰 값 사용

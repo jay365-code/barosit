@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { LogicalPosition, PhysicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { listen as tauriListen } from "@tauri-apps/api/event";
@@ -14,7 +16,7 @@ import {
 } from "../ipc";
 import { useHeartbeat, useWatchdog } from "../watchdog";
 import { reportFalseAlarm } from "../pose/thresholds";
-import type { PostureStatus, PostureType } from "../pose/types";
+import type { PostureType } from "../pose/types";
 import { useMonitoringEngine } from "../hooks/useMonitoringEngine";
 import { useScoreTween } from "../hooks/useScoreTween";
 import {
@@ -24,28 +26,6 @@ import {
 import { Icon } from "../components/Icon";
 import { PostureFigure, type PostureFigureState } from "../components/PostureFigure";
 import { AlertOverlay } from "../components/AlertOverlay";
-
-const STATUS_TONE: Record<
-  PostureStatus,
-  { color: string; ring: string; label: string }
-> = {
-  good: { color: "var(--b-sig)", ring: "rgba(91,140,122,0.25)", label: "잘 앉아 있어요" },
-  warning: { color: "var(--b-amber)", ring: "rgba(200,144,88,0.28)", label: "조금만 더 바르게" },
-  bad: { color: "var(--b-warn)", ring: "rgba(210,119,88,0.32)", label: "어깨를 펴볼까요" },
-  paused: { color: "var(--b-fg-4)", ring: "rgba(127,127,127,0.18)", label: "쉬는 중" },
-  resting: { color: "var(--b-fg-4)", ring: "rgba(127,127,127,0.18)", label: "잠깐 쉬는 중" },
-  standing: { color: "var(--b-sig)", ring: "rgba(91,140,122,0.25)", label: "가볍게 서 있어요" },
-};
-
-const POSTURE_LABEL: Record<PostureType, string> = {
-  forward_head: "거북목",
-  chin_resting: "턱 괴임",
-  shoulder_tilt: "어깨 기울임",
-  slouching: "등 구부정",
-  monitor_too_close: "모니터 거리",
-  shoulder_asymmetry: "어깨 비대칭",
-  head_roll: "머리 좌우 기울임",
-};
 
 const POSTURE_FIGURE: Record<PostureType, PostureFigureState> = {
   forward_head: "forward-head",
@@ -57,23 +37,14 @@ const POSTURE_FIGURE: Record<PostureType, PostureFigureState> = {
   head_roll: "shoulder-tilt",
 };
 
-const COACHING: Record<PostureType, string> = {
-  forward_head: "턱을 살짝 당겨볼까요",
-  chin_resting: "손을 책상 위로",
-  shoulder_tilt: "양쪽 어깨를 수평으로",
-  slouching: "등을 펴고 가슴을 열어요",
-  monitor_too_close: "모니터에서 한 뼘 더 멀어져볼까요",
-  shoulder_asymmetry: "양쪽 어깨에 고르게 힘을 빼볼까요",
-  head_roll: "머리를 수직으로 세워볼까요",
-};
-
 function formatTimeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000);
-  if (sec < 60) return `${sec}초 전`;
+  const rtf = new Intl.RelativeTimeFormat(i18n.language, { numeric: "auto" });
+  if (sec < 60) return rtf.format(-sec, "second");
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}분 전`;
+  if (min < 60) return rtf.format(-min, "minute");
   const hr = Math.floor(min / 60);
-  return `${hr}시간 전`;
+  return rtf.format(-hr, "hour");
 }
 
 const darkHoverBtnStyle: React.CSSProperties = {
@@ -94,11 +65,15 @@ const darkHoverBtnStyle: React.CSSProperties = {
 };
 
 function formatDuration(secs: number): string {
-  if (secs < 60) return `${Math.round(secs)}초`;
-  return `${Math.floor(secs / 60)}분 ${Math.round(secs % 60)}초`;
+  if (secs < 60) return i18n.t("widget:secs", { s: Math.round(secs) });
+  return i18n.t("widget:minsSecs", {
+    m: Math.floor(secs / 60),
+    s: Math.round(secs % 60),
+  });
 }
 
 export function Widget() {
+  const { t } = useTranslation(["widget", "posture", "coaching"]);
   const contentRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<WidgetState>({
     status: "good",
@@ -378,7 +353,6 @@ export function Widget() {
     };
   }, []);
 
-  const tone = STATUS_TONE[state.away ? "paused" : state.status];
   // 알약 내부는 CSS 변수 의존 없이 직접 hex — OS 다크모드/검은 배경 무관 항상 라이트
   const PALETTE = {
     surface: "#ffffff",
@@ -439,10 +413,10 @@ export function Widget() {
                 : "#5db49f",
           label:
             breakStage === "deep"
-              ? "휴식"
+              ? t("widget:breakBadge.deep")
               : breakStage === "standup"
-                ? "일어서기"
-                : "환기",
+                ? t("widget:breakBadge.standup")
+                : t("widget:breakBadge.micro"),
           minutes: state.breakStatus
             ? Math.floor(state.breakStatus.secsSeated / 60)
             : 0,
@@ -580,11 +554,14 @@ export function Widget() {
                   maxWidth: 130,
                 }}
               >
-                {state.away ? "자리비움" : tone.label}
+                {state.away ? t("widget:away") : t(`widget:status.${state.status}`)}
               </span>
               {breakBadge && (
                 <span
-                  aria-label={`${breakBadge.minutes}분 연속 착석 — ${breakBadge.label} 권장`}
+                  aria-label={t("widget:breakBadgeAria", {
+                    minutes: breakBadge.minutes,
+                    label: breakBadge.label,
+                  })}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -639,7 +616,7 @@ export function Widget() {
                   e.currentTarget.style.background = paused ? PALETTE.sageSoft : "#fee2e2";
                   e.currentTarget.style.color = paused ? PALETTE.sageDeep : "#b91c1c";
                 }}
-                title={paused ? "모니터링 재개" : "모니터링 일시정지"}
+                title={paused ? t("widget:title.resume") : t("widget:title.pause")}
               >
                 <Icon name={paused ? "play" : "pause"} size={12} />
               </button>
@@ -669,7 +646,7 @@ export function Widget() {
                     e.currentTarget.style.background = PALETTE.sageSoft;
                     e.currentTarget.style.color = PALETTE.sageDeep;
                   }}
-                  title="메인 창으로 돌아가기"
+                  title={t("widget:title.backToMain")}
                 >
                   <Icon name="logo" size={14} />
                 </button>
@@ -704,13 +681,13 @@ export function Widget() {
                 marginBottom: 4,
               }}
             >
-              {Math.round(alertExpand.durationSecs)}초째 · 자세를 바꿔볼까요
+              {t("widget:alertBanner", { sec: Math.round(alertExpand.durationSecs) })}
             </div>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>
-              {POSTURE_LABEL[alertExpand.postureType]}
+              {t(`posture:label.${alertExpand.postureType}`)}
             </div>
             <div style={{ fontSize: 12, opacity: 0.92, lineHeight: 1.4 }}>
-              {alertExpand.coachingMessage ?? COACHING[alertExpand.postureType]}
+              {alertExpand.coachingMessage ?? t(`coaching:tip.${alertExpand.postureType}`)}
             </div>
           </div>
         )}
@@ -742,7 +719,7 @@ export function Widget() {
                 marginBottom: 8,
               }}
             >
-              현재 감지된 자세
+              {t("widget:currentPosture")}
             </div>
 
             {/* posture figure + 칩 */}
@@ -797,14 +774,14 @@ export function Widget() {
                 }}
               >
                 {state.away
-                  ? "자리비움"
+                  ? t("widget:away")
                   : state.status === "standing"
-                    ? "서서 일하는 중"
+                    ? t("widget:chip.standing")
                     : state.violations.length === 0
-                      ? "바른 자세"
+                      ? t("widget:chip.good")
                       : primaryViolation
-                        ? POSTURE_LABEL[primaryViolation]
-                        : "주의"}
+                        ? t(`posture:label.${primaryViolation}`)
+                        : t("widget:chip.caution")}
               </span>
             </div>
 
@@ -820,13 +797,16 @@ export function Widget() {
               }}
             >
               {state.away
-                ? "자리에 돌아오면 자동으로 다시 시작해요"
+                ? t("widget:coach.away")
                 : state.status === "standing"
-                  ? "선 자세는 척추를 곧게 펴줍니다. 가볍게 양손을 위로 올려 스트레칭을 해볼까요?"
+                  ? t("widget:coach.standing")
                   : state.violations.length === 0
-                    ? "잘 유지하고 있어요"
+                    ? t("widget:coach.good")
                     : primaryViolation
-                      ? `${formatDuration(state.maxDurationSecs)}째 ${COACHING[primaryViolation]}`
+                      ? t("widget:violationCoach", {
+                          duration: formatDuration(state.maxDurationSecs),
+                          tip: t(`coaching:tip.${primaryViolation}`),
+                        })
                       : ""}
             </div>
 
@@ -839,8 +819,10 @@ export function Widget() {
                   marginBottom: 10,
                 }}
               >
-                마지막 알림 · {POSTURE_LABEL[state.lastAlarm.type]} ·{" "}
-                {formatTimeAgo(state.lastAlarm.at)}
+                {t("widget:lastAlarm", {
+                  label: t(`posture:label.${state.lastAlarm.type}`),
+                  time: formatTimeAgo(state.lastAlarm.at),
+                })}
               </div>
             )}
 
@@ -868,7 +850,7 @@ export function Widget() {
                   }
                 >
                   <Icon name="flag" size={11} />
-                  잘못된 알림
+                  {t("widget:falseAlarm")}
                 </button>
               )}
               <button
@@ -879,7 +861,7 @@ export function Widget() {
                   background: "rgba(255,255,255,0.08)",
                   color: "#f0eee8",
                 }}
-                title="메인 창 열기"
+                title={t("widget:title.openMain")}
               >
                 <Icon name="maximize" size={11} />
               </button>

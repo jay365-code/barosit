@@ -1,0 +1,169 @@
+{
+  "title": "설정",
+  "close": "닫기",
+  "screen": "화면",
+  "language": "언어",
+  "theme": {
+    "auto": "자동",
+    "light": "라이트",
+    "dark": "다크"
+  },
+  "themeAutoHint": "macOS/Windows 시스템 설정을 따라갑니다.",
+  "minutesSuffix": "분",
+  "preset": {
+    "strict": "엄격",
+    "normal": "보통",
+    "lax": "관대"
+  },
+  "alerts": {
+    "title": "알림",
+    "rangeStrict": "엄격",
+    "rangeLax": "관대",
+    "duration": "알림 지속 시간",
+    "durationSecs": "{{secs}}초"
+  },
+  "alertBoost": {
+    "title": "알림 강화",
+    "edgeGlow": {
+      "label": "화면 가장자리 글로우",
+      "sub": "시야 주변에 펄스로 표시 (작업 흐름 안 깸)"
+    },
+    "widgetExpand": {
+      "label": "위젯 일시 확장",
+      "sub": "미니바가 큰 카드로 펼쳐져 자세명/코칭 표시"
+    },
+    "fullscreenToast": {
+      "label": "화면 중앙 토스트",
+      "sub": "가장 확실히 인식 — 작업 흐름 잠깐 끊김"
+    },
+    "sound": {
+      "label": "사운드",
+      "sub": "짧은 톤 (회의·이어폰 환경 주의)"
+    },
+    "hint": "잘못된 자세가 <b>{{secs}}초 이상 지속</b>되면 발사. 같은 자세는 5분 쿨다운. 길어질수록 색/지속 시간이 진해집니다.",
+    "previewLight": "옅게 미리보기",
+    "previewStrong": "진하게 미리보기"
+  },
+  "break": {
+    "title": "휴식 알림",
+    "intro": "정자세를 너무 오래 유지하는 것도 디스크·근육에 부담을 줍니다.<br/>연속 착석 시간에 따라 단계적 환기·휴식을 권유합니다. 자세 점수에는 영향 주지 않습니다.",
+    "micro": {
+      "label": "환기 권유 (30분 기본)",
+      "sub": "어깨 으쓱·목 좌우 회전·깊은 호흡 — 가벼운 토스트"
+    },
+    "standup": {
+      "label": "일어서기 권유 (50분 기본)",
+      "sub": "KOSHA 권고 — 1분 걷기 또는 스트레칭"
+    },
+    "deep": {
+      "label": "긴 휴식 권유 (120분 기본)",
+      "sub": "5분 휴식 + 물 한 잔 + 20-20-20 눈 운동"
+    },
+    "microInterval": "환기 간격",
+    "standupInterval": "일어서기 간격",
+    "deepInterval": "긴 휴식 간격",
+    "previewMicro": "환기 미리보기",
+    "previewStandup": "일어서기 미리보기",
+    "previewDeep": "긴 휴식 미리보기",
+    "reset": "기본값으로 (30 / 50 / 120분)"
+  },
+  "cumulative": {
+    "title": "누적 부하 알림",
+    "intro": "짧은 나쁜 자세 episode 가 자주 누적되면 알림. 단일 5초 임계는 안 넘어도 30분 윈도우 누적 25% 도달 시 환기 권유.<br/>(McGill & Callaghan — 디스크 creep 모델 기반)",
+    "enable": {
+      "label": "누적 부하 알림 활성화",
+      "sub": "기본 30분 윈도우, 25% 임계, 15분 쿨다운"
+    },
+    "window": "윈도우 길이",
+    "threshold": "임계 비율",
+    "preview": "누적 부하 알림 미리보기",
+    "reset": "기본값으로 (30분 / 25% / 15분 쿨다운)"
+  },
+  "variability": {
+    "title": "자세 변동성 알림",
+    "intro": "정자세도 너무 오래 유지하면 디스크 한 부위에 정수압 누적.<br/>10분 윈도우 동안 어깨·머리 움직임이 거의 없으면 \"잠깐 풀어볼까요\" 양수 피드백.<br/>(McGill — \"best posture is the next posture\")",
+    "enable": {
+      "label": "변동성 알림 활성화",
+      "sub": "기본 10분 윈도우, 정체 임계 0.6, 15분 쿨다운"
+    },
+    "window": "윈도우 길이",
+    "preview": "자세 변동성 알림 미리보기",
+    "reset": "기본값으로 (10분 윈도우)"
+  },
+  "adaptive": {
+    "title": "적응형 민감도",
+    "intro": "오후 4-5시 / 장시간 작업 시 자세 유지 능력 자연 감소.<br/>자동으로 자세 알림 임계 완화 + 휴식 알림 단축.<br/>(Bridger — postural muscle EMG 피로 곡선)",
+    "enable": {
+      "label": "적응형 민감도 활성화",
+      "sub": "세션 2h+ / 13-15시·16-18시 자동 보정"
+    },
+    "active": "라이브 피로도 보정 적용 중",
+    "waiting": "실시간 자동 보정 대기 중",
+    "postureRelax": "• 자세 알림 감도: <strong style=\"color:var(--b-sig-deep)\">{{pct}}% 완화</strong> (덜 민감하게)",
+    "breakShorten": "• 권장 휴식 주기: <strong style=\"color:var(--b-sig-deep)\">{{pct}}% 단축</strong> (더 자주 쉬도록)",
+    "reason": "원인: {{reason}}",
+    "idleHint": "현재 컨디션이 양호한 상태입니다. 장시간 지속 작업(2시간 이상) 시점이나 오후 피로 시간대(13~15시, 16~18시)에 자동으로 알림 임계값을 부드럽게 보정합니다.",
+    "reset": "기본값으로 (자동 보정 ON)",
+    "reasonSession": "세션 {{h}}h",
+    "reasonAfternoon": "오후 피로",
+    "reasonLunch": "점심 후"
+  },
+  "stretchCalib": {
+    "title": "스트레칭 보정",
+    "intro": "내 몸의 유연성에 맞춰 각 스트레칭 동작의 감지 기준을 조율하거나, 다중 모니터로 인해 측면에 장착된 카메라 각도 환경을 보정합니다.",
+    "button": "🔧 스트레칭 가동범위 보정하기"
+  },
+  "privacy": {
+    "title": "프라이버시",
+    "silhouette": {
+      "label": "실루엣 모드",
+      "sub": "영상 대신 윤곽선만 표시"
+    },
+    "note": "영상은 이 컴퓨터를 떠나지 않습니다. 자세 데이터도 로컬에만 저장됩니다."
+  },
+  "performance": {
+    "title": "성능 모드",
+    "full": "최대 품질",
+    "eco": "절약형",
+    "hint": "<b>절약형</b>: 감지 빈도와 무거운 얼굴·손 인식 주기를 낮춰 CPU·메모리 사용을 크게 줄입니다. 자세 알림 품질은 거의 그대로지만, 실루엣 화면이 덜 부드러울 수 있어요. 저성능 노트북에 권장."
+  },
+  "desktop": {
+    "title": "데스크톱",
+    "autostart": {
+      "label": "시작 시 자동 실행",
+      "checking": "상태 확인 중…",
+      "sub": "로그인할 때 자동으로 켜져요"
+    },
+    "minibar": {
+      "label": "위젯 미니바 표시",
+      "sub": "작업 창 위에 떠 있어요"
+    }
+  },
+  "data": {
+    "title": "데이터",
+    "export": "내보내기",
+    "import": "불러오기",
+    "importOk": "복원 완료. 새로 고침합니다…",
+    "hint": "점수·이력·기준 자세·민감도를 JSON으로 백업·복원합니다. API 키는 보안상 제외됩니다.",
+    "clear": "기록 초기화",
+    "clearConfirm": "기록을 모두 지울까요? 되돌릴 수 없습니다.",
+    "importConfirm": "데이터를 불러오면 현재 점수·이력·기준 자세·설정이 백업 파일 내용으로 덮어써집니다. 진행할까요?"
+  },
+  "appQuit": {
+    "title": "앱",
+    "confirm": "다시 클릭하면 종료됩니다",
+    "button": "앱 완전 종료",
+    "hint": "메인 창의 X 버튼은 위젯 모드로 전환만 합니다. 완전히 끄려면 위 버튼을 사용하세요."
+  },
+  "desktopApp": {
+    "title": "데스크톱 앱",
+    "note": "백그라운드 모니터링·트레이 알림·플로팅 위젯은 데스크톱 앱에서만 가능합니다."
+  },
+  "about": {
+    "title": "정보",
+    "version": "BaroSit · 버전 {{version}}",
+    "checkUpdate": "업데이트 확인",
+    "privacy": "개인정보 처리방침",
+    "terms": "이용약관"
+  }
+}

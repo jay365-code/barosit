@@ -1,0 +1,28 @@
+{
+  "title": "기준 자세 잡기",
+  "back": "돌아가기",
+  "rejected": {
+    "title": "자세가 충분히 안정되지 않았어요",
+    "body": "{{secs}}초 중 적합 프레임이 {{pct}}%였어요 (65% 이상 필요). 움직임을 줄이고 아래 항목을 모두 만족시킨 채 다시 시도해 주세요."
+  },
+  "retry": "다시 시도",
+  "holdPosture": "바른 자세를 잠시 유지해주세요",
+  "sitNaturally1": "평소 모니터를 볼 때처럼",
+  "sitNaturally2": "편하게 앉아주세요",
+  "okFrames": "적합 프레임 {{pct}}%",
+  "holdHint": "{{secs}}초만 그대로 — 이 자세를 기준으로 잡아드릴게요",
+  "measuring": "측정 중",
+  "cameraError": "카메라를 켤 수 없어요",
+  "cameraConnecting": "카메라 연결 중…",
+  "checks": {
+    "bodyVisible": "전체 상반신이 보여요",
+    "headNotTiltedDown": "고개를 들고 있어요",
+    "headUpright": "머리가 좌우로 수평이에요",
+    "noChinRest": "손을 책상 위에 두세요",
+    "stable": "편안한 자세로 멈춰 있어요"
+  },
+  "adjusting": "맞추는 중…",
+  "modelLoading": "자세 감지 모델 로딩 중…",
+  "startMeasure": "기준 자세 측정 시작",
+  "needAll": "모든 항목 충족 시 시작 가능"
+}

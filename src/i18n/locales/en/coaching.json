@@ -1,0 +1,30 @@
+{
+  "tip": {
+    "forward_head": "Gently tuck your chin in",
+    "chin_resting": "Bring your hands down to the desk",
+    "shoulder_tilt": "Level both shoulders",
+    "slouching": "Straighten your back and open your chest",
+    "monitor_too_close": "Move a hand's width farther from the screen",
+    "shoulder_asymmetry": "Relax both shoulders evenly",
+    "head_roll": "Hold your head upright"
+  },
+  "cumulative": {
+    "forward_head": "Forward head has been frequent in the last 30 min. Try consciously tucking your chin.",
+    "chin_resting": "Chin resting has been frequent in the last 30 min. Try keeping your hands on the desk.",
+    "shoulder_tilt": "Shoulder tilt has been frequent in the last 30 min. Recheck your monitor position.",
+    "slouching": "Slouching has been frequent in the last 30 min. Sit back deep into your chair.",
+    "monitor_too_close": "Sitting too close has been frequent in the last 30 min. Move a hand's width farther.",
+    "shoulder_asymmetry": "Left-right asymmetry has been frequent in the last 30 min. Tidy up both sides of your desk.",
+    "head_roll": "Head tilt has been frequent in the last 30 min. Check your secondary monitor alignment."
+  },
+  "breakLabel": {
+    "micro": "Take a quick breather",
+    "standup": "Time to stand up",
+    "deep": "You need a longer break"
+  },
+  "break": {
+    "micro": "Shrug your shoulders, rotate your neck, breathe deeply for 10s",
+    "standup": "Walk for 1 min or do some light stretching",
+    "deep": "5 min break. A glass of water + look out the window (20-20-20)"
+  }
+}

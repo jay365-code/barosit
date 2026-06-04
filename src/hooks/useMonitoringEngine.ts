@@ -46,12 +46,10 @@ import {
 } from "../ipc";
 import {
   appendEvent,
-  computeDailyStats,
-  loadEvents,
-  startOfToday,
   updateEventDuration,
 } from "../pose/eventLog";
-import { fetchCoachingMessage } from "../llmConfig";
+import { postureCoaching, postureAlertTitle } from "../i18n/posture";
+import i18n from "../i18n";
 import {
   dispatchAlertFired,
   dispatchBreakReminder,
@@ -646,12 +644,9 @@ export function useMonitoringEngine(opts: {
           startedAt: event.startedAt,
           durationSecs: event.durationSecs,
         });
-        const todayStats = computeDailyStats(
-          loadEvents(),
-          startOfToday(),
-          Date.now() + 1,
-        );
         const intensity = intensityFromDuration(event.durationSecs);
+        // 정적 다국어 코칭 (AI 생성 코칭 대체) — 알림 본문에 즉시 사용.
+        // 오버레이는 coachingMessage=null이면 coaching:tip 키로 자체 폴백한다.
         dispatchAlertFired({
           postureType: event.type,
           durationSecs: event.durationSecs,
@@ -662,35 +657,10 @@ export function useMonitoringEngine(opts: {
           posture_type: event.type,
           duration_secs: event.durationSecs,
           severity: "bad",
-          coaching_message: null,
+          coaching_message: postureCoaching(event.type),
+          title: postureAlertTitle(event.type),
+          body_fallback: i18n.t("notifications:fallbackBody", { sec: event.durationSecs }),
         }).catch(() => undefined);
-        // FREE 플랜인 경우 AI 맞춤 코칭 피드백 잠금 (PRO 전용 기능)
-        if (subPlan !== "pro") {
-          console.log("[useMonitoringEngine] AI Coaching locked for FREE plan.");
-          continue;
-        }
-
-        fetchCoachingMessage({
-          postureType: event.type,
-          durationSecs: event.durationSecs,
-          todayCountForType: todayStats.byType[event.type],
-        })
-          .then((msg) => {
-            if (!msg) return;
-            dispatchAlertFired({
-              postureType: event.type,
-              durationSecs: event.durationSecs,
-              intensity,
-              coachingMessage: msg,
-            });
-            return showPostureAlert({
-              posture_type: event.type,
-              duration_secs: event.durationSecs,
-              severity: "bad",
-              coaching_message: msg,
-            });
-          })
-          .catch(() => undefined);
       }
 
       // 상태 갱신

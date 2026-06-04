@@ -1,0 +1,20 @@
+{
+  "label": {
+    "forward_head": "ストレートネック",
+    "chin_resting": "ほお杖",
+    "shoulder_tilt": "肩の傾き",
+    "slouching": "猫背",
+    "monitor_too_close": "画面との距離",
+    "shoulder_asymmetry": "肩の左右差",
+    "head_roll": "首の傾き"
+  },
+  "alertTitle": {
+    "forward_head": "ストレートネックを検出",
+    "chin_resting": "ほお杖を検出",
+    "shoulder_tilt": "肩の傾きを検出",
+    "slouching": "猫背を検出",
+    "monitor_too_close": "画面に近づきすぎています",
+    "shoulder_asymmetry": "肩の左右差を検出",
+    "head_roll": "首の傾きを検出"
+  }
+}

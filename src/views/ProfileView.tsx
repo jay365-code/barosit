@@ -5,6 +5,8 @@
 // - "홈으로" 버튼 → 메인 모니터 화면 복귀
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { Icon } from "../components/Icon";
 import { AdminTemplateView } from "./AdminTemplateView";
 import { platform } from "../platform";
@@ -16,7 +18,6 @@ import {
   pullSettingsFromServer,
 } from "../lib/syncService";
 import {
-  WORK_ENV_LABEL,
   loadProfile,
   saveProfile,
   PROFILE_CHANGED_EVENT,
@@ -41,6 +42,7 @@ function getWebAdminUrl(): string {
 }
 
 export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
+  const { t } = useTranslation(["profile", "common"]);
   const {
     session,
     signInWithGoogle,
@@ -262,7 +264,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
   // 환불 요청 (안전한 우회 방식)
   const handleRefund = async () => {
-    if (!window.confirm("정말로 즉시 환불을 신청하시겠습니까?\n환불 요청 즉시 검토가 시작되며, 영업일 기준 3일 이내에 처리되어 요금제 등급이 FREE로 전환됩니다.")) return;
+    if (!window.confirm(t("refundConfirm"))) return;
     
     try {
       if (!session?.user) return;
@@ -282,16 +284,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
       if (notifyError) throw notifyError;
 
-      alert("환불 요청이 안전하게 접수되었습니다. 관리자 승인 후 3일 이내에 환불 및 구독 회수가 완료됩니다.");
+      alert(t("refundSuccess"));
     } catch (err) {
       console.error("Refund request failed:", err);
-      alert("환불 신청 도중 오류가 발생했습니다. 고객센터에 문의바랍니다.");
+      alert(t("refundError"));
     }
   };
 
   // 구독 취소 (해지 예약)
   const handleCancelSubscription = async () => {
-    if (!window.confirm("정말로 정기 구독을 취소하시겠습니까?\n구독을 해지하셔도 이번 달 남은 약정 만료일까지는 계속 이용이 가능합니다.")) return;
+    if (!window.confirm(t("cancelConfirm"))) return;
 
     try {
       if (!session?.user) return;
@@ -321,10 +323,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       });
 
       setSubStatus("canceled");
-      alert("정기 구독 갱신이 해지되었습니다. 남은 기간 만료일까지 혜택은 정상적으로 유지됩니다.");
+      alert(t("cancelSuccess"));
     } catch (err) {
       console.error("Cancellation failed:", err);
-      alert("해지 신청 도중 에러가 발생했습니다. 일반 권한 제한을 확인하세요.");
+      alert(t("cancelError"));
     }
   };
 
@@ -356,10 +358,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       });
 
       setSubStatus("active");
-      alert("정기 구독 갱신이 성공적으로 복구되었습니다! 계속 PRO 혜택이 이어집니다.");
+      alert(t("restoreSuccess"));
     } catch (err) {
       console.error("Resume failed:", err);
-      alert("구독 복구 처리 도중 에러가 발생했습니다.");
+      alert(t("restoreError"));
     }
   };
 
@@ -394,12 +396,12 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       return { name: "Mastercard", color: "linear-gradient(135deg, #cc1c1c 0%, #eb7e13 100%)", logo: "💳 Mastercard" };
     }
     if (first === "9") {
-      return { name: "국민카드", color: "linear-gradient(135deg, #444547 0%, #eab805 100%)", logo: "💳 KB국민" };
+      return { name: t("cardBrand.kbName"), color: "linear-gradient(135deg, #444547 0%, #eab805 100%)", logo: t("cardBrand.kbLogo") };
     }
     if (first === "3" && (firstTwo === "34" || firstTwo === "37")) {
       return { name: "Amex", color: "linear-gradient(135deg, #007bc4 0%, #68b8e7 100%)", logo: "💳 AMEX" };
     }
-    return { name: "신한카드", color: "linear-gradient(135deg, #0b2265 0%, #1e5cb3 100%)", logo: "💳 SHINHAN" };
+    return { name: t("cardBrand.shinhanName"), color: "linear-gradient(135deg, #0b2265 0%, #1e5cb3 100%)", logo: "💳 SHINHAN" };
   };
 
   // 토스 비인증 빌링키 발급 API 모방 및 DB 등록 처리
@@ -413,19 +415,19 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     const cleanId = cardIdentity.replace(/\D/g, "");
 
     if (!validateCardNumber(cleanNum)) {
-      setCardFormError("유효하지 않은 카드번호입니다. 번호를 확인해주세요.");
+      setCardFormError(t("cardErrInvalidNumber"));
       return;
     }
     if (cleanExpiry.length !== 4) {
-      setCardFormError("올바른 카드 유효기간(MM/YY)을 입력하세요.");
+      setCardFormError(t("cardErrExpiry"));
       return;
     }
     if (cleanPwd.length !== 2) {
-      setCardFormError("카드 비밀번호 앞 2자리를 입력하세요.");
+      setCardFormError(t("cardErrPwd"));
       return;
     }
     if (cleanId.length !== 6 && cleanId.length !== 10) {
-      setCardFormError("생년월일 6자리 혹은 사업자등록번호 10자리를 입력하세요.");
+      setCardFormError(t("cardErrIdentity"));
       return;
     }
 
@@ -467,10 +469,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       // 상태 변경 알림
       window.dispatchEvent(new Event("barosit:subscription-changed"));
 
-      alert("성공적으로 카드가 등록 및 결제 정보 갱신이 완료되었습니다!");
+      alert(t("cardRegSuccess"));
     } catch (err: any) {
       console.error("Card registration failed:", err);
-      setCardFormError(`카드 등록에 실패했습니다: ${err.message || err}`);
+      setCardFormError(t("cardRegError", { error: err.message || err }));
     } finally {
       setCardRegistering(false);
     }
@@ -478,7 +480,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
   // 결제 정보 삭제
   const handleDeleteCardInfo = async () => {
-    if (!window.confirm("등록된 결제 카드 정보를 삭제하시겠습니까?\n정기 구독 중인 경우 다음 결제일에 갱신 실패로 구독이 정지될 수 있습니다.")) return;
+    if (!window.confirm(t("cardDeleteConfirm"))) return;
 
     try {
       if (!session?.user) return;
@@ -510,13 +512,13 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
       // 3. 상태 갱신
       setCardInfo(null);
-      alert("결제 카드 정보가 안전하게 삭제되었습니다.");
+      alert(t("cardDeleteSuccess"));
       
       // 상태 변경 알림
       window.dispatchEvent(new Event("barosit:subscription-changed"));
     } catch (err: any) {
       console.error("Failed to delete card info:", err);
-      alert(`결제 정보 삭제 중 오류가 발생했습니다: ${err.message || err}`);
+      alert(t("cardDeleteError", { error: err.message || err }));
     }
   };
 
@@ -545,18 +547,18 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
             type="button"
             className="b-btn b-btn-ghost"
             onClick={onGoHome}
-            aria-label="돌아가기"
+            aria-label={t("back")}
           >
             <Icon name="chev-l" size={14} />
-            돌아가기
+            {t("back")}
           </button>
-          <h1 className="profile-title" style={{ margin: 0 }}>{!session ? "로그인" : "프로필"}</h1>
+          <h1 className="profile-title" style={{ margin: 0 }}>{!session ? t("titleLogin") : t("titleProfile")}</h1>
           <button
             type="button"
             className="b-icon-btn b-tip"
-            data-tip="돌아가기"
+            data-tip={t("back")}
             onClick={onGoHome}
-            aria-label="돌아가기"
+            aria-label={t("back")}
             style={{
               width: "32px",
               height: "32px",
@@ -611,10 +613,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--b-fg-1)", letterSpacing: "-0.5px" }}>
-                클라우드 데이터 백업 시작하기
+                {t("backupTitle")}
               </h2>
               <p style={{ fontSize: "13px", color: "var(--b-fg-3)", lineHeight: 1.6, maxWidth: "320px", margin: "0 auto" }}>
-                소셜 로그인을 통해 단 3초 만에 나만의 자세 위반 로그와 민감도 설정을 영구적으로 안전하게 보관하세요.
+                {t("backupDesc")}
               </p>
             </div>
 
@@ -650,7 +652,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     transition: "all 0.2s ease"
                   }}
                 >
-                  Google 로그인
+                  {t("googleLogin")}
                 </button>
                 <button
                   type="button"
@@ -681,7 +683,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     transition: "all 0.2s ease"
                   }}
                 >
-                  Kakao 로그인
+                  {t("kakaoLogin")}
                 </button>
               </div>
 
@@ -702,7 +704,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     padding: "6px 0"
                   }}
                 >
-                  🏠 소개 및 커뮤니티 홈으로 가기
+                  {t("communityHome")}
                 </a>
               </div>
             </div>
@@ -729,7 +731,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                   size={16}
                   style={subPlan === "pro" ? { color: "#7eb09c" } : undefined}
                 />
-                <span>나의 구독 요금제</span>
+                <span>{t("mySubscription")}</span>
                 <span
                   className="profile-pill"
                   style={
@@ -760,21 +762,19 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                 }}>
                   <strong style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <Icon name="shield" size={14} style={{ color: "#e08866" }} />
-                    [결제 지연 경고] 정기 구독 갱신 실패
+                    {t("graceTitle")}
                   </strong>
                   <div style={{ marginTop: 4 }}>
-                    등록된 카드의 한도 초과 혹은 만료로 인해 결제가 처리되지 않았습니다. 
+                    {t("graceBody1")}
                     <br />
-                    <strong>{new Date(gracePeriodUntil).toLocaleDateString()}</strong>까지 결제 카드를 변경하지 않으시면 PRO 서비스 이용이 자동으로 무료(FREE) 버전으로 다운그레이드됩니다.
+                    {t("graceBody2", { date: new Date(gracePeriodUntil).toLocaleDateString(i18n.language) })}
                   </div>
                 </div>
               )}
 
               {subPlan === "pro" ? (
                 <>
-                  <p className="profile-card-sub" style={{ color: "var(--b-fg-2)" }}>
-                    <strong>데스크톱 전용 네이티브 앱 설치 권한</strong>이 활성화되어 있으며, 백그라운드 무자각 관제와 AI 맞춤 피드백 코칭을 완벽히 지원받고 있습니다.
-                  </p>
+                  <p className="profile-card-sub" style={{ color: "var(--b-fg-2)" }} dangerouslySetInnerHTML={{ __html: t("proDesc") }} />
 
                   {/* 등록된 카드 결제 수단 확인 정보 */}
                   {cardInfo && (
@@ -789,7 +789,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       justifyContent: "space-between"
                     }}>
                       <div>
-                        <div style={{ fontSize: "11px", color: "var(--b-fg-4)", marginBottom: 4 }}>기본 결제 수단</div>
+                        <div style={{ fontSize: "11px", color: "var(--b-fg-4)", marginBottom: 4 }}>{t("defaultPayment")}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "13px", fontWeight: 700, color: "var(--b-fg-2)" }}>
                           <Icon name="sparkle" size={12} style={{ color: "#7eb09c" }} />
                           {cardInfo.brand} ({cardInfo.number})
@@ -818,16 +818,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     fontSize: "12px"
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", color: "var(--b-fg-3)" }}>
-                      <span>구독 상태: 
-                        <strong style={{ 
-                          color: subStatus === "active" ? "#7eb09c" : subStatus === "grace_period" ? "#e08866" : "#e08866", 
-                          marginLeft: "6px" 
+                      <span>{t("subStatusLabel")}
+                        <strong style={{
+                          color: subStatus === "active" ? "#7eb09c" : subStatus === "grace_period" ? "#e08866" : "#e08866",
+                          marginLeft: "6px"
                         }}>
-                          {subStatus === "active" ? "갱신 활성화 중" : subStatus === "grace_period" ? "납부 유예 유효" : subStatus === "canceled" ? "해지 예약됨" : "구독 중"}
+                          {subStatus === "active" ? t("subStatusActive") : subStatus === "grace_period" ? t("subStatusGrace") : subStatus === "canceled" ? t("subStatusCanceled") : t("subStatusDefault")}
                         </strong>
                       </span>
                       {subPeriodEnd && (
-                        <span>만료 예정일: {new Date(subPeriodEnd).toLocaleDateString()}</span>
+                        <span>{t("expiryLabel")}{new Date(subPeriodEnd).toLocaleDateString(i18n.language)}</span>
                       )}
                     </div>
 
@@ -845,7 +845,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         }}
                         onClick={() => setCardFormOpen(!cardFormOpen)}
                       >
-                        {cardFormOpen ? "카드 등록 닫기" : "결제 카드 정보 변경"}
+                        {cardFormOpen ? t("cardFormClose") : t("cardFormChange")}
                       </button>
 
                       {cardInfo && (
@@ -862,7 +862,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                           }}
                           onClick={handleDeleteCardInfo}
                         >
-                          결제 수단 삭제
+                          {t("cardDelete")}
                         </button>
                       )}
 
@@ -882,7 +882,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                               }}
                               onClick={handleRefund}
                             >
-                              7일 이내 즉시 환불 신청
+                              {t("refundBtn")}
                             </button>
                           ) : null}
                           <button
@@ -897,7 +897,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                             }}
                             onClick={handleCancelSubscription}
                           >
-                            구독 취소 (해지 예약)
+                            {t("cancelSubBtn")}
                           </button>
                         </>
                       )}
@@ -916,7 +916,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                           }}
                           onClick={handleResumeSubscription}
                         >
-                          구독 복구 (해지 취소)
+                          {t("restoreSubBtn")}
                         </button>
                       )}
                     </div>
@@ -925,7 +925,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
               ) : (
                 <>
                   <p className="profile-card-sub">
-                    현재 웹 브라우저 전용 기본 무료 플랜을 이용하고 있습니다. 화면을 최소화하거나 가려도 카메라 센서가 멈춤 없이 작동하는 데스크톱 전용 앱을 경험해보세요!
+                    {t("freePlanDesc")}
                   </p>
                   
                   {/* 비로그인 혹은 비구독 상태에서 카드 등록 가능성 오픈 */}
@@ -943,7 +943,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         flex: 1
                       }}
                     >
-                      PRO 업그레이드하고 데스크톱 앱 받기
+                      {t("upgradeBtn")}
                     </button>
                     {session?.user && (
                       <button
@@ -952,7 +952,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         onClick={() => setCardFormOpen(!cardFormOpen)}
                         style={{ border: "1px solid rgba(255,255,255,0.15)", fontSize: "12px" }}
                       >
-                        {cardFormOpen ? "결제창 닫기" : "결제 수단 카드 등록"}
+                        {cardFormOpen ? t("payFormClose") : t("payFormOpen")}
                       </button>
                     )}
                   </div>
@@ -971,7 +971,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                   overflow: "hidden"
                 }}>
                   <h4 style={{ fontSize: "14px", fontWeight: 700, margin: "0 0 16px 0", color: "var(--b-fg-2)" }}>
-                    💳 정기 결제 카드 등록 / 변경
+                    {t("cardFormTitle")}
                   </h4>
 
                   {/* 가상 카드 플레이트 실시간 렌더링 */}
@@ -1026,7 +1026,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                   {/* 입력 제어 폼 */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     <div>
-                      <label htmlFor="card-number-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>카드번호</label>
+                      <label htmlFor="card-number-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>{t("cardNumberLabel")}</label>
                       <input
                         id="card-number-input"
                         className="profile-input"
@@ -1044,7 +1044,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                       <div>
-                        <label htmlFor="card-expiry-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>유효기간</label>
+                        <label htmlFor="card-expiry-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>{t("cardExpiryLabel")}</label>
                         <input
                           id="card-expiry-input"
                           className="profile-input"
@@ -1060,7 +1060,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         />
                       </div>
                       <div>
-                        <label htmlFor="card-pwd-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>비밀번호 앞 2자리</label>
+                        <label htmlFor="card-pwd-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>{t("cardPwdLabel")}</label>
                         <input
                           id="card-pwd-input"
                           className="profile-input"
@@ -1078,7 +1078,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     </div>
 
                     <div>
-                      <label htmlFor="card-identity-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>생년월일 6자리 (또는 사업자번호 10자리)</label>
+                      <label htmlFor="card-identity-input" style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", marginBottom: "4px" }}>{t("cardIdentityLabel")}</label>
                       <input
                         id="card-identity-input"
                         className="profile-input"
@@ -1112,7 +1112,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         fontWeight: 700
                       }}
                     >
-                      {cardRegistering ? "카드 검증 및 빌링키 교환 중..." : "정기 결제용 카드 등록 완료"}
+                      {cardRegistering ? t("cardSubmitting") : t("cardSubmit")}
                     </button>
                   </div>
                 </form>
@@ -1123,12 +1123,12 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
             <section className="profile-card">
               <div className="profile-card-head">
                 <Icon name="shield" size={16} />
-                <span>나의 클라우드 계정</span>
+                <span>{t("myCloudAccount")}</span>
                 <span className={`profile-pill ${session ? "is-pro" : ""}`} style={session ? {
                   background: "rgba(126, 176, 156, 0.15)",
                   color: "#7eb09c"
                 } : undefined}>
-                  {session ? "연동됨" : "게스트 모드"}
+                  {session ? t("linked") : t("guestMode")}
                 </span>
               </div>
 
@@ -1183,7 +1183,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                       <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--b-fg-1)" }}>
-                        {profile.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || "사용자"}
+                        {profile.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || t("userFallback")}
                       </span>
                       <span style={{ fontSize: "12px", color: "var(--b-fg-3)" }}>
                         {session.user.email}
@@ -1191,7 +1191,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     </div>
                   </div>
                   <p className="profile-card-sub" style={{ marginBottom: "16px" }}>
-                    현재 소셜 계정으로 연결되어 있습니다. 모든 디바이스 설정 및 바른자세 측정 로그가 클라우드 서버와 실시간으로 원격 백업 및 동기화됩니다.
+                    {t("cloudDesc")}
                   </p>
                   <div className="profile-card-actions">
                     {!logoutConfirmOpen ? (
@@ -1201,7 +1201,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         onClick={() => setLogoutConfirmOpen(true)}
                         style={{ border: "1px solid rgba(255, 255, 255, 0.1)", color: "#f87171" }}
                       >
-                        간편 로그아웃
+                        {t("logout")}
                       </button>
                     ) : (
                       <div style={{
@@ -1216,9 +1216,9 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         animation: "fadeIn 0.2s ease-out"
                       }}>
                         <div style={{ fontSize: "12px", color: "var(--b-fg-2)", fontWeight: 600 }}>
-                          ⚠️ 정말 로그아웃 하시겠습니까?
+                          {t("logoutConfirmTitle")}
                           <span style={{ display: "block", fontSize: "11px", color: "var(--b-fg-4)", fontWeight: 400, marginTop: 4 }}>
-                            로그아웃 시에는 실시간 자세 데이터 백업이 일시 정지됩니다.
+                            {t("logoutConfirmDesc")}
                           </span>
                         </div>
                         <div style={{ display: "flex", gap: "8px" }}>
@@ -1268,7 +1268,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                               }
                             }}
                           >
-                            네, 로그아웃합니다
+                            {t("logoutYes")}
                           </button>
                           <button
                             type="button"
@@ -1284,7 +1284,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                             }}
                             onClick={() => setLogoutConfirmOpen(false)}
                           >
-                            취소
+                            {t("common:cancel")}
                           </button>
                         </div>
                       </div>
@@ -1300,11 +1300,11 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
               <section className="profile-card" style={{ border: "1px dashed var(--b-sig, #5b8c7a)", background: "rgba(91, 140, 122, 0.04)" }}>
                 <div className="profile-card-head" style={{ color: "var(--b-sig, #5b8c7a)" }}>
                   <Icon name="settings" size={16} />
-                  <span>어드민 시스템 제어</span>
+                  <span>{t("adminControl")}</span>
                   <span className="profile-pill" style={{ background: "rgba(91, 140, 122, 0.2)", color: "#5b8c7a" }}>ADMIN</span>
                 </div>
                 <p className="profile-card-sub" style={{ marginBottom: 12 }}>
-                  관리자 권한 계정으로 감지되었습니다. 어드민 대시보드 관리 기능을 조작하거나, 모든 사용자의 감지 감도 개선을 위한 표준 가동범위 모델을 보정할 수 있습니다.
+                  {t("adminDesc")}
                 </p>
                 <div className="profile-card-actions" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {!(window as any).__TAURI_INTERNALS__ && !(window as any).__TAURI__ ? (
@@ -1314,7 +1314,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       style={{ background: "linear-gradient(135deg, #5b8c7a, #3c5e52)" }}
                       onClick={onOpenAdmin}
                     >
-                      📊 어드민 대시보드 구동
+                      {t("adminDashboard")}
                     </button>
                   ) : (
                     <button
@@ -1328,7 +1328,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       }}
                       onClick={() => platform.openBrowser(getWebAdminUrl())}
                     >
-                      📊 어드민 대시보드 구동 (웹 브라우저로 열기)
+                      {t("adminDashboardWeb")}
                     </button>
                   )}
                   <button
@@ -1341,7 +1341,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     }}
                     onClick={() => setAdminModelCalibrateOpen(true)}
                   >
-                    🎯 스트레칭 가동범위 모델 보정하기
+                    {t("adminCalib")}
                   </button>
                 </div>
               </section>
@@ -1351,45 +1351,45 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
             {/* 이름 */}
             <section className="profile-card">
               <label htmlFor="profile-name" className="profile-card-head">
-                <span>표시 이름</span>
+                <span>{t("displayName")}</span>
               </label>
               <input
                 id="profile-name"
                 className="profile-input"
-                placeholder="예: 정홍"
+                placeholder={t("displayNamePlaceholder")}
                 value={profile.name}
                 maxLength={24}
                 onChange={(e) => update("name", e.target.value)}
               />
               <p className="profile-card-sub">
-                앱 내부에서만 사용해요. 인증 단계에서 계정명과 분리됩니다.
+                {t("displayNameHint")}
               </p>
             </section>
 
             {/* 작업 환경 */}
             <section className="profile-card">
               <div className="profile-card-head">
-                <span>주 작업 환경</span>
+                <span>{t("workEnvTitle")}</span>
               </div>
               <div className="profile-radio-row">
-                {(Object.keys(WORK_ENV_LABEL) as WorkEnv[]).map((k) => (
+                {(["laptop", "external_monitor", "mixed"] as WorkEnv[]).map((k) => (
                   <button
                     key={k}
                     type="button"
                     className={`profile-radio ${profile.workEnv === k ? "is-selected" : ""}`}
                     onClick={() => update("workEnv", k)}
                   >
-                    {WORK_ENV_LABEL[k]}
+                    {t(`workEnv.${k}`)}
                   </button>
                 ))}
               </div>
               <p className="profile-card-sub">
-                앞으로 작업 환경에 따라 자세 분석 보정 옵션이 추가될 수 있어요.
+                {t("workEnvHint")}
               </p>
             </section>
 
             <div className="profile-saved-hint">
-              {savedAt ? "자동 저장됨" : "변경 사항이 자동 저장됩니다"}
+              {savedAt ? t("autoSaved") : t("autoSaveHint")}
             </div>
 
             <div style={{ marginTop: "24px", marginBottom: "12px", display: "flex", justifyContent: "center" }}>
@@ -1412,7 +1412,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                 }}
               >
                 <Icon name="chev-l" size={14} />
-                이전 화면으로 돌아가기
+                {t("backPrev")}
               </button>
             </div>
           </>
@@ -1466,9 +1466,9 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     <Icon name="settings" size={16} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>스트레칭 가동범위 표준 모델 보정</h3>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{t("adminModalTitle")}</h3>
                     <p style={{ fontSize: 12, opacity: 0.5, margin: "2px 0 0" }}>
-                      어드민 전용: 서비스 공통으로 적용될 기본 3방향 표준 실루엣 데이터셋을 추출합니다.
+                      {t("adminModalDesc")}
                     </p>
                   </div>
                 </div>

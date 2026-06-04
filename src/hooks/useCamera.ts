@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { subscribeWake } from "../wakeDetector";
+import i18n from "../i18n";
 
 interface UseCameraResult {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -13,20 +14,20 @@ function friendlyCameraError(e: unknown): string {
   switch (name) {
     case "NotAllowedError":
     case "SecurityError":
-      return "카메라 권한이 거부됐어요. 시스템 설정에서 BaroSit에 카메라 권한을 허용해주세요.";
+      return i18n.t("errors:camera.denied");
     case "NotFoundError":
     case "DevicesNotFoundError":
-      return "사용 가능한 카메라를 찾지 못했어요. 외장 웹캠을 연결했다면 USB를 다시 꽂아보세요.";
+      return i18n.t("errors:camera.notFound");
     case "NotReadableError":
     case "TrackStartError":
-      return "다른 앱이 카메라를 사용 중이에요. Zoom, Photo Booth, 브라우저 탭 등을 종료한 뒤 다시 시도해주세요.";
+      return i18n.t("errors:camera.inUse");
     case "OverconstrainedError":
     case "ConstraintNotSatisfiedError":
-      return "이 카메라는 요청한 설정을 지원하지 않아요.";
+      return i18n.t("errors:camera.unsupported");
     case "AbortError":
-      return "카메라 시작이 취소됐어요. 잠시 후 다시 시도해주세요.";
+      return i18n.t("errors:camera.aborted");
     default:
-      return raw || "알 수 없는 카메라 오류가 발생했어요.";
+      return raw || i18n.t("errors:camera.unknown");
   }
 }
 

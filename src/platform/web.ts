@@ -1,20 +1,11 @@
-import type { PostureStatus, PostureType } from "../pose/types";
+import type { PostureStatus } from "../pose/types";
+import i18n from "../i18n";
 import type {
   AlertPayload,
   PlatformAPI,
   Unsubscribe,
   WidgetState,
 } from "./types";
-
-const POSTURE_LABEL: Record<PostureType, string> = {
-  forward_head: "거북목",
-  chin_resting: "턱 괴임",
-  shoulder_tilt: "어깨 기울임",
-  slouching: "등 구부정",
-  monitor_too_close: "모니터가 너무 가까워요",
-  shoulder_asymmetry: "어깨가 한쪽으로 기울었어요",
-  head_roll: "머리가 한쪽으로 기울었어요",
-};
 
 const STATUS_EMOJI: Record<PostureStatus, string> = {
   good: "🟢",
@@ -68,11 +59,13 @@ function paintFavicon(color: string): void {
 }
 
 const showPostureAlert = async (payload: AlertPayload): Promise<void> => {
-  const label = POSTURE_LABEL[payload.posture_type] ?? payload.posture_type;
-  const title = `자세 알림: ${label}`;
+  const label = i18n.exists(`posture:label.${payload.posture_type}`)
+    ? i18n.t(`posture:label.${payload.posture_type}`)
+    : payload.posture_type;
+  const title = i18n.t("notifications:webTitle", { label });
   const body =
     payload.coaching_message ??
-    `${label} 자세가 ${payload.duration_secs}초 지속 — 자세를 바르게 해주세요`;
+    i18n.t("notifications:webBody", { label, secs: payload.duration_secs });
 
   if (typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
@@ -86,6 +79,10 @@ const showPostureAlert = async (payload: AlertPayload): Promise<void> => {
 const updateStatus = async (status: PostureStatus): Promise<void> => {
   document.title = `${STATUS_EMOJI[status]} ${BASE_TITLE}`;
   paintFavicon(STATUS_COLOR[status]);
+};
+
+const setTrayI18n = async (_labels: Record<string, string>): Promise<void> => {
+  // 웹에는 트레이가 없음 — no-op.
 };
 
 const noopAsync = async (): Promise<void> => {
@@ -148,6 +145,7 @@ export const webPlatform: PlatformAPI = {
   getAppVersion: async () => "0.1.2",
   showPostureAlert,
   updateStatus,
+  setTrayI18n,
   showMainWindow: noopAsync,
   hideMainWindow: noopAsync,
   setWidgetVisible: noopAsync,

@@ -1,4 +1,4 @@
-mod llm;
+// mod llm; // AI 코칭 폐기 — 정적 다국어 코칭으로 대체
 mod tray;
 
 use serde::{Deserialize, Serialize};
@@ -219,6 +219,12 @@ pub struct PostureAlertPayload {
     pub duration_secs: u32,
     pub severity: String,
     pub coaching_message: Option<String>,
+    /// OS 알림 제목 — 프런트(i18n)에서 로컬라이즈해 전달. 없으면 기본 영어.
+    #[serde(default)]
+    pub title: Option<String>,
+    /// coaching_message 가 없을 때 사용할 로컬라이즈 폴백 본문.
+    #[serde(default)]
+    pub body_fallback: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,20 +239,22 @@ pub enum PostureStatus {
 
 #[tauri::command]
 fn show_posture_alert(app: AppHandle, payload: PostureAlertPayload) -> Result<(), String> {
-    let title = match payload.posture_type.as_str() {
-        "forward_head" => "거북목 자세 감지",
-        "chin_resting" => "턱 괴는 자세 감지",
-        "shoulder_tilt" => "어깨 기울임 감지",
-        "slouching" => "등 구부정한 자세 감지",
-        _ => "자세 알림",
-    };
+    // 제목/본문 모두 프런트(i18n)에서 로컬라이즈해 전달. Rust는 렌더만.
+    let title = payload
+        .title
+        .clone()
+        .unwrap_or_else(|| "Posture alert".to_string());
 
-    let body = payload.coaching_message.unwrap_or_else(|| {
-        format!(
-            "{}초 동안 자세가 흐트러졌어요. 잠시 자세를 바로잡아 보세요.",
-            payload.duration_secs
-        )
-    });
+    let body = payload
+        .coaching_message
+        .clone()
+        .or_else(|| payload.body_fallback.clone())
+        .unwrap_or_else(|| {
+            format!(
+                "Poor posture for {}s. Take a moment to straighten up.",
+                payload.duration_secs
+            )
+        });
 
     app.notification()
         .builder()
@@ -255,6 +263,11 @@ fn show_posture_alert(app: AppHandle, payload: PostureAlertPayload) -> Result<()
         .show()
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+fn set_tray_i18n(app: AppHandle, labels: tray::TrayI18n) -> Result<(), String> {
+    tray::apply_tray_i18n(&app, labels)
 }
 
 #[tauri::command]
@@ -356,33 +369,17 @@ fn hide_alert_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-async fn generate_coaching_message(
-    api_key: String,
-    posture_type: String,
-    duration_secs: u32,
-    today_count_for_type: u32,
-    hour: u32,
-) -> Result<String, String> {
-    if api_key.trim().is_empty() {
-        return Err("API key not configured".into());
-    }
-    llm::generate_coaching_message(
-        &api_key,
-        llm::CoachingRequest {
-            posture_type,
-            duration_secs,
-            today_count_for_type,
-            hour,
-        },
-    )
-    .await
-}
+// AI(LLM) 코칭은 정적 다국어 코칭으로 대체되어 폐기됨. (llm.rs 모듈 미사용)
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // argv 는 Windows/Linux deep-link 포워딩(아래 cfg 블록)에서만 사용되고
+            // macOS 에선 그 블록이 제외돼 미사용 → 경고. 이름은 유지하고 macOS 에서만
+            // 명시적으로 "사용" 표시해 경고를 억제(런타임 no-op).
+            #[cfg(target_os = "macos")]
+            let _ = &argv;
             // 두 번째 인스턴스 실행 시도 시 — 첫 인스턴스의 메인 윈도우를 띄움
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -425,6 +422,9 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         // 외부 URL (OAuth provider 페이지) 을 사용자 기본 브라우저에서 여는 데 사용.
         .plugin(tauri_plugin_opener::init())
+        .manage(tray::TrayI18nState(std::sync::Mutex::new(
+            tray::TrayI18n::default(),
+        )))
         .setup(|app| {
             use tauri_plugin_global_shortcut::GlobalShortcutExt;
             tray::setup_tray(app.handle())?;
@@ -511,7 +511,7 @@ pub fn run() {
             show_alert_window,
             hide_alert_window,
             quit_app,
-            generate_coaching_message,
+            set_tray_i18n,
             open_browser,
             system_idle_secs,
         ])

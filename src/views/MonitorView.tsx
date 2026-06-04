@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import {
   loadProfile,
   PROFILE_CHANGED_EVENT,
@@ -23,7 +25,6 @@ import { ViolationTracker } from "../pose/violationTracker";
 import { ViolationSmoother } from "../pose/violationSmoother";
 import {
   detectStretch,
-  STRETCH_LABEL,
   StretchTracker,
   type StretchKind,
 } from "../pose/stretchDetector";
@@ -98,7 +99,7 @@ import {
   updateEventDuration,
 } from "../pose/eventLog";
 import { triggerAutoSync } from "../lib/syncService";
-import { fetchCoachingMessage } from "../llmConfig";
+import { postureCoaching, postureAlertTitle } from "../i18n/posture";
 import { Icon } from "../components/Icon";
 import { ScoreRing } from "../components/ScoreRing";
 import {
@@ -119,15 +120,16 @@ interface Props {
   setDetailedReportOpen?: (open: boolean) => void;
 }
 
-const POSTURE_LABELS: Record<PostureType, string> = {
-  forward_head: "거북목",
-  chin_resting: "턱 괴임",
-  shoulder_tilt: "어깨 기울임",
-  slouching: "등 구부정",
-  monitor_too_close: "모니터 거리",
-  shoulder_asymmetry: "어깨 비대칭",
-  head_roll: "머리 좌우 기울임",
-};
+// 자세 라벨/코칭은 공유 네임스페이스(posture/coaching) 사용. 반복용 타입 목록만 유지.
+const POSTURE_TYPES: PostureType[] = [
+  "forward_head",
+  "chin_resting",
+  "shoulder_tilt",
+  "slouching",
+  "monitor_too_close",
+  "shoulder_asymmetry",
+  "head_roll",
+];
 
 const POSTURE_FIGURE: Record<PostureType, PostureFigureState> = {
   forward_head: "forward-head",
@@ -139,23 +141,13 @@ const POSTURE_FIGURE: Record<PostureType, PostureFigureState> = {
   head_roll: "shoulder-tilt",
 };
 
-const COACHING_BY_TYPE: Record<PostureType, string> = {
-  forward_head: "턱을 살짝 당겨볼까요",
-  chin_resting: "손을 책상 위로 내려볼까요",
-  shoulder_tilt: "어깨가 한쪽으로 기울었어요",
-  slouching: "등을 펴고 가슴을 열어볼까요",
-  monitor_too_close: "모니터에서 한 뼘 더 멀어져볼까요",
-  shoulder_asymmetry: "양쪽 어깨에 고르게 힘을 빼볼까요",
-  head_roll: "머리를 수직으로 세워볼까요",
-};
-
 const ABSENCE_GRACE_MS = 8000;
 
 function formatDuration(secs: number): string {
-  if (secs < 60) return `${Math.round(secs)}초`;
+  if (secs < 60) return i18n.t("monitor:secs", { s: Math.round(secs) });
   const m = Math.floor(secs / 60);
   const s = Math.round(secs % 60);
-  return `${m}분 ${s}초`;
+  return i18n.t("monitor:minsSecs", { m, s });
 }
 
 function formatUsageTime(secs: number): string {
@@ -250,13 +242,14 @@ export function MonitorView({
   detailedReportOpen = false,
   setDetailedReportOpen = () => {},
 }: Props) {
+  const { t, i18n } = useTranslation(["monitor", "posture", "coaching", "stretch", "common"]);
   const { user } = useAuth();
   const [subPlan, setSubPlan] = useState<"free" | "pro">(() => {
     return (localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free";
   });
 
   const isMac = typeof navigator !== "undefined" && navigator.userAgent.indexOf("Mac") !== -1;
-  const shortcutText = isMac ? "Space 또는 ⌥⌘P" : "Space 또는 Ctrl+Alt+P";
+  const shortcutText = isMac ? t("monitor:shortcut.mac") : t("monitor:shortcut.win");
 
   useEffect(() => {
     const syncPlan = () => {
@@ -1398,13 +1391,8 @@ export function MonitorView({
           durationSecs: event.durationSecs,
         });
 
-        const todayStats = computeDailyStats(
-          loadEvents(),
-          startOfToday(),
-          Date.now() + 1,
-        );
-
         const intensity = intensityFromDuration(event.durationSecs);
+        // 정적 다국어 코칭 (AI 생성 코칭 대체). 오버레이는 null이면 coaching:tip 폴백.
         dispatchAlertFired({
           postureType: event.type,
           durationSecs: event.durationSecs,
@@ -1415,30 +1403,10 @@ export function MonitorView({
           posture_type: event.type,
           duration_secs: event.durationSecs,
           severity: "bad",
-          coaching_message: null,
+          coaching_message: postureCoaching(event.type),
+          title: postureAlertTitle(event.type),
+          body_fallback: i18n.t("notifications:fallbackBody", { sec: event.durationSecs }),
         }).catch(() => undefined);
-
-        fetchCoachingMessage({
-          postureType: event.type,
-          durationSecs: event.durationSecs,
-          todayCountForType: todayStats.byType[event.type],
-        })
-          .then((msg) => {
-            if (!msg) return;
-            dispatchAlertFired({
-              postureType: event.type,
-              durationSecs: event.durationSecs,
-              intensity,
-              coachingMessage: msg,
-            });
-            return showPostureAlert({
-              posture_type: event.type,
-              duration_secs: event.durationSecs,
-              severity: "bad",
-              coaching_message: msg,
-            });
-          })
-          .catch(() => undefined);
       }
 
       const next: PostureStatus = result.isResting
@@ -1495,50 +1463,53 @@ export function MonitorView({
           ? "var(--b-warn)"
           : "var(--b-fg-4)";
   const statusBadge = paused
-    ? "일시정지"
+    ? t("monitor:statusBadge.paused")
     : away
-      ? "자리비움"
+      ? t("monitor:statusBadge.away")
       : resting
-        ? "쉬는 중"
+        ? t("monitor:statusBadge.resting")
         : standing
-          ? "서 있는 중"
+          ? t("monitor:statusBadge.standing")
           : tone === "good"
-            ? "양호"
+            ? t("monitor:statusBadge.good")
             : tone === "amber"
-              ? "주의"
-              : "교정 필요";
+              ? t("monitor:statusBadge.warn")
+              : t("monitor:statusBadge.bad");
 
   // 메인 카피
   const primaryViolation = displayViolations[0];
   const headline = paused
-    ? "쉬고 있어요"
+    ? t("monitor:headline.paused")
     : away
-      ? "잠깐 자리를 비웠어요"
+      ? t("monitor:headline.away")
       : resting
-        ? "잠깐 등받이에 기대어 쉬세요"
+        ? t("monitor:headline.resting")
         : standing
-          ? "가볍게 서서 일하고 있어요"
+          ? t("monitor:headline.standing")
           : tone === "good"
-            ? "잘 앉아 있어요"
+            ? t("monitor:headline.good")
             : tone === "amber"
-              ? "조금만 더 바르게"
+              ? t("monitor:headline.amber")
               : primaryViolation
-                ? COACHING_BY_TYPE[primaryViolation]
-                : "잠깐, 어깨를 펴볼까요";
+                ? t(`coaching:tip.${primaryViolation}`)
+                : t("monitor:headline.bad");
 
   const subline = paused
-    ? "재개하면 자세 살피기를 다시 시작합니다"
+    ? t("monitor:subline.paused")
     : away
-      ? "자리에 돌아오면 자동으로 다시 시작해요"
+      ? t("monitor:subline.away")
       : resting
-        ? "다시 똑바로 앉으면 자동으로 다시 살펴드릴게요"
+        ? t("monitor:subline.resting")
         : standing
-          ? "선 자세는 척추를 곧게 펴줍니다. 가볍게 양손을 위로 올려 스트레칭을 해볼까요?"
+          ? t("monitor:subline.standing")
           : tone === "good"
-            ? "지금은 모두 양호해요"
+            ? t("monitor:subline.good")
             : primaryViolation
-            ? `${POSTURE_LABELS[primaryViolation]} · ${formatDuration(maxDurationSecs)}째 지속`
-            : "자세를 부드럽게 살피고 있어요";
+            ? t("monitor:subline.violation", {
+                label: t(`posture:label.${primaryViolation}`),
+                duration: formatDuration(maxDurationSecs),
+              })
+            : t("monitor:subline.scanning");
 
   // 자세 fig 매핑
   const postureFigState: PostureFigureState = primaryViolation
@@ -1678,11 +1649,11 @@ export function MonitorView({
 
   // 좋은 자세 유지율에 따른 자세 건강 등급 결정
   const getPostureGrade = (ratio: number) => {
-    if (ratio >= 95) return { grade: "S", label: "최우수", desc: "완벽한 척추 정렬 균형", color: "var(--b-sig)" };
-    if (ratio >= 90) return { grade: "A", label: "우수", desc: "건강한 척추 정렬 유지", color: "var(--b-sig)" };
-    if (ratio >= 80) return { grade: "B", label: "양호", desc: "가벼운 피로 누적 경계", color: "var(--b-fg-1)" };
-    if (ratio >= 70) return { grade: "C", label: "주의", desc: "척추 관절 압박 가중", color: "var(--b-warn)" };
-    return { grade: "D", label: "위험", desc: "만성 통증 및 경추 굳어짐 위험", color: "var(--b-warn)" };
+    if (ratio >= 95) return { grade: "S", label: t("monitor:grade.S.label"), desc: t("monitor:grade.S.desc"), color: "var(--b-sig)" };
+    if (ratio >= 90) return { grade: "A", label: t("monitor:grade.A.label"), desc: t("monitor:grade.A.desc"), color: "var(--b-sig)" };
+    if (ratio >= 80) return { grade: "B", label: t("monitor:grade.B.label"), desc: t("monitor:grade.B.desc"), color: "var(--b-fg-1)" };
+    if (ratio >= 70) return { grade: "C", label: t("monitor:grade.C.label"), desc: t("monitor:grade.C.desc"), color: "var(--b-warn)" };
+    return { grade: "D", label: t("monitor:grade.D.label"), desc: t("monitor:grade.D.desc"), color: "var(--b-warn)" };
   };
 
   const todayGradeInfo = getPostureGrade(todayGoodRatio);
@@ -1800,8 +1771,8 @@ export function MonitorView({
                   }}
                 >
                   {!user
-                    ? "게스트 모드로 감지 중입니다. 브라우저 캐시 삭제 시 통계 기록이 유실될 수 있으니 간편 로그인하여 클라우드에 평생 백업하세요."
-                    : "현재 웹 전용 FREE 플랜입니다. 백그라운드 무정지 감지, 미니 위젯 등 풍부한 네이티브 기능이 포함된 데스크톱 설치형 앱 다운로드(PRO 전용)를 이용해보세요."}
+                    ? t("monitor:proBanner.guestMsg")
+                    : t("monitor:proBanner.freeMsg")}
                 </span>
                 <span
                   style={{
@@ -1812,8 +1783,8 @@ export function MonitorView({
                   }}
                 >
                   {!user
-                    ? "🔒 3초 만에 소셜 로그인하고 소중한 거북목 분석 데이터 지키기"
-                    : "💻 Windows / macOS 무정지 백그라운드 구동 & 실시간 플로팅 위젯 지원"}
+                    ? t("monitor:proBanner.guestSub")
+                    : t("monitor:proBanner.freeSub")}
                 </span>
               </div>
             </div>
@@ -1843,7 +1814,7 @@ export function MonitorView({
               }}
               className="nudge-action-btn"
             >
-              {!user ? "평생 백업하기" : "PRO 혜택 확인"}
+              {!user ? t("monitor:proBanner.guestCta") : t("monitor:proBanner.freeCta")}
               <Icon name="chev-r" size={11} />
             </button>
 
@@ -1891,7 +1862,7 @@ export function MonitorView({
                 marginBottom: 4,
               }}
             >
-              {MAIN_SLOGAN}
+              {i18n.language === "ko" ? MAIN_SLOGAN : t("app:tagline")}
             </div>
             <div
               style={{
@@ -1959,12 +1930,12 @@ export function MonitorView({
                       : "var(--b-fg-4)";
               const message =
                 stage === "deep"
-                  ? "긴 휴식 권장 — 5분 일어나기"
+                  ? t("monitor:break.deep")
                   : stage === "standup"
-                    ? "한 번 일어서볼까요 (KOSHA 권고)"
+                    ? t("monitor:break.standup")
                     : stage === "micro"
-                      ? "어깨 으쓱·목 회전으로 환기"
-                      : "곧 환기 권장";
+                      ? t("monitor:break.micro")
+                      : t("monitor:break.soon");
               return (
                 <div
                   style={{
@@ -1981,7 +1952,7 @@ export function MonitorView({
                     fontWeight: 600,
                   }}
                 >
-                  <span style={{ fontWeight: 700 }}>{mins}분 연속 착석</span>
+                  <span style={{ fontWeight: 700 }}>{t("monitor:break.sitting", { mins })}</span>
                   <span style={{ opacity: 0.7 }}>· {message}</span>
                 </div>
               );
@@ -1991,11 +1962,11 @@ export function MonitorView({
           <div style={{ display: "flex", gap: 6 }}>
             <button
               className="b-icon-btn b-tip"
-              aria-label={paused ? "모니터링 재개" : "모니터링 일시정지"}
+              aria-label={paused ? t("monitor:controls.resumeAria") : t("monitor:controls.pauseAria")}
               data-tip={
                 paused
-                  ? `모니터링 재개 (${shortcutText})`
-                  : `모니터링 일시정지 (${shortcutText})`
+                  ? t("monitor:controls.resumeTip", { shortcut: shortcutText })
+                  : t("monitor:controls.pauseTip", { shortcut: shortcutText })
               }
               onClick={onTogglePause}
             >
@@ -2005,11 +1976,11 @@ export function MonitorView({
               <>
                 <button
                   className="b-icon-btn b-tip"
-                  aria-label={minibarOn ? "미니바 숨기기" : "미니바 표시"}
+                  aria-label={minibarOn ? t("monitor:controls.minibarHideAria") : t("monitor:controls.minibarShowAria")}
                   data-tip={
                     minibarOn
-                      ? "미니바 숨기기 — 플로팅 알약 끔"
-                      : "미니바 표시 — 플로팅 알약 켬"
+                      ? t("monitor:controls.minibarHideTip")
+                      : t("monitor:controls.minibarShowTip")
                   }
                   aria-pressed={minibarOn}
                   onClick={() => {
@@ -2032,21 +2003,21 @@ export function MonitorView({
                 </button>
                 <button
                   className="b-btn b-btn-ghost b-tip"
-                  aria-label="메인 창을 닫고 미니바만 표시"
-                  data-tip="메인 창을 닫고 미니바만 표시"
+                  aria-label={t("monitor:controls.widgetModeTip")}
+                  data-tip={t("monitor:controls.widgetModeTip")}
                   onClick={() => switchToWidgetMode().catch(() => undefined)}
                   disabled={!minibarOn}
                   style={{ height: 32, padding: "0 10px", fontSize: 12 }}
                 >
                   <Icon name="chev-d" size={12} />
-                  위젯 모드
+                  {t("monitor:controls.widgetMode")}
                 </button>
               </>
             )}
             <button
               className="b-icon-btn b-tip"
-              aria-label="설정 열기"
-              data-tip="설정 열기"
+              aria-label={t("monitor:controls.settings")}
+              data-tip={t("monitor:controls.settings")}
               onClick={onOpenSettings}
             >
               <Icon name="settings" size={15} />
@@ -2055,8 +2026,8 @@ export function MonitorView({
               <a
                 href="#/landing"
                 className="b-btn b-btn-ghost b-tip"
-                aria-label="홈으로 (랜딩)"
-                data-tip="홈으로"
+                aria-label={t("monitor:controls.homeAria")}
+                data-tip={t("monitor:controls.homeTip")}
                 style={{
                   height: 32,
                   padding: "0 10px",
@@ -2064,14 +2035,14 @@ export function MonitorView({
                   textDecoration: "none",
                 }}
               >
-                홈
+                {t("monitor:controls.home")}
               </a>
             )}
             {user ? (
               <button
                 className="b-icon-btn b-tip"
-                aria-label="프로필 열기"
-                data-tip={profile.name ? `${profile.name} · 프로필` : "프로필"}
+                aria-label={t("monitor:controls.profileAria")}
+                data-tip={profile.name ? t("monitor:controls.profileTip", { name: profile.name }) : t("monitor:controls.profile")}
                 onClick={onOpenProfile}
                 style={{
                   fontSize: 18,
@@ -2130,8 +2101,8 @@ export function MonitorView({
             ) : (
               <button
                 className="b-btn b-btn-ghost b-tip"
-                aria-label="로그인하기"
-                data-tip="로그인하여 자세 데이터를 백업하세요"
+                aria-label={t("monitor:controls.loginAria")}
+                data-tip={t("monitor:controls.loginTip")}
                 onClick={onOpenProfile}
                 style={{
                   height: 32,
@@ -2151,7 +2122,7 @@ export function MonitorView({
                 }}
               >
                 <Icon name="shield" size={13} style={{ opacity: 0.8 }} />
-                <span>로그인</span>
+                <span>{t("monitor:controls.login")}</span>
               </button>
             )}
           </div>
@@ -2255,7 +2226,7 @@ export function MonitorView({
 
             {/* Camera Position Icon Badge (Ultra-minimalist, placed elegantly at the bottom edge inside the card) */}
             <div
-              title={cameraAngle === "front" ? "정면 카메라 감지됨" : cameraAngle === "left" ? "좌측 45° 카메라 감지됨" : "우측 45° 카메라 감지됨"}
+              title={cameraAngle === "front" ? t("monitor:camera.detectedFront") : cameraAngle === "left" ? t("monitor:camera.detectedLeft") : t("monitor:camera.detectedRight")}
               style={{
                 position: "absolute",
                 bottom: 10,
@@ -2286,7 +2257,7 @@ export function MonitorView({
             {stretchToast && (
               <div className="stretch-toast">
                 <span className="stretch-toast__icon">🌿</span>
-                <span>{STRETCH_LABEL[stretchToast.kind]}</span>
+                <span>{t(`stretch:label.${stretchToast.kind}`)}</span>
                 <span className="stretch-toast__bonus">
                   +{stretchToast.amount}
                 </span>
@@ -2296,7 +2267,7 @@ export function MonitorView({
             {/* 기준 자세 다시 잡기 — 카메라 우상단 (위치 배지가 밀려나서 중첩 방지) */}
             <button
               onClick={onRecalibrate}
-              title="기준 자세를 다시 측정합니다"
+              title={t("monitor:camera.recalibrateTitle")}
               style={{
                 position: "absolute",
                 top: 10,
@@ -2318,7 +2289,7 @@ export function MonitorView({
               }}
             >
               <Icon name="target" size={11} />
-              기준 다시 잡기
+              {t("monitor:camera.recalibrate")}
             </button>
 
             {/* 카메라 각도 변경으로 인한 실루엣 카드 내 가이드 배너 */}
@@ -2364,7 +2335,7 @@ export function MonitorView({
                       flexShrink: 0,
                     }}
                   >
-                    카메라 각도 변경됨 ({recommendAngle === "front" ? "정면" : recommendAngle === "left" ? "왼쪽" : "오른쪽"})
+                    {t("monitor:camera.angleChanged", { angle: recommendAngle === "front" ? t("monitor:angle.front") : recommendAngle === "left" ? t("monitor:angle.left") : t("monitor:angle.right") })}
                     {/* 헬프 아이콘 (?) */}
                     <span
                       style={{
@@ -2424,7 +2395,7 @@ export function MonitorView({
                       e.currentTarget.style.transform = "none";
                     }}
                   >
-                    기준등록
+                    {t("monitor:camera.register")}
                   </button>
                   <button
                     onClick={(e) => {
@@ -2473,13 +2444,13 @@ export function MonitorView({
                     }}
                   >
                     <div style={{ fontSize: "12px", fontWeight: 800, color: "#fbbf24", display: "flex", alignItems: "center", gap: "6px" }}>
-                      📐 다중 각도 자동 관제 안내
+                      {t("monitor:camera.helpTitle")}
                     </div>
                     <div style={{ fontSize: "11px", fontWeight: 500, color: "rgba(255, 255, 255, 0.85)", lineHeight: 1.5, letterSpacing: "-0.01em" }}>
-                      노트북/모니터 등 카메라 각도가 변경되면 인체 인식 기하 왜곡이 일어나 오동작을 방지하기 위해 새로운 기준 등록을 추천합니다.
+                      {t("monitor:camera.helpBody1")}
                     </div>
                     <div style={{ fontSize: "11.5px", fontWeight: 700, color: "#a8d4c4", lineHeight: 1.4, marginTop: "2px" }}>
-                      💡 앵글별(정면/좌/우)로 단 한 번씩만 등록해 두시면, 이후에는 카메라 위치가 바뀌어도 추가 등록 없이 실시간 자동 인식되어 즉시 정상 사용이 가능합니다!
+                      {t("monitor:camera.helpBody2")}
                     </div>
                   </div>
                 )}
@@ -2519,7 +2490,7 @@ export function MonitorView({
                       letterSpacing: "0.04em",
                     }}
                   >
-                    활성 위반 · {POSTURE_LABELS[primaryViolation]}
+                    {t("monitor:card.activeViolation", { label: t(`posture:label.${primaryViolation}`) })}
                   </span>
                 </div>
                 <div
@@ -2531,13 +2502,13 @@ export function MonitorView({
                     letterSpacing: "-0.012em",
                   }}
                 >
-                  {COACHING_BY_TYPE[primaryViolation]}
+                  {t(`coaching:tip.${primaryViolation}`)}
                 </div>
                 <div
                   className="b-num"
                   style={{ fontSize: 12, color: "var(--b-fg-3)" }}
                 >
-                  {formatDuration(maxDurationSecs)}째 지속 중
+                  {t("monitor:card.ongoing", { duration: formatDuration(maxDurationSecs) })}
                 </div>
               </div>
             )}
@@ -2574,7 +2545,7 @@ export function MonitorView({
                       letterSpacing: "0.04em",
                     }}
                   >
-                    주의 · {POSTURE_LABELS[primaryViolation]}
+                    {t("monitor:card.caution", { label: t(`posture:label.${primaryViolation}`) })}
                   </span>
                 </div>
                 <div
@@ -2585,13 +2556,13 @@ export function MonitorView({
                     letterSpacing: "-0.012em",
                   }}
                 >
-                  {COACHING_BY_TYPE[primaryViolation]}
+                  {t(`coaching:tip.${primaryViolation}`)}
                 </div>
                 <div
                   className="b-num"
                   style={{ fontSize: 12, color: "var(--b-fg-3)" }}
                 >
-                  {formatDuration(maxDurationSecs)}째 지속 중
+                  {t("monitor:card.ongoing", { duration: formatDuration(maxDurationSecs) })}
                 </div>
               </div>
             )}
@@ -2625,7 +2596,7 @@ export function MonitorView({
                       letterSpacing: "0.04em",
                     }}
                   >
-                    지금은 모두 양호해요
+                    {t("monitor:subline.good")}
                   </span>
                 </div>
                 <div
@@ -2636,13 +2607,13 @@ export function MonitorView({
                     letterSpacing: "-0.012em",
                   }}
                 >
-                  자세를 부드럽게 살피고 있어요
+                  {t("monitor:subline.scanning")}
                 </div>
                 <div
                   className="b-num"
                   style={{ fontSize: 12, color: "var(--b-fg-3)" }}
                 >
-                  잘 유지 중
+                  {t("monitor:card.holding")}
                 </div>
               </div>
             )}
@@ -2676,14 +2647,14 @@ export function MonitorView({
                       letterSpacing: "0.04em",
                     }}
                   >
-                    일시정지
+                    {t("monitor:statusBadge.paused")}
                   </span>
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
-                  쉬고 있어요
+                  {t("monitor:headline.paused")}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--b-fg-3)" }}>
-                  재개하면 자세 살피기를 다시 시작합니다
+                  {t("monitor:subline.paused")}
                 </div>
               </div>
             )}
@@ -2717,14 +2688,14 @@ export function MonitorView({
                       letterSpacing: "0.04em",
                     }}
                   >
-                    자리비움
+                    {t("monitor:statusBadge.away")}
                   </span>
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
-                  잠깐 자리를 비웠어요
+                  {t("monitor:headline.away")}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--b-fg-3)" }}>
-                  자리에 돌아오면 자동으로 다시 시작해요
+                  {t("monitor:subline.away")}
                 </div>
               </div>
             )}
@@ -2755,14 +2726,14 @@ export function MonitorView({
                     letterSpacing: "0.02em",
                   }}
                 >
-                  민감도
+                  {t("monitor:sensitivity.title")}
                 </span>
                 <button
                   className="b-btn b-btn-quiet"
                   style={{ fontSize: 11, padding: "4px 8px" }}
                   onClick={onOpenSettings}
                 >
-                  자세히 <Icon name="chev-r" size={10} />
+                  {t("monitor:sensitivity.more")} <Icon name="chev-r" size={10} />
                 </button>
               </div>
               <div
@@ -2774,8 +2745,8 @@ export function MonitorView({
                   color: "var(--b-fg-3)",
                 }}
               >
-                <span style={{ width: 60 }}>거북목</span>
-                <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>엄격</span>
+                <span style={{ width: 60 }}>{t("posture:label.forward_head")}</span>
+                <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>{t("monitor:sensitivity.strict")}</span>
                 <input
                   type="range"
                   className="b-slider"
@@ -2797,7 +2768,7 @@ export function MonitorView({
                   }}
                   style={{ flex: 1 }}
                 />
-                <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>관대</span>
+                <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>{t("monitor:sensitivity.lenient")}</span>
                 <span
                   className="b-num"
                   style={{
@@ -2829,7 +2800,7 @@ export function MonitorView({
             // 위반은 적을수록 좋음 → 음수가 good. 스트레칭은 많을수록 좋음 → 양수가 good.
             const cards = [
               {
-                label: "자세 건강 점수",
+                label: t("monitor:stats.health.label"),
                 value: `${todayGoodRatio.toFixed(4)}`,
                 badge: {
                   text: `${todayGradeInfo.grade} ${todayGradeInfo.label}`,
@@ -2843,62 +2814,62 @@ export function MonitorView({
                   ? `+${goodRatioDelta.toFixed(4)}` 
                   : `${goodRatioDelta.toFixed(4)}`,
                 deltaGood: goodRatioDelta === null ? true : goodRatioDelta >= 0,
-                tooltipDesc: "실시간 감지 데이터를 기반으로 계산된 오늘의 자세 건강 점수와 등급입니다. (S/A/B/C/D 등급 기준)",
-                scientificGround: "나켐슨(Nachemson) 척추 역학 측정 모델 및 미국 정형외과학회(AAOS) 정렬 기준 연동.",
+                tooltipDesc: t("monitor:stats.health.tooltip"),
+                scientificGround: t("monitor:stats.health.ground"),
                 extraContent: (
                   <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4, borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: 4 }}>
-                    <div style={{ fontSize: 9, color: "var(--b-fg-4)", fontWeight: 700, marginBottom: 2 }}>[자세 건강 등급 기준]</div>
+                    <div style={{ fontSize: 9, color: "var(--b-fg-4)", fontWeight: 700, marginBottom: 2 }}>{t("monitor:stats.criteria.title")}</div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-sig)", fontWeight: 700 }}>S 등급 (95점 이상)</span>
-                      <span style={{ color: "var(--b-fg-3)" }}>완벽 (NASA 중립 정렬)</span>
+                      <span style={{ color: "var(--b-sig)", fontWeight: 700 }}>{t("monitor:stats.criteria.sRange")}</span>
+                      <span style={{ color: "var(--b-fg-3)" }}>{t("monitor:stats.criteria.sDesc")}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-sig)", fontWeight: 700 }}>A 등급 (90점 ~ 95점)</span>
-                      <span style={{ color: "var(--b-fg-3)" }}>우수 (이상적 근육 지지)</span>
+                      <span style={{ color: "var(--b-sig)", fontWeight: 700 }}>{t("monitor:stats.criteria.aRange")}</span>
+                      <span style={{ color: "var(--b-fg-3)" }}>{t("monitor:stats.criteria.aDesc")}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-fg-2)", fontWeight: 700 }}>B 등급 (80점 ~ 90점)</span>
-                      <span style={{ color: "var(--b-fg-3)" }}>양호 (경미 장력 이동)</span>
+                      <span style={{ color: "var(--b-fg-2)", fontWeight: 700 }}>{t("monitor:stats.criteria.bRange")}</span>
+                      <span style={{ color: "var(--b-fg-3)" }}>{t("monitor:stats.criteria.bDesc")}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-warn)", fontWeight: 700 }}>C 등급 (70점 ~ 80점)</span>
-                      <span style={{ color: "var(--b-fg-3)" }}>주의 (수직 부하 1.5배)</span>
+                      <span style={{ color: "var(--b-warn)", fontWeight: 700 }}>{t("monitor:stats.criteria.cRange")}</span>
+                      <span style={{ color: "var(--b-fg-3)" }}>{t("monitor:stats.criteria.cDesc")}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
-                      <span style={{ color: "var(--b-warn)", fontWeight: 700 }}>D 등급 (70점 미만)</span>
-                      <span style={{ color: "var(--b-fg-3)" }}>위험 (목 부하 27kg 돌파)</span>
+                      <span style={{ color: "var(--b-warn)", fontWeight: 700 }}>{t("monitor:stats.criteria.dRange")}</span>
+                      <span style={{ color: "var(--b-fg-3)" }}>{t("monitor:stats.criteria.dDesc")}</span>
                     </div>
                   </div>
                 )
               },
               {
-                label: "자세 위반 횟수",
+                label: t("monitor:stats.violations.label"),
                 value: `${todayStats.violations}`,
                 badge: null,
                 delta: fmtDelta(deltas.violations),
                 deltaGood: deltas.violations === null ? true : deltas.violations <= 0,
-                tooltipDesc: "오늘 실시간 모니터링 중 거북목, 구부정함, 턱 괴기 등 자세 위반 행동이 누적 감지된 발생 빈도입니다.",
-                scientificGround: "하버드 의대 가이드라인: 자세 위반 누적 노출은 정적 근육 피로(Static Muscle Fatigue)를 유발하여 통증 증후군 위험을 3.1배 촉진합니다.",
+                tooltipDesc: t("monitor:stats.violations.tooltip"),
+                scientificGround: t("monitor:stats.violations.ground"),
                 extraContent: null
               },
               {
-                label: "스트레칭 점수",
+                label: t("monitor:stats.stretch.label"),
                 value: `${todayStats.stretches}`,
                 badge: null,
                 delta: fmtDelta(deltas.stretches),
                 deltaGood: deltas.stretches === null ? true : deltas.stretches >= 0,
-                tooltipDesc: "오늘 수행한 가슴 열기, 어깨 스트레칭 등 척추 정적 부하를 리셋한 수행 점수입니다.",
-                scientificGround: "50분 좌식 업무 후 1분 스트레칭은 국소 산소 공급률을 25% 회복시키고 젖산 축적을 완전 방지하는 골격근 리셋 치료 요법입니다.",
+                tooltipDesc: t("monitor:stats.stretch.tooltip"),
+                scientificGround: t("monitor:stats.stretch.ground"),
                 extraContent: null
               },
               {
-                label: "오늘 총 사용 시간",
+                label: t("monitor:stats.usage.label"),
                 value: formatUsageTime(activeDurationTodayCount),
                 badge: null,
                 delta: null,
                 deltaGood: true,
-                tooltipDesc: "실시간 자세 분석 모니터링 엔진이 가동되어 척추 건강을 정밀 수호하고 분석한 총 활성 업무 시간입니다.",
-                scientificGround: "피드백 행동 중재 연구: 경고 알림 및 시각 피드백을 제공받은 직군은 비피드백 직군 대비 바른 자세 회복 능동성이 4.2배 급증합니다.",
+                tooltipDesc: t("monitor:stats.usage.tooltip"),
+                scientificGround: t("monitor:stats.usage.ground"),
                 extraContent: null
               },
             ];
@@ -2966,7 +2937,7 @@ export function MonitorView({
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 700, color: "var(--b-fg-1)" }}>
-                      💡 {c.label} 안내
+                      {t("monitor:stats.tooltipHeader", { label: c.label })}
                     </div>
                     <div style={{ fontSize: 10, color: "var(--b-fg-2)", lineHeight: 1.45 }}>
                       {c.tooltipDesc}
@@ -2983,7 +2954,7 @@ export function MonitorView({
                           fontWeight: 500,
                         }}
                       >
-                        🔬 과학적 근거: {c.scientificGround}
+                        {t("monitor:stats.groundPrefix")}{c.scientificGround}
                       </div>
                     )}
                     {c.extraContent}
@@ -3047,7 +3018,7 @@ export function MonitorView({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>오늘의 자세</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{t("monitor:report.todayPosture")}</div>
               <div
                 style={{
                   fontSize: 12,
@@ -3055,7 +3026,7 @@ export function MonitorView({
                   marginTop: 2,
                 }}
               >
-                시간대별 착석 시간 및 위반 추이
+                {t("monitor:report.timeTrend")}
               </div>
             </div>
 
@@ -3078,7 +3049,7 @@ export function MonitorView({
               }}
             >
               {subPlan !== "pro" && <span style={{ fontSize: 10 }}>👑</span>}
-              상세 분석 리포트
+              {t("monitor:report.detailReport")}
             </button>
           </div>
           <HourlyHeatmap
@@ -3096,7 +3067,7 @@ export function MonitorView({
               marginBottom: 8,
             }}
           >
-            자세 종류별 빈도
+            {t("monitor:report.byType")}
           </div>
           <PostureBars />
           <div
@@ -3108,7 +3079,7 @@ export function MonitorView({
               color: "var(--b-fg-3)",
             }}
           >
-            {cameraError && <span>카메라 오류: {cameraError}</span>}
+            {cameraError && <span>{t("monitor:report.cameraError", { error: cameraError })}</span>}
             {detectorError && (
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {detectorError}
@@ -3117,7 +3088,7 @@ export function MonitorView({
                   onClick={detectorRetry}
                   style={{ height: 24, fontSize: 11, padding: "0 8px" }}
                 >
-                  다시 시도
+                  {t("monitor:report.retry")}
                 </button>
               </span>
             )}
@@ -3137,7 +3108,7 @@ export function MonitorView({
             opacity: 0.8,
           }}
         >
-          {pickSubSlogan()}
+          {i18n.language === "ko" ? pickSubSlogan() : t("app:taglineSub")}
         </div>
       </div>
 
@@ -3185,7 +3156,7 @@ export function MonitorView({
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 18 }}>👑</span>
                 <span style={{ fontSize: 16, fontWeight: 800, color: "var(--b-fg-1)" }}>
-                  {subPlan === "pro" ? "PRO 정밀 자세 분석 리포트" : "PRO 정밀 자세 분석 리포트 (체험 모드)"}
+                  {subPlan === "pro" ? t("monitor:report.proTitle") : t("monitor:report.proTitleTrial")}
                 </span>
               </div>
               <button
@@ -3212,7 +3183,7 @@ export function MonitorView({
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <span style={{ fontSize: 14 }}>🩺</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-sig)" }}>AI 자세 임상 가이드라인</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-sig)" }}>{t("monitor:report.aiClinical")}</span>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--b-fg-2)", lineHeight: 1.6 }}>
                     {(() => {
@@ -3231,19 +3202,24 @@ export function MonitorView({
                       });
 
                       if (maxCount === 0) {
-                        return "오늘 감지된 자세 위반이 아직 없습니다! 매우 좋은 자세를 잘 유지하고 계십니다. 주기적인 가벼운 스트레칭만으로도 충분합니다.";
+                        return t("monitor:aiGuide.none");
                       }
 
                       if (mostFrequentType === "forward_head" || mostFrequentType === "monitor_too_close") {
-                        return "거북목 및 모니터 거리 근접이 주요 위반 자세입니다. 모니터 높이를 현재보다 5~10cm 높여 눈선과 모니터 상단 3분의 1 지점을 맞춰보세요. 뒷목 판상근 장력을 낮춰 경추 관절염 예방에 큰 도움이 됩니다.";
+                        return t("monitor:aiGuide.forwardHead");
                       }
                       if (mostFrequentType === "slouching") {
-                        return "등 구부정(Slouching)이 많이 감지되었습니다. 골반을 의자 등받이에 완전히 밀착시키고 무릎 각도를 90도로 유지해보세요. 요추 전만을 유지하여 디스크 가해 압력을 절반 이하로 완화할 수 있습니다.";
+                        return t("monitor:aiGuide.slouching");
                       }
                       if (mostFrequentType === "chin_resting") {
-                        return "턱 괴기 자세가 다소 관찰되었습니다. 이는 손목 터널 증후군 및 양측 어깨 불균형을 촉진하는 습관입니다. 양 팔꿈치를 책상 위에 가볍게 올려 무게를 분산하는 인체공학적 배치를 추천합니다.";
+                        return t("monitor:aiGuide.chinResting");
                       }
-                      return `${POSTURE_LABELS[mostFrequentType as PostureType] || mostFrequentType} 자세가 가장 많이 감지되었습니다. 50분 집중 후 반드시 1분간 어깨를 풀고 가벼운 전신 스트레칭을 병행해 관절 압박을 해소하세요.`;
+                      return t("monitor:aiGuide.generic", {
+                        label:
+                          POSTURE_TYPES.includes(mostFrequentType as PostureType)
+                            ? t(`posture:label.${mostFrequentType}`)
+                            : mostFrequentType,
+                      });
                     })()}
                   </div>
                 </div>
@@ -3274,20 +3250,20 @@ export function MonitorView({
                   const goodMinsDelta = goodTodayMins - goodYesterdayMins;
 
                   const formatMins = (mins: number) => {
-                    if (mins < 60) return `${mins}분`;
+                    if (mins < 60) return t("monitor:report.mins", { m: mins });
                     const h = Math.floor(mins / 60);
                     const m = mins % 60;
-                    return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+                    return m === 0 ? t("monitor:report.hours", { h }) : t("monitor:report.hoursMins", { h, m });
                   };
 
                   const formatDeltaMins = (mins: number) => {
                     if (mins === 0) return "";
                     const sign = mins > 0 ? "+" : "-";
                     const absMins = Math.abs(mins);
-                    if (absMins < 60) return `${sign}${absMins}분`;
+                    if (absMins < 60) return `${sign}${t("monitor:report.mins", { m: absMins })}`;
                     const h = Math.floor(absMins / 60);
                     const m = absMins % 60;
-                    const timeStr = m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+                    const timeStr = m === 0 ? t("monitor:report.hours", { h }) : t("monitor:report.hoursMins", { h, m });
                     return `${sign}${timeStr}`;
                   };
 
@@ -3306,7 +3282,7 @@ export function MonitorView({
 
                   return (
                     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)" }}>📈 숫자로 보는 자세 훈련 성과 (어제 대비)</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)" }}>{t("monitor:report.perfTitle")}</div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                         
                         {/* 1. 자세 개선 종합 지수 */}
@@ -3321,24 +3297,24 @@ export function MonitorView({
                             gap: 6,
                           }}
                         >
-                          <span style={{ fontSize: 11, color: "var(--b-fg-3)", fontWeight: 500 }}>자세 개선 지수</span>
+                          <span style={{ fontSize: 11, color: "var(--b-fg-3)", fontWeight: 500 }}>{t("monitor:report.improveIndex")}</span>
                           <div style={{ fontSize: 17, fontWeight: 800, color: "var(--b-fg-1)", display: "flex", alignItems: "baseline", gap: 4 }}>
                             {goodRatioDeltaLocal >= 0 ? (
                               <>
                                 <span style={{ color: "var(--b-sig)" }}>+{goodRatioDeltaLocal.toFixed(1)}%</span>
-                                <span style={{ fontSize: 9, color: "var(--b-sig)", fontWeight: 700 }}>상승</span>
+                                <span style={{ fontSize: 9, color: "var(--b-sig)", fontWeight: 700 }}>{t("monitor:report.up")}</span>
                               </>
                             ) : (
                               <>
                                 <span style={{ color: "var(--b-warn)" }}>{goodRatioDeltaLocal.toFixed(1)}%</span>
-                                <span style={{ fontSize: 9, color: "var(--b-warn)", fontWeight: 700 }}>감소</span>
+                                <span style={{ fontSize: 9, color: "var(--b-warn)", fontWeight: 700 }}>{t("monitor:report.down")}</span>
                               </>
                             )}
                           </div>
                           <span style={{ fontSize: 9.5, color: "var(--b-fg-4)", lineHeight: 1.4 }}>
                             {goodRatioDeltaLocal >= 0 
-                              ? `오늘 등급: ${todayGradeLocal.grade}(${todayGradeLocal.label})로 어제보다 개선되었습니다!` 
-                              : `오늘 등급: ${todayGradeLocal.grade}(${todayGradeLocal.label}). 허리를 곧게 펴서 A등급 이상을 조준해보세요.`}
+                              ? t("monitor:report.gradeImproved", { grade: todayGradeLocal.grade, label: todayGradeLocal.label })
+                              : t("monitor:report.gradeKeep", { grade: todayGradeLocal.grade, label: todayGradeLocal.label })}
                           </span>
                         </div>
  
@@ -3354,23 +3330,23 @@ export function MonitorView({
                             gap: 6,
                           }}
                         >
-                          <span style={{ fontSize: 11, color: "var(--b-fg-3)", fontWeight: 500 }}>자가 교정 반응 속도</span>
+                          <span style={{ fontSize: 11, color: "var(--b-fg-3)", fontWeight: 500 }}>{t("monitor:report.reactionSpeed")}</span>
                           <div style={{ fontSize: 17, fontWeight: 800, color: "var(--b-fg-1)", display: "flex", alignItems: "baseline", gap: 4 }}>
                             {todayAvgSecs > 0 ? (
                               <>
-                                <span>{todayAvgSecs.toFixed(1)}초</span>
+                                <span>{t("monitor:report.secOnly", { v: todayAvgSecs.toFixed(1) })}</span>
                                 {yesterdayAvgSecs > 0 && speedDelta !== 0 && (
                                   <span style={{ fontSize: 9, color: speedDelta > 0 ? "var(--b-sig)" : "var(--b-warn)", fontWeight: 700 }}>
-                                    ({speedDelta > 0 ? `-${speedDelta.toFixed(1)}초 단축` : `+${Math.abs(speedDelta).toFixed(1)}초 지연`})
+                                    ({speedDelta > 0 ? t("monitor:report.faster", { v: speedDelta.toFixed(1) }) : t("monitor:report.slower", { v: Math.abs(speedDelta).toFixed(1) })})
                                   </span>
                                 )}
                               </>
                             ) : (
-                              <span style={{ fontSize: 12.5, color: "var(--b-fg-3)", fontWeight: 700 }}>위반 기록 없음</span>
+                              <span style={{ fontSize: 12.5, color: "var(--b-fg-3)", fontWeight: 700 }}>{t("monitor:report.noViolations")}</span>
                             )}
                           </div>
                           <span style={{ fontSize: 9.5, color: "var(--b-fg-4)", lineHeight: 1.4 }}>
-                            {speedDelta > 0 ? "나쁜 자세 인지 시 반응 속도가 아주 빠릅니다!" : "경고 알림 즉시 바른 자세를 취해보세요."}
+                            {speedDelta > 0 ? t("monitor:report.reactionFast") : t("monitor:report.reactionSlow")}
                           </span>
                         </div>
  
@@ -3386,7 +3362,7 @@ export function MonitorView({
                             gap: 6,
                           }}
                         >
-                          <span style={{ fontSize: 11, color: "var(--b-fg-3)", fontWeight: 500 }}>바른 자세 누적 시간</span>
+                          <span style={{ fontSize: 11, color: "var(--b-fg-3)", fontWeight: 500 }}>{t("monitor:report.goodTime")}</span>
                           <div style={{ fontSize: 17, fontWeight: 800, color: "var(--b-fg-1)", display: "flex", alignItems: "baseline", gap: 4 }}>
                             <span>{formatMins(goodTodayMins)}</span>
                             {goodMinsDelta !== 0 && (
@@ -3396,7 +3372,7 @@ export function MonitorView({
                             )}
                           </div>
                           <span style={{ fontSize: 9.5, color: "var(--b-fg-4)", lineHeight: 1.4 }}>
-                            {goodMinsDelta > 0 ? "집중 유지 능력이 향상되고 있습니다!" : "어제 대비 자세 유지 시간을 늘려보세요."}
+                            {goodMinsDelta > 0 ? t("monitor:report.goodTimeUp") : t("monitor:report.goodTimeKeep")}
                           </span>
                         </div>
  
@@ -3416,11 +3392,9 @@ export function MonitorView({
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, color: "var(--b-fg-2)", marginBottom: 5 }}>
                           <span>🔬</span>
-                          <span>자세 건강 등급 산정의 과학적 척추역학적 근거</span>
+                          <span>{t("monitor:report.basisTitle")}</span>
                         </div>
-                        <div>
-                          본 분석 리포트의 등급 분류(S/A/B/C/D)는 <strong>나켐슨(Nachemson)의 척추 생체역학 디스크 가해 내압 측정 연구</strong> 및 <strong>NASA 중립 자세 표준(Neutral Body Posture)</strong> 가이드라인에 깊이 근거하여 실시간 자세 센싱 데이터로 설계되었습니다. 구부정한 정렬(C·D 등급) 시 가중되는 척추 디스크 수직 부하는 서 있을 때 대비 <strong>1.5배 ~ 2.2배(150% ~ 220%) 수준으로 증가</strong>하며, 거북목은 경추에 최대 <strong>27kg</strong>의 모멘트 전단 하중을 가합니다. 본 리포트의 지수 개선 및 반응 속도 단축 지표는 척추를 압박하는 유해 정적 부하(Static Load) 해소 수준을 완벽하게 입증합니다.
-                        </div>
+                        <div dangerouslySetInnerHTML={{ __html: t("monitor:report.basisBody") }} />
                       </div>
                     </div>
                   );
@@ -3439,8 +3413,8 @@ export function MonitorView({
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)" }}>자세 건강 점수 시간대별 추이 (오늘)</div>
-                    <div style={{ fontSize: 11, color: "var(--b-fg-3)" }}>단위: 점</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)" }}>{t("monitor:report.trendTitle")}</div>
+                    <div style={{ fontSize: 11, color: "var(--b-fg-3)" }}>{t("monitor:report.unitPoints")}</div>
                   </div>
                   <div style={{ position: "relative", width: "100%", height: 130 }}>
                     {(() => {
@@ -3559,7 +3533,7 @@ export function MonitorView({
                                   textAnchor="end"
                                   fontFamily="ui-monospace, monospace"
                                 >
-                                  {lvl.val}점
+                                  {t("monitor:report.points", { n: lvl.val })}
                                 </text>
                               </g>
                             );
@@ -3601,7 +3575,7 @@ export function MonitorView({
                                     fontWeight="bold"
                                     textAnchor="middle"
                                   >
-                                    {p.score}점
+                                    {t("monitor:report.points", { n: p.score })}
                                   </text>
                                 )}
                                 {/* 대형 투명 호버 영역 */}
@@ -3700,51 +3674,51 @@ export function MonitorView({
                           ⏰ {hoveredLinePoint.hour}:00 ~ {hoveredLinePoint.hour + 1}:00
                         </div>
                         <div style={{ fontSize: 12.5, color: "var(--b-fg-2)", display: "flex", justifyContent: "space-between", gap: 15 }}>
-                          <span>자세 건강 점수:</span>
+                          <span>{t("monitor:report.tooltipScore")}</span>
                           <strong style={{ color: "var(--b-sig)", fontSize: 13 }}>
-                            {hoveredLinePoint.score}점
+                            {t("monitor:report.points", { n: hoveredLinePoint.score })}
                             <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--b-fg-3)", marginLeft: 5 }}>
                               ({(() => {
                                 const s = hoveredLinePoint.score;
-                                if (s >= 95) return "S등급";
-                                if (s >= 90) return "A등급";
-                                if (s >= 80) return "B등급";
-                                if (s >= 70) return "C등급";
-                                return "D등급";
+                                if (s >= 95) return t("monitor:report.gradeLabel", { grade: "S" });
+                                if (s >= 90) return t("monitor:report.gradeLabel", { grade: "A" });
+                                if (s >= 80) return t("monitor:report.gradeLabel", { grade: "B" });
+                                if (s >= 70) return t("monitor:report.gradeLabel", { grade: "C" });
+                                return t("monitor:report.gradeLabel", { grade: "D" });
                               })()})
                             </span>
                           </strong>
                         </div>
                         <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
-                          <span>착석 시간:</span>
-                          <span>{Math.round(hoveredLinePoint.activeSecs / 60)}분</span>
+                          <span>{t("monitor:report.sitTime")}</span>
+                          <span>{t("monitor:report.mins", { m: Math.round(hoveredLinePoint.activeSecs / 60) })}</span>
                         </div>
                         {hoveredLinePoint.badSecs !== undefined && (
                           <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
-                            <span>나쁜 자세 유지:</span>
+                            <span>{t("monitor:report.badPostureTime")}</span>
                             <span style={{ color: hoveredLinePoint.badSecs > 0 ? "var(--b-warn)" : "inherit" }}>
                               {(() => {
                                 const secs = hoveredLinePoint.badSecs;
-                                if (secs === 0) return "0초";
-                                if (secs < 60) return `${secs}초`;
+                                if (secs === 0) return t("monitor:secs", { s: 0 });
+                                if (secs < 60) return t("monitor:secs", { s: secs });
                                 const m = Math.floor(secs / 60);
                                 const s = secs % 60;
-                                return s > 0 ? `${m}분 ${s}초` : `${m}분`;
+                                return s > 0 ? t("monitor:minsSecs", { m, s }) : t("monitor:report.mins", { m });
                               })()}
                             </span>
                           </div>
                         )}
                         {hoveredLinePoint.badSecs !== undefined && hoveredLinePoint.activeSecs > 0 && (
                           <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
-                            <span>자세 위반 비율:</span>
+                            <span>{t("monitor:report.violationRatio")}</span>
                             <span style={{ color: hoveredLinePoint.badSecs > 0 ? "var(--b-warn)" : "inherit" }}>
                               {(hoveredLinePoint.badSecs / hoveredLinePoint.activeSecs * 100).toFixed(1)}%
                             </span>
                           </div>
                         )}
                         <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between", gap: 15 }}>
-                          <span>자세 위반 횟수:</span>
-                          <span>{hoveredLinePoint.violations}회</span>
+                          <span>{t("monitor:report.violationCount")}</span>
+                          <span>{t("monitor:report.times", { n: hoveredLinePoint.violations })}</span>
                         </div>
                       </div>
                     )}
@@ -3763,11 +3737,11 @@ export function MonitorView({
                     }}
                   >
                     {[
-                      { range: "95점 이상", grade: "S", label: "최우수", color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.08)", desc: "완벽한 정렬" },
-                      { range: "90점 ~ 95점", grade: "A", label: "우수", color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.04)", desc: "건강한 정렬" },
-                      { range: "80점 ~ 90점", grade: "B", label: "양호", color: "var(--b-fg-2)", bg: "rgba(255, 255, 255, 0.03)", desc: "가벼운 피로" },
-                      { range: "70점 ~ 80점", grade: "C", label: "주의", color: "var(--b-warn)", bg: "rgba(234, 88, 12, 0.06)", desc: "관절 압박" },
-                      { range: "70점 미만", grade: "D", label: "위험", color: "var(--b-warn)", bg: "rgba(239, 68, 68, 0.08)", desc: "만성 통증" },
+                      { range: t("monitor:report.legend.sRange"), grade: "S", label: t("monitor:grade.S.label"), color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.08)", desc: t("monitor:report.legend.sDesc") },
+                      { range: t("monitor:report.legend.aRange"), grade: "A", label: t("monitor:grade.A.label"), color: "var(--b-sig)", bg: "rgba(46, 163, 141, 0.04)", desc: t("monitor:report.legend.aDesc") },
+                      { range: t("monitor:report.legend.bRange"), grade: "B", label: t("monitor:grade.B.label"), color: "var(--b-fg-2)", bg: "rgba(255, 255, 255, 0.03)", desc: t("monitor:report.legend.bDesc") },
+                      { range: t("monitor:report.legend.cRange"), grade: "C", label: t("monitor:grade.C.label"), color: "var(--b-warn)", bg: "rgba(234, 88, 12, 0.06)", desc: t("monitor:report.legend.cDesc") },
+                      { range: t("monitor:report.legend.dRange"), grade: "D", label: t("monitor:grade.D.label"), color: "var(--b-warn)", bg: "rgba(239, 68, 68, 0.08)", desc: t("monitor:report.legend.dDesc") },
                     ].map((item, idx) => (
                       <div
                         key={idx}
@@ -3788,7 +3762,7 @@ export function MonitorView({
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 3, fontWeight: 800, color: item.color }}>
-                          <span>{item.grade}등급</span>
+                          <span>{t("monitor:report.gradeLabel", { grade: item.grade })}</span>
                           <span style={{ fontSize: 9, fontWeight: 700 }}>({item.label})</span>
                         </div>
                         <div style={{ fontSize: 8.5, color: "var(--b-fg-4)", fontWeight: 500 }}>{item.range}</div>
@@ -3815,10 +3789,10 @@ export function MonitorView({
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "flex", alignItems: "center", gap: 6 }}>
                       <span>📅</span>
-                      <span>12개월 전주기 일별 자세 건강 분포 비교</span>
+                      <span>{t("monitor:report.yearCompare")}</span>
                     </div>
                     <div style={{ fontSize: 10, color: "var(--b-fg-3)" }}>
-                      1월 ~ 12월 / 1일 ~ 31일 등급 분포
+                      {t("monitor:report.monthDayDist")}
                     </div>
                   </div>
 
@@ -3867,7 +3841,7 @@ export function MonitorView({
                               <div key={month} style={{ display: "flex", alignItems: "center", gap: 0, height: 13 }}>
                                 {/* Month Label */}
                                 <div style={{ width: 40, fontSize: 9.5, fontWeight: 700, color: "var(--b-fg-3)" }}>
-                                  {month}월
+                                  {t("monitor:report.monthLabel", { m: month })}
                                 </div>
 
                                 {/* 31 Days Dots */}
@@ -3993,23 +3967,23 @@ export function MonitorView({
                       color: "var(--b-fg-3)",
                     }}
                   >
-                    <span>등급 범례 (나켐슨 척추 역학 가중치 연동):</span>
+                    <span>{t("monitor:report.legendTitle")}</span>
                     <div style={{ display: "flex", gap: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--b-sig)" }} />
-                        <span>S/A (완벽/우수한 균형)</span>
+                        <span>{t("monitor:report.legendSA")}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--b-fg-1)" }} />
-                        <span>B (양호한 인대 분산)</span>
+                        <span>{t("monitor:report.legendB")}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--b-warn)", opacity: 0.7 }} />
-                        <span>C (주의·1.5배 디스크 가중)</span>
+                        <span>{t("monitor:report.legendC")}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--b-warn)" }} />
-                        <span>D (위험·경추 27kg 돌파)</span>
+                        <span>{t("monitor:report.legendD")}</span>
                       </div>
                     </div>
                   </div>
@@ -4040,15 +4014,15 @@ export function MonitorView({
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--b-line)", paddingBottom: 4, marginBottom: 2 }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "var(--b-fg-1)" }}>
-                          📅 {hoveredCell.month}월 {hoveredCell.day}일 분석
+                          {t("monitor:report.cellAnalysis", { m: hoveredCell.month, d: hoveredCell.day })}
                         </span>
                         <span style={{ fontSize: 9.5, fontWeight: 800, color: hoveredCell.info.color }}>
-                          {hoveredCell.grade} 등급 ({hoveredCell.info.label})
+                          {t("monitor:report.cellGrade", { grade: hoveredCell.grade, label: hoveredCell.info.label })}
                         </span>
                       </div>
                       <div style={{ fontSize: 9.5, color: "var(--b-fg-2)", display: "flex", justifyContent: "space-between" }}>
-                        <span>자세 건강 점수:</span>
-                        <strong style={{ color: "var(--b-fg-1)" }}>{hoveredCell.ratio}점</strong>
+                        <span>{t("monitor:report.tooltipScore")}</span>
+                        <strong style={{ color: "var(--b-fg-1)" }}>{t("monitor:report.points", { n: hoveredCell.ratio })}</strong>
                       </div>
                       <div style={{ fontSize: 8.5, color: "var(--b-fg-3)", lineHeight: 1.35, marginTop: 2 }}>
                         💡 {hoveredCell.info.desc}
@@ -4074,7 +4048,7 @@ export function MonitorView({
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 13, fontWeight: 800, color: "var(--b-fg-1)" }}>
-                        📅 분석 날짜 선택
+                        {t("monitor:report.pickDate")}
                       </span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -4095,7 +4069,7 @@ export function MonitorView({
                           border: "1px solid var(--b-line)",
                         }}
                       >
-                        ◀ 이전일
+                        {t("monitor:report.prevDay")}
                       </button>
                       <span
                         className="calendar-toggle-btn"
@@ -4131,13 +4105,17 @@ export function MonitorView({
                           const yyyy = selectedDate.getFullYear();
                           const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
                           const dd = String(selectedDate.getDate()).padStart(2, "0");
-                          const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+                          const dayNames = t("monitor:report.weekdays").split(",");
                           const dayName = dayNames[selectedDate.getDay()];
                           const today = new Date();
                           const isToday = today.getFullYear() === selectedDate.getFullYear() &&
                             today.getMonth() === selectedDate.getMonth() &&
                             today.getDate() === selectedDate.getDate();
-                          return `${yyyy}-${mm}-${dd} (${dayName})${isToday ? " (오늘)" : ""} ▼`;
+                          return t("monitor:report.dateLabel", {
+                            date: `${yyyy}-${mm}-${dd}`,
+                            day: dayName,
+                            suffix: isToday ? t("monitor:report.todaySuffix") : "",
+                          });
                         })()}
                       </span>
                       <button
@@ -4179,7 +4157,7 @@ export function MonitorView({
                           border: "1px solid var(--b-line)",
                         }}
                       >
-                        다음일 ▶
+                        {t("monitor:report.nextDay")}
                       </button>
                     </div>
                   </div>
@@ -4236,7 +4214,7 @@ export function MonitorView({
                           ◀
                         </button>
                         <span style={{ fontSize: 13, fontWeight: 800, color: "var(--b-fg-1)" }}>
-                          {calendarNavDate.getFullYear()}년 {calendarNavDate.getMonth() + 1}월
+                          {t("monitor:report.calYearMonth", { y: calendarNavDate.getFullYear(), m: calendarNavDate.getMonth() + 1 })}
                         </span>
                         <button
                           onClick={() => {
@@ -4281,7 +4259,7 @@ export function MonitorView({
                           gap: 4,
                         }}
                       >
-                        {["일", "월", "화", "수", "목", "금", "토"].map((day, idx) => (
+                        {t("monitor:report.weekdays").split(",").map((day, idx) => (
                           <span key={day} style={{ color: idx === 0 ? "#ff5b5b" : idx === 6 ? "#5b9cff" : undefined }}>
                             {day}
                           </span>
@@ -4329,11 +4307,11 @@ export function MonitorView({
                             }
 
                             const formatVTime = (secs: number) => {
-                              if (secs === 0) return "바른 자세 모범일 💚";
-                              if (secs < 60) return `위반: ${secs}초`;
+                              if (secs === 0) return t("monitor:report.perfectDay");
+                              if (secs < 60) return t("monitor:report.violationSecs", { s: secs });
                               const m = Math.floor(secs / 60);
                               const s = secs % 60;
-                              return `위반: ${m}분 ${s}초 ⚠️`;
+                              return t("monitor:report.violationMinsSecs", { m, s });
                             };
 
                             cells.push(
@@ -4430,13 +4408,13 @@ export function MonitorView({
                     });
 
                     const biomechanicalWarnings: Record<PostureType, string> = {
-                      forward_head: "경추 전만이 소실되어 목뼈에 최대 27kg 하중이 가중되고 거북목 증후군을 유발합니다.",
-                      chin_resting: "안면 비대칭과 턱관절 디스크의 불균형한 압박을 초래하여 관절 장애로 번질 수 있습니다.",
-                      shoulder_tilt: "골반 변위 및 척추 측만증을 유발하는 어깨 축의 편향성 부하를 줍니다.",
-                      slouching: "요추 전만을 무너뜨려 허리 디스크 탈출 위험을 무려 3배 이상 촉진합니다.",
-                      monitor_too_close: "안구 조절 근육의 극심한 피로 및 목 근육의 무의식적 과긴장을 유발합니다.",
-                      shoulder_asymmetry: "승모근 비대칭 장력을 촉진하여 만성 어깨 뭉침 및 목 근역학 손상을 유발합니다.",
-                      head_roll: "경추 후관절의 편향 마모 및 어깨 근막 통증 증후군의 직접적인 유발 인자가 됩니다.",
+                      forward_head: t("monitor:report.clinicalWarn.forward_head"),
+                      chin_resting: t("monitor:report.clinicalWarn.chin_resting"),
+                      shoulder_tilt: t("monitor:report.clinicalWarn.shoulder_tilt"),
+                      slouching: t("monitor:report.clinicalWarn.slouching"),
+                      monitor_too_close: t("monitor:report.clinicalWarn.monitor_too_close"),
+                      shoulder_asymmetry: t("monitor:report.clinicalWarn.shoulder_asymmetry"),
+                      head_roll: t("monitor:report.clinicalWarn.head_roll"),
                     };
 
                     const getDensityBg = (secs: number) => {
@@ -4474,16 +4452,16 @@ export function MonitorView({
                             }}
                           >
                             <span style={{ fontSize: 12, fontWeight: 800, color: "var(--b-fg-2)" }}>
-                              📈 시간대별 위반 농도 트렌드 분포 (00시 ~ 23시)
+                              {t("monitor:report.hourlyTrendTitle")}
                             </span>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: "var(--b-fg-4)" }}>
-                              <span>안전</span>
+                              <span>{t("monitor:report.safe")}</span>
                               <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(255, 255, 255, 0.04)" }} />
                               <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(234, 88, 12, 0.2)" }} />
                               <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(234, 88, 12, 0.45)" }} />
                               <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(234, 88, 12, 0.75)" }} />
                               <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "rgba(234, 88, 12, 1)" }} />
-                              <span>경고</span>
+                              <span>{t("monitor:report.warn")}</span>
                             </div>
                           </div>
 
@@ -4502,8 +4480,8 @@ export function MonitorView({
                               </div>
                             </div>
 
-                            {(Object.keys(POSTURE_LABELS) as PostureType[]).map((type) => {
-                              const label = POSTURE_LABELS[type];
+                            {POSTURE_TYPES.map((type) => {
+                              const label = t(`posture:label.${type}`);
                               const stats = statsByType[type];
                               const isSelected = activePostureDetail === type;
 
@@ -4528,7 +4506,7 @@ export function MonitorView({
                                         {label}
                                       </span>
                                       <span style={{ fontSize: 8.5, color: stats.count > 0 ? "var(--b-warn)" : "var(--b-sig)", fontWeight: 700 }}>
-                                        {stats.count > 0 ? `누적 ${formatDuration(stats.totalSecs)}` : "완벽 정렬"}
+                                        {stats.count > 0 ? t("monitor:report.cumulative", { duration: formatDuration(stats.totalSecs) }) : t("monitor:report.perfectAlign")}
                                       </span>
                                     </div>
 
@@ -4583,7 +4561,7 @@ export function MonitorView({
                                     >
                                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--b-line)", paddingBottom: 6 }}>
                                         <span style={{ fontSize: 10.5, fontWeight: 800, color: "var(--b-fg-1)" }}>
-                                          🚨 {label} 타임스탬프 (총 {stats.count}회)
+                                          {t("monitor:report.timestampTitle", { label, count: stats.count })}
                                         </span>
                                         <button
                                           onClick={(e) => {
@@ -4592,7 +4570,7 @@ export function MonitorView({
                                           }}
                                           style={{ border: "none", background: "transparent", fontSize: 9, color: "var(--b-fg-3)", fontWeight: 700, cursor: "pointer" }}
                                         >
-                                          닫기 ✕
+                                          {t("monitor:report.closeX")}
                                         </button>
                                       </div>
 
@@ -4608,12 +4586,12 @@ export function MonitorView({
                                           fontWeight: 600,
                                         }}
                                       >
-                                        💡 <strong>임상적 분석:</strong> {biomechanicalWarnings[type]}
+                                        💡 <strong>{t("monitor:report.clinicalLabel")}</strong> {biomechanicalWarnings[type]}
                                       </div>
 
                                       {stats.events.length === 0 ? (
                                         <div style={{ textAlign: "center", padding: "14px 0", fontSize: 10.5, color: "var(--b-sig)", fontWeight: 700 }}>
-                                          👏 선택하신 날짜에는 {label} 위반이 기록되지 않았습니다!
+                                          {t("monitor:report.noViolationOnDate", { label })}
                                         </div>
                                       ) : (
                                         <div
@@ -4645,7 +4623,7 @@ export function MonitorView({
                                               }}
                                             >
                                               ⏰ {formatEventTime(e.startedAt)}
-                                              <strong style={{ color: "var(--b-warn)" }}>({e.durationSecs}초)</strong>
+                                              <strong style={{ color: "var(--b-warn)" }}>{t("monitor:report.secsParen", { s: e.durationSecs })}</strong>
                                             </span>
                                           ))}
                                         </div>
@@ -4686,11 +4664,11 @@ export function MonitorView({
                         💡 {hoveredHeatmapCell.label}
                       </div>
                       <div style={{ fontSize: 8.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between" }}>
-                        <span>시간대:</span>
-                        <strong style={{ color: "var(--b-fg-2)" }}>{String(hoveredHeatmapCell.hour).padStart(2, "0")}시~{String(hoveredHeatmapCell.hour + 1).padStart(2, "0")}시</strong>
+                        <span>{t("monitor:report.timeSlot")}</span>
+                        <strong style={{ color: "var(--b-fg-2)" }}>{t("monitor:report.hourRange", { from: String(hoveredHeatmapCell.hour).padStart(2, "0"), to: String(hoveredHeatmapCell.hour + 1).padStart(2, "0") })}</strong>
                       </div>
                       <div style={{ fontSize: 8.5, color: "var(--b-fg-3)", display: "flex", justifyContent: "space-between" }}>
-                        <span>위반 지속:</span>
+                        <span>{t("monitor:report.violationDuration")}</span>
                         <strong style={{ color: "var(--b-warn)" }}>{formatDuration(hoveredHeatmapCell.secs)}</strong>
                       </div>
                     </div>
@@ -4718,10 +4696,10 @@ export function MonitorView({
                   👑
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "var(--b-fg-1)", marginBottom: 8, letterSpacing: "-0.015em" }}>
-                  정밀 분석 리포트 기능은 PRO 전용입니다
+                  {t("monitor:report.proOnlyTitle")}
                 </div>
                 <div style={{ fontSize: 12.5, color: "var(--b-fg-3)", lineHeight: 1.6, marginBottom: 24, maxWidth: 360 }}>
-                  오늘 누적된 데이터를 기반으로 하는 **임상 물리치료 및 인체공학 관점의 AI 조언 피드백**과 초 단위로 기록된 **정밀 타임스탬프 로그**는 PRO 회원에게만 제공되는 고급 기능입니다.
+                  {t("monitor:report.proOnlyDesc")}
                 </div>
                 <div
                   style={{
@@ -4737,12 +4715,12 @@ export function MonitorView({
                     gap: 8,
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--b-fg-2)" }}>🎁 PRO 업그레이드 시 제공 혜택:</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--b-fg-2)" }}>{t("monitor:report.proGiftTitle")}</div>
                   <div style={{ fontSize: 11.5, color: "var(--b-fg-3)", display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div>• 실시간 감지 데이터 기반 맞춤형 임상 조언 솔루션</div>
-                    <div>• 일일/주간/월간 경추 각도 및 어깨 균형도 변화 추이 리포트</div>
-                    <div>• 무제한 클라우드 영구 동기화 백업</div>
-                    <div>• 데스크톱 설치형 앱 연동 (네이티브 백그라운드 구동 + 위젯 포함)</div>
+                    <div>{t("monitor:report.proGift1")}</div>
+                    <div>{t("monitor:report.proGift2")}</div>
+                    <div>{t("monitor:report.proGift3")}</div>
+                    <div>{t("monitor:report.proGift4")}</div>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 10, width: "100%" }}>
@@ -4751,7 +4729,7 @@ export function MonitorView({
                     onClick={() => setDetailedReportOpen(false)}
                     style={{ flex: 1, justifyContent: "center", fontSize: 12.5, height: 38 }}
                   >
-                    다음에 할게요
+                    {t("monitor:report.later")}
                   </button>
                   <button
                     className="b-btn"
@@ -4773,7 +4751,7 @@ export function MonitorView({
                       boxShadow: "0 4px 12px rgba(45, 143, 126, 0.3)",
                     }}
                   >
-                    PRO 요금제 확인하기
+                    {t("monitor:report.checkPro")}
                   </button>
                 </div>
               </div>
@@ -4797,6 +4775,7 @@ function HourlyHeatmap({
   yesterdayActiveDurationByHour,
   goodDurationByHour,
 }: HourlyHeatmapProps) {
+  const { t } = useTranslation(["monitor", "posture"]);
   // 00:00 ~ 24:00 (24개 슬롯 전체). 각 슬롯에 착석 시간(배경 바)과 자세 위반(전경 바)을 중첩 표시.
   // 데이터가 적을 때는 어제 데이터를 옅게 함께 보여 비교 가능하게.
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -4856,10 +4835,10 @@ function HourlyHeatmap({
     : 0;
 
   function formatSeatingTime(seconds: number): string {
-    if (seconds === 0) return "0분 0초";
+    if (seconds === 0) return t("monitor:minsSecs", { m: 0, s: 0 });
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}분 ${secs}초`;
+    return t("monitor:minsSecs", { m: mins, s: secs });
   }
 
   return (
@@ -5027,11 +5006,11 @@ function HourlyHeatmap({
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingBottom: 6, borderBottom: "1px solid rgba(255, 255, 255, 0.06)", width: "100%" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--b-fg-2)" }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--b-sig)" }} />
-                      오늘 착석: <span className="b-num" style={{ fontWeight: 700, fontSize: 13 }}>{formatSeatingTime(vSitting)}</span>
+                      {t("monitor:report.todaySeating")}<span className="b-num" style={{ fontWeight: 700, fontSize: 13 }}>{formatSeatingTime(vSitting)}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--b-fg-2)" }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: vViolation > 0 ? violationColor : "rgba(255, 255, 255, 0.15)" }} />
-                      오늘 위반: <span className="b-num" style={{ fontWeight: 700, fontSize: 13, color: vViolation > 0 ? violationColor : "inherit" }}>{vViolation}회</span>
+                      {t("monitor:report.todayViolation")}<span className="b-num" style={{ fontWeight: 700, fontSize: 13, color: vViolation > 0 ? violationColor : "inherit" }}>{t("monitor:report.times", { n: vViolation })}</span>
                     </div>
                   </div>
 
@@ -5039,11 +5018,11 @@ function HourlyHeatmap({
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", paddingTop: 4 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--b-fg-3)", opacity: 0.85 }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--b-fg-4)", opacity: 0.5 }} />
-                      어제 착석: <span className="b-num" style={{ fontWeight: 700, fontSize: 12 }}>{formatSeatingTime(ySitting)}</span>
+                      {t("monitor:report.yesterdaySeating")}<span className="b-num" style={{ fontWeight: 700, fontSize: 12 }}>{formatSeatingTime(ySitting)}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--b-fg-3)", opacity: 0.85 }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: yViolation > 0 ? yesterdayViolationColor : "rgba(255, 255, 255, 0.15)", opacity: 0.7 }} />
-                      어제 위반: <span className="b-num" style={{ fontWeight: 700, fontSize: 12 }}>{yViolation}회</span>
+                      {t("monitor:report.yesterdayViolation")}<span className="b-num" style={{ fontWeight: 700, fontSize: 12 }}>{t("monitor:report.times", { n: yViolation })}</span>
                     </div>
                   </div>
 
@@ -5120,7 +5099,7 @@ function HourlyHeatmap({
                   zIndex: 10,
                 }}
               >
-                현재 {String(curHour).padStart(2, "0")}:{String(curMin).padStart(2, "0")}
+                {t("monitor:report.nowTime", { time: `${String(curHour).padStart(2, "0")}:${String(curMin).padStart(2, "0")}` })}
               </div>
 
               {/* 🌟 현재 시간 표시 아래에서부터 시작하는 수직 점선 */}
@@ -5194,7 +5173,7 @@ function HourlyHeatmap({
             }}
           />
           <span style={{ fontSize: 11, fontWeight: 700, color: "var(--b-fg-2)" }}>
-            현재 시각: <span className="b-num" style={{ color: "var(--b-sig)", fontSize: 11 }}>{String(curHour).padStart(2, "0")}:{String(curMin).padStart(2, "0")}:{String(curSec).padStart(2, "0")}</span>
+            {t("monitor:report.currentTimeLabel")}<span className="b-num" style={{ color: "var(--b-sig)", fontSize: 11 }}>{String(curHour).padStart(2, "0")}:{String(curMin).padStart(2, "0")}:{String(curSec).padStart(2, "0")}</span>
           </span>
         </div>
       </div>
@@ -5203,6 +5182,7 @@ function HourlyHeatmap({
 }
 
 function PostureBars() {
+  const { t } = useTranslation(["monitor", "posture"]);
   const [hoveredType, setHoveredType] = useState<PostureType | null>(null);
 
   const stats = (() => {
@@ -5224,36 +5204,23 @@ function PostureBars() {
   })();
 
   const items: Array<{ label: string; count: number; type: PostureType }> = [
-    { label: "거북목", count: stats.byType.forward_head, type: "forward_head" },
-    { label: "등 구부정", count: stats.byType.slouching, type: "slouching" },
-    { label: "어깨 기울임", count: stats.byType.shoulder_tilt, type: "shoulder_tilt" },
-    { label: "턱 괴임", count: stats.byType.chin_resting, type: "chin_resting" },
-    { label: "모니터 거리", count: stats.byType.monitor_too_close, type: "monitor_too_close" },
-    { label: "어깨 비대칭", count: stats.byType.shoulder_asymmetry, type: "shoulder_asymmetry" },
-    { label: "머리 좌우 기울임", count: stats.byType.head_roll, type: "head_roll" },
+    { label: t("posture:label.forward_head"), count: stats.byType.forward_head, type: "forward_head" },
+    { label: t("posture:label.slouching"), count: stats.byType.slouching, type: "slouching" },
+    { label: t("posture:label.shoulder_tilt"), count: stats.byType.shoulder_tilt, type: "shoulder_tilt" },
+    { label: t("posture:label.chin_resting"), count: stats.byType.chin_resting, type: "chin_resting" },
+    { label: t("posture:label.monitor_too_close"), count: stats.byType.monitor_too_close, type: "monitor_too_close" },
+    { label: t("posture:label.shoulder_asymmetry"), count: stats.byType.shoulder_asymmetry, type: "shoulder_asymmetry" },
+    { label: t("posture:label.head_roll"), count: stats.byType.head_roll, type: "head_roll" },
   ];
 
   const max = Math.max(1, ...items.map((i) => i.count));
 
   function getPostureTip(type: PostureType): string {
-    switch (type) {
-      case "forward_head":
-        return "경추가 전방으로 변위되면 목뼈 관절에 4.5kg 상당의 추가 부하가 발생하여 만성 거북목 증후군을 유발합니다.";
-      case "slouching":
-        return "구부정한 척추 정렬은 요추의 수직 디스크 내압을 평소의 150% 이상 폭증시켜 요통 및 디스크 손상을 유도합니다.";
-      case "shoulder_tilt":
-        return "편측 어깨 하강은 쇄골 비대칭 및 양측 승모근의 극심한 불균형 긴장(Myofascial Pain)을 초래합니다.";
-      case "chin_resting":
-        return "턱관절(TMJ)에 불균형한 전단력을 가해 추간판 이탈 및 비대칭 안면 변위 문제를 일으킬 수 있습니다.";
-      case "monitor_too_close":
-        return "모니터와의 과근접은 안구 조절근의 지속 긴장을 야기하여 안구건조 및 조절성 근시를 유발합니다.";
-      case "shoulder_asymmetry":
-        return "골반 정렬 불균형과 연계된 요선관절 편측 압축 응력을 유발하는 대표적인 골격 비대칭 경고입니다.";
-      case "head_roll":
-        return "목 뒤쪽 판상근 및 경추 주위 소근육의 불균형을 야기하여 경추 관절염 위험도를 가중시킵니다.";
-      default:
-        return "인체공학적 의자 높이와 모니터 높낮이 조정을 통해 척추 중립 정렬을 유지하는 것을 권장합니다.";
-    }
+    const key = ([
+      "forward_head", "slouching", "shoulder_tilt", "chin_resting",
+      "monitor_too_close", "shoulder_asymmetry", "head_roll",
+    ] as PostureType[]).includes(type) ? type : "default";
+    return t(`monitor:report.biomechDetail.${key}`);
   }
 
   const totalCount = items.reduce((acc, curr) => acc + curr.count, 0);
@@ -5342,7 +5309,7 @@ function PostureBars() {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 800, color: "var(--b-fg-1)" }}>
-                      {p.label}: <span className="b-num" style={{ color: "var(--b-warn)", fontWeight: 900 }}>{p.count}회 감지 ({percent}%)</span>
+                      {p.label}: <span className="b-num" style={{ color: "var(--b-warn)", fontWeight: 900 }}>{t("monitor:report.byTypeCount", { count: p.count, percent })}</span>
                     </div>
                     <div style={{ fontSize: 10, color: "var(--b-fg-3)", maxWidth: 220, whiteSpace: "normal", lineHeight: "1.4" }}>
                       {getPostureTip(p.type)}

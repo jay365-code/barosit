@@ -19,6 +19,10 @@ const updateStatus = async (status: PostureStatus): Promise<void> => {
   await invoke("update_status", { status });
 };
 
+const setTrayI18n = async (labels: Record<string, string>): Promise<void> => {
+  await invoke("set_tray_i18n", { labels });
+};
+
 const showMainWindow = async (): Promise<void> => {
   await invoke("show_main_window");
 };
@@ -276,13 +280,15 @@ export const tauriPlatform: PlatformAPI = {
     multiWindow: true,
     trayLifecycle: true,
     autostart: true,
-    llmCoaching: true,
+    // AI(LLM) 코칭 폐기 — 정적 다국어 코칭으로 대체. (llm.rs/관련 UI는 Phase 5에서 정리)
+    llmCoaching: false,
     appQuit: true,
     autoUpdate: true,
   },
   getAppVersion,
   showPostureAlert,
   updateStatus,
+  setTrayI18n,
   showMainWindow,
   hideMainWindow,
   setWidgetVisible,

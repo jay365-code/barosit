@@ -1,0 +1,20 @@
+{
+  "label": {
+    "forward_head": "거북목",
+    "chin_resting": "턱 괴임",
+    "shoulder_tilt": "어깨 기울임",
+    "slouching": "등 구부정",
+    "monitor_too_close": "모니터 거리",
+    "shoulder_asymmetry": "어깨 비대칭",
+    "head_roll": "머리 좌우 기울임"
+  },
+  "alertTitle": {
+    "forward_head": "거북목 자세 감지",
+    "chin_resting": "턱 괴는 자세 감지",
+    "shoulder_tilt": "어깨 기울임 감지",
+    "slouching": "등 구부정한 자세 감지",
+    "monitor_too_close": "모니터가 너무 가까워요",
+    "shoulder_asymmetry": "어깨 비대칭 감지",
+    "head_roll": "머리 좌우 기울임 감지"
+  }
+}

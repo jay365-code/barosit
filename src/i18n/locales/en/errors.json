@@ -1,0 +1,29 @@
+{
+  "render": {
+    "title": "Something went wrong while rendering",
+    "unknown": "Unknown error",
+    "hint": "Press the button below or restart the app."
+  },
+  "poseModelLoad": "Couldn't load the posture detection model. Check your internet connection and try again.",
+  "poseInitFailed": "Posture detection init failed: {{error}}",
+  "auth": {
+    "notConfigured": "Can't sign in because Supabase isn't configured.",
+    "noAuthUrl": "Couldn't generate the authentication URL.",
+    "loginTimeout": "Login timed out. Please try again.",
+    "noCode": "The authentication response has no code parameter.",
+    "invalidEmail": "Please enter a valid email address."
+  },
+  "camera": {
+    "denied": "Camera access was denied. Please allow camera access for BaroSit in your system settings.",
+    "notFound": "No available camera was found. If you connected an external webcam, try reconnecting the USB.",
+    "inUse": "Another app is using the camera. Close Zoom, Photo Booth, browser tabs, etc., and try again.",
+    "unsupported": "This camera doesn't support the requested settings.",
+    "aborted": "Camera start was canceled. Please try again shortly.",
+    "unknown": "An unknown camera error occurred."
+  },
+  "backup": {
+    "parseError": "Couldn't read the backup file. Please check that the JSON format is valid.",
+    "notBarosit": "This isn't a BaroSit backup file.",
+    "newerVersion": "This backup is from a newer version (v{{version}}). Please update the app and try again."
+  }
+}

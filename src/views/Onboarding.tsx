@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import { platform } from "../platform";
@@ -10,31 +11,16 @@ interface Props {
   onShowLegal: (kind: LegalDocKind) => void;
 }
 
-const STEPS: Array<{ icon: IconName; t: string; d: string }> = [
-  {
-    icon: "camera",
-    t: "웹캠으로 살펴봐요",
-    d: "측면에 둔 카메라가 어깨와 목 각도를 1초에 30번 살펴요.",
-  },
-  {
-    icon: "target",
-    t: "잘못된 자세를 짚어드려요",
-    d: "거북목·턱 괴임·어깨 기울임·등 구부정·모니터 너무 가까움·어깨 비대칭 — 여섯 가지를 구분합니다.",
-  },
-  {
-    icon: "sparkle",
-    t: "잠깐 자세를 바꿔봐요",
-    d: "잔소리 대신 부드럽게. 점수와 함께 회복을 응원해요.",
-  },
+const STEPS: Array<{ icon: IconName; id: "watch" | "detect" | "adjust" }> = [
+  { icon: "camera", id: "watch" },
+  { icon: "target", id: "detect" },
+  { icon: "sparkle", id: "adjust" },
 ];
 
-const PRIVACY_POINTS = [
-  "웹캠 영상은 저장되지 않아요",
-  "자세 데이터는 이 컴퓨터에만 남아요",
-  "언제든 카메라를 끌 수 있어요",
-];
+const PRIVACY_POINTS = ["noSave", "localOnly", "cameraOff"] as const;
 
 export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
+  const { t } = useTranslation("onboarding");
   const [page, setPage] = useState<1 | 2 | 3>(1);
 
   const next = () => {
@@ -67,9 +53,9 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 marginBottom: 14,
               }}
             >
-              바르게 사는 방법,
+              {t("hero.title1")}
               <br />
-              바르게 앉자
+              {t("hero.title2")}
             </h1>
             <p
               style={{
@@ -80,16 +66,16 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 maxWidth: 400,
               }}
             >
-              웹캠으로 자세를 살펴드릴게요.
+              {t("hero.sub1")}
               <br />
-              영상은 이 컴퓨터를 떠나지 않습니다.
+              {t("hero.sub2")}
             </p>
             <button
               className="b-btn b-btn-primary"
               onClick={next}
               style={{ height: 44, padding: "0 28px", fontSize: 14 }}
             >
-              시작하기 <Icon name="arrow-r" size={14} />
+              {t("start")} <Icon name="arrow-r" size={14} />
             </button>
             <div style={{ marginTop: 20, display: "flex", justifyContent: "center", gap: 6 }}>
               {[1, 2, 3].map((n) => (
@@ -111,7 +97,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 onClick={onSkip}
                 style={{ fontSize: 12 }}
               >
-                건너뛰기
+                {t("skip")}
               </button>
             </div>
           </>
@@ -127,7 +113,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 marginBottom: 12,
               }}
             >
-              작동 원리
+              {t("howItWorks")}
             </div>
             <h2
               style={{
@@ -138,7 +124,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 marginTop: 0,
               }}
             >
-              세 가지만 기억하면 됩니다
+              {t("rememberThree")}
             </h2>
             <div
               style={{
@@ -178,7 +164,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>
-                      {s.t}
+                      {t(`steps.${s.id}.t`)}
                     </div>
                     <div
                       style={{
@@ -187,7 +173,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                         lineHeight: 1.5,
                       }}
                     >
-                      {s.d}
+                      {t(`steps.${s.id}.d`)}
                     </div>
                   </div>
                 </div>
@@ -203,7 +189,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
             >
               <button className="b-btn b-btn-quiet" onClick={back}>
                 <Icon name="chev-l" size={13} />
-                뒤로
+                {t("back")}
               </button>
               <div style={{ display: "flex", gap: 6 }}>
                 {[1, 2, 3].map((n) => (
@@ -219,7 +205,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 ))}
               </div>
               <button className="b-btn b-btn-primary" onClick={next}>
-                다음 <Icon name="chev-r" size={13} />
+                {t("next")} <Icon name="chev-r" size={13} />
               </button>
             </div>
           </>
@@ -250,9 +236,9 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 marginTop: 0,
               }}
             >
-              영상은 이 컴퓨터 안에서만
+              {t("privacy.title1")}
               <br />
-              살펴봅니다
+              {t("privacy.title2")}
             </h2>
             <p
               style={{
@@ -264,8 +250,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 maxWidth: 420,
               }}
             >
-              자세 인식은 100% 온디바이스에서 처리되고, 외부로 나가는 건 없어요.
-              인터넷이 끊겨도 작동합니다.
+              {t("privacy.body")}
             </p>
             <div
               style={{
@@ -276,9 +261,9 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                 marginBottom: 28,
               }}
             >
-              {PRIVACY_POINTS.map((t, i) => (
+              {PRIVACY_POINTS.map((pid) => (
                 <div
-                  key={i}
+                  key={pid}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -292,7 +277,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                     size={15}
                     style={{ color: "var(--b-sig)", flexShrink: 0 }}
                   />
-                  {t}
+                  {t(`privacyPoints.${pid}`)}
                 </div>
               ))}
             </div>
@@ -302,10 +287,10 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
               style={{ height: 44, padding: "0 24px", fontSize: 14 }}
             >
               <Icon name="camera" size={14} />
-              카메라 권한 허용
+              {t("allowCamera")}
             </button>
             <div style={{ marginTop: 14, fontSize: 11, color: "var(--b-fg-4)" }}>
-              나중에 시스템 설정에서도 바꿀 수 있어요
+              {t("changeLater")}
             </div>
             <div
               style={{
@@ -331,7 +316,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                   fontFamily: "inherit",
                 }}
               >
-                개인정보 처리방침
+                {t("privacyPolicy")}
               </button>
               <span style={{ color: "var(--b-line-2)" }}>·</span>
               <button
@@ -348,7 +333,7 @@ export function Onboarding({ onFinish, onSkip, onShowLegal }: Props) {
                   fontFamily: "inherit",
                 }}
               >
-                이용약관
+                {t("terms")}
               </button>
             </div>
             <div

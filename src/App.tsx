@@ -1,4 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "./i18n";
+import { initTrayI18n } from "./trayI18n";
 import { CalibrationView } from "./views/CalibrationView";
 import { MonitorView } from "./views/MonitorView";
 import { SettingsDrawer } from "./views/SettingsDrawer";
@@ -74,12 +77,12 @@ class ErrorBoundary extends Component<
           }}
         >
           <div style={{ fontSize: 18, fontWeight: 700 }}>
-            화면 렌더링 중 문제가 발생했어요
+            {i18n.t("errors:render.title")}
           </div>
           <div style={{ fontSize: 13, opacity: 0.7, maxWidth: 480 }}>
-            {this.state.error?.message ?? "알 수 없는 오류"}
+            {this.state.error?.message ?? i18n.t("errors:render.unknown")}
             <br />
-            아래 버튼을 누르거나 앱을 재시작해주세요.
+            {i18n.t("errors:render.hint")}
           </div>
           <button
             onClick={() => window.location.reload()}
@@ -94,7 +97,7 @@ class ErrorBoundary extends Component<
               cursor: "pointer",
             }}
           >
-            새로고침
+            {i18n.t("common:refresh")}
           </button>
         </div>
       );
@@ -173,9 +176,15 @@ function SnapshotOverlay() {
 }
 
 export default function App() {
+  const { t } = useTranslation(["app", "common"]);
   const [baseline, setBaseline] = useState<CalibrationBaseline | null>(() =>
     loadBaseline(),
   );
+
+  // 트레이 메뉴/툴팁 다국어 — 시작 시 네이티브로 push + 언어 변경 구독.
+  useEffect(() => {
+    initTrayI18n();
+  }, []);
   const [paused, setPaused] = useState<boolean>(() => {
     return localStorage.getItem("barosit:paused") === "true";
   });
@@ -592,8 +601,8 @@ export default function App() {
             fontSize: "12px",
             fontWeight: 700
           }}>
-            <span>🚨 <strong>[정기 결제 실패]</strong> 기본 결제 카드 문제로 구독 갱신에 실패했습니다.</span>
-            <span>만료 예정인 <strong>{new Date(gracePeriodUntil).toLocaleDateString()}</strong> 이전까지 프로필에서 카드를 갱신하셔야 PRO 혜택이 중단되지 않습니다.</span>
+            <span>🚨 <strong>{t("app:gracePeriod.title")}</strong> {t("app:gracePeriod.body")}</span>
+            <span>{t("app:gracePeriod.deadline", { date: new Date(gracePeriodUntil).toLocaleDateString(i18n.language) })}</span>
             <button
               onClick={() => setProfileOpen(true)}
               style={{
@@ -609,7 +618,7 @@ export default function App() {
                 transition: "all 0.2s"
               }}
             >
-              결제 카드 변경하기
+              {t("app:gracePeriod.cta")}
             </button>
           </div>
         )}
@@ -716,11 +725,7 @@ export default function App() {
             animation: "fadeInUp 0.3s ease-out"
           }}>
             <span style={{ fontSize: "16px" }}>⚠️</span>
-            <div>
-              오프라인 상태입니다. 온디바이스 AI 자세 진단은 무중단 작동하며,
-              <br />
-              온라인 상태로 재접속 시 동기화 대기 로그가 클라우드로 즉시 자동 전송됩니다.
-            </div>
+            <div>{t("app:offline")}</div>
           </div>
         )}
 
@@ -755,10 +760,10 @@ export default function App() {
               }
             `}</style>
             <div style={{ fontSize: "16px", fontWeight: 800, letterSpacing: "-0.5px", color: "#e3e9f0" }}>
-              인증 처리 및 프로필 동기화 중...
+              {t("app:authLoading.title")}
             </div>
             <div style={{ fontSize: "12px", opacity: 0.6, marginTop: 6 }}>
-              클라우드 설정과 프로필을 복구하는 중입니다. 잠시만 기다려주세요.
+              {t("app:authLoading.sub")}
             </div>
           </div>
         )}

@@ -1,0 +1,12 @@
+{
+  "show": "Open window",
+  "pause": "Pause monitoring",
+  "resume": "Resume monitoring",
+  "quit": "Quit",
+  "tooltipMonitoring": "BaroSit — Monitoring",
+  "tooltipGood": "BaroSit · Sitting well",
+  "tooltipWarning": "BaroSit · A little straighter",
+  "tooltipBad": "BaroSit · Straighten your shoulders",
+  "tooltipPaused": "BaroSit · Resting",
+  "tooltipResting": "BaroSit · Leaning back to rest"
+}

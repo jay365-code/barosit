@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Icon } from "../components/Icon";
+import { loadLang, saveLang } from "../i18n/lang";
+import { SUPPORTED_LANGS, type Lang } from "../i18n";
+import { postureLabel } from "../i18n/posture";
 import { exportData, importData } from "../dataBackup";
 import {
   dispatchAlertFired,
@@ -75,15 +80,17 @@ const PRESET_SENSITIVITY: Record<Preset, number> = {
   보통: 1.4,
   관대: 1.8,
 };
-const POSTURE_LABEL: Record<PostureType, string> = {
-  forward_head: "거북목",
-  chin_resting: "턱 괴임",
-  shoulder_tilt: "어깨 기울임",
-  slouching: "등 구부정",
-  monitor_too_close: "모니터 거리",
-  shoulder_asymmetry: "어깨 비대칭",
-  head_roll: "머리 좌우 기울임",
-};
+// 표시 라벨은 postureLabel() 헬퍼(posture 네임스페이스)로 통일.
+// 여기서는 알림 섹션에서 순회할 자세 유형 목록만 정의.
+const POSTURE_TYPES: PostureType[] = [
+  "forward_head",
+  "chin_resting",
+  "shoulder_tilt",
+  "slouching",
+  "monitor_too_close",
+  "shoulder_asymmetry",
+  "head_roll",
+];
 
 export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCalibrate }: Props) {
   const [version, setVersion] = useState("0.1.2");
@@ -119,7 +126,9 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
     }, 5000);
     return () => clearInterval(timer);
   }, [adaptiveConfig.enabled]);
+  const { t, i18n } = useTranslation("settings");
   const [theme, setTheme] = useState<ThemeMode>(() => loadThemeMode());
+  const [lang, setLangState] = useState<Lang>(() => loadLang());
   const [perfProfile, setPerfProfile] = useState<PerformanceProfile>(() =>
     loadPerformanceProfile(),
   );
@@ -144,6 +153,17 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
   const pickTheme = (m: ThemeMode) => {
     setTheme(m);
     saveThemeMode(m);
+  };
+
+  const pickLang = (l: Lang) => {
+    setLangState(l);
+    void saveLang(l);
+  };
+
+  const LANG_AUTONYM: Record<Lang, string> = {
+    ko: "한국어",
+    en: "English",
+    ja: "日本語",
   };
 
   const pickPerfProfile = (p: PerformanceProfile) => {
@@ -249,7 +269,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
 
 
   const clearEvents = () => {
-    if (window.confirm("기록을 모두 지울까요? 되돌릴 수 없습니다.")) {
+    if (window.confirm(t("data.clearConfirm"))) {
       localStorage.removeItem("posture_events");
     }
   };
@@ -268,13 +288,11 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    const ok = window.confirm(
-      "데이터를 불러오면 현재 점수·이력·기준 자세·설정이 백업 파일 내용으로 덮어써집니다. 진행할까요?",
-    );
+    const ok = window.confirm(t("data.importConfirm"));
     if (!ok) return;
     try {
       await importData(f);
-      setImportNotice({ kind: "ok", msg: "복원 완료. 새로 고침합니다…" });
+      setImportNotice({ kind: "ok", msg: t("data.importOk") });
       setTimeout(() => window.location.reload(), 800);
     } catch (err) {
       setImportNotice({
@@ -301,21 +319,21 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             zIndex: 2,
           }}
         >
-          <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>설정</h3>
+          <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{t("title")}</h3>
           <button
             className="b-icon-btn"
             style={{ width: 28, height: 28 }}
             onClick={onClose}
-            title="닫기"
+            title={t("close")}
           >
             <Icon name="x" size={13} />
           </button>
         </div>
 
         {/* 알림 / 민감도 */}
-        <Section title="알림">
-          <PresetRow current={currentPreset} onPick={applyPreset} />
-          {(Object.keys(POSTURE_LABEL) as PostureType[]).map((type) => (
+        <Section title={t("alerts.title")}>
+          <PresetRow current={currentPreset} onPick={applyPreset} t={t} />
+          {POSTURE_TYPES.map((type) => (
             <div
               key={type}
               style={{
@@ -326,9 +344,11 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               }}
             >
               <span style={{ fontSize: 13, width: 80 }}>
-                {POSTURE_LABEL[type]}
+                {postureLabel(type)}
               </span>
-              <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>엄격</span>
+              <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>
+                {t("alerts.rangeStrict")}
+              </span>
               <input
                 type="range"
                 className="b-slider"
@@ -341,7 +361,9 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 }
                 style={{ flex: 1 }}
               />
-              <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>관대</span>
+              <span style={{ fontSize: 10, color: "var(--b-fg-4)" }}>
+                {t("alerts.rangeLax")}
+              </span>
               <span
                 className="b-num"
                 style={{
@@ -366,7 +388,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             }}
           >
             <span style={{ fontSize: 13, color: "var(--b-fg-2)" }}>
-              알림 지속 시간
+              {t("alerts.duration")}
             </span>
             <span
               className="b-num"
@@ -376,7 +398,9 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 color: "var(--b-fg-3)",
               }}
             >
-              {thresholds.forward_head.durationSecs}초
+              {t("alerts.durationSecs", {
+                secs: thresholds.forward_head.durationSecs,
+              })}
             </span>
             <input
               type="range"
@@ -402,30 +426,30 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
         </Section>
 
         {/* 알림 강화 — 미니바를 놓치는 사용자를 위한 시각/사운드 강조 */}
-        <Section title="알림 강화">
+        <Section title={t("alertBoost.title")}>
           <Row
-            label="화면 가장자리 글로우"
-            sub="시야 주변에 펄스로 표시 (작업 흐름 안 깸)"
+            label={t("alertBoost.edgeGlow.label")}
+            sub={t("alertBoost.edgeGlow.sub")}
             v={alertModes.edgeGlow}
             onChange={(v) => setAlertMode("edgeGlow", v)}
           />
           {platform.features.multiWindow && (
             <Row
-              label="위젯 일시 확장"
-              sub="미니바가 큰 카드로 펼쳐져 자세명/코칭 표시"
+              label={t("alertBoost.widgetExpand.label")}
+              sub={t("alertBoost.widgetExpand.sub")}
               v={alertModes.widgetExpand}
               onChange={(v) => setAlertMode("widgetExpand", v)}
             />
           )}
           <Row
-            label="화면 중앙 토스트"
-            sub="가장 확실히 인식 — 작업 흐름 잠깐 끊김"
+            label={t("alertBoost.fullscreenToast.label")}
+            sub={t("alertBoost.fullscreenToast.sub")}
             v={alertModes.fullscreenToast}
             onChange={(v) => setAlertMode("fullscreenToast", v)}
           />
           <Row
-            label="사운드"
-            sub="짧은 톤 (회의·이어폰 환경 주의)"
+            label={t("alertBoost.sound.label")}
+            sub={t("alertBoost.sound.sub")}
             v={alertModes.sound}
             onChange={(v) => setAlertMode("sound", v)}
           />
@@ -436,10 +460,12 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               marginTop: 6,
               lineHeight: 1.5,
             }}
-          >
-            잘못된 자세가 <b>{thresholds.forward_head.durationSecs}초 이상 지속</b>되면
-            발사. 같은 자세는 5분 쿨다운. 길어질수록 색/지속 시간이 진해집니다.
-          </div>
+            dangerouslySetInnerHTML={{
+              __html: t("alertBoost.hint", {
+                secs: thresholds.forward_head.durationSecs,
+              }),
+            }}
+          />
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button
               className="b-btn b-btn-ghost"
@@ -453,7 +479,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               }
               style={{ flex: 1, justifyContent: "center", fontSize: 12 }}
             >
-              옅게 미리보기
+              {t("alertBoost.previewLight")}
             </button>
             <button
               className="b-btn b-btn-ghost"
@@ -467,13 +493,13 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               }
               style={{ flex: 1, justifyContent: "center", fontSize: 12 }}
             >
-              진하게 미리보기
+              {t("alertBoost.previewStrong")}
             </button>
           </div>
         </Section>
 
         {/* 휴식 알림 — 운동학·물리치료 권고 기반 (KOSHA H-30, Cornell 50/10, McGill) */}
-        <Section title="휴식 알림">
+        <Section title={t("break.title")}>
           <div
             style={{
               fontSize: 11,
@@ -481,15 +507,11 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               marginBottom: 10,
               lineHeight: 1.5,
             }}
-          >
-            정자세를 너무 오래 유지하는 것도 디스크·근육에 부담을 줍니다.
-            <br />
-            연속 착석 시간에 따라 단계적 환기·휴식을 권유합니다. 자세 점수에는
-            영향 주지 않습니다.
-          </div>
+            dangerouslySetInnerHTML={{ __html: t("break.intro") }}
+          />
           <Row
-            label="환기 권유 (30분 기본)"
-            sub="어깨 으쓱·목 좌우 회전·깊은 호흡 — 가벼운 토스트"
+            label={t("break.micro.label")}
+            sub={t("break.micro.sub")}
             v={breakConfig.enabled.micro}
             onChange={(v) =>
               updateBreakConfig({
@@ -499,8 +521,8 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             }
           />
           <Row
-            label="일어서기 권유 (50분 기본)"
-            sub="KOSHA 권고 — 1분 걷기 또는 스트레칭"
+            label={t("break.standup.label")}
+            sub={t("break.standup.sub")}
             v={breakConfig.enabled.standup}
             onChange={(v) =>
               updateBreakConfig({
@@ -510,8 +532,8 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             }
           />
           <Row
-            label="긴 휴식 권유 (120분 기본)"
-            sub="5분 휴식 + 물 한 잔 + 20-20-20 눈 운동"
+            label={t("break.deep.label")}
+            sub={t("break.deep.sub")}
             v={breakConfig.enabled.deep}
             onChange={(v) =>
               updateBreakConfig({
@@ -521,7 +543,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             }
           />
           <BreakIntervalRow
-            label="환기 간격"
+            label={t("break.microInterval")}
             value={breakConfig.microMinutes}
             min={5}
             max={45}
@@ -529,9 +551,10 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             onChange={(v) =>
               updateBreakConfig({ ...breakConfig, microMinutes: v })
             }
+            t={t}
           />
           <BreakIntervalRow
-            label="일어서기 간격"
+            label={t("break.standupInterval")}
             value={breakConfig.standupMinutes}
             min={20}
             max={90}
@@ -539,9 +562,10 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             onChange={(v) =>
               updateBreakConfig({ ...breakConfig, standupMinutes: v })
             }
+            t={t}
           />
           <BreakIntervalRow
-            label="긴 휴식 간격"
+            label={t("break.deepInterval")}
             value={breakConfig.deepMinutes}
             min={60}
             max={180}
@@ -549,6 +573,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             onChange={(v) =>
               updateBreakConfig({ ...breakConfig, deepMinutes: v })
             }
+            t={t}
           />
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button
@@ -561,7 +586,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               }
               style={{ flex: 1, justifyContent: "center", fontSize: 12 }}
             >
-              환기 미리보기
+              {t("break.previewMicro")}
             </button>
             <button
               className="b-btn b-btn-ghost"
@@ -573,7 +598,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               }
               style={{ flex: 1, justifyContent: "center", fontSize: 12 }}
             >
-              일어서기 미리보기
+              {t("break.previewStandup")}
             </button>
             <button
               className="b-btn b-btn-ghost"
@@ -585,7 +610,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               }
               style={{ flex: 1, justifyContent: "center", fontSize: 12 }}
             >
-              긴 휴식 미리보기
+              {t("break.previewDeep")}
             </button>
           </div>
           <button
@@ -598,12 +623,12 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               fontSize: 12,
             }}
           >
-            기본값으로 (30 / 50 / 120분)
+            {t("break.reset")}
           </button>
         </Section>
 
         {/* Phase 2 — 누적 부하 알림 */}
-        <Section title="누적 부하 알림">
+        <Section title={t("cumulative.title")}>
           <div
             style={{
               fontSize: 11,
@@ -611,22 +636,18 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               marginBottom: 10,
               lineHeight: 1.5,
             }}
-          >
-            짧은 나쁜 자세 episode 가 자주 누적되면 알림. 단일 5초 임계는 안
-            넘어도 30분 윈도우 누적 25% 도달 시 환기 권유.
-            <br />
-            (McGill & Callaghan — 디스크 creep 모델 기반)
-          </div>
+            dangerouslySetInnerHTML={{ __html: t("cumulative.intro") }}
+          />
           <Row
-            label="누적 부하 알림 활성화"
-            sub="기본 30분 윈도우, 25% 임계, 15분 쿨다운"
+            label={t("cumulative.enable.label")}
+            sub={t("cumulative.enable.sub")}
             v={cumulativeConfig.enabled}
             onChange={(v) =>
               updateCumulativeConfig({ ...cumulativeConfig, enabled: v })
             }
           />
           <BreakIntervalRow
-            label="윈도우 길이"
+            label={t("cumulative.window")}
             value={cumulativeConfig.windowMinutes}
             min={10}
             max={60}
@@ -634,6 +655,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             onChange={(v) =>
               updateCumulativeConfig({ ...cumulativeConfig, windowMinutes: v })
             }
+            t={t}
           />
           <div
             style={{
@@ -644,7 +666,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             }}
           >
             <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
-              임계 비율
+              {t("cumulative.threshold")}
             </span>
             <span
               className="b-num"
@@ -688,7 +710,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               fontSize: 12,
             }}
           >
-            누적 부하 알림 미리보기
+            {t("cumulative.preview")}
           </button>
           <button
             className="b-btn b-btn-ghost"
@@ -702,12 +724,12 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               fontSize: 12,
             }}
           >
-            기본값으로 (30분 / 25% / 15분 쿨다운)
+            {t("cumulative.reset")}
           </button>
         </Section>
 
         {/* Phase 3 — 자세 변동성 알림 */}
-        <Section title="자세 변동성 알림">
+        <Section title={t("variability.title")}>
           <div
             style={{
               fontSize: 11,
@@ -715,24 +737,18 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               marginBottom: 10,
               lineHeight: 1.5,
             }}
-          >
-            정자세도 너무 오래 유지하면 디스크 한 부위에 정수압 누적.
-            <br />
-            10분 윈도우 동안 어깨·머리 움직임이 거의 없으면 "잠깐 풀어볼까요"
-            양수 피드백.
-            <br />
-            (McGill — "best posture is the next posture")
-          </div>
+            dangerouslySetInnerHTML={{ __html: t("variability.intro") }}
+          />
           <Row
-            label="변동성 알림 활성화"
-            sub="기본 10분 윈도우, 정체 임계 0.6, 15분 쿨다운"
+            label={t("variability.enable.label")}
+            sub={t("variability.enable.sub")}
             v={variabilityConfig.enabled}
             onChange={(v) =>
               updateVariabilityConfig({ ...variabilityConfig, enabled: v })
             }
           />
           <BreakIntervalRow
-            label="윈도우 길이"
+            label={t("variability.window")}
             value={variabilityConfig.windowMinutes}
             min={5}
             max={30}
@@ -740,6 +756,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             onChange={(v) =>
               updateVariabilityConfig({ ...variabilityConfig, windowMinutes: v })
             }
+            t={t}
           />
           <button
             className="b-btn b-btn-ghost"
@@ -756,7 +773,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               fontSize: 12,
             }}
           >
-            자세 변동성 알림 미리보기
+            {t("variability.preview")}
           </button>
           <button
             className="b-btn b-btn-ghost"
@@ -770,12 +787,12 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               fontSize: 12,
             }}
           >
-            기본값으로 (10분 윈도우)
+            {t("variability.reset")}
           </button>
         </Section>
 
         {/* Phase 4 — 적응형 민감도 */}
-        <Section title="적응형 민감도">
+        <Section title={t("adaptive.title")}>
           <div
             style={{
               fontSize: 11,
@@ -783,16 +800,11 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               marginBottom: 10,
               lineHeight: 1.5,
             }}
-          >
-            오후 4-5시 / 장시간 작업 시 자세 유지 능력 자연 감소.
-            <br />
-            자동으로 자세 알림 임계 완화 + 휴식 알림 단축.
-            <br />
-            (Bridger — postural muscle EMG 피로 곡선)
-          </div>
+            dangerouslySetInnerHTML={{ __html: t("adaptive.intro") }}
+          />
           <Row
-            label="적응형 민감도 활성화"
-            sub="세션 2h+ / 13-15시·16-18시 자동 보정"
+            label={t("adaptive.enable.label")}
+            sub={t("adaptive.enable.sub")}
             v={adaptiveConfig.enabled}
             onChange={(v) =>
               updateAdaptiveConfig({ ...adaptiveConfig, enabled: v })
@@ -835,9 +847,9 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                       animation: "b-pulse 1.5s infinite ease-in-out",
                     }}
                   />
-                  {hasActiveBonus ? "라이브 피로도 보정 적용 중" : "실시간 자동 보정 대기 중"}
+                  {hasActiveBonus ? t("adaptive.active") : t("adaptive.waiting")}
                 </div>
-                
+
                 {hasActiveBonus ? (
                   <div
                     style={{
@@ -848,27 +860,27 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                       gap: 3,
                     }}
                   >
-                    <div>
-                      • 자세 알림 감도:{" "}
-                      <strong style={{ color: "var(--b-sig-deep)" }}>
-                        {((modifier.postureMultiplier - 1) * 100).toFixed(0)}% 완화
-                      </strong>{" "}
-                      (덜 민감하게)
-                    </div>
-                    <div>
-                      • 권장 휴식 주기:{" "}
-                      <strong style={{ color: "var(--b-sig-deep)" }}>
-                        {((1 - modifier.breakMultiplier) * 100).toFixed(0)}% 단축
-                      </strong>{" "}
-                      (더 자주 쉬도록)
-                    </div>
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: t("adaptive.postureRelax", {
+                          pct: ((modifier.postureMultiplier - 1) * 100).toFixed(0),
+                        }),
+                      }}
+                    />
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: t("adaptive.breakShorten", {
+                          pct: ((1 - modifier.breakMultiplier) * 100).toFixed(0),
+                        }),
+                      }}
+                    />
                     <div style={{ color: "var(--b-fg-3)", marginTop: 2, fontSize: 10 }}>
-                      원인: {modifier.reason}
+                      {t("adaptive.reason", { reason: modifier.reason })}
                     </div>
                   </div>
                 ) : (
                   <div style={{ fontSize: 11, color: "var(--b-fg-3)", lineHeight: 1.4 }}>
-                    현재 컨디션이 양호한 상태입니다. 장시간 지속 작업(2시간 이상) 시점이나 오후 피로 시간대(13~15시, 16~18시)에 자동으로 알림 임계값을 부드럽게 보정합니다.
+                    {t("adaptive.idleHint")}
                   </div>
                 )}
               </div>
@@ -887,13 +899,13 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               fontSize: 12,
             }}
           >
-            기본값으로 (자동 보정 ON)
+            {t("adaptive.reset")}
           </button>
         </Section>
 
         {/* 스트레칭 가동범위 개인화 - 스트레칭 알고리즘 고도화 완료로 보정이 불필요하므로 UI에서만 일시적으로 히든 처리 (코드 보존) */}
         {false && onOpenStretchCalibrate && (
-          <Section title="스트레칭 보정">
+          <Section title={t("stretchCalib.title")}>
             <div
               style={{
                 fontSize: 11,
@@ -902,7 +914,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 lineHeight: 1.5,
               }}
             >
-              내 몸의 유연성에 맞춰 각 스트레칭 동작의 감지 기준을 조율하거나, 다중 모니터로 인해 측면에 장착된 카메라 각도 환경을 보정합니다.
+              {t("stretchCalib.intro")}
             </div>
             <button
               type="button"
@@ -921,16 +933,16 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 cursor: "pointer",
               }}
             >
-              🔧 스트레칭 가동범위 보정하기
+              {t("stretchCalib.button")}
             </button>
           </Section>
         )}
 
         {/* 프라이버시 */}
-        <Section title="프라이버시">
+        <Section title={t("privacy.title")}>
           <Row
-            label="실루엣 모드"
-            sub="영상 대신 윤곽선만 표시"
+            label={t("privacy.silhouette.label")}
+            sub={t("privacy.silhouette.sub")}
             v={privacy}
             onChange={togglePrivacy}
           />
@@ -958,16 +970,16 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 lineHeight: 1.5,
               }}
             >
-              영상은 이 컴퓨터를 떠나지 않습니다. 자세 데이터도 로컬에만 저장됩니다.
+              {t("privacy.note")}
             </div>
           </div>
         </Section>
 
         {/* 성능 모드 */}
-        <Section title="성능 모드">
+        <Section title={t("performance.title")}>
           <div style={{ display: "flex", gap: 6 }}>
             {(["full", "eco"] as PerformanceProfile[]).map((p) => {
-              const label = p === "full" ? "최대 품질" : "절약형";
+              const label = p === "full" ? t("performance.full") : t("performance.eco");
               const active = perfProfile === p;
               return (
                 <button
@@ -998,18 +1010,44 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               marginTop: 8,
               lineHeight: 1.5,
             }}
-          >
-            <b>절약형</b>: 감지 빈도와 무거운 얼굴·손 인식 주기를 낮춰 CPU·메모리
-            사용을 크게 줄입니다. 자세 알림 품질은 거의 그대로지만, 실루엣 화면이
-            덜 부드러울 수 있어요. 저성능 노트북에 권장.
+            dangerouslySetInnerHTML={{ __html: t("performance.hint") }}
+          />
+        </Section>
+
+        {/* 언어 */}
+        <Section title={t("language")}>
+          <div style={{ display: "flex", gap: 6 }}>
+            {SUPPORTED_LANGS.map((l) => {
+              const active = lang === l;
+              return (
+                <button
+                  key={l}
+                  className="b-btn b-btn-ghost"
+                  onClick={() => pickLang(l)}
+                  aria-pressed={active}
+                  style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    fontSize: 12,
+                    height: 34,
+                    color: active ? "var(--b-sig-deep)" : undefined,
+                    background: active ? "var(--b-sig-bg)" : undefined,
+                    borderColor: active ? "var(--b-sig-soft)" : undefined,
+                    fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  {LANG_AUTONYM[l]}
+                </button>
+              );
+            })}
           </div>
         </Section>
 
         {/* 화면 (테마) */}
-        <Section title="화면">
+        <Section title={t("screen")}>
           <div style={{ display: "flex", gap: 6 }}>
             {(["auto", "light", "dark"] as ThemeMode[]).map((m) => {
-              const label = m === "auto" ? "자동" : m === "light" ? "라이트" : "다크";
+              const label = t(`theme.${m}`);
               const active = theme === m;
               return (
                 <button
@@ -1041,20 +1079,20 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               lineHeight: 1.5,
             }}
           >
-            <b>자동</b>: macOS/Windows 시스템 설정을 따라갑니다.
+            <b>{t("theme.auto")}</b>: {t("themeAutoHint")}
           </div>
         </Section>
 
         {/* 데스크톱 옵션 */}
         {(platform.features.multiWindow || platform.features.autostart) && (
-          <Section title="데스크톱">
+          <Section title={t("desktop.title")}>
             {platform.features.autostart && (
               <Row
-                label="시작 시 자동 실행"
+                label={t("desktop.autostart.label")}
                 sub={
                   autostart === null
-                    ? "상태 확인 중…"
-                    : "로그인할 때 자동으로 켜져요"
+                    ? t("desktop.autostart.checking")
+                    : t("desktop.autostart.sub")
                 }
                 v={autostart === true}
                 onChange={toggleAutostart}
@@ -1063,8 +1101,8 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             )}
             {platform.features.multiWindow && (
               <Row
-                label="위젯 미니바 표시"
-                sub="작업 창 위에 떠 있어요"
+                label={t("desktop.minibar.label")}
+                sub={t("desktop.minibar.sub")}
                 v={minibar}
                 onChange={toggleMinibar}
               />
@@ -1074,21 +1112,21 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
 
 
         {/* 데이터 */}
-        <Section title="데이터">
+        <Section title={t("data.title")}>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               className="b-btn b-btn-ghost"
               onClick={exportData}
               style={{ flex: 1, justifyContent: "center" }}
             >
-              내보내기
+              {t("data.export")}
             </button>
             <button
               className="b-btn b-btn-ghost"
               onClick={handleImportClick}
               style={{ flex: 1, justifyContent: "center" }}
             >
-              불러오기
+              {t("data.import")}
             </button>
             <input
               ref={fileInputRef}
@@ -1120,7 +1158,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               lineHeight: 1.5,
             }}
           >
-            점수·이력·기준 자세·민감도를 JSON으로 백업·복원합니다. API 키는 보안상 제외됩니다.
+            {t("data.hint")}
           </div>
           <button
             className="b-btn b-btn-ghost"
@@ -1134,13 +1172,13 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             }}
           >
             <Icon name="trash" size={13} />
-            기록 초기화
+            {t("data.clear")}
           </button>
         </Section>
 
         {/* 앱 종료 (데스크톱만) */}
         {platform.features.appQuit && (
-          <Section title="앱">
+          <Section title={t("appQuit.title")}>
             <button
               className="b-btn"
               onClick={() => {
@@ -1159,7 +1197,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 borderColor: quitConfirm ? "var(--b-warn)" : "rgba(210,119,88,0.3)",
               }}
             >
-              {quitConfirm ? "다시 클릭하면 종료됩니다" : "앱 완전 종료"}
+              {quitConfirm ? t("appQuit.confirm") : t("appQuit.button")}
             </button>
             <div
               style={{
@@ -1169,15 +1207,14 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 lineHeight: 1.5,
               }}
             >
-              메인 창의 X 버튼은 위젯 모드로 전환만 합니다. 완전히 끄려면 위
-              버튼을 사용하세요.
+              {t("appQuit.hint")}
             </div>
           </Section>
         )}
 
         {/* 정보 */}
         {!platform.features.multiWindow && (
-          <Section title="데스크톱 앱">
+          <Section title={t("desktopApp.title")}>
             <div
               style={{
                 fontSize: 12,
@@ -1185,13 +1222,12 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 lineHeight: 1.55,
               }}
             >
-              백그라운드 모니터링·트레이 알림·플로팅 위젯은 데스크톱 앱에서만
-              가능합니다.
+              {t("desktopApp.note")}
             </div>
           </Section>
         )}
 
-        <Section title="정보" last>
+        <Section title={t("about.title")} last>
           <div
             style={{
               fontSize: 13,
@@ -1201,7 +1237,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               marginBottom: 6,
             }}
           >
-            {MAIN_SLOGAN}
+            {i18n.language === "ko" ? MAIN_SLOGAN : t("app:tagline")}
           </div>
           <div
             style={{
@@ -1211,7 +1247,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               marginBottom: 8,
             }}
           >
-            {pickSubSlogan()}
+            {i18n.language === "ko" ? pickSubSlogan() : t("app:taglineSub")}
           </div>
           <div
             style={{
@@ -1223,14 +1259,14 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               lineHeight: 1.6,
             }}
           >
-            <span>BaroSit · 버전 {version}</span>
+            <span>{t("about.version", { version })}</span>
             {platform.features.autoUpdate && (
               <button
                 className="b-btn b-btn-quiet"
                 onClick={() => updater.checkNow()}
                 style={{ fontSize: 11, padding: "4px 10px" }}
               >
-                업데이트 확인
+                {t("about.checkUpdate")}
               </button>
             )}
           </div>
@@ -1257,7 +1293,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 fontFamily: "inherit",
               }}
             >
-              개인정보 처리방침
+              {t("about.privacy")}
             </button>
             <span style={{ color: "var(--b-line-2)" }}>·</span>
             <button
@@ -1274,7 +1310,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
                 fontFamily: "inherit",
               }}
             >
-              이용약관
+              {t("about.terms")}
             </button>
           </div>
         </Section>
@@ -1352,14 +1388,20 @@ function Row({
 function PresetRow({
   current,
   onPick,
+  t,
 }: {
   current: Preset;
   onPick: (p: Preset) => void;
+  t: TFunction;
 }) {
-  const presets: Preset[] = ["엄격", "보통", "관대"];
+  const presets: { key: Preset; labelKey: string }[] = [
+    { key: "엄격", labelKey: "preset.strict" },
+    { key: "보통", labelKey: "preset.normal" },
+    { key: "관대", labelKey: "preset.lax" },
+  ];
   return (
     <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-      {presets.map((p) => {
+      {presets.map(({ key: p, labelKey }) => {
         const active = p === current;
         return (
           <button
@@ -1375,7 +1417,7 @@ function PresetRow({
               borderColor: active ? "var(--b-sig-soft)" : "var(--b-line-2)",
             }}
           >
-            {p}
+            {t(labelKey)}
           </button>
         );
       })}
@@ -1390,6 +1432,7 @@ function BreakIntervalRow({
   max,
   step,
   onChange,
+  t,
 }: {
   label: string;
   value: number;
@@ -1397,6 +1440,7 @@ function BreakIntervalRow({
   max: number;
   step: number;
   onChange: (v: number) => void;
+  t: TFunction;
 }) {
   return (
     <div
@@ -1412,7 +1456,8 @@ function BreakIntervalRow({
         className="b-num"
         style={{ fontSize: 12, marginLeft: "auto", color: "var(--b-fg-3)" }}
       >
-        {value}분
+        {value}
+        {t("minutesSuffix")}
       </span>
       <input
         type="range"
