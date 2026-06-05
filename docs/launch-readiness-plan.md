@@ -15,7 +15,7 @@
 
 - 🟢 **실결제 백엔드 (P0-1)** — Edge Functions 5종 + 마이그레이션 + 프론트 결선 **구현 완료**. mock 전부 제거. 남은 건 `supabase functions deploy` + 시크릿/pg_cron/웹훅 등록 + live key + E2E QA(배포 후).
 - 🟢 **PCI 자체 카드폼 (P0-4)** — ProfileView raw 카드 수집 위저드 **완전 제거** → 웹 Toss 결제창 위임 완료.
-- 🟢 **macOS 코드서명·공증 (P0-2)** — `release.yml` **와이어링 완료**(APPLE_* env). Apple 승인(⏳) 후 GitHub Secrets 6개 채우고 `releaseDraft:false`만 하면 서명·공증 자동. 그 전까지는 unsigned(=Gatekeeper 차단).
+- 🟡 **macOS 코드서명·공증 (P0-2)** — `release.yml`에 APPLE_* env **주석 블록 준비**(승인 후 주석 해제용). ⚠️ tauri 는 빈 인증서로도 서명을 시도하다 실패하므로 인증서 없는 동안엔 **주석 유지 = unsigned**. Apple 승인(⏳) 후 Secrets 6개 + 주석 해제 + `releaseDraft:false`.
 - ✅ **런치 모드 토글 (§6.1)** — 베타↔유료 전환 **구현 완료·브라우저 검증**.
 
 → **무료 베타 출시의 당장 블로커는 P0-2(서명)뿐.** 유료 정식은 P0-1 **배포 4단계**(§7) + Toss 심사(⏳) 완료가 남음.
@@ -53,7 +53,7 @@
 ### 🔴 남은 블로커 (미구현/미설정)
 | 영역 | 상태 | 근거 |
 |---|---|---|
-| **macOS 코드서명·공증** | 🟢 와이어링 완료 / ⏳ 인증서 대기 | `release.yml`에 APPLE_* env 추가됨 — Apple 승인 후 Secrets만 채우면 동작 |
+| **macOS 코드서명·공증** | 🟡 주석 준비 / ⏳ 인증서 대기 | `release.yml`에 APPLE_* **주석 블록** — 승인 후 Secrets 6개 + 주석 해제 (빈 값이면 codesign 실패) |
 | **릴리스 공개** | 🔴 draft 유지 | 서명 검증 후 `releaseDraft:false` 한 줄 (미서명 자동공개 방지차 현재 유지) |
 | **Windows 코드서명** | 🔴 미설정 | SmartScreen 경고 발생 |
 | **결제 백엔드 배포** | ⬜ 미배포 | functions deploy + `TOSS_SECRET_KEY` + pg_cron + 웹훅 등록 + live key (Toss 심사 ⏳) |
@@ -110,13 +110,14 @@
 **현 상태**: 빌드는 되지만 서명이 없어 사용자가 다운로드 시 "확인되지 않은 개발자" + Gatekeeper로 **실행 자체 불가**. (`release.yml:60`의 `TAURI_SIGNING_*`은 자동업데이트용 minisign 키일 뿐, Apple 인증서가 아님)
 
 **진행 상황**:
-- [x] **`release.yml` 서명·공증 env 와이어링 완료** — `APPLE_CERTIFICATE`/`_PASSWORD`/`APPLE_SIGNING_IDENTITY`/`APPLE_ID`/`APPLE_PASSWORD`/`APPLE_TEAM_ID` 패스스루. 시크릿 비어 있으면 unsigned 빌드(현재), 채우면 자동 서명·공증·staple.
+- [x] **`release.yml`에 APPLE_* env 주석 블록 준비** — 승인 후 주석만 해제하면 됨. ⚠️ tauri 는 `APPLE_CERTIFICATE` 가 빈 값이어도 서명을 시도하다 `security import` 실패 → 인증서 없는 동안엔 **반드시 주석 유지**(unsigned 빌드 통과). (v0.3.0 1차 빌드가 이 함정으로 실패 → 주석 처리로 수정)
 - [⏳] Apple Developer Program **신청 완료** (승인 대기)
 
 **남은 작업 (Apple 승인 후)**:
-1. "Developer ID Application" 인증서 발급 → `.p12` base64 + 앱 암호 → 위 6개 **GitHub Secrets 채우기**
-2. **`releaseDraft: true` → `false`** (서명 검증 후, `release.yml`) — 안 하면 다운로드 URL 404
-3. 서명·공증된 dmg를 다른 Mac에서 다운로드→실행 검증
+1. "Developer ID Application" 인증서 발급 → `.p12` base64 + 앱 암호 → GitHub Secrets 6개 등록
+2. `release.yml`의 APPLE_* **주석 6줄 해제**
+3. **`releaseDraft: true` → `false`** (서명 검증 후) — 안 하면 다운로드 URL 404
+4. 서명·공증된 dmg를 다른 Mac에서 다운로드→실행 검증
 
 ### P0-3. (보안) 구독 권한 부여를 서버 신뢰로 이전 — 🟢 구현 완료
 
@@ -246,8 +247,8 @@ P0-1(결제) 없이도 가능. PRO를 잠시 "무료 베타"로 개방하거나 
 - [x] 카드 등록/변경 → Toss `requestBillingAuth` 단일 경로 통일 (update_card 는 `billing-issue` 경유)
 
 **P0-2 macOS 실행 가능화**
-- [x] `release.yml`에 Apple 서명·공증 env 와이어링 (시크릿 비면 unsigned, 채우면 자동 서명)
-- [ ] (Apple 승인 후) Developer ID 인증서 → GitHub Secrets 6개 등록
+- [x] `release.yml`에 Apple 서명·공증 env **주석 블록** 준비 (빈 값이면 codesign 실패하므로 주석 유지 = unsigned 통과)
+- [ ] (Apple 승인 후) Developer ID 인증서 → GitHub Secrets 6개 등록 + **주석 6줄 해제**
 - [ ] (서명 검증 후) `releaseDraft: false`
 - [ ] 다른 Mac에서 다운로드→실행 검증
 
