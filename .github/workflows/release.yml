@@ -61,20 +61,22 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # ── macOS 코드서명 + 공증 (P0-2) ──────────────────────────────
-          # 아래 Secrets 가 비어 있으면 tauri-action 이 서명을 건너뛰고
-          # unsigned 빌드를 만든다(=현재 동작). Apple Developer 승인 후
-          # GitHub Secrets 에 값만 채우면 자동으로 서명·공증·staple 됨.
+          # ⚠️ tauri 는 APPLE_CERTIFICATE 가 "존재만 해도"(빈 값이라도) 서명을
+          #    시도하다 실패한다. 따라서 인증서가 없는 동안에는 아래 6줄을
+          #    반드시 주석 유지(=unsigned 빌드). Apple Developer 승인 후
+          #    GitHub Secrets 6개를 등록하고 아래 주석을 해제하면 자동
+          #    서명·공증·staple 된다.
           #   APPLE_CERTIFICATE            : Developer ID Application .p12 → base64
           #   APPLE_CERTIFICATE_PASSWORD   : 위 .p12 내보낼 때 설정한 비밀번호
           #   APPLE_SIGNING_IDENTITY       : "Developer ID Application: 이름 (TEAMID)"
           #   APPLE_ID / APPLE_PASSWORD    : Apple ID + 앱 암호(app-specific password)
           #   APPLE_TEAM_ID                : 10자리 팀 ID
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "BaroSit __VERSION__"
