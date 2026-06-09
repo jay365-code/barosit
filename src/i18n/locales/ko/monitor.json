@@ -53,6 +53,14 @@
     "freeSub": "💻 Windows / macOS 무정지 백그라운드 구동 & 실시간 플로팅 위젯 지원",
     "freeCta": "PRO 혜택 확인"
   },
+  "cameraLock": {
+    "guestTitle": "로그인하면 자세 감지가 시작돼요",
+    "guestSub": "실시간 실루엣·자세 분석은 로그인 후 이용할 수 있어요",
+    "guestCta": "로그인하기",
+    "freeTitle": "PRO에서 실시간 감지가 켜져요",
+    "freeSub": "실시간 실루엣·자세 분석은 PRO 전용이에요",
+    "freeCta": "PRO 확인하기"
+  },
   "break": {
     "deep": "긴 휴식 권장 — 5분 일어나기",
     "standup": "한 번 일어서볼까요 (KOSHA 권고)",

@@ -53,6 +53,14 @@
     "freeSub": "💻 Windows / macOS で常時バックグラウンド動作＆リアルタイムフローティングウィジェット",
     "freeCta": "PRO特典を見る"
   },
+  "cameraLock": {
+    "guestTitle": "ログインすると姿勢検知が始まります",
+    "guestSub": "リアルタイムのシルエット・姿勢分析はログイン後に利用できます",
+    "guestCta": "ログイン",
+    "freeTitle": "PROでリアルタイム検知が有効になります",
+    "freeSub": "リアルタイムのシルエット・姿勢分析はPRO専用です",
+    "freeCta": "PROを見る"
+  },
   "break": {
     "deep": "長めの休憩を推奨 — 5分立ち上がる",
     "standup": "一度立ち上がりましょう（KOSHA推奨）",

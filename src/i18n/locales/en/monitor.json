@@ -53,6 +53,14 @@
     "freeSub": "💻 Nonstop background on Windows / macOS & real-time floating widget",
     "freeCta": "See PRO benefits"
   },
+  "cameraLock": {
+    "guestTitle": "Sign in to start posture detection",
+    "guestSub": "Real-time silhouette & posture analysis is available after signing in",
+    "guestCta": "Sign in",
+    "freeTitle": "Real-time detection turns on with PRO",
+    "freeSub": "Real-time silhouette & posture analysis is PRO-only",
+    "freeCta": "See PRO"
+  },
   "break": {
     "deep": "Long break recommended — stand up for 5 min",
     "standup": "Time to stand up (KOSHA advised)",

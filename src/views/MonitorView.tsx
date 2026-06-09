@@ -2193,6 +2193,98 @@ export function MonitorView({
               landmarkReady && <LandmarkOverlay landmarks={landmarks} />
             )}
 
+            {/* 미권한(비로그인/FREE) 안내 오버레이 — 모니터링 루프가 꺼져 실루엣이
+                비어 있을 때 카드가 "고장"처럼 보이지 않도록 이유 + CTA 를 카드
+                안에 직접 표시. 생 웹캠도 함께 가려 프라이버시 보호. */}
+            {!monitoringEntitled && (
+              <div
+                onClick={!user ? onOpenProfile : onOpenPricing}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 5,
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  gap: 12,
+                  padding: 20,
+                  background:
+                    "linear-gradient(160deg, rgba(15,23,42,0.92) 0%, rgba(10,10,10,0.96) 100%)",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
+                    background: !user
+                      ? "rgba(99,102,241,0.14)"
+                      : "rgba(234,179,8,0.14)",
+                    border: !user
+                      ? "1px solid rgba(99,102,241,0.25)"
+                      : "1px solid rgba(234,179,8,0.25)",
+                    color: !user ? "#a5b4fc" : "#fbbf24",
+                  }}
+                >
+                  <Icon name="lock" size={20} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, maxWidth: 250 }}>
+                  <span
+                    style={{
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      color: "rgba(255,255,255,0.95)",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {!user
+                      ? t("monitor:cameraLock.guestTitle")
+                      : t("monitor:cameraLock.freeTitle")}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 500,
+                      color: "rgba(203,213,225,0.85)",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {!user
+                      ? t("monitor:cameraLock.guestSub")
+                      : t("monitor:cameraLock.freeSub")}
+                  </span>
+                </div>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 16px",
+                    borderRadius: 10,
+                    background: !user
+                      ? "linear-gradient(135deg, rgba(99,102,241,0.9) 0%, rgba(79,70,229,0.92) 100%)"
+                      : "linear-gradient(135deg, rgba(245,158,11,0.9) 0%, rgba(217,119,6,0.92) 100%)",
+                    color: "#fff",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                  }}
+                >
+                  {!user
+                    ? t("monitor:cameraLock.guestCta")
+                    : t("monitor:cameraLock.freeCta")}
+                  <Icon name="chev-r" size={11} />
+                </span>
+              </div>
+            )}
+
             {/* Privacy badge */}
             <div
               style={{
