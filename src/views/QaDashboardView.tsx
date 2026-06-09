@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../auth/supabase";
 
+// 검증 티어 — qa/checklist.json 의 verifyTier 와 1:1. manual 외 4종은 QA 에이전트가
+// 사람 없이 자동 검증 가능(integration/runtime/unit/code). manual 만 사람이 직접 확인.
+type VerifyTier = "integration" | "runtime" | "unit" | "code" | "manual";
+
+const TIER_META: Record<
+  VerifyTier,
+  { label: string; auto: boolean; color: string; icon: string; desc: string }
+> = {
+  integration: { label: "통합 자동", auto: true, color: "#5c8fc9", icon: "🔗", desc: "HTTP/Supabase 연동을 호출해 자동 검증" },
+  runtime: { label: "런타임 자동", auto: true, color: "#5b8c7a", icon: "⚙️", desc: "앱을 실제 구동해 자동 검증" },
+  unit: { label: "유닛 자동", auto: true, color: "#9b7ec9", icon: "🧩", desc: "단위 테스트(vitest/deno)로 자동 검증" },
+  code: { label: "코드검사 자동", auto: true, color: "#7a9bc9", icon: "🔍", desc: "소스 정적 검사(grep/구조)로 자동 검증" },
+  manual: { label: "수동 확인", auto: false, color: "#d9a752", icon: "🖐", desc: "사람이 직접 눈으로 확인해야 함" },
+};
+
 interface TestCase {
   id: string;
   category: "Auth" | "Billing" | "Monitoring" | "Settings" | "Offline" | "Q&A" | "Web" | "Admin" | "Lifecycle" | "Desktop";
@@ -10,9 +25,14 @@ interface TestCase {
   status: "Untested" | "Pass" | "Fail" | "N/A";
   actualResult: string;
   platforms: ("Web" | "Mac" | "Windows")[];
+  // 검증 방식 — VERIFY_META(=checklist.json) 에서 주입. 누락 시 manual 로 안전 폴백.
+  verifyTier: VerifyTier;
+  verifyNote?: string;
 }
 
-const INITIAL_TEST_CASES: TestCase[] = [
+type RawTestCase = Omit<TestCase, "verifyTier" | "verifyNote">;
+
+const RAW_TEST_CASES: RawTestCase[] = [
   // 1. 사용자 인증 및 세션 관리 (Auth)
   {
     id: "AUTH-01",
@@ -126,6 +146,218 @@ const INITIAL_TEST_CASES: TestCase[] = [
     title: "구독 해지/환불 신청 처리 (payment-cancel Edge Function)",
     method: "구독자가 프로필 설정 창에서 '구독 즉시 해지 및 환불 신청' 버튼(handleRefund)을 클릭합니다.",
     expected: "클라이언트가 클라이언트 단에서 직접 DB를 수정하지 않고 payment-cancel Edge Function을 invoke하여, 서버 검증을 거쳐 user_subscriptions가 plan_id='free' / status='none'(해지) 상태로 갱신되고 billing_history(결제 이력)에 취소 내역이 안전하게 기록되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+
+  // 2-b. (v0.3.1) 결제·플랜 권한 라이프사이클 — checklist.json 동기화 항목.
+  {
+    id: "BILL-09",
+    category: "Billing",
+    title: "계정 전환 시 권한 정합 (Pro→Free 누수 차단)",
+    method: "Pro 계정으로 로그인해 PRO 기능을 확인한 뒤 로그아웃하고, 같은 기기에서 Free 계정으로 다시 로그인하여 PRO 전용 기능(백그라운드 관제·동기화)이 차단되는지 확인합니다.",
+    expected: "로그아웃 시 barosit:subscription_plan 캐시가 제거되고, Free 계정 로그인 후에는 이전 Pro 권한이 상속되지 않아야 합니다. (§7 E1/E2)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "BILL-10",
+    category: "Billing",
+    title: "권한 변조 내성 (localStorage 조작 → 서버 재검증 강등)",
+    method: "FREE 계정으로 로그인한 상태에서 devtools 콘솔로 localStorage['barosit:subscription_plan']='pro' 로 강제 설정하고 barosit:subscription-changed 이벤트를 발화시킨 뒤, 잠시 후 모니터링/권한이 유지되는지 관찰합니다.",
+    expected: "useEntitlement 의 서버 재검증으로 수 초~검증주기 내에 FREE 로 자동 강등되고, admin_notifications 에 tampering_detected(critical) 경보가 적재되어야 합니다. (§7 E3-②)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-11",
+    category: "Billing",
+    title: "앱=로그인+Pro 전용 게이팅 (비로그인/FREE 모니터링 차단)",
+    method: "데스크톱 앱에서 ① 비로그인 게스트 ② 로그인+FREE 상태로 각각 모니터링을 시도하고, 메인 최소화 시 위젯 백그라운드 관제가 도는지 확인합니다.",
+    expected: "비로그인/FREE 는 포그라운드·백그라운드 모니터링이 모두 정지되고 업셀/로그인 배너가 노출되어야 합니다. 로그인+PRO(또는 베타)에서만 관제·위젯이 동작합니다. (§7 E3, 해석 B)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "BILL-12",
+    category: "Billing",
+    title: "첫 결제 성공 후 활성화 실패 시 자동 환불 보상",
+    method: "billing-issue 에서 첫 청구 성공 직후 DB 저장(user_subscriptions/billing_history)이 실패하는 상황을 가정/주입하여 보상 로직을 검증합니다.",
+    expected: "청구는 성공했으나 활성화에 실패하면 cancelPayment 로 전액 자동 환불되고, 환불까지 실패하면 paymentKey 포함 critical 경보가 적재되어 수동 처리 추적이 가능해야 합니다. (§7 C1)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-13",
+    category: "Billing",
+    title: "웹훅 남용 차단 (미보유 orderId 무시 + 선택 시크릿)",
+    method: "toss-webhook 에 우리 billing_history 에 없는 임의 orderId 로 호출하고, TOSS_WEBHOOK_SECRET 설정 시 잘못된 시크릿으로 호출합니다.",
+    expected: "미보유 orderId 는 Toss 원장 조회 없이 200 으로 조기 무시되어 외부발 Toss API 폭주가 차단되고, 시크릿 설정 시 불일치 호출은 401 로 거부되어야 합니다. (§7 C2)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "BILL-14",
+    category: "Billing",
+    title: "해지(canceled) 만료 시 FREE 자동 정리",
+    method: "status='canceled' 이고 current_period_end 가 지난 구독에 대해 charge-renewals 배치를 실행합니다.",
+    expected: "청구 없이 plan_id='free', status='none', billing_key/customer_key=null 로 정리되어 'pro' 잔존 행이 남지 않아야 합니다. (§7 H1)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-15",
+    category: "Billing",
+    title: "관리자 강제 환불 (admin-refund)",
+    method: "어드민 계정으로 admin-refund 를 호출해 특정 결제를 전액/부분 환불하고, 비(非)어드민 호출이 거부되는지 확인합니다.",
+    expected: "profiles.is_admin=true 만 호출 가능(그 외 403), 실제 Toss 취소 후 원장이 refunded/partially_refunded 로 갱신되고, downgrade 옵션 시 FREE 강등 + 감사 로그가 적재되어야 합니다. (§11 M4-c)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "BILL-16",
+    category: "Billing",
+    title: "결제 라이프사이클 사용자 알림 메일 (H2)",
+    method: "정기결제 실패(유예 시작)·유예 만료(FREE 강등)·환불 완료·구독 해지 예약 각 상황에서 사용자에게 이메일이 발송되는지 확인합니다.",
+    expected: "각 이벤트마다 해당 사용자 이메일로 안내 메일(카드 갱신/강등/환불/해지)이 발송되어야 합니다. RESEND_API_KEY 미설정 시에는 본 로직을 막지 않고 조용히 생략됩니다. (§11 H2)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-17",
+    category: "Billing",
+    title: "정기청구 스케줄(pg_cron) 등록·동작",
+    method: "배포 후 Supabase 대시보드에서 pg_cron/pg_net 활성화 + charge-renewals 일배치 등록 여부와 최근 실행 로그를 확인합니다.",
+    expected: "매일 정해진 시각에 charge-renewals 가 호출되어 만기 구독 정기청구/더닝이 수행되어야 합니다. 미등록 시 정기결제가 전면 정지되므로 배포 체크 필수. (§11 H3)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "BILL-C01",
+    category: "Billing",
+    title: "[정적] 앱=로그인+PRO 모니터링 게이트 와이어링",
+    method: "MonitorView·useMonitoringEngine 의 모니터링 활성 조건을 소스에서 정적 확인합니다.",
+    expected: "MonitorView 가 isMonitoringEntitled(user, subPlan) 로 게이팅하고, useMonitoringEngine 의 usePoseLoop enabled 에 subPlan==='pro' 가 있으며 opts.visible 바이패스가 제거돼 있어야 합니다. (§7 E3)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C02",
+    category: "Billing",
+    title: "[정적] 플랜 캐시 누수 차단 와이어링 (E1·E2)",
+    method: "signOut 의 캐시 제거와 App.fetchSub 의 write-back 을 소스에서 확인합니다.",
+    expected: "useAuth.signOut 가 localStorage.removeItem('barosit:subscription_plan') 를 호출하고, App.tsx fetchSub 가 해석된 plan 을 localStorage.setItem 으로 write-back 해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C03",
+    category: "Billing",
+    title: "[정적] 서버 검증 entitlement 훅 와이어링 (E3-②)",
+    method: "useEntitlement 의 서버 재검증·변조 강등 로직과 게이트의 훅 사용을 확인합니다.",
+    expected: "src/auth/useEntitlement.ts 가 user_subscriptions 재조회 + tampering_detected 경보를 포함하고, MonitorView·useMonitoringEngine 가 useEntitlement() 의 plan 을 사용해야 합니다(localStorage 직접 신뢰 금지).",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C04",
+    category: "Billing",
+    title: "[정적] 첫 결제 후 활성화 실패 보상 와이어링 (C1)",
+    method: "billing-issue 의 DB 실패 보상(자동 환불) 경로를 소스에서 확인합니다.",
+    expected: "billing-issue 가 DB 저장 실패 시 catch 에서 cancelPayment 로 환불 보상하고, 환불 실패 시 paymentKey 포함 critical 알림을 적재해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C05",
+    category: "Billing",
+    title: "[정적] billing_key 암호화 저장/복호화 와이어링 (SEC)",
+    method: "billing-issue 저장 암호화와 charge-renewals 청구 전 복호화를 확인합니다.",
+    expected: "billing-issue 가 encryptSecret 으로 billing_key/customer_key 를 저장하고, charge-renewals 가 청구 전 decryptSecret 으로 복호화해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C06",
+    category: "Billing",
+    title: "[정적] canceled 정리 + 더닝 간격/cap 와이어링 (H1·M3)",
+    method: "charge-renewals 의 해지 정리와 더닝 제어를 소스에서 확인합니다.",
+    expected: "charge-renewals 가 canceled 만료를 FREE 로 정리하고, last_dunning_at 기반 2일 간격 가드 + MAX_DUNNING_ATTEMPTS(3) cap 을 적용해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C07",
+    category: "Billing",
+    title: "[정적] 웹훅 남용 차단 와이어링 (C2)",
+    method: "toss-webhook 의 미보유 orderId 조기 무시와 선택 시크릿 검증을 확인합니다.",
+    expected: "toss-webhook 가 billing_history 미보유 orderId 를 Toss 조회 없이 200 으로 무시하고, TOSS_WEBHOOK_SECRET 설정 시 불일치 호출을 401 거부해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C08",
+    category: "Billing",
+    title: "[정적] 관리자 환불 권한·UI 와이어링 (M4-c)",
+    method: "admin-refund 의 어드민 검증과 대시보드 환불 UI 연결을 확인합니다.",
+    expected: "admin-refund 가 profiles.is_admin 을 검증하고, AdminDashboard 시스템 탭이 admin-refund 를 invoke 하는 환불 폼을 가져야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C09",
+    category: "Billing",
+    title: "[정적] 카드표시·customerKey·금액 단일화 (M1·M2·L1)",
+    method: "M1/M2/L1 수정이 코드에 반영돼 있고 회귀하지 않았는지 확인합니다.",
+    expected: "ProfileView 가 cardInfo.company 를 표시(brand 아님)하고, customerKey 가 cust-${user.id} 결정적 값이며, 클라이언트에 4900/36000 하드코딩이 없어야(priceFor 사용) 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-C10",
+    category: "Billing",
+    title: "[정적] 결제 보안 마이그레이션 존재",
+    method: "본 점검에서 추가된 마이그레이션 파일과 핵심 DDL 을 확인합니다.",
+    expected: "20260521000012(admin_notifications INSERT→authenticated), 20260521000013(billing_key TEXT 확장 + last_dunning_at) 마이그레이션이 존재해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "BILL-U01",
+    category: "Billing",
+    title: "[단위] 금액·권한 판정 단위테스트",
+    method: "vitest 로 가격/권한 순수 로직 회귀를 검증합니다.",
+    expected: "src/lib/pricing.test.ts(priceFor)·entitlement.test.ts(isMonitoringEntitled) 가 모두 통과해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "BILL-U02",
+    category: "Billing",
+    title: "[단위] 암호화·메일 템플릿 단위테스트 (Edge)",
+    method: "deno test 로 crypto 왕복·메일 템플릿 내용을 검증합니다.",
+    expected: "_shared/crypto.test.ts(암복호 왕복·평문 폴백)·email.test.ts(템플릿 4종) 가 통과해야 합니다.",
     status: "Untested",
     actualResult: "",
     platforms: ["Web", "Mac", "Windows"]
@@ -668,6 +900,103 @@ const INITIAL_TEST_CASES: TestCase[] = [
   }
 ];
 
+// 검증 티어/노트 — qa/checklist.json 에서 추출(동일 ID). 대시보드는 번들 정적이라
+// 런타임에 checklist.json 을 읽지 않고, 추출된 맵을 주입해 드리프트를 줄인다.
+// (소스 오브 트루스는 qa/checklist.json — 항목 추가 시 양쪽을 함께 갱신할 것.)
+const VERIFY_META: Record<string, { tier: VerifyTier; note: string }> = {
+  "AUTH-01": { tier: "integration", note: "authorize?provider=google → HTTP302 + accounts.google.com 리다이렉트면 Pass. 외부 동의 화면 클릭만 사람 몫(integration 으로 충분)." },
+  "AUTH-02": { tier: "integration", note: "authorize?provider=kakao → HTTP302 + kauth.kakao.com 이면 Pass. 로컬은 실 카카오 키로 구성됨(placeholder 아님). 프로덕션 키만 별도 확인 대상." },
+  "AUTH-04": { tier: "runtime", note: "" },
+  "AUTH-05": { tier: "integration", note: "" },
+  "AUTH-06": { tier: "integration", note: "" },
+  "AUTH-07": { tier: "runtime", note: "" },
+  "BILL-04": { tier: "manual", note: "" },
+  "BILL-05": { tier: "runtime", note: "" },
+  "BILL-06": { tier: "integration", note: "" },
+  "BILL-07": { tier: "runtime", note: "코드상 상태값은 'grace_period' (payment_failed 아님). status==='grace_period' && grace_period_until 미래값일 때 배너(App.tsx:584)." },
+  "BILL-08": { tier: "integration", note: "직접 DB 수정이 아니라 payment-cancel Edge Function invoke 경유가 정상(ProfileView.tsx:262). admin_notifications 직접 인서트를 기대하지 말 것." },
+  "MONI-01": { tier: "manual", note: "" },
+  "MONI-02": { tier: "unit", note: "" },
+  "MONI-03": { tier: "code", note: "판정기준: 'FREE가 백그라운드(탭 숨김)에서 멈추는가'만 확인. 웹은 플랜 무관 정지가 정상(PRO도 멈춰도 무방) — MonitorView.tsx:576 cameraActive=false. 'FREE 전용 정지여야 한다'로 읽지 말 것. PRO 백그라운드 지속은 데스크톱 위젯(Widget+useMonitoringEngine, visible:true) 기능이며 웹 항목 아님." },
+  "MONI-04": { tier: "runtime", note: "현 런칭 정책상 코칭은 임시 개방(MonitorView.tsx:3171 `{true ? ...}`) → FREE도 접근 가능한 것이 정상=Pass. PRO 잠금 재활성 시 기대값 환원." },
+  "MONI-05": { tier: "code", note: "" },
+  "MONI-06": { tier: "code", note: "5분 타이머(setInterval 300000). FREE는 syncService.ts:35-38 에서 전송 차단되고 PRO만 실제 업로드 → 정상." },
+  "MONI-07": { tier: "runtime", note: "" },
+  "MONI-08": { tier: "runtime", note: "" },
+  "MONI-09": { tier: "manual", note: "" },
+  "SET-01": { tier: "runtime", note: "" },
+  "SET-02": { tier: "runtime", note: "" },
+  "SET-03": { tier: "runtime", note: "" },
+  "SET-04": { tier: "runtime", note: "" },
+  "SET-05": { tier: "runtime", note: "" },
+  "SET-06": { tier: "runtime", note: "" },
+  "SET-07": { tier: "runtime", note: "" },
+  "SET-08": { tier: "runtime", note: "" },
+  "SET-09": { tier: "runtime", note: "" },
+  "SET-10": { tier: "runtime", note: "" },
+  "SYNC-01": { tier: "runtime", note: "" },
+  "SYNC-02": { tier: "code", note: "" },
+  "SYNC-03": { tier: "code", note: "" },
+  "SYNC-04": { tier: "code", note: "" },
+  "COMM-01": { tier: "integration", note: "" },
+  "COMM-02": { tier: "integration", note: "조회수/좋아요는 increment_post_views/increment_post_likes RPC(SECURITY DEFINER, 마이그레이션 20260521000011)로 +1 되면 Pass. posts 직접 UPDATE 는 소유자 전용 RLS 라 타인 글에서 차단되는 게 정상(회귀 확인)." },
+  "COMM-03": { tier: "integration", note: "" },
+  "COMM-04": { tier: "integration", note: "" },
+  "WEB-01": { tier: "runtime", note: "" },
+  "WEB-02": { tier: "runtime", note: "" },
+  "WEB-03": { tier: "runtime", note: "" },
+  "ADMN-01": { tier: "runtime", note: "" },
+  "ADMN-02": { tier: "runtime", note: "" },
+  "ADMN-03": { tier: "integration", note: "" },
+  "ADMN-04": { tier: "integration", note: "" },
+  "ADMN-05": { tier: "integration", note: "" },
+  "ADMN-06": { tier: "code", note: "" },
+  "ADMN-07": { tier: "code", note: "" },
+  "ADMN-08": { tier: "integration", note: "" },
+  "ADMN-09": { tier: "integration", note: "" },
+  "ADMN-14": { tier: "runtime", note: "" },
+  "LIFE-01": { tier: "runtime", note: "" },
+  "LIFE-02": { tier: "runtime", note: "" },
+  "LIFE-03": { tier: "manual", note: "" },
+  "DESK-01": { tier: "manual", note: "" },
+  "DESK-02": { tier: "manual", note: "" },
+  "DESK-03": { tier: "manual", note: "" },
+  "DESK-04": { tier: "manual", note: "" },
+  "DESK-05": { tier: "manual", note: "" },
+  "DESK-06": { tier: "manual", note: "" },
+  "DESK-07": { tier: "manual", note: "" },
+  "DESK-08": { tier: "manual", note: "" },
+  "DESK-09": { tier: "manual", note: "" },
+  "BILL-09": { tier: "runtime", note: "useAuth.signOut 가 캐시 removeItem + subscription-changed 발화 / App.fetchSub 가 실효 plan write-back. 실 계정 전환은 사람 확인 권장." },
+  "BILL-10": { tier: "runtime", note: "src/auth/useEntitlement.ts 가 user_subscriptions 재조회 후 effective=free && cache=pro 면 강등+경보. 게이트는 localStorage 가 아닌 훅의 in-memory plan 을 신뢰." },
+  "BILL-11": { tier: "runtime", note: "MonitorView usePoseLoop enabled 에 !!user && subPlan==='pro' / useMonitoringEngine 게이트에서 opts.visible 바이패스 제거. 베타(beta_free)는 resolveEffectivePlan→pro 로 통과(단 로그인 필수)." },
+  "BILL-12": { tier: "integration", note: "supabase/functions/billing-issue try/catch 보상 경로. 실주입은 결제 QA 환경에서. 코드상 cancelPayment + admin_notifications + 원장 upsert 확인." },
+  "BILL-13": { tier: "integration", note: "supabase/functions/toss-webhook: billing_history 존재확인 후 getPaymentByOrderId. TOSS_WEBHOOK_SECRET 미설정 시 종전 동작." },
+  "BILL-14": { tier: "integration", note: "charge-renewals 가 status in (active,grace_period,canceled) 조회 후 canceled 는 cleaned 처리." },
+  "BILL-15": { tier: "integration", note: "supabase/functions/admin-refund. 어드민 판별 profiles.is_admin. cancelPayment cancelAmount 로 부분환불." },
+  "BILL-16": { tier: "integration", note: "_shared/email.ts(Resend) 를 charge-renewals/payment-cancel/admin-refund/subscription-manage 에서 호출. RESEND_API_KEY 시크릿 등록 필요." },
+  "BILL-17": { tier: "manual", note: "migration 20260521000010 하단 cron.schedule 주석을 프로젝트 ref/service_role 로 치환해 1회 실행. 최근 24h 실행 0건이면 경보 권장." },
+  "BILL-C01": { tier: "code", note: "grep src/views/MonitorView.tsx 'isMonitoringEntitled(user, subPlan)'; src/hooks/useMonitoringEngine.ts enabled 에 'subPlan === \"pro\"' 있고 '|| opts.visible' 없음." },
+  "BILL-C02": { tier: "code", note: "grep src/auth/useAuth.ts removeItem(\"barosit:subscription_plan\"); src/App.tsx setItem(\"barosit:subscription_plan\", actualPlan)." },
+  "BILL-C03": { tier: "code", note: "grep useEntitlement.ts 'user_subscriptions' 및 'tampering_detected'; MonitorView·useMonitoringEngine 에 useEntitlement() 호출." },
+  "BILL-C04": { tier: "code", note: "grep supabase/functions/billing-issue/index.ts: try/catch 내 'cancelPayment(' 및 admin_notifications 'system_error'." },
+  "BILL-C05": { tier: "code", note: "grep billing-issue 'encryptSecret('; charge-renewals 'decryptSecret('; _shared/crypto.ts 존재." },
+  "BILL-C06": { tier: "code", note: "grep charge-renewals: status==='canceled' 정리 분기, 'last_dunning_at', 'MAX_DUNNING_ATTEMPTS'." },
+  "BILL-C07": { tier: "code", note: "grep toss-webhook: 'unknown orderId' 조기 return, 'TOSS_WEBHOOK_SECRET'." },
+  "BILL-C08": { tier: "code", note: "grep admin-refund 'is_admin'; AdminDashboardView 'admin-refund' invoke + handleAdminRefund." },
+  "BILL-C09": { tier: "code", note: "grep ProfileView 'cardInfo.company'; PricingView·Marketing 에 'cust-${' 결정적 customerKey + priceFor 사용; 결제 금액 리터럴은 src/lib/pricing.ts 의 PRICE_KRW 한 곳만 — 단어경계 grep -nE '\\\\b(4900|36000)\\\\b' src/views src/web 결과 없음(rateLimit 의 3600000 은 무관)." },
+  "BILL-C10": { tier: "code", note: "ls supabase/migrations/20260521000012_*.sql 20260521000013_*.sql; 후자에 'last_dunning_at' 및 ALTER ... TYPE TEXT 포함." },
+  "BILL-U01": { tier: "unit", note: "npx vitest run — pricing/entitlement/launchMode/analyzer 전부 pass." },
+  "BILL-U02": { tier: "unit", note: "cd supabase/functions && deno task test (deno test --allow-env _shared/crypto.test.ts _shared/email.test.ts)." },
+};
+
+// raw 항목에 검증 티어 주입. 맵에 없으면(신규 미등록) manual 로 안전 폴백.
+const INITIAL_TEST_CASES: TestCase[] = RAW_TEST_CASES.map((tc) => ({
+  ...tc,
+  verifyTier: VERIFY_META[tc.id]?.tier ?? "manual",
+  verifyNote: VERIFY_META[tc.id]?.note || undefined,
+}));
+
 export function QaDashboardView() {
   const [testCases, setTestCases] = useState<TestCase[]>(() => {
     const saved = localStorage.getItem("barosit:qa_progress");
@@ -688,6 +1017,8 @@ export function QaDashboardView() {
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [activeStatusFilter, setActiveStatusFilter] = useState<string>("All");
+  // 검증 방식 필터: All | auto(자동 가능) | manual(수동) | 개별 티어(integration 등)
+  const [activeVerifyFilter, setActiveVerifyFilter] = useState<string>("All");
   const [activePlatformFilter, setActivePlatformFilter] = useState<"All" | "Web" | "Mac" | "Windows">("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>("AUTH-01");
@@ -819,6 +1150,17 @@ export function QaDashboardView() {
   const untestedCount = platformFilteredCases.filter(c => c.status === "Untested").length;
   const progressPercent = Math.round(((totalCount - untestedCount) / totalCount) * 100) || 0;
 
+  // 검증 방식 카운트 (플랫폼 필터 반영)
+  const autoCount = platformFilteredCases.filter(c => TIER_META[c.verifyTier].auto).length;
+  const manualCount = platformFilteredCases.filter(c => !TIER_META[c.verifyTier].auto).length;
+  const tierCounts = (Object.keys(TIER_META) as VerifyTier[]).reduce(
+    (acc, tier) => {
+      acc[tier] = platformFilteredCases.filter(c => c.verifyTier === tier).length;
+      return acc;
+    },
+    {} as Record<VerifyTier, number>,
+  );
+
   // 최종 카테고리/상태/검색 필터 적용
   const filteredCases = platformFilteredCases.filter(item => {
     const matchesCategory = activeCategory === "All" || item.category === activeCategory;
@@ -829,6 +1171,12 @@ export function QaDashboardView() {
       activeStatusFilter === "all" ||
       item.status === activeStatusFilter;
 
+    const matchesVerify =
+      activeVerifyFilter === "All" ||
+      (activeVerifyFilter === "auto" && TIER_META[item.verifyTier].auto) ||
+      (activeVerifyFilter === "manual" && !TIER_META[item.verifyTier].auto) ||
+      item.verifyTier === activeVerifyFilter;
+
     const cleanQuery = searchQuery.toLowerCase().trim();
     const matchesSearch =
       item.id.toLowerCase().includes(cleanQuery) ||
@@ -837,7 +1185,7 @@ export function QaDashboardView() {
       item.expected.toLowerCase().includes(cleanQuery) ||
       item.actualResult.toLowerCase().includes(cleanQuery);
 
-    return matchesCategory && matchesStatus && matchesSearch;
+    return matchesCategory && matchesStatus && matchesVerify && matchesSearch;
   });
 
   return (
@@ -1294,6 +1642,133 @@ export function QaDashboardView() {
           </div>
         </section>
 
+        {/* 검증 방식 구분 필터 (자동 시험 가능 vs 수동 확인 필요) */}
+        <section
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+            background: "rgba(255, 255, 255, 0.02)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            borderRadius: 20,
+            padding: "20px 24px",
+            backdropFilter: "blur(20px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.5px", color: "#7eb09c", display: "flex", alignItems: "center", gap: 6 }}>
+              🤖 검증 방식 구분 (Verification Mode)
+            </span>
+            <span style={{ fontSize: 11, opacity: 0.5 }}>
+              * QA 에이전트가 사람 없이 자동 검증 가능한 항목과, 직접 눈으로 확인해야 하는 항목을 구분합니다.
+            </span>
+          </div>
+
+          {/* 1차: 자동/수동 큰 구분 */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 8,
+              background: "rgba(0, 0, 0, 0.2)",
+              padding: 4,
+              borderRadius: 14,
+              border: "1px solid rgba(255, 255, 255, 0.03)",
+            }}
+          >
+            {([
+              { key: "All", label: "전체", icon: "✨", desc: "모든 검증 방식", count: totalCount, color: "#5b8c7a" },
+              { key: "auto", label: "자동 시험 가능", icon: "🤖", desc: "통합·런타임·유닛·코드 검사로 자동 검증", count: autoCount, color: "#5b8c7a" },
+              { key: "manual", label: "수동 확인 필요", icon: "🖐", desc: "사람이 직접 눈으로 확인", count: manualCount, color: "#d9a752" },
+            ] as const).map(seg => {
+              const isActive = activeVerifyFilter === seg.key;
+              return (
+                <button
+                  key={seg.key}
+                  onClick={() => setActiveVerifyFilter(seg.key)}
+                  style={{
+                    background: isActive ? `${seg.color}26` : "transparent",
+                    border: isActive ? `1px solid ${seg.color}80` : "1px solid transparent",
+                    borderRadius: 10,
+                    padding: "12px 16px",
+                    color: isActive ? "#fff" : "#8a9aa8",
+                    cursor: "pointer",
+                    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
+                      e.currentTarget.style.color = "#fff";
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "#8a9aa8";
+                    }
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 13 }}>
+                    <span>{seg.icon}</span>
+                    <span>{seg.label}</span>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      background: isActive ? `${seg.color}40` : "rgba(255,255,255,0.06)",
+                      color: isActive ? "#fff" : "#8a9aa8",
+                      padding: "2px 6px",
+                      borderRadius: 6,
+                    }}>
+                      {seg.count}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 10, opacity: isActive ? 0.8 : 0.4 }}>{seg.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 2차: 세부 티어 칩 (선택적 정밀 필터) */}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 11, opacity: 0.45, marginRight: 2 }}>세부 티어:</span>
+            {(Object.keys(TIER_META) as VerifyTier[]).map(tier => {
+              const meta = TIER_META[tier];
+              const isActive = activeVerifyFilter === tier;
+              return (
+                <button
+                  key={tier}
+                  onClick={() => setActiveVerifyFilter(isActive ? "All" : tier)}
+                  title={meta.desc}
+                  style={{
+                    background: isActive ? `${meta.color}26` : "rgba(255,255,255,0.02)",
+                    color: isActive ? "#fff" : meta.color,
+                    border: `1px solid ${isActive ? `${meta.color}80` : "rgba(255,255,255,0.06)"}`,
+                    borderRadius: 999,
+                    padding: "5px 12px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span>{meta.icon}</span>
+                  <span>{meta.label}</span>
+                  <span style={{ opacity: 0.6, fontWeight: 800 }}>{tierCounts[tier]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {/* 필터 및 검색 바 */}
         <section
           style={{
@@ -1511,6 +1986,36 @@ export function QaDashboardView() {
                         })}
                       </div>
 
+                      {/* 검증 방식(티어) 배지 — 자동/수동 한눈에 구분 */}
+                      {(() => {
+                        const meta = TIER_META[item.verifyTier];
+                        return (
+                          <span
+                            title={meta.desc}
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 800,
+                              background: `${meta.color}1f`,
+                              color: meta.color,
+                              border: `1px solid ${meta.color}40`,
+                              padding: "2px 7px",
+                              borderRadius: 6,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                              letterSpacing: "0.2px",
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                              marginRight: 4,
+                            }}
+                          >
+                            <span>{meta.icon}</span>
+                            <span>{meta.auto ? "자동" : "수동"}</span>
+                            <span style={{ opacity: 0.6 }}>· {meta.label}</span>
+                          </span>
+                        );
+                      })()}
+
                       {/* 검증 테스트 제목 */}
                       <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>
                         {item.title}
@@ -1643,6 +2148,33 @@ export function QaDashboardView() {
                           </div>
                         </div>
                       </div>
+
+                      {/* 검증 방식 안내 — 자동/수동 여부와 근거(노트) */}
+                      {(() => {
+                        const meta = TIER_META[item.verifyTier];
+                        return (
+                          <div
+                            style={{
+                              background: `${meta.color}0d`,
+                              border: `1px solid ${meta.color}33`,
+                              borderRadius: 12,
+                              padding: "12px 14px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                            }}
+                          >
+                            <span style={{ fontSize: 12, fontWeight: 700, color: meta.color, display: "flex", alignItems: "center", gap: 6 }}>
+                              <span>{meta.icon}</span>
+                              검증 방식: {meta.auto ? "자동 시험 가능" : "수동 확인 필요"} · {meta.label}
+                            </span>
+                            <span style={{ fontSize: 11.5, color: "#cdd6df", opacity: 0.75, lineHeight: 1.5 }}>
+                              {meta.desc}
+                              {item.verifyNote ? ` — ${item.verifyNote}` : ""}
+                            </span>
+                          </div>
+                        );
+                      })()}
 
                       {/* 3. 실제 수행 결과 및 버그 피드백 작성란 */}
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
