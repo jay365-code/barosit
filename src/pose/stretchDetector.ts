@@ -559,8 +559,8 @@ export function detectStretch(
   if (isForwardFold(lm, face, baseline)) return "forward_fold";
   if (isSideStretch(lm, currentAngle)) return "side";
   if (isCrossBody(lm, currentAngle)) return "cross_body";
-  if (isShoulderShrug(lm, baseline)) return "shoulder_shrug";
   if (isNeckSide(lm, face, baseline)) return "neck_side";
+  if (isShoulderShrug(lm, baseline)) return "shoulder_shrug";
   return null;
 }
 
@@ -595,7 +595,7 @@ export class StretchTracker {
 
   constructor(
     private readonly minHoldMs = 2000,
-    private readonly cooldownMs = 60000,
+    private readonly cooldownMs = 30000,
     /** 검출이 끊기더라도 이 시간 안에 다시 잡히면 같은 동작으로 본다 */
     private readonly gapToleranceMs = 1000,
   ) {}
