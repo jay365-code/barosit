@@ -125,6 +125,12 @@ export function AdminDashboardView({ onClose }: Props) {
   const [cleanLog, setCleanLog] = useState<string[]>([]);
   const [isCleaning, setIsCleaning] = useState(false);
   const [isGeneratingMock, setIsGeneratingMock] = useState(false);
+  // 관리자 강제 환불 폼 상태 (§11 M4-c)
+  const [refundOrderId, setRefundOrderId] = useState("");
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundDowngrade, setRefundDowngrade] = useState(true);
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [refundResult, setRefundResult] = useState<string | null>(null);
 
   // Q&A 특정 선택물 답변 상태
   const [selectedPost, setSelectedPost] = useState<PostData | null>(null);
@@ -507,6 +513,30 @@ export function AdminDashboardView({ onClose }: Props) {
       window.alert(`런치 모드가 [${label}] 로 전환되었습니다.`);
     } catch (e: any) {
       window.alert("전환 실패 (어드민 권한 필요): " + (e?.message || e));
+    }
+  };
+
+  // 관리자 강제 환불 (admin-refund Edge Function 호출, §11 M4-c)
+  const handleAdminRefund = async () => {
+    const orderId = refundOrderId.trim();
+    if (!orderId) { window.alert("환불할 결제의 orderId 를 입력하세요."); return; }
+    const amt = refundAmount.trim() ? Number(refundAmount.trim()) : undefined;
+    if (amt !== undefined && (!Number.isFinite(amt) || amt <= 0)) { window.alert("환불 금액이 올바르지 않습니다."); return; }
+    const label = amt ? `${amt.toLocaleString()}원 부분 환불` : "전액 환불";
+    if (!window.confirm(`주문 ${orderId} 을 [${label}]${refundDowngrade ? " + FREE 강등" : ""} 처리할까요?`)) return;
+    setRefundBusy(true);
+    setRefundResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-refund", {
+        body: { orderId, amount: amt, downgrade: refundDowngrade, reason: "관리자 콘솔 환불" },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "환불 실패");
+      setRefundResult(`✅ ${data.full ? "전액" : "부분"} 환불 완료: ${Number(data.refundedAmount).toLocaleString()}원${data.downgraded ? " (FREE 강등됨)" : ""}`);
+      setRefundOrderId(""); setRefundAmount("");
+    } catch (e: any) {
+      setRefundResult("❌ " + (e?.message || e));
+    } finally {
+      setRefundBusy(false);
     }
   };
 
@@ -1658,6 +1688,49 @@ export function AdminDashboardView({ onClose }: Props) {
                           유료 정식으로 전환
                         </button>
                       </div>
+                    </div>
+
+                    {/* 관리자 강제 환불 (admin-refund) */}
+                    <div style={{ gridColumn: "1 / -1", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ color: "#e08866" }}>💳</span>
+                        관리자 강제 환불 (CS·분쟁·오결제)
+                      </div>
+                      <p style={{ fontSize: 12, opacity: 0.6, lineHeight: 1.6 }}>
+                        청약철회(7일·미사용) 제약 없이 특정 결제를 전액/부분 환불합니다. 결제 내역의 <strong>orderId</strong>를 입력하세요.
+                        금액을 비우면 전액 환불됩니다. FREE 강등을 체크하면 해당 사용자를 즉시 무료 등급으로 전환합니다.
+                      </p>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                        <input
+                          value={refundOrderId}
+                          onChange={(e) => setRefundOrderId(e.target.value)}
+                          placeholder="orderId (예: order-1779...)"
+                          style={{ flex: "2 1 240px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 12 }}
+                        />
+                        <input
+                          value={refundAmount}
+                          onChange={(e) => setRefundAmount(e.target.value)}
+                          placeholder="금액(원) — 비우면 전액"
+                          inputMode="numeric"
+                          style={{ flex: "1 1 140px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 12 }}
+                        />
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.8, cursor: "pointer" }}>
+                          <input type="checkbox" checked={refundDowngrade} onChange={(e) => setRefundDowngrade(e.target.checked)} />
+                          FREE 강등
+                        </label>
+                        <button
+                          onClick={handleAdminRefund}
+                          disabled={refundBusy}
+                          style={{ background: "#e08866", color: "#1a1a1a", border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 12, fontWeight: 700, cursor: refundBusy ? "default" : "pointer", opacity: refundBusy ? 0.6 : 1 }}
+                        >
+                          {refundBusy ? "처리 중…" : "환불 실행"}
+                        </button>
+                      </div>
+                      {refundResult && (
+                        <div style={{ fontSize: 12, padding: "8px 12px", borderRadius: 8, background: "rgba(255,255,255,0.04)", color: refundResult.startsWith("✅") ? "#7eb09c" : "#f87171" }}>
+                          {refundResult}
+                        </div>
+                      )}
                     </div>
 
                     {/* 데이터 청소기 */}

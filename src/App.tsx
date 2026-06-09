@@ -409,7 +409,14 @@ export default function App() {
           const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
           actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
         }
-        
+
+        // 게이트(모니터링·동기화)가 직접 읽는 localStorage 캐시를 방금 해석한 실효
+        // 플랜과 정합시킨다 — 다운그레이드(해지 만료·환불·더닝 강등)나 로그아웃이
+        // 캐시에 반영되지 않아 Free 가 Pro 혜택을 유지하던 누수(§7 E2)를 차단.
+        try {
+          localStorage.setItem("barosit:subscription_plan", actualPlan);
+        } catch { /* localStorage 미지원 환경 — 무시 */ }
+
         setSubPlan(actualPlan);
         setSubStatus(status);
         setGracePeriodUntil(graceUntil);

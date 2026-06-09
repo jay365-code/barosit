@@ -646,7 +646,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                         <div style={{ fontSize: "11px", color: "var(--b-fg-4)", marginBottom: 4 }}>{t("defaultPayment")}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "13px", fontWeight: 700, color: "var(--b-fg-2)" }}>
                           <Icon name="sparkle" size={12} style={{ color: "#7eb09c" }} />
-                          {cardInfo.brand} ({cardInfo.number})
+                          {cardInfo.company ?? cardInfo.brand} ({cardInfo.number})
                         </div>
                       </div>
                       <span style={{

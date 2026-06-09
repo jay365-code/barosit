@@ -4,6 +4,7 @@ import i18n from "../i18n";
 import { Icon } from "../components/Icon";
 import { supabase } from "../auth/supabase";
 import { resolveEffectivePlan, isBetaFree } from "../launchMode";
+import { priceFor } from "../lib/pricing";
 
 // 토스페이먼츠 SDK 동적 로더
 function loadTossPayments(): Promise<any> {
@@ -153,7 +154,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           if (paymentStatus === "success") {
             setPaymentState("checkout");
             const cycleParam = params.get("cycle") as "monthly" | "yearly" || "monthly";
-            const finalAmount = cycleParam === "yearly" ? 36000 : 4900;
+            const finalAmount = priceFor(cycleParam);
 
             setTimeout(async () => {
               const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
@@ -279,7 +280,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
     setPaymentState("checkout");
     const activeUser = userOverride || currentUser;
     const activeCycle = cycleOverride || billingCycle;
-    const amount = activeCycle === "yearly" ? 36000 : 4900;
+    const amount = priceFor(activeCycle);
 
     // 정기 결제 카드 등록 시도 로깅
     trackPaymentEvent("checkout_initiated", {
@@ -293,8 +294,10 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
       const TossPaymentsLib = await loadTossPayments();
       const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
       
+      // 정기결제 customerKey 는 user 당 안정적(결정적)이어야 한다(§11 M2) — 매번
+      // 랜덤이면 카드 변경 시 Toss 측 고객-빌링키 연결이 분기돼 추적이 어렵다.
       const customerKey = activeUser
-        ? `cust-${activeUser.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`
+        ? `cust-${activeUser.id}`
         : `cust-guest-${Math.random().toString(36).substring(2, 10)}`;
 
       // 정기 구독 결제를 위한 카드 등록 창(requestBillingAuth) 실행

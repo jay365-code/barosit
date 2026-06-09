@@ -430,6 +430,14 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     if (!IS_AUTH_CONFIGURED) return;
+    // 로그아웃 시 Pro 권한 캐시를 즉시 제거한다 — 다음 사용자(또는 같은 기기의
+    // Free 계정)가 이전 Pro 세션의 캐시를 물려받아 백그라운드 모니터링/동기화 등
+    // Pro 혜택을 그대로 누리는 권한 누수(§7 E1)를 차단. 게스트는 free 로 강등된다.
+    // (ProfileView 로그아웃 버튼만 처리하던 것을 공통 경로로 끌어올림.)
+    try {
+      localStorage.removeItem("barosit:subscription_plan");
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
+    } catch { /* localStorage 미지원 환경 — 무시 */ }
     // 전역 동기화 채널로 *모든* useAuth 인스턴스에 SIGNED_OUT 상태 즉시 전파.
     // ProfileView / MonitorView / Marketing 등 어디서 호출되든 다른 화면의
     // useAuth 도 ~16ms 안에 user=null 로 정합됩니다.

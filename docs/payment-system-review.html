@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BaroSit 결제 시스템 점검·보완 보고서</title>
+<style>
+  :root {
+    --bg: #0f1214;
+    --bg-2: #15181a;
+    --bg-3: #1b1f22;
+    --fg-1: #e8edf0;
+    --fg-2: #b4bcc2;
+    --fg-3: #8a949b;
+    --fg-4: #5c656b;
+    --accent: #7eb09c;
+    --accent-2: #5b8c7a;
+    --warn: #e08866;
+    --crit: #f0726a;
+    --ok: #7eb09c;
+    --line: rgba(255,255,255,0.08);
+    --line-2: rgba(255,255,255,0.05);
+    --code-bg: #0b0e10;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg-1);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+      "Pretendard", "Noto Sans KR", Roboto, sans-serif;
+    line-height: 1.65;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 28px 120px; }
+
+  header.hero {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 28px;
+    margin-bottom: 36px;
+  }
+  header.hero h1 {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 10px;
+    background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.65) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  header.hero .sub { color: var(--fg-3); font-size: 14px; }
+  header.hero .meta {
+    margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px;
+  }
+  .chip {
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px;
+    padding: 4px 12px; color: var(--fg-2);
+  }
+  .chip.toss { border-color: rgba(0,100,255,0.35); color: #8ab4ff; }
+  .chip.stripe { border-color: rgba(135,90,255,0.4); color: #b89bff; }
+
+  h2 {
+    font-size: 21px; font-weight: 800; letter-spacing: -0.01em;
+    margin: 52px 0 16px; padding-top: 12px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  h2 .num {
+    font-size: 13px; color: var(--accent); font-weight: 700;
+    border: 1px solid rgba(126,176,156,0.3); border-radius: 8px;
+    padding: 2px 8px; flex-shrink: 0;
+  }
+  h3 { font-size: 16.5px; font-weight: 700; margin: 32px 0 12px; color: var(--fg-1); }
+  h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; color: var(--accent); }
+  p { color: var(--fg-2); margin: 12px 0; }
+  a { color: var(--accent); }
+  strong { color: var(--fg-1); }
+  code {
+    background: var(--code-bg); border: 1px solid var(--line-2); border-radius: 5px;
+    padding: 1px 6px; font-size: 12.5px; color: #c8d6cf;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; overflow-x: auto; font-size: 12.5px; line-height: 1.55;
+    color: #c8d6cf; font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  pre code { background: none; border: none; padding: 0; }
+
+  /* TOC */
+  nav.toc {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px 24px; margin-bottom: 8px;
+  }
+  nav.toc h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-4); }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc li { margin: 5px 0; font-size: 13.5px; }
+  nav.toc a { color: var(--fg-2); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+
+  /* Cards */
+  .card {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 22px; margin: 16px 0;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } nav.toc ol { columns: 1; } }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--fg-3); font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; background: var(--bg-2); }
+  td { color: var(--fg-2); }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+  td code { font-size: 11.5px; }
+
+  /* status badges */
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .b-ok { background: rgba(126,176,156,0.15); color: var(--ok); }
+  .b-partial { background: rgba(224,136,102,0.15); color: var(--warn); }
+  .b-no { background: rgba(240,114,106,0.15); color: var(--crit); }
+  .b-na { background: rgba(255,255,255,0.06); color: var(--fg-4); }
+
+  .sev { display:inline-block; width: 54px; text-align:center; font-size: 11px; font-weight: 800; padding: 2px 0; border-radius: 6px; }
+  .sev-c { background: rgba(240,114,106,0.18); color: var(--crit); border: 1px solid rgba(240,114,106,0.3); }
+  .sev-h { background: rgba(224,136,102,0.18); color: var(--warn); border: 1px solid rgba(224,136,102,0.3); }
+  .sev-m { background: rgba(214,196,120,0.15); color: #d6c478; border: 1px solid rgba(214,196,120,0.25); }
+  .sev-l { background: rgba(126,176,156,0.12); color: var(--accent); border: 1px solid rgba(126,176,156,0.22); }
+
+  /* flow diagram */
+  .flow {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px; margin: 16px 0; font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px; color: var(--fg-2); overflow-x: auto; line-height: 1.7; white-space: pre;
+  }
+
+  /* issue block */
+  .issue { border-left: 3px solid var(--line); padding: 4px 0 4px 18px; margin: 22px 0; }
+  .issue.crit { border-color: var(--crit); }
+  .issue.high { border-color: var(--warn); }
+  .issue.med { border-color: #d6c478; }
+  .issue.low { border-color: var(--accent); }
+  .issue h4 { margin: 0 0 6px; color: var(--fg-1); font-size: 15px; display: flex; align-items: center; gap: 10px; }
+  .issue .loc { font-size: 11.5px; color: var(--fg-4); font-family: "SF Mono", Menlo, monospace; margin-bottom: 8px; }
+  .issue .fix { background: rgba(126,176,156,0.06); border: 1px solid rgba(126,176,156,0.18); border-radius: 10px; padding: 10px 14px; margin-top: 10px; font-size: 13.5px; }
+  .issue .fix b { color: var(--accent); }
+
+  .callout { background: rgba(126,176,156,0.06); border: 1px solid rgba(126,176,156,0.22); border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 14px; }
+  .callout.warn { background: rgba(224,136,102,0.07); border-color: rgba(224,136,102,0.28); }
+  .callout .lbl { font-weight: 800; color: var(--accent); margin-right: 6px; }
+  .callout.warn .lbl { color: var(--warn); }
+
+  ul.tight li, ol.tight li { margin: 6px 0; color: var(--fg-2); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+  .muted { color: var(--fg-4); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>BaroSit 결제 시스템 점검·보완 보고서</h1>
+  <div class="sub">Toss Payments 기반 정기구독 결제의 라이프사이클 전수 분석 — 결제 · 환불 · 해지 · 실패(더닝) · 결제정보 관리 · 권한(Entitlement) · Stripe 추가 설계 — 및 본 점검에서 적용한 보완 내역과 추후 작업</div>
+  <div class="meta">
+    <span class="chip">작성 2026-06-09</span>
+    <span class="chip">브랜치 feat/qa-test-agent</span>
+    <span class="chip toss">현행: Toss Payments</span>
+    <span class="chip stripe">예정: + Stripe</span>
+    <span class="chip" style="border-color:rgba(126,176,156,0.4);color:#7eb09c">✅ 본 점검 보완 16건 반영</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h3>목차</h3>
+  <ol>
+    <li><a href="#s1">한눈에 보는 요약</a></li>
+    <li><a href="#s2">아키텍처 구성도</a></li>
+    <li><a href="#s3">결제 라이프사이클 흐름</a></li>
+    <li><a href="#s4">구성요소 상세</a></li>
+    <li><a href="#s5">라이프사이클 커버리지 매트릭스</a></li>
+    <li><a href="#s6">점검 결과 — 보완 사항</a></li>
+    <li><a href="#s7">권한(Entitlement) 적용 점검 — Free↔Pro 누수</a></li>
+    <li><a href="#s8">Stripe 추가 설계 고려사항</a></li>
+    <li><a href="#s9">권고 우선순위 로드맵</a></li>
+    <li><a href="#s10">본 점검에서 적용한 보완 (구현 내역)</a></li>
+    <li><a href="#s11">추후 결제 관련 필요 작업</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================= -->
+<h2 id="s1"><span class="num">01</span> 한눈에 보는 요약</h2>
+
+<p>
+BaroSit의 결제 시스템은 <strong>Toss Payments 빌링(정기결제) 모델</strong>을 기반으로,
+프론트엔드 SDK → Supabase Edge Functions(서버 신뢰 단일 경로) → Toss API → PostgreSQL 원장으로
+이어지는 <strong>2-Way Handshake 아키텍처</strong>가 비교적 충실하게 구현되어 있습니다.
+빌링키 발급·첫 청구·정기청구·더닝(유예)·환불(청약철회)·해지/복구·웹훅 안전망이 모두
+<strong>코드 레벨에서는 구현 완료</strong> 상태이며(<code>docs/launch-readiness-plan.md</code> P0-1 기준),
+남은 임계경로는 <em>배포 + Toss 가맹점 심사 + 실결제 E2E QA</em>입니다.
+</p>
+
+<div class="grid-2">
+  <div class="card">
+    <h4 style="margin-top:0">✅ 잘 설계된 점</h4>
+    <ul class="tight" style="margin:0;padding-left:18px;font-size:13.5px">
+      <li>plan/status 변경을 <code>service_role</code> Edge Function으로만 허용하는 <strong>DB 트리거 잠금</strong> (위변조 차단)</li>
+      <li>웹훅 무서명 폴백을 <strong>orderId 기반 S2S 교차검증</strong>으로 보완</li>
+      <li><code>order_id</code> 고유 인덱스로 원장 <strong>멱등성</strong> 확보</li>
+      <li>결제 실패 시 즉시 박탈 대신 <strong>7일 유예(grace_period) 더닝</strong></li>
+      <li>raw 카드 미수집 — <strong>Toss 호스티드 결제창 위임</strong>으로 PCI 범위 최소화</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4 style="margin-top:0">⚠️ 핵심 보완 필요</h4>
+    <ul class="tight" style="margin:0;padding-left:18px;font-size:13.5px">
+      <li><span class="sev sev-c">치명</span> <strong>Free 계정이 Pro 혜택 사용</strong> — 계정전환 시 전역 플랜 캐시 잔존 (§7 E1·E2)</li>
+      <li><span class="sev sev-c">치명</span> 첫 결제 성공 후 DB 저장 실패 시 <strong>보상 트랜잭션 부재</strong> (돈만 빠짐)</li>
+      <li><span class="sev sev-c">치명</span> 웹훅 <strong>서명·호출자 검증 없음</strong> (재전송 무한루프·DoS)</li>
+      <li><span class="sev sev-h">높음</span> <code>canceled</code> 만료 후 <strong>plan_id='pro' 잔존</strong> 정리 로직 없음</li>
+      <li><span class="sev sev-h">높음</span> 사용자 결제실패/유예 <strong>알림 메일·푸시 미발송</strong></li>
+      <li><span class="sev sev-m">중간</span> 카드정보 표시 <strong>필드명 버그</strong>(<code>brand</code>↔<code>company</code>)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout">
+  <span class="lbl">Stripe 관점</span>
+  현재 코드는 <code>_shared/toss.ts</code>에 Toss API가 <strong>직접 강결합</strong>되어 있고,
+  <code>billingVerify.ts</code>에 Stripe 서명검증 함수가 작성돼 있으나 <strong>어떤 함수도 사용하지 않는 dead code</strong>입니다.
+  Stripe 추가 전에 <strong>PaymentProvider 추상화 레이어</strong>와 <strong>DB <code>provider</code> 컬럼</strong> 도입이 선행되어야 합니다(§8).
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s2"><span class="num">02</span> 아키텍처 구성도</h2>
+
+<div class="flow">┌─────────────────────────────────────────────────────────────────────────┐
+│  프론트엔드 (Web / Tauri Desktop)                                          │
+│                                                                           │
+│  PricingView.tsx ──requestBillingAuth()──▶ Toss SDK (호스티드 결제창)      │
+│       │  ◀──redirect ?payment=success&authKey&customerKey────────────      │
+│       ▼                                                                    │
+│  ProfileView.tsx ── 환불/해지/복구/카드삭제 버튼                            │
+│  launchMode.ts  ── resolveEffectivePlan() (단일 플랜 판정원)               │
+│  lib/billingVerify.ts ── verifyToss/Stripe (※ 미사용 dead code)           │
+└──────────────────────────────┬────────────────────────────────────────────┘
+                               │ supabase.functions.invoke (Bearer JWT)
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Supabase Edge Functions  (Deno · service_role · 서버 신뢰 단일 경로)      │
+│                                                                           │
+│   billing-issue       빌링키 발급 → 첫 청구 → PRO 활성  (+ mode:update_card)│
+│   charge-renewals     pg_cron 매일 호출 · 정기청구 + 더닝(유예 7일)         │
+│   payment-cancel      청약철회: 7일 이내 + 미사용 → 전액 환불 + FREE 강등    │
+│   subscription-manage 해지 예약(cancel) / 해지 철회(resume)                │
+│   toss-webhook        verify_jwt=false · S2S 교차검증 후 원장 멱등 동기화    │
+│   _shared/  toss.ts (API 래퍼) · admin.ts (service client) · cors.ts       │
+└──────────────────┬───────────────────────────────┬────────────────────────┘
+                   │ Secret Key (Basic auth)        │ service_role
+                   ▼                                ▼
+        ┌────────────────────┐         ┌────────────────────────────────────┐
+        │  Toss Payments API  │         │  Supabase PostgreSQL                │
+        │  /billing/issue     │         │   user_subscriptions (구독 상태)     │
+        │  /billing/{key}     │         │   billing_history    (결제 원장)     │
+        │  /payments/cancel   │         │   admin_notifications(운영 알림)     │
+        │  /payments/orders   │         │   trigger: prevent_subscription_*    │
+        └────────────────────┘         └────────────────────────────────────┘</div>
+
+<!-- ============================================================= -->
+<h2 id="s3"><span class="num">03</span> 결제 라이프사이클 흐름</h2>
+
+<h3>① 신규 가입 결제 (빌링키 발급 + 첫 청구)</h3>
+<div class="flow">사용자 "PRO 시작"  ─▶ PricingView.handleTossPayment()
+   └─ toss.requestBillingAuth("카드", { customerKey, successUrl, failUrl })
+        customerKey = `cust-{userId8}-{random5}`   ← ⚠️ 매 결제 랜덤 생성
+        │
+   ◀── Toss 결제창 인증 완료 → successUrl?payment=success&authKey&customerKey 리다이렉트
+        │ (setTimeout 1200ms 후)
+   ─▶ supabase.functions.invoke("billing-issue", { authKey, customerKey, billingCycle })
+        │
+   [Edge: billing-issue]
+        1. issueBillingKey(authKey, customerKey)         → Toss S2S 빌링키 발급
+        2. chargeBilling({ billingKey, amount, orderId }) → 첫 결제 즉시 청구  ★
+        3. user_subscriptions.upsert(plan=pro, status=active, period_end+1M/1Y) ★
+        4. billing_history.insert(kind=payment, status=completed)
+   ◀── { success, plan: "pro", currentPeriodEnd }
+        └─ 프론트: localStorage 'pro' 세팅 + 축하 화면
+
+   ★ = 2번 성공 후 3번 실패 시 보상 없음 → C1(원자성) 참조</div>
+
+<h3>② 정기 결제 갱신 + 결제 실패 더닝</h3>
+<div class="flow">pg_cron (매일 KST 03:00) ─▶ charge-renewals
+   대상: status ∈ {active, grace_period} AND current_period_end ≤ now()
+
+   각 구독마다:
+     chargeBilling(billingKey) ──┬── 성공 ──▶ status=active, period_end +1주기, dunning=0
+                                 │
+                                 └── 실패 ──▶ 더닝 분기:
+                                     ├ 첫 실패(active)   → grace_period, grace_until=+7d
+                                     ├ 유예중 재시도 실패 → dunning_attempts++ (매일 재시도)
+                                     └ grace_until 경과   → plan=free, status=none, 빌링키 null
+                                        + admin_notifications(payment_failed) 적재
+                                        ✗ 사용자 알림 메일/푸시 없음 → C4 참조
+   canceled 상태는 대상에서 제외 → 만료일 도달 시 자연 만료(정리 로직 없음 → H1)</div>
+
+<h3>③ 환불(청약철회) · 해지 · 복구 · 카드관리</h3>
+<table>
+  <thead><tr><th style="width:130px">동작</th><th>경로</th><th>로직 요약</th></tr></thead>
+  <tbody>
+    <tr><td><strong>환불</strong> (청약철회)</td><td><code>payment-cancel</code></td>
+      <td>최신 완료결제 조회 → <strong>7일 이내</strong> + <strong>미사용</strong>(posture_events·daily_scores 0건) 재검증 → Toss <code>cancelPayment</code> 전액 환불 → FREE 강등 + 원장 <code>refunded</code></td></tr>
+    <tr><td><strong>해지 예약</strong></td><td><code>subscription-manage</code> <code>action:cancel</code></td>
+      <td><code>status='canceled'</code>로만 변경. 남은 기간 PRO 유지, 만료 시 charge-renewals가 청구 안 함 → 자연 만료</td></tr>
+    <tr><td><strong>해지 복구</strong></td><td><code>subscription-manage</code> <code>action:resume</code></td>
+      <td><code>status='active'</code> 복귀 (해지 예약 철회)</td></tr>
+    <tr><td><strong>카드 변경</strong></td><td><code>billing-issue</code> <code>mode:update_card</code></td>
+      <td>새 빌링키 발급 → <code>billing_key</code>/<code>card_info</code>만 교체(청구·플랜변경 없음). 유예중이면 <code>active</code> 복귀</td></tr>
+    <tr><td><strong>카드 삭제</strong></td><td>ProfileView 직접 update</td>
+      <td>클라이언트가 <code>billing_key</code>/<code>card_info</code>를 null로 update (RLS billing_key 정책 허용)</td></tr>
+  </tbody>
+</table>
+
+<h3>④ 웹훅 안전망</h3>
+<div class="flow">Toss ──POST──▶ toss-webhook (verify_jwt=false, 인증 없음)
+   payload.orderId 추출
+     └─ getPaymentByOrderId(orderId)  ← Toss 원장 직접 재조회(S2S 교차검증)
+          ├ 조회 실패 → 500 반환(재전송 유도) ──▶ ✗ ledger 영구 실패 시 무한 재전송 → C2
+          └ 성공 → billing_history.update(status, payment_key, amount) where order_id
+              (행은 결제 핸들러가 먼저 적재, 웹훅은 update만 — 누락 시 0행 동기화)</div>
+
+<!-- ============================================================= -->
+<h2 id="s4"><span class="num">04</span> 구성요소 상세</h2>
+
+<h3>Edge Functions</h3>
+<table>
+  <thead><tr><th style="width:170px">함수</th><th>인증</th><th>책임</th><th>핵심 파일</th></tr></thead>
+  <tbody>
+    <tr><td><code>billing-issue</code></td><td>Bearer JWT</td><td>빌링키 발급 + 첫 청구 + PRO 활성 / 카드 교체</td><td>functions/billing-issue/index.ts</td></tr>
+    <tr><td><code>charge-renewals</code></td><td>service_role(cron)</td><td>정기청구 + 더닝(유예/강등)</td><td>functions/charge-renewals/index.ts</td></tr>
+    <tr><td><code>payment-cancel</code></td><td>Bearer JWT</td><td>청약철회 환불(7일+미사용)</td><td>functions/payment-cancel/index.ts</td></tr>
+    <tr><td><code>subscription-manage</code></td><td>Bearer JWT</td><td>해지 예약 / 복구</td><td>functions/subscription-manage/index.ts</td></tr>
+    <tr><td><code>toss-webhook</code></td><td><span class="badge b-no">없음</span></td><td>S2S 교차검증 + 원장 멱등 동기화</td><td>functions/toss-webhook/index.ts</td></tr>
+    <tr><td><code>admin-refund</code></td><td>admin JWT</td><td>관리자 강제 환불(전액/부분) — CS/분쟁 대응 <span class="muted">(본 점검 신규)</span></td><td>functions/admin-refund/index.ts</td></tr>
+  </tbody>
+</table>
+
+<h3>데이터베이스 스키마</h3>
+<table>
+  <thead><tr><th style="width:230px">테이블 / 컬럼</th><th>용도</th><th>비고</th></tr></thead>
+  <tbody>
+    <tr><td><code>user_subscriptions</code></td><td>구독 상태 단일 행(user당 1)</td><td>UNIQUE(user_id)</td></tr>
+    <tr><td>&nbsp;&nbsp;<code>plan_id</code> / <code>status</code></td><td>free|pro / active·canceled·grace_period·none</td><td>트리거로 service_role/admin만 변경</td></tr>
+    <tr><td>&nbsp;&nbsp;<code>billing_key</code> / <code>customer_key</code></td><td>Toss 정기청구 키 쌍</td><td><span class="badge b-ok">AES-GCM 암호화</span> (<code>_shared/crypto.ts</code>, <code>ENCRYPTION_KEY</code> 미설정 시 평문 폴백)</td></tr>
+    <tr><td>&nbsp;&nbsp;<code>billing_cycle</code></td><td>monthly | yearly</td><td>금액 산정</td></tr>
+    <tr><td>&nbsp;&nbsp;<code>card_info</code> (jsonb)</td><td>마스킹 카드 요약</td><td>키: company·number·cardType·ownerType</td></tr>
+    <tr><td>&nbsp;&nbsp;<code>current_period_end</code></td><td>다음 청구 시점</td><td><code>current_period_start</code>·<code>canceled_at</code>은 <span class="badge b-no">미존재</span></td></tr>
+    <tr><td>&nbsp;&nbsp;<code>grace_period_until</code> / <code>dunning_attempts</code></td><td>더닝 유예 만료 / 누적 실패</td><td>—</td></tr>
+    <tr><td><code>billing_history</code></td><td>결제 원장</td><td>UNIQUE(order_id) 멱등</td></tr>
+    <tr><td>&nbsp;&nbsp;<code>kind</code> / <code>status</code></td><td>payment·refund·card_updated / completed·refunded·pending</td><td>—</td></tr>
+    <tr><td>&nbsp;&nbsp;<code>cash_receipt_issued</code></td><td>현금영수증 발급 여부</td><td><span class="badge b-no">플래그만, 발급 로직 없음</span></td></tr>
+    <tr><td><code>admin_notifications</code></td><td>운영 이벤트 감사</td><td><span class="badge b-partial">public INSERT 허용</span></td></tr>
+  </tbody>
+</table>
+
+<h3>보안 모델 — 위변조 차단 트리거</h3>
+<pre><code>-- prevent_subscription_tampering (migration 20260521000010)
+IF NOT public.is_admin() AND jwt_role &lt;&gt; 'service_role' THEN
+  IF NEW.plan_id IS DISTINCT FROM OLD.plan_id
+     OR NEW.status IS DISTINCT FROM OLD.status THEN
+    RAISE EXCEPTION '보안 경고 (Tampering Blocked): ...';
+  END IF;
+END IF;</code></pre>
+<p>
+일반 사용자는 RLS로 <code>billing_key</code>/<code>card_info</code>는 수정 가능하지만
+<code>plan_id</code>/<code>status</code>는 <strong>결제 검증을 거친 백엔드(service_role)만</strong> 변경할 수 있습니다.
+프론트의 localStorage 캐시 변조도 <code>resolveEffectivePlan()</code>이 DB 실값 기준으로 강제 롤백 + critical 알림 적재합니다. <strong>이 부분은 견고합니다.</strong>
+</p>
+
+<!-- ============================================================= -->
+<h2 id="s5"><span class="num">05</span> 라이프사이클 커버리지 매트릭스</h2>
+
+<table>
+  <thead><tr><th style="width:160px">라이프사이클 단계</th><th style="width:96px">점검 당시</th><th style="width:96px">현재(보완후)</th><th>평가</th></tr></thead>
+  <tbody>
+    <tr><td>신규 결제 (빌링키+첫청구)</td><td><span class="badge b-partial">부분</span></td><td><span class="badge b-ok">보완</span></td><td>서버 신뢰 단일 경로 + <strong>첫결제 후 실패 자동환불 보상(C1)</strong> + customerKey 안정화(M2)</td></tr>
+    <tr><td>정기 결제 갱신</td><td><span class="badge b-ok">구현</span></td><td><span class="badge b-ok">구현</span></td><td>cron 기반. <strong>pg_cron 등록이 배포 전제조건(H3, 미등록 시 전면 미작동)</strong></td></tr>
+    <tr><td>결제 실패 / 더닝</td><td><span class="badge b-partial">부분</span></td><td><span class="badge b-ok">보완</span></td><td>유예·강등 + <strong>2일 간격·3회 cap(M3)</strong> + <strong>사용자 알림 메일(H2)</strong></td></tr>
+    <tr><td>환불 (청약철회/관리자)</td><td><span class="badge b-partial">부분</span></td><td><span class="badge b-ok">보완</span></td><td>7일+미사용 청약철회 + <strong>관리자 강제 환불(admin-refund)·전액/부분·대시보드 UI</strong>. 일할환불은 정책상 미제공(M4)</td></tr>
+    <tr><td>구독 해지 / 복구</td><td><span class="badge b-partial">부분</span></td><td><span class="badge b-ok">보완</span></td><td>해지 예약 모델 + <strong>canceled 만료 FREE 정리(H1)</strong> + 해지 알림 메일</td></tr>
+    <tr><td>결제수단 변경 / 삭제</td><td><span class="badge b-partial">부분</span></td><td><span class="badge b-ok">보완</span></td><td><strong>표시 필드명 버그 수정(M1)</strong> + 카드키 <strong>암호화 저장(SEC)</strong></td></tr>
+    <tr><td>웹훅 안전망</td><td><span class="badge b-partial">부분</span></td><td><span class="badge b-ok">보완</span></td><td>S2S 교차검증 + <strong>미보유 orderId 조기무시·선택 시크릿(C2)</strong>. 완전 HMAC 서명은 Toss 미제공</td></tr>
+    <tr><td>권한(Entitlement) 적용</td><td><span class="badge b-no">누수</span></td><td><span class="badge b-ok">보완</span></td><td>캐시 누수(E1·E2) + <strong>서버 검증·변조 강등(E3-②)</strong> + 앱=로그인+Pro 게이팅(E3)</td></tr>
+    <tr><td>영수증 / 세금 처리</td><td><span class="badge b-no">미구현</span></td><td><span class="badge b-ok">결정</span></td><td>카드 전용 → <strong>카드 매출전표로 갈음, 미발급</strong>(정책 확정, M5)</td></tr>
+    <tr><td>사용자 알림(메일)</td><td><span class="badge b-no">미구현</span></td><td><span class="badge b-ok">보완</span></td><td>결제실패·강등·환불·해지 <strong>Resend 메일(H2)</strong>. 푸시는 추후</td></tr>
+    <tr><td>다중 PG / Stripe</td><td><span class="badge b-no">미구현</span></td><td><span class="badge b-na">보류</span></td><td>Stripe <strong>미신청으로 보류</strong> — provider 추상화·컬럼·stripe-webhook은 신청 후 착수(§8)</td></tr>
+  </tbody>
+</table>
+<p class="muted">※ "점검 당시"는 본 점검 시작 시점, "현재"는 2026-06-09 보완 반영 후 코드 상태(런타임 QA 전). 보완 상세는 §10.</p>
+
+<!-- ============================================================= -->
+<h2 id="s6"><span class="num">06</span> 점검 결과 — 보완 사항</h2>
+
+<p class="muted">심각도: <span class="sev sev-c">치명</span> 금전·보안 직접 영향 · <span class="sev sev-h">높음</span> 운영 신뢰성 · <span class="sev sev-m">중간</span> 정합성·UX · <span class="sev sev-l">낮음</span> 정리·유지보수</p>
+
+<div class="issue crit">
+  <h4><span class="sev sev-c">치명</span> C1. 첫 결제 성공 후 DB 저장 실패 시 보상 트랜잭션 부재</h4>
+  <div class="loc">billing-issue/index.ts:64-91 — chargeBilling 성공 후 user_subscriptions.upsert 실패 시</div>
+  <p><code>chargeBilling()</code>으로 <strong>실제 카드 청구는 완료</strong>됐는데 이후 <code>user_subscriptions.upsert</code> 또는 <code>billing_history.insert</code>가 실패하면, 사용자는 <strong>돈은 빠져나갔는데 PRO 활성화가 안 되는</strong> 상태가 됩니다. 현재 catch는 단순히 400 에러만 반환하고 청구를 되돌리지 않습니다. 프론트는 1200ms 후 1회만 호출하므로 재시도도 없습니다.</p>
+  <div class="fix"><b>보완:</b> 첫 청구 성공 후 DB 쓰기 실패 시 <code>cancelPayment(paymentKey)</code>로 즉시 자동 환불(보상)하거나, "결제는 됐으나 활성화 지연" 상태로 원장에 <code>pending</code> 적재 후 별도 reconcile 잡으로 복구. 최소한 paymentKey를 로그/알림에 남겨 수동 환불 가능하게 할 것.</div>
+</div>
+
+<div class="issue crit">
+  <h4><span class="sev sev-c">치명</span> C2. 웹훅 서명·호출자 검증 부재 + 재전송 무한루프</h4>
+  <div class="loc">toss-webhook/index.ts (verify_jwt=false) · config.toml:32</div>
+  <p>웹훅은 인증이 없어 <strong>누구나 호출 가능</strong>합니다. <code>orderId</code>만 넣으면 매 요청이 <code>getPaymentByOrderId</code>(Toss API 호출)을 트리거하므로 <strong>외부 발 Toss API 호출 폭주(DoS·요율한도 소진)</strong>가 가능합니다. 또한 ledger 조회가 영구적으로 실패하면 항상 500을 반환해 <strong>Toss 재전송이 무한 반복</strong>됩니다. <code>billingVerify.ts</code>에 Toss 서명검증이 아닌 S2S 함수만 있고, 실제 <code>Toss-Signature</code> 헤더 HMAC 검증은 없습니다.</p>
+  <div class="fix"><b>보완:</b> ① Toss 웹훅 서명(<code>Toss-Signature</code>/IP 대역) 검증 추가 ② ledger 조회 N회 실패 시 200 + 알림으로 전환해 무한 재전송 차단 ③ 알 수 없는 orderId는 조기 200 반환해 API 호출 자체를 회피.</div>
+</div>
+
+<div class="issue high">
+  <h4><span class="sev sev-h">높음</span> H1. canceled 만료 후 plan_id='pro' 영구 잔존 (정리 로직 부재)</h4>
+  <div class="loc">charge-renewals/index.ts:22-26 — 대상에서 canceled 제외</div>
+  <p>해지 예약(<code>canceled</code>) 구독은 charge-renewals 대상에서 빠져 <strong>만료 후에도 row가 <code>plan_id='pro', status='canceled'</code> 그대로</strong> 남습니다. <code>resolveEffectivePlan()</code>이 기간 만료를 보고 free를 돌려주므로 UX는 맞지만, <strong>DB 원장상 "pro인 해지자"</strong>가 누적돼 운영 통계·재구독·세그먼트가 부정확해집니다.</p>
+  <div class="fix"><b>보완:</b> charge-renewals에 <code>status='canceled' AND current_period_end ≤ now()</code> 대상을 추가해 <code>plan_id='free', status='none', billing_key=null</code>로 정리하는 분기 추가.</div>
+</div>
+
+<div class="issue high">
+  <h4><span class="sev sev-h">높음</span> H2. 사용자 결제실패·유예·만료 알림(메일/푸시) 미발송</h4>
+  <div class="loc">charge-renewals/index.ts:100 — admin_notifications insert만</div>
+  <p>결제 실패 시 <code>admin_notifications</code>(운영자용)만 적재하고 <strong>당사자에게는 아무 통지가 없습니다.</strong> 명세(<code>payment-integration-spec.md</code> §6.1)는 "결제 실패 안내 메일/푸시 발송 → 카드 갱신 유도"를 요구합니다. 유예 중 사용자가 모르고 지나가면 7일 후 무통보 강등됩니다. <code>send-inquiry-email</code> 함수는 있으나 결제 흐름에 미연결.</p>
+  <div class="fix"><b>보완:</b> grace 진입·재시도·강등·해지완료·환불완료 시 사용자 이메일(또는 인앱 알림) 발송 연결. 카드 갱신 딥링크 포함.</div>
+</div>
+
+<div class="issue high">
+  <h4><span class="sev sev-h">높음</span> H3. pg_cron 미등록 시 정기결제·더닝 전면 미작동 (운영 리스크)</h4>
+  <div class="loc">migration 20260521000010 — cron.schedule이 주석 처리</div>
+  <p>정기청구 스케줄이 마이그레이션에 <strong>주석으로만</strong> 있어, 배포 시 Supabase 대시보드에서 pg_cron/pg_net 활성화 + 수동 1회 등록을 빠뜨리면 <strong>모든 갱신·더닝이 조용히 멈춥니다.</strong> 실패해도 에러가 안 나므로 발견이 늦습니다.</p>
+  <div class="fix"><b>보완:</b> 배포 체크리스트에 cron 등록 검증 항목 추가 + "최근 24h charge-renewals 실행 0건" 모니터링 알림. (launch-readiness-plan §7에 배포 단계로는 명시돼 있으나 런타임 가드 없음)</div>
+</div>
+
+<div class="issue med">
+  <h4><span class="sev sev-m">중간</span> M1. 카드정보 표시 필드명 버그</h4>
+  <div class="loc">ProfileView.tsx:649-660</div>
+  <p>UI는 <code>cardInfo.brand</code>·<code>cardInfo.cardType</code>·<code>cardInfo.ownerType</code>를 읽는데, 백엔드(<code>billing-issue</code>)가 저장하는 키는 <code>company</code>·<code>number</code>·<code>cardType</code>·<code>ownerType</code>입니다. <strong><code>brand</code>는 존재하지 않아 카드사명이 빈 값</strong>으로 표시됩니다(<code>{cardInfo.brand} (...)</code> → <code>undefined</code>).</p>
+  <div class="fix"><b>보완:</b> <code>cardInfo.brand</code> → <code>cardInfo.company</code>로 수정. (배포 후 실데이터에서야 드러날 버그)</div>
+</div>
+
+<div class="issue med">
+  <h4><span class="sev sev-m">중간</span> M2. 멱등성·중복결제 방어 + customerKey 매번 랜덤</h4>
+  <div class="loc">PricingView.tsx:296-298 · billing-issue (in-flight 락 없음)</div>
+  <p>① <code>customerKey</code>가 <code>cust-{userId8}-{random5}</code>로 <strong>매 결제마다 새로 생성</strong>됩니다. Toss 권장은 user당 안정적 customerKey이며, 랜덤이면 카드 변경·과거 빌링키 추적·고객 식별이 어렵습니다. ② <code>billing-issue</code>에 in-flight 락/멱등키가 없어, 사용자가 successUrl에서 새로고침/뒤로가기로 같은 authKey 재호출 시 방어는 Toss의 authKey 일회성에만 의존합니다.</p>
+  <div class="fix"><b>보완:</b> customerKey를 user별 결정적 값(예: <code>cust-{userId}</code> 해시)으로 고정하고 DB에 1회 영속. billing-issue 진입 시 "이미 active면 조기 반환" 가드 추가.</div>
+</div>
+
+<div class="issue med">
+  <h4><span class="sev sev-m">중간</span> M3. 더닝 재시도 주기·횟수 cap 불일치</h4>
+  <div class="loc">charge-renewals/index.ts:65-98 vs spec §6.1</div>
+  <p>명세는 "2일 간격 총 3회 재시도"인데, 구현은 grace 진입 시 <code>current_period_end</code>를 연장하지 않아 <strong>매일 cron마다 재청구</strong>되고, 종료 조건은 오직 "7일 경과"입니다. <code>dunning_attempts</code>는 증가만 할 뿐 <strong>상한이 없고</strong> 재시도 간격 제어도 없습니다. 카드사에 따라 잦은 실패 청구가 위험신호로 잡힐 수 있습니다.</p>
+  <div class="fix"><b>보완:</b> 다음 재시도 시각(<code>next_retry_at</code>) 컬럼으로 2일 간격 제어 + 최대 시도 횟수 정의. 명세와 구현 중 한쪽으로 통일.</div>
+</div>
+
+<div class="issue med">
+  <h4><span class="sev sev-m">중간</span> M4. 부분/일할 환불 및 관리자 강제환불 경로 부재</h4>
+  <div class="loc">payment-cancel/index.ts — 전액·7일·미사용 단일 케이스만</div>
+  <p><code>cancelPayment</code> 래퍼는 <code>cancelAmount</code> 부분환불을 지원하나, <code>payment-cancel</code> 함수는 <strong>"7일 이내 + 미사용 → 전액"</strong> 한 케이스만 노출합니다. <strong>연간 구독 중도 해지 시 일할 환불</strong>, 분쟁/CS 대응 <strong>관리자 강제환불</strong> 경로가 없습니다. 환불 정책 자체가 코드에 암묵적으로만 존재합니다.</p>
+  <div class="fix"><b>보완:</b> 환불 정책을 명시화하고(전액/일할/불가 기준), 관리자 환불 Edge Function + 부분환불 금액 산정 로직 추가.</div>
+</div>
+
+<div class="issue med">
+  <h4><span class="sev sev-m">중간</span> M5. 현금영수증/세금계산서 미발급 (한국 전자상거래 의무)</h4>
+  <div class="loc">billing_history.cash_receipt_issued — 항상 false로 적재</div>
+  <p>모든 결제가 <code>cash_receipt_issued: false</code>로 적재되고 <strong>실제 발급 로직이 없습니다.</strong> 한국 유료 구독 서비스는 현금영수증/세금계산서 발급 의무가 있어 출시 전 처리 필요.</p>
+  <div class="fix"><b>보완:</b> Toss 현금영수증 API 연동 또는 발급 정책 결정. B2B 세금계산서 수요 시 별도 흐름.</div>
+</div>
+
+<div class="issue med">
+  <h4><span class="sev sev-m">중간</span> M6. admin_notifications public INSERT — 스팸·위변조 노출</h4>
+  <div class="loc">migration 20260521000003:23 — WITH CHECK (true)</div>
+  <p>"외부 웹훅·클라이언트 변조 감지를 유연하게 적재"하려고 <strong>누구나(비로그인 포함) INSERT 허용</strong>으로 열려 있습니다. 공격자가 가짜 결제실패/critical 알림을 무제한 주입해 <strong>운영자 대시보드를 오염·마비</strong>시킬 수 있습니다. 결제 실패 알림을 프론트(PricingView)가 직접 insert하는 구조와 맞물려 신뢰성이 낮습니다.</p>
+  <div class="fix"><b>보완:</b> INSERT를 authenticated로 제한하거나 서버(service_role) 전용화. 결제 관련 알림은 Edge Function에서만 적재.</div>
+</div>
+
+<div class="issue low">
+  <h4><span class="sev sev-l">낮음</span> L1. 상태 용어·금액 출처 분산 + dead code</h4>
+  <div class="loc">production_init('inactive') vs 코드('none') · PRICE 분산 · billingVerify.ts 미사용</div>
+  <ul class="tight" style="margin:8px 0 0;padding-left:18px;font-size:13.5px">
+    <li><b>상태 용어 혼재:</b> 기본값 <code>inactive</code>(init) vs 코드 <code>none</code>, 명세 <code>past_due</code> vs 구현 <code>grace_period</code>. enum/CHECK 제약으로 통일 권장.</li>
+    <li><b>금액 하드코딩 분산:</b> <code>toss.ts PRICE</code>(서버)와 PricingView의 <code>36000/4900</code>(클라 3곳)가 따로. 단일 출처화 + 서버 검증.</li>
+    <li><b>dead code:</b> <code>billingVerify.ts</code>의 <code>verifyTossWebhook</code>/<code>verifyStripeWebhook</code>는 어떤 함수에서도 import되지 않음. 실제 toss-webhook은 자체 S2S 로직 사용. 제거 또는 통합.</li>
+    <li><b>활성 구독 중 카드삭제:</b> ProfileView <code>handleDeleteCardInfo</code>가 active 상태에서도 billing_key를 지워 다음 갱신을 무력화(의도일 수 있으나 경고/확인 강화 권장).</li>
+  </ul>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s7"><span class="num">07</span> 권한(Entitlement) 적용 점검 — Free↔Pro 누수</h2>
+
+<p>
+"결제하면 Pro 가입자가 되고 Pro 혜택을 받는다"는 명제의 <strong>역방향</strong> — 즉
+<strong>결제하지 않은 Free 사용자가 Pro 혜택을 받게 되는 경로</strong>를 별도 점검했습니다.
+결론부터: <strong>실제로 새는 경로가 여럿 존재</strong>하며, 사용자가 관찰한
+<em>"Pro 계정으로 로그인했다가 Free 계정으로 로그인해도 앱(모니터링)이 계속 동작"</em> 현상은
+코드상 재현 가능한 실제 버그입니다.
+</p>
+
+<h3>권한 판정 데이터 흐름</h3>
+<div class="flow">[진실원]  DB  user_subscriptions (plan_id, status, current_period_end)
+   │   resolveEffectivePlan()  ← isBetaFree()면 row 무관 'pro' 반환
+   ▼
+[캐시]   localStorage['barosit:subscription_plan']   ◀── ⚠️ 전역 키(계정 비귀속, 사용자 편집 가능)
+   │   (동기 read — 부팅 즉시)
+   ├──▶ useMonitoringEngine.subPlan
+   │       enabled = ... && (subPlan === 'pro' || opts.visible)   ← 백그라운드 모니터링 게이트
+   │
+   └──▶ syncService.userPlan
+           if (userPlan !== 'pro') return                          ← 서버 동기화 게이트
+
+[교정]  PricingView / Marketing 진입 시에만 DB 대조 → 위변조 시 'free' 롤백 + critical 알림
+        ✗ App.tsx(데스크톱 메인) · useMonitoringEngine 은 교정 안 함</div>
+
+<div class="callout warn">
+  <span class="lbl">핵심 결함</span>
+  엔트리먼트의 <strong>진실원은 DB</strong>인데, 실제 기능 게이트(모니터링·동기화)는
+  <strong>계정에 귀속되지 않은 전역 localStorage 캐시를 직접</strong> 읽습니다.
+  이 캐시는 ① 계정 전환 시 갱신되지 않고 ② 다운그레이드가 반영되지 않으며 ③ 사용자가 직접 편집 가능합니다.
+</div>
+
+<div class="issue crit">
+  <h4><span class="sev sev-c">치명</span> E1. 계정 전환 시 이전 Pro 캐시 잔존 → Free 계정이 Pro 사용 <span style="font-size:11px;color:var(--fg-4)">(사용자 보고 현상)</span></h4>
+  <div class="loc">useAuth.ts:431-440 (signOut) · Marketing.tsx:5297 (handleSignOut) · ProfileView.tsx:977</div>
+  <p>
+  <code>barosit:subscription_plan</code>은 <strong>user_id로 네임스페이스되지 않은 단일 전역 키</strong>입니다.
+  <code>useAuth.signOut()</code>은 <code>dispatchAuthSync(null)</code> + <code>supabase.auth.signOut()</code>만 호출하고
+  <strong>이 캐시를 비우지 않습니다.</strong> 웹 <code>handleSignOut</code>도 동일합니다.
+  오직 <strong>ProfileView의 로그아웃 버튼만</strong> 명시적으로 <code>'free'</code>로 세팅합니다.
+  </p>
+  <p>따라서 재현 경로:</p>
+  <pre><code>1. Pro 계정 로그인 → DB 조회 → localStorage['..._plan'] = 'pro'
+2. 로그아웃 (ProfileView 버튼 외 경로) → 캐시 'pro' 그대로 잔존
+3. Free 계정 로그인 → 캐시는 여전히 'pro'
+4. useMonitoringEngine 이 캐시 'pro' 를 읽음 → Free 계정에 Pro 백그라운드 모니터링 부여</code></pre>
+  <div class="fix"><b>보완:</b> ① 로그인 시점에 캐시를 <strong>무조건 제거</strong>하고 DB 재조회로만 재설정 ② <code>signOut</code>을 공통화해 항상 캐시 제거 ③ 또는 키를 <code>barosit:subscription_plan:{userId}</code>로 네임스페이스(공용 PC 대비).</div>
+</div>
+
+<div class="issue crit">
+  <h4><span class="sev sev-c">치명</span> E2. 다운그레이드가 캐시에 write-back 되지 않음 (데스크톱 메인 경로)</h4>
+  <div class="loc">App.tsx:385-420 (fetchSub) — setSubPlan만, localStorage.setItem 없음</div>
+  <p>
+  데스크톱 앱의 메인 구독 해석기인 <code>App.tsx</code>의 <code>fetchSub()</code>는 DB에서
+  <code>resolveEffectivePlan(data)</code>로 plan을 구해 <strong>React state(<code>setSubPlan</code>)만 갱신</strong>하고
+  <strong>localStorage에는 절대 쓰지 않습니다</strong>(읽기만 4곳). 반면 실제 게이트인
+  <code>useMonitoringEngine</code>·<code>syncService</code>는 <strong>localStorage를 직접</strong> 읽습니다.
+  </p>
+  <p>
+  결과: DB상 free로 강등(해지 만료·환불·더닝 강등)되어도 localStorage의 옛 <code>'pro'</code>가 남아
+  모니터링 엔진은 계속 Pro로 동작합니다. <code>barosit:subscription-changed</code> 이벤트를 받아
+  재read해도 <strong>캐시값 자체가 안 바뀌었으므로 무의미</strong>합니다.
+  PricingView/Marketing만 캐시를 교정하므로, 해당 화면을 거치지 않는 한 영구히 어긋납니다.
+  </p>
+  <div class="fix"><b>보완:</b> <code>fetchSub</code>가 해석된 plan을 <code>localStorage.setItem</code>으로 동기화하거나(단일 진실원), 모든 게이트가 localStorage 대신 <strong>중앙 구독 상태(혹은 부팅 시 DB 재확인)</strong>를 읽도록 통일.</div>
+</div>
+
+<div class="issue crit">
+  <h4><span class="sev sev-c">치명</span> E3. 클라이언트 신뢰 게이팅 — 변조로 Pro 획득 가능 (구조적)</h4>
+  <div class="loc">useMonitoringEngine.ts:116-126, 340 · syncService.ts:35</div>
+  <p>
+  Pro의 핵심 가치인 <strong>로컬 자세 모니터링은 전적으로 클라이언트에서 동작</strong>하며 서버 검증이 없습니다.
+  게이트가 읽는 localStorage는 사용자가 devtools에서 즉시 바꿀 수 있습니다:
+  </p>
+  <pre><code>localStorage.setItem('barosit:subscription_plan','pro');
+window.dispatchEvent(new Event('barosit:subscription-changed'));
+// → 결제 없이 Pro 백그라운드 모니터링 활성화</code></pre>
+  <p>
+  위변조 감지(tampering detection)는 <strong>PricingView/Marketing 진입 시 DB 대조 시점에만</strong> 작동하고,
+  모니터링 엔진 자체는 무검증입니다. 데스크톱 앱은 PricingView를 안 거치고도 모니터링을 쓸 수 있습니다.
+  </p>
+  <div class="fix"><b>✅ 구현됨:</b> 서버 재검증 훅 <code>useEntitlement</code> 신규 — 모니터링/위젯 게이트가 localStorage 가 아닌 <strong>서버 <code>user_subscriptions</code> 재조회 결과(in-memory)</strong>를 신뢰. 마운트·포커스·10분 주기·구독변경 시 재검증, 캐시=PRO·서버=FREE 면 자동 강등 + <code>tampering_detected</code> 경보, 오프라인 14일 초과 미검증 시 보수적 FREE. (캐시는 오프라인 시드로만 사용 → devtools 조작은 다음 검증에서 덮어써짐) · Tauri 런타임 QA 필요.</div>
+  <div class="callout warn" style="margin-top:12px">
+    <span class="lbl">추가 발견 (데스크톱)</span>
+    추적 결과 <strong>백그라운드/위젯 모니터링은 plan으로 전혀 강제되지 않는 상태</strong>임이 확인됨:
+    ① <code>App.tsx:277</code>의 구독 상태는 <code>_subPlan</code>(미사용)이고
+    ② 메인 최소화 시 위젯 전환(<code>App.tsx:513 switchToWidgetMode</code>)은 plan 미확인이며
+    ③ Widget이 엔진에 <code>visible:true</code>(<code>Widget.tsx:237</code>)를 하드코딩해
+    유일한 plan 게이트(<code>useMonitoringEngine.ts:340</code> <code>subPlan==='pro' || visible</code>)를 <strong>상시 우회</strong>.
+    결과적으로 Free/게스트도 최소화하면 백그라운드 관제를 받는 누수가 있었다.
+    <br><b style="color:var(--ok)">→ 해결됨:</b> 제품 결정 <strong>해석 B(앱=로그인+Pro 전용)</strong>에 따라 포그라운드(<code>MonitorView.tsx:1079</code>)와
+    백그라운드/위젯(<code>useMonitoringEngine.ts:340</code>, <code>opts.visible</code> 바이패스 제거) 모두 <code>!!user &amp;&amp; subPlan==='pro'</code>로 게이팅. (위 "로그아웃 권한 회수 정책" 표 참조 / Tauri 런타임 QA 필요)
+  </div>
+</div>
+
+<div class="issue low">
+  <h4><span class="sev sev-l">맥락</span> E4. beta_free 런치 모드면 전원 Pro (설계상 의도 — 혼동 주의)</h4>
+  <div class="loc">launchMode.ts:102 — isBetaFree() ? return 'pro'</div>
+  <p>
+  현재 런치 모드가 <code>beta_free</code>이면 <code>resolveEffectivePlan()</code>이 row와 무관하게 <code>'pro'</code>를 반환해
+  <strong>모든 계정이 Pro</strong>입니다(무료 베타 의도). 사용자가 본 현상이 이 모드 때문일 수도 있습니다.
+  유료(<code>paid</code>) 전환 시 비구독자는 자동 강등되지만, <strong>위 E1~E3는 paid 모드에서도 독립적으로 발생</strong>하므로
+  베타 모드와 무관하게 수정이 필요합니다.
+  </p>
+  <div class="fix"><b>확인:</b> Supabase <code>app_config.launch_mode</code> 현재값 점검. <code>beta_free</code>면 관찰 현상의 1차 원인이며, <code>paid</code>인데도 재현되면 E1/E2가 원인.</div>
+</div>
+
+<h3>로그아웃 시 권한 회수 정책 <span style="font-size:12px;color:var(--accent)">(최종: 앱 = 로그인+Pro 전용 — 해석 B)</span></h3>
+<p>
+"Pro 계정에서 로그아웃하면 앱이 멈춰야 하는가?"에 대한 <strong>최종 결정: 그렇다 — 데스크톱 앱은 로그인 + Pro 전용</strong>이며
+웹이 Free 계층을 담당한다("웹은 프리, 앱은 프로"). 따라서 <strong>로그아웃하면(또는 FREE 계정이면) 앱은 모니터링을 돌리지 않고</strong>
+기존 업셀 배너(<code>MonitorView.tsx:1694</code>, <code>!user || subPlan==='free'</code>)로 로그인·업그레이드를 유도한다.
+<span class="muted">※ 이는 검토 중 잠정안이던 "Free 수준으로 강등(local-first)"을 대체하는 최종 결정이다.</span>
+</p>
+<table>
+  <thead><tr><th>상태</th><th>포그라운드</th><th>백그라운드(위젯)</th><th>서버 동기화</th></tr></thead>
+  <tbody>
+    <tr><td>로그인 + Pro (또는 베타)</td><td>✅</td><td>✅</td><td>✅</td></tr>
+    <tr><td>로그인 + Free</td><td><strong>❌ (업셀)</strong></td><td>❌</td><td>❌</td></tr>
+    <tr><td><strong>로그아웃(게스트)</strong></td><td><strong>❌ (로그인 유도)</strong></td><td><strong>❌</strong></td><td><strong>❌</strong></td></tr>
+  </tbody>
+</table>
+<div class="callout">
+  <span class="lbl">구현 완료</span>
+  ① 포그라운드 게이트 <code>cameraReady &amp;&amp; !paused &amp;&amp; !!user &amp;&amp; subPlan==='pro'</code> (<code>MonitorView.tsx:1079</code>).
+  ② 백그라운드/위젯 게이트 — <code>opts.visible</code> 바이패스 제거, <code>subPlan==='pro'</code> 필수 (<code>useMonitoringEngine.ts:340</code>).
+  ③ <code>signOut</code> 공통화해 항상 <code>barosit:subscription_plan</code> 캐시 제거(E1, <code>useAuth.ts</code>).
+  ④ <code>App.tsx fetchSub</code>가 실효 plan을 캐시에 write-back(E2) → 베타/로그인/강등이 게이트에 정확히 반영.
+  <br><b style="color:var(--warn)">후속 확인:</b> ⓐ <strong>Tauri 런타임 QA</strong>(로그인→PRO 모니터링 / 로그아웃→차단·배너 / 최소화→위젯 PRO만)
+  ⓑ <strong>베타(beta_free)에서 로그인 필수</strong>가 됨 — 기존 게스트 체험 흐름을 쓰던 베타 테스터는 로그인을 거쳐야 하므로 온보딩 확인.
+  ⓒ App.fetchSub 전 첫 마운트의 짧은 'free' 깜빡임 — 캐시 정합 후 이벤트로 해소되나 UX 확인.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s8"><span class="num">08</span> Stripe 추가 설계 고려사항</h2>
+
+<div class="callout warn">
+  <span class="lbl">상태: 보류</span>
+  Stripe는 <strong>아직 가맹점 신청 전</strong>이라 본 점검 보완 범위에서 제외했다. 아래는 신청 후 착수할 <strong>설계 참고용</strong>이며, 현재 코드에는 미반영이다.
+</div>
+
+<p>
+Stripe를 추가하면 <strong>두 PG가 근본적으로 다른 정기결제 모델</strong>을 갖는다는 점이 핵심 설계 난점입니다.
+Toss는 <em>우리가 빌링키를 들고 cron으로 직접 청구</em>하는 반면, Stripe는 <em>Stripe Subscription 객체가 청구를 주관하고 우리는 invoice 웹훅을 수신</em>합니다.
+</p>
+
+<table>
+  <thead><tr><th style="width:170px">관심사</th><th>현행 Toss</th><th>Stripe 추가 시</th></tr></thead>
+  <tbody>
+    <tr><td>정기청구 주체</td><td>우리 cron(charge-renewals)이 능동 청구</td><td>Stripe Subscription이 자동 청구 → cron 대상에서 제외 필요</td></tr>
+    <tr><td>결제수단 등록</td><td>requestBillingAuth → authKey → 빌링키</td><td>SetupIntent / PaymentMethod / Checkout Session</td></tr>
+    <tr><td>더닝</td><td>직접 구현(grace 7일)</td><td>Stripe Smart Retries + dunning 내장 → 중복 구현 주의</td></tr>
+    <tr><td>환불</td><td>cancelPayment(paymentKey)</td><td>Refund API (paymentIntent)</td></tr>
+    <tr><td>웹훅 검증</td><td>S2S 재조회(서명 없음)</td><td>Stripe-Signature HMAC (billingVerify에 작성됨, 미연결)</td></tr>
+    <tr><td>통화</td><td>KRW 정수 고정</td><td>다통화(USD/JPY) — i18n ko/en/ja와 연동, 금액 모델 재설계</td></tr>
+    <tr><td>고객/카드 관리 UI</td><td>자체 ProfileView</td><td>Stripe Customer Portal 위임 가능(자체 UI 부담↓)</td></tr>
+    <tr><td>멱등성</td><td>orderId 고유 인덱스</td><td>Idempotency-Key 헤더 표준</td></tr>
+  </tbody>
+</table>
+
+<h3>권장 추상화 방향</h3>
+<pre><code>// _shared/payment/provider.ts (신규)
+interface PaymentProvider {
+  issueRecurringMethod(...): Promise&lt;{ token; card }&gt;   // Toss billingKey | Stripe paymentMethod
+  charge(...): Promise&lt;ChargeResult&gt;                     // Toss /billing | Stripe PaymentIntent
+  refund(paymentRef, amount?): Promise&lt;RefundResult&gt;
+  verifyWebhook(req): Promise&lt;{ valid; event }&gt;
+}
+// toss.ts → class TossProvider implements PaymentProvider
+// stripe.ts(신규) → class StripeProvider implements PaymentProvider</code></pre>
+
+<div class="callout warn">
+  <span class="lbl">선행 필수</span>
+  ① DB에 <code>user_subscriptions.provider</code> · <code>billing_history.provider</code> 컬럼 추가(없으면 두 PG 원장이 섞임)
+  ② <code>billing-issue</code>/<code>charge-renewals</code>/<code>payment-cancel</code>을 provider 분기로 리팩터
+  ③ <code>charge-renewals</code>가 <strong>Stripe 구독은 청구하지 않도록</strong> provider 필터
+  ④ <code>stripe-webhook</code> Edge Function 신규(invoice.paid / payment_failed / subscription.deleted 처리)
+  ⑤ <code>resolveEffectivePlan</code>은 provider 무관하게 동작하므로 유지 가능.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s9"><span class="num">09</span> 권고 우선순위 로드맵</h2>
+
+<table>
+  <thead><tr><th style="width:70px">순위</th><th>항목</th><th style="width:90px">심각도</th><th style="width:120px">시점</th></tr></thead>
+  <tbody>
+    <tr><td><b>1</b></td><td><span class="badge b-ok">✅ 구현</span> E1·E2 플랜 캐시 누수 — 로그아웃 시 캐시 제거(useAuth) + App.fetchSub write-back</td><td><span class="sev sev-c">치명</span></td><td>완료</td></tr>
+    <tr><td><b>2</b></td><td><span class="badge b-ok">✅ 구현</span> E3 <strong>해석 B 확정</strong>(앱=로그인+Pro 전용) → 포그라운드(MonitorView)·백그라운드(useMonitoringEngine) 모니터링을 <code>!!user &amp;&amp; subPlan==='pro'</code> 로 게이팅. 비로그인/FREE 는 기존 업셀 배너 노출 <span class="muted">(Tauri 런타임 QA 필요)</span></td><td><span class="sev sev-c">치명</span></td><td>배포 후 QA</td></tr>
+    <tr><td><b>3</b></td><td><span class="badge b-ok">✅ 구현</span> C1 첫 결제 성공 후 DB 실패 시 자동 환불 보상 + critical 알림</td><td><span class="sev sev-c">치명</span></td><td>배포 후 QA</td></tr>
+    <tr><td><b>4</b></td><td><span class="badge b-ok">✅ 구현</span> C2 웹훅 — 미보유 orderId 조기 무시 + 선택적 공유 시크릿</td><td><span class="sev sev-c">치명</span></td><td>배포 후 QA</td></tr>
+    <tr><td><b>5</b></td><td>H3 pg_cron 등록 검증 + 미작동 모니터링</td><td><span class="sev sev-h">높음</span></td><td>배포 시</td></tr>
+    <tr><td><b>6</b></td><td><span class="badge b-ok">✅ 구현</span> H2 사용자 결제실패/유예/환불/해지 알림 메일(Resend) <span class="muted">(RESEND_API_KEY 등록 + 메일 QA)</span></td><td><span class="sev sev-h">높음</span></td><td>배포 후 QA</td></tr>
+    <tr><td><b>7</b></td><td><span class="badge b-ok">✅ 구현</span> H1 canceled 만료 시 FREE 정리(charge-renewals)</td><td><span class="sev sev-h">높음</span></td><td>배포 후 QA</td></tr>
+    <tr><td><b>8</b></td><td><span class="badge b-ok">✅ 구현</span> M1 카드 표시 필드명 버그(brand→company)</td><td><span class="sev sev-m">중간</span></td><td>완료</td></tr>
+    <tr><td><b>9</b></td><td>M5 현금영수증/세금계산서 정책·발급 <span class="muted">(정책 결정 필요)</span></td><td><span class="sev sev-m">중간</span></td><td>유료 출시 전</td></tr>
+    <tr><td><b>10</b></td><td><span class="badge b-ok">✅ 구현</span> M6 admin_notifications INSERT → authenticated 제한(마이그레이션)</td><td><span class="sev sev-m">중간</span></td><td>배포 후</td></tr>
+    <tr><td><b>11</b></td><td><span class="badge b-ok">✅ 구현</span> M2 customerKey 안정화 · M3 더닝 2일 간격·3회 cap · <span class="badge b-ok">✅</span> billing_key AES-GCM 암호화</td><td><span class="sev sev-m">중간</span></td><td>배포 후 QA</td></tr>
+    <tr><td><b>12</b></td><td><span class="badge b-ok">✅ 구현</span> M4 관리자 환불(<code>admin-refund</code>) + 어드민 대시보드 환불 UI</td><td><span class="sev sev-m">중간</span></td><td>배포 후 QA</td></tr>
+    <tr><td><b>13</b></td><td><span class="badge b-na">보류</span> §8 PaymentProvider 추상화 + provider 컬럼 — <strong>Stripe 미신청으로 착수 보류</strong></td><td><span class="sev sev-l">설계</span></td><td>Stripe 신청 후</td></tr>
+    <tr><td><b>14</b></td><td><span class="badge b-partial">부분</span> L1 — 금액 단일화 <span class="badge b-ok">✅</span> / status 용어·dead code 정리는 후속</td><td><span class="sev sev-l">낮음</span></td><td>리팩터 시</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="lbl">결론</span>
+  현재 Toss 결제 시스템은 <strong>"행복 경로(happy path)"는 충실히 구현</strong>됐고 결제 화면 단의 위변조 차단·웹훅 폴백 등 일부 보안 설계도 양호합니다.
+  다만 <strong>권한(entitlement) 적용이 클라이언트 전역 캐시에 의존</strong>해 Free 계정이 Pro 혜택을 받는 누수가 존재하고(§7),
+  <strong>실패·경계 케이스(부분 실패 원자성, 웹훅 신뢰, 알림, 정리, 세금)</strong>도 유료 출시 전 보완되어야 합니다.
+  Stripe 추가는 <strong>provider 추상화·DB 스키마 확장이 선행</strong>되지 않으면 두 결제 모델이 충돌합니다.
+  로드맵 <strong>1~4번(모두 치명)</strong>은 유료 정식 출시의 실질 블로커로 다루기를 권고하며, 특히 <strong>E1·E2(플랜 캐시 누수)는 사용자 보고 버그로 즉시 수정</strong> 대상입니다.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s10"><span class="num">10</span> 본 점검에서 적용한 보완 (구현 내역)</h2>
+
+<p>
+2026-06-09 점검 세션에서 <strong>항목 16건을 코드로 반영</strong>했다(Stripe는 미신청으로 보류). 프론트는 <code>tsc --noEmit</code>·<code>vitest</code>(15 pass),
+Edge Functions는 <code>deno check</code> 통과. 단 <strong>결제·인증·Tauri 윈도우가 얽힌 항목은 배포/런타임 E2E QA가 필요</strong>하다(여기서 런타임 검증 불가).
+</p>
+
+<table>
+  <thead><tr><th style="width:60px">ID</th><th>변경 내용</th><th>파일</th><th style="width:96px">검증</th></tr></thead>
+  <tbody>
+    <tr><td><span class="sev sev-c">E1</span></td>
+      <td>로그아웃 시 <code>barosit:subscription_plan</code> 캐시 제거 + <code>subscription-changed</code> 발화. 다음 사용자가 이전 Pro 캐시를 상속받는 누수 차단(공통 <code>signOut</code> 경로로 일원화).</td>
+      <td><code>src/auth/useAuth.ts</code></td><td><span class="badge b-ok">tsc/test</span></td></tr>
+    <tr><td><span class="sev sev-c">E2</span></td>
+      <td><code>fetchSub</code>가 DB 해석 실효 plan을 캐시에 write-back → 다운그레이드(해지 만료·환불·강등)·로그아웃이 게이트에 즉시 반영.</td>
+      <td><code>src/App.tsx</code></td><td><span class="badge b-ok">tsc/test</span></td></tr>
+    <tr><td><span class="sev sev-c">E3</span></td>
+      <td><strong>해석 B(앱=로그인+Pro 전용)</strong> 게이팅 — 포그라운드 <code>cameraReady &amp;&amp; !paused &amp;&amp; !!user &amp;&amp; subPlan==='pro'</code>, 백그라운드/위젯은 <code>opts.visible</code> 바이패스 제거하고 <code>subPlan==='pro'</code> 필수. 비로그인/FREE는 기존 업셀 배너 노출.</td>
+      <td><code>src/views/MonitorView.tsx</code> · <code>src/hooks/useMonitoringEngine.ts</code></td><td><span class="badge b-partial">Tauri QA 필요</span></td></tr>
+    <tr><td><span class="sev sev-c">C1</span></td>
+      <td>첫 청구 성공 후 DB 쓰기 실패 시 <code>cancelPayment</code>로 <strong>자동 환불 보상</strong>, 환불까지 실패하면 paymentKey 포함 critical 알림 적재 + 원장에 흔적.</td>
+      <td><code>supabase/functions/billing-issue</code></td><td><span class="badge b-partial">deno / 결제 QA</span></td></tr>
+    <tr><td><span class="sev sev-c">C2</span></td>
+      <td>웹훅 — 보유하지 않은 <code>orderId</code>는 Toss 조회 없이 200 조기 무시(임의 orderId로 API 폭주 차단) + 선택적 공유 시크릿(<code>TOSS_WEBHOOK_SECRET</code>).</td>
+      <td><code>supabase/functions/toss-webhook</code></td><td><span class="badge b-partial">deno / 웹훅 QA</span></td></tr>
+    <tr><td><span class="sev sev-h">H1</span></td>
+      <td><code>canceled</code> 구독이 만료일 도달 시 청구 대신 <code>plan_id=free, status=none, billing_key=null</code>로 정리 → 'pro' 잔존 행 제거.</td>
+      <td><code>supabase/functions/charge-renewals</code></td><td><span class="badge b-partial">deno / cron QA</span></td></tr>
+    <tr><td><span class="sev sev-m">M1</span></td>
+      <td>카드 표시 필드명 버그 — <code>cardInfo.brand</code>(undefined) → <code>cardInfo.company</code>.</td>
+      <td><code>src/views/ProfileView.tsx</code></td><td><span class="badge b-ok">tsc/test</span></td></tr>
+    <tr><td><span class="sev sev-m">M6</span></td>
+      <td><code>admin_notifications</code> INSERT를 익명(anon)→<code>authenticated</code>로 제한(신규 마이그레이션). Edge Function은 service_role로 RLS 우회하여 영향 없음.</td>
+      <td><code>supabase/migrations/20260521000012_*.sql</code></td><td><span class="badge b-partial">마이그레이션 적용 필요</span></td></tr>
+    <tr><td><span class="sev sev-m">M4-c</span></td>
+      <td>관리자 강제 환불 Edge Function 신규 — <code>profiles.is_admin</code> 검증 후 특정 결제를 전액/부분 Toss 취소 + 원장 갱신(<code>refunded</code>/<code>partially_refunded</code>) + 선택적 FREE 강등 + 감사 로그. (청약철회와 달리 7일·미사용 제약 없음)</td>
+      <td><code>supabase/functions/admin-refund</code></td><td><span class="badge b-partial">deno / 어드민 UI·QA</span></td></tr>
+    <tr><td><span class="sev sev-c">E3-②</span></td>
+      <td><strong>변조 내성</strong> — 모니터링/위젯 게이트가 localStorage 가 아닌 <strong>서버 재검증 entitlement</strong>(<code>useEntitlement</code>)를 신뢰. 마운트·포커스·주기(10분)·구독변경 시 <code>user_subscriptions</code> 재조회 → 캐시=PRO·서버=FREE 면 자동 강등 + <code>tampering_detected</code> 경보. 오프라인 14일 초과 미검증 시 보수적 FREE.</td>
+      <td><code>src/auth/useEntitlement.ts</code> · <code>MonitorView</code> · <code>useMonitoringEngine</code></td><td><span class="badge b-partial">tsc / Tauri QA</span></td></tr>
+    <tr><td><span class="sev sev-h">H2</span></td>
+      <td><strong>사용자 결제 알림 메일</strong> — 결제실패(유예·카드갱신 유도)·FREE 강등·환불 완료·해지 예약 시 Resend 메일 발송(<code>_shared/email.ts</code>). <code>RESEND_API_KEY</code> 미설정 시 본 로직 막지 않고 생략.</td>
+      <td><code>charge-renewals</code> · <code>payment-cancel</code> · <code>admin-refund</code> · <code>subscription-manage</code></td><td><span class="badge b-partial">deno / 메일 QA</span></td></tr>
+    <tr><td><span class="sev sev-c">SEC</span></td>
+      <td><strong>billing_key / customer_key 암호화</strong> — AES-GCM(<code>_shared/crypto.ts</code>)로 저장 시 암호화·청구 전 복호화. <code>ENCRYPTION_KEY</code> 미설정 시 평문 폴백(배포 누락이 정기청구를 막지 않음). 컬럼 TEXT 확장(migration <code>...013</code>).</td>
+      <td><code>_shared/crypto.ts</code> · <code>billing-issue</code> · <code>charge-renewals</code></td><td><span class="badge b-partial">deno / 정기청구 QA</span></td></tr>
+    <tr><td><span class="sev sev-m">M2</span></td>
+      <td><strong>customerKey 안정화</strong> — user별 결정적 <code>cust-{userId}</code>로 고정(매 결제 랜덤 제거). 카드 변경 시 Toss 고객-빌링키 연결 추적 가능.</td>
+      <td><code>PricingView</code> · <code>Marketing</code> (3곳)</td><td><span class="badge b-ok">tsc/test</span></td></tr>
+    <tr><td><span class="sev sev-m">M3</span></td>
+      <td><strong>더닝 재시도 정비</strong> — <code>last_dunning_at</code>(migration <code>...013</code>)로 최소 2일 간격 + 최대 3회 재시도 후 강등. 매일·무제한 재청구 제거.</td>
+      <td><code>charge-renewals</code></td><td><span class="badge b-partial">deno / cron QA</span></td></tr>
+    <tr><td><span class="sev sev-m">M4-c UI</span></td>
+      <td><strong>어드민 환불 UI</strong> — 대시보드 시스템 탭에 orderId·금액·FREE강등 폼 → <code>admin-refund</code> 호출(결과 표시). M4-c 함수를 운영자가 실제 사용 가능.</td>
+      <td><code>AdminDashboardView</code></td><td><span class="badge b-partial">tsc / 어드민 QA</span></td></tr>
+    <tr><td><span class="sev sev-l">L1</span></td>
+      <td><strong>금액 단일 출처화</strong> — 클라 하드코딩 4곳(4900/36000)을 <code>src/lib/pricing.ts</code> <code>PRICE_KRW</code>로 통합. (status 용어 통일·dead code 정리는 후속)</td>
+      <td><code>src/lib/pricing.ts</code> · <code>PricingView</code> · <code>Marketing</code></td><td><span class="badge b-ok">tsc/test</span></td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="lbl">제품 결정 기록</span>
+  점검 중 "Pro 계정 로그아웃 후 Free 로그인해도 앱이 동작"하던 버그를 계기로 권한 모델을 확정했다 →
+  <strong>"웹은 Free, 데스크톱 앱은 로그인+Pro 전용"(해석 B)</strong>. 이로써 <em>"로그아웃 시 Free 수준으로 강등"</em> 잠정안은 폐기되고,
+  <strong>로그아웃·FREE·비로그인 상태에서는 앱이 모니터링을 멈추고 로그인/업그레이드를 유도</strong>한다(§7 참조).
+  <br><b style="color:var(--warn)">출시 전 필수 확인:</b>
+  ① Tauri 앱 E2E(로그인→PRO 관제 / 로그아웃→차단·배너 / 최소화→위젯은 PRO만)
+  ② <strong>베타(beta_free)에서도 로그인 필수</strong>가 됨 — 게스트 체험으로 유입되던 베타 흐름 점검
+  ③ 마운트 직후 캐시 정합 전 짧은 'free' 깜빡임 UX.
+</div>
+
+<div class="callout">
+  <span class="lbl">QA 체크리스트 반영</span>
+  본 점검 항목 검증을 <code>qa/checklist.json</code>에 추가했다(총 84항목).
+  <br><b>① 실동작(runtime/integration/manual)</b> — <strong>BILL-09~17</strong>: 계정전환 권한정합·변조내성·앱Pro게이팅·첫결제보상·웹훅남용·canceled정리·관리자환불·알림메일·pg_cron. <span class="muted">Tauri 앱·실결제·배포 환경에서 수동 검증.</span>
+  <br><b>② 자동 회귀(code/unit)</b> — <strong>BILL-C01~C10</strong>(정적 와이어링 grep: 게이트·캐시·암호화·보상·웹훅·환불·마이그레이션 등) + <strong>BILL-U01·U02</strong>(단위테스트). 배포·앱 없이 자동 실행돼 <strong>"수정이 코드에서 빠지거나 되돌려진" 회귀를 매번 포착</strong>한다.
+  <br><b>신규 테스트</b>: <code>src/lib/{pricing,entitlement}.test.ts</code>(vitest, +7) · <code>_shared/{crypto,email}.test.ts</code>(deno, +8) — <code>npx vitest run</code>(22 pass), <code>deno task test</code>(8 pass).
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s11"><span class="num">11</span> 추후 결제 관련 필요 작업</h2>
+
+<p>본 점검에서 닫지 못한 항목 — <span class="badge b-partial">정책</span> 의사결정, <span class="badge b-na">배포/운영</span> 콘솔 작업, <span class="badge b-no">코드</span> 추가 구현으로 구분한다.</p>
+
+<h3>A. 유료 정식 출시 전 (블로커)</h3>
+<table>
+  <thead><tr><th style="width:70px">ID</th><th>작업</th><th>유형</th><th>구체 내용 / 수용 기준</th></tr></thead>
+  <tbody>
+    <tr><td><span class="sev sev-h">H3</span></td><td>pg_cron 정기청구 스케줄 등록</td><td><span class="badge b-na">배포</span></td>
+      <td>Supabase 대시보드에서 <code>pg_cron</code>·<code>pg_net</code> 활성화 후 <code>charge-renewals</code> 일배치 등록(migration 20260521000010 주석 참조). <b>수용:</b> 최근 24h 실행 로그 1건 이상 + 미실행 알림.</td></tr>
+    <tr><td><span class="sev sev-h">H2</span></td><td>사용자 결제 알림 메일</td><td><span class="badge b-ok">구현완료</span></td>
+      <td><span class="badge b-ok">✅</span> <code>_shared/email.ts</code>(Resend) — 결제실패(유예·카드갱신)·FREE 강등·환불완료·해지예약 메일을 <code>charge-renewals</code>/<code>payment-cancel</code>/<code>admin-refund</code>/<code>subscription-manage</code> 에서 발송. <b>후속(배포):</b> <code>RESEND_API_KEY</code> 시크릿 등록 + 실제 수신 QA. (푸시 알림은 추후)</td></tr>
+    <tr><td><span class="sev sev-m">M5</span></td><td>영수증 / 세금 처리</td><td><span class="badge b-ok">결정완료</span></td>
+      <td><b>결정(2026-06-09):</b> 카드 전용 결제이므로 <strong>카드 매출전표로 갈음 — 현금영수증·세금계산서 미발급</strong>. 발급 코드 불필요(<code>cash_receipt_issued=false</code> 유지가 정합). <b>후속(선택):</b> 약관에 "카드 매출전표로 영수증 갈음" 명시 + ProfileView 결제내역 조회 UI(<code>billing_history</code> 재활용). B2B 세금계산서 수요 발생 시 재검토.</td></tr>
+    <tr><td><span class="sev sev-c">—</span></td><td>live key 전환 + 결제 E2E QA</td><td><span class="badge b-na">배포</span></td>
+      <td>Toss 가맹점 심사 완료 후 <code>test_ck_</code>→live key(<code>VITE_TOSS_CLIENT_KEY</code>), <code>TOSS_SECRET_KEY</code> 시크릿, 웹훅 URL(+<code>TOSS_WEBHOOK_SECRET</code>) 등록. 실카드 결제→환불→정기청구 시나리오 검증.</td></tr>
+  </tbody>
+</table>
+
+<h3>B. 출시 직후 / 운영 안정화</h3>
+<table>
+  <thead><tr><th style="width:70px">ID</th><th>작업</th><th>유형</th><th>구체 내용</th></tr></thead>
+  <tbody>
+    <tr><td><span class="sev sev-m">M2</span></td><td>customerKey 안정화</td><td><span class="badge b-ok">구현완료</span></td>
+      <td><span class="badge b-ok">✅</span> <code>customerKey</code>를 user별 결정적 값(<code>cust-{userId}</code>)으로 고정 — PricingView·Marketing 3곳의 랜덤 생성 제거. (멱등 "이미 active 조기반환" 가드는 후속)</td></tr>
+    <tr><td><span class="sev sev-m">M3</span></td><td>더닝 재시도 주기/횟수 정비</td><td><span class="badge b-ok">구현완료</span></td>
+      <td><span class="badge b-ok">✅</span> <code>last_dunning_at</code> 컬럼(migration <code>...013</code>)으로 <strong>최소 2일 간격</strong> + <strong>최대 3회</strong> 재시도 후 강등. 매일·무제한 재청구 제거(<code>charge-renewals</code>).</td></tr>
+    <tr><td><span class="sev sev-c">SEC</span></td><td>billing_key / customer_key 암호화</td><td><span class="badge b-ok">구현완료</span></td>
+      <td><span class="badge b-ok">✅</span> <code>_shared/crypto.ts</code>(AES-GCM) — 저장 시 암호화(billing-issue), 청구 전 복호화(charge-renewals). <code>ENCRYPTION_KEY</code> 미설정 시 평문 폴백. 컬럼 TEXT 확장(migration <code>...013</code>). <b>후속:</b> <code>ENCRYPTION_KEY</code> 시크릿 등록 + 정기청구 QA.</td></tr>
+    <tr><td><span class="sev sev-m">M4</span></td><td>환불 정책 확정 + 관리자 환불</td><td><span class="badge b-ok">완료</span></td>
+      <td><b>결정(2026-06-09):</b> ⓐ 연간 중도해지 <strong>일할/부분 환불 없음</strong>(현행 유지). ⓑ 7일 청약철회 <strong>미사용 조건 유지</strong>(현행). ⓒ <span class="badge b-ok">✅</span> <strong>관리자 강제 환불</strong> <code>admin-refund</code> + <strong>어드민 대시보드 환불 UI</strong>(시스템 탭: orderId·금액·FREE강등 폼) 구현. <b>후속:</b> 배포·QA.</td></tr>
+    <tr><td><span class="sev sev-l">L1</span></td><td>용어·금액 단일화 + dead code</td><td><span class="badge b-partial">부분</span></td>
+      <td><span class="badge b-ok">✅</span> 금액 단일 출처화 — <code>src/lib/pricing.ts</code>(<code>PRICE_KRW</code>)로 클라 하드코딩 4곳 통합. <b>후속(저위험):</b> status 용어 통일(<code>inactive/none</code>·<code>grace_period/past_due</code>), 미사용 <code>billingVerify.ts</code> 정리.</td></tr>
+  </tbody>
+</table>
+
+<h3>C. Stripe 추가 착수 시 (§8 상세)</h3>
+<table>
+  <thead><tr><th style="width:70px">순서</th><th>작업</th><th>유형</th><th>구체 내용</th></tr></thead>
+  <tbody>
+    <tr><td><b>1</b></td><td>DB provider 컬럼 추가</td><td><span class="badge b-no">코드</span></td>
+      <td><code>user_subscriptions.provider</code>·<code>billing_history.provider</code>(<code>toss</code>|<code>stripe</code>) — 두 PG 원장 분리.</td></tr>
+    <tr><td><b>2</b></td><td>PaymentProvider 추상화</td><td><span class="badge b-no">코드</span></td>
+      <td><code>_shared/payment/provider.ts</code> 인터페이스 + <code>TossProvider</code>/<code>StripeProvider</code>. <code>billing-issue</code>·<code>charge-renewals</code>·<code>payment-cancel</code> provider 분기.</td></tr>
+    <tr><td><b>3</b></td><td>charge-renewals provider 필터</td><td><span class="badge b-no">코드</span></td>
+      <td>Stripe 구독은 Stripe가 자동 청구 → cron 청구 대상에서 제외(중복청구 방지).</td></tr>
+    <tr><td><b>4</b></td><td>stripe-webhook 함수 신규</td><td><span class="badge b-no">코드</span></td>
+      <td><code>invoice.paid</code>/<code>payment_failed</code>/<code>subscription.deleted</code> 처리. 서명검증은 <code>billingVerify.verifyStripeWebhook</code> 재활용(현재 미연결).</td></tr>
+    <tr><td><b>5</b></td><td>다통화 · Customer Portal</td><td><span class="badge b-partial">정책</span></td>
+      <td>KRW 정수 전제 → USD/JPY(i18n ko/en/ja 연동) 금액 모델. 카드변경·해지는 Stripe Customer Portal 위임 검토.</td></tr>
+  </tbody>
+</table>
+
+<hr />
+<p class="muted">
+분석 대상: <code>supabase/functions/{billing-issue,charge-renewals,payment-cancel,subscription-manage,toss-webhook,_shared}</code> ·
+<code>supabase/migrations/2026052100000{0,2,3,4,5,6,10}_*.sql</code> ·
+<code>src/views/{PricingView,ProfileView}.tsx</code> · <code>src/App.tsx</code> · <code>src/web/Marketing.tsx</code> · <code>src/auth/useAuth.ts</code> · <code>src/hooks/useMonitoringEngine.ts</code> · <code>src/lib/{syncService,billingVerify}.ts</code> · <code>src/launchMode.ts</code> ·
+<code>docs/{payment-integration-spec,saas-core-blueprint,launch-readiness-plan}.md</code>
+</p>
+
+</div>
+</body>
+</html>

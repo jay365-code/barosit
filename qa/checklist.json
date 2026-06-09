@@ -794,5 +794,289 @@
       "Windows"
     ],
     "verifyTier": "manual"
+  },
+  {
+    "id": "BILL-09",
+    "category": "Billing",
+    "title": "계정 전환 시 권한 정합 (Pro→Free 누수 차단)",
+    "method": "Pro 계정으로 로그인해 PRO 기능을 확인한 뒤 로그아웃하고, 같은 기기에서 Free 계정으로 다시 로그인하여 PRO 전용 기능(백그라운드 관제·동기화)이 차단되는지 확인합니다.",
+    "expected": "로그아웃 시 barosit:subscription_plan 캐시가 제거되고, Free 계정 로그인 후에는 이전 Pro 권한이 상속되지 않아야 합니다. (§7 E1/E2)",
+    "platforms": [
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "runtime",
+    "verifyNote": "useAuth.signOut 가 캐시 removeItem + subscription-changed 발화 / App.fetchSub 가 실효 plan write-back. 실 계정 전환은 사람 확인 권장."
+  },
+  {
+    "id": "BILL-10",
+    "category": "Billing",
+    "title": "권한 변조 내성 (localStorage 조작 → 서버 재검증 강등)",
+    "method": "FREE 계정으로 로그인한 상태에서 devtools 콘솔로 localStorage['barosit:subscription_plan']='pro' 로 강제 설정하고 barosit:subscription-changed 이벤트를 발화시킨 뒤, 잠시 후 모니터링/권한이 유지되는지 관찰합니다.",
+    "expected": "useEntitlement 의 서버 재검증으로 수 초~검증주기 내에 FREE 로 자동 강등되고, admin_notifications 에 tampering_detected(critical) 경보가 적재되어야 합니다. (§7 E3-②)",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "runtime",
+    "verifyNote": "src/auth/useEntitlement.ts 가 user_subscriptions 재조회 후 effective=free && cache=pro 면 강등+경보. 게이트는 localStorage 가 아닌 훅의 in-memory plan 을 신뢰."
+  },
+  {
+    "id": "BILL-11",
+    "category": "Billing",
+    "title": "앱=로그인+Pro 전용 게이팅 (비로그인/FREE 모니터링 차단)",
+    "method": "데스크톱 앱에서 ① 비로그인 게스트 ② 로그인+FREE 상태로 각각 모니터링을 시도하고, 메인 최소화 시 위젯 백그라운드 관제가 도는지 확인합니다.",
+    "expected": "비로그인/FREE 는 포그라운드·백그라운드 모니터링이 모두 정지되고 업셀/로그인 배너가 노출되어야 합니다. 로그인+PRO(또는 베타)에서만 관제·위젯이 동작합니다. (§7 E3, 해석 B)",
+    "platforms": [
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "runtime",
+    "verifyNote": "MonitorView usePoseLoop enabled 에 !!user && subPlan==='pro' / useMonitoringEngine 게이트에서 opts.visible 바이패스 제거. 베타(beta_free)는 resolveEffectivePlan→pro 로 통과(단 로그인 필수)."
+  },
+  {
+    "id": "BILL-12",
+    "category": "Billing",
+    "title": "첫 결제 성공 후 활성화 실패 시 자동 환불 보상",
+    "method": "billing-issue 에서 첫 청구 성공 직후 DB 저장(user_subscriptions/billing_history)이 실패하는 상황을 가정/주입하여 보상 로직을 검증합니다.",
+    "expected": "청구는 성공했으나 활성화에 실패하면 cancelPayment 로 전액 자동 환불되고, 환불까지 실패하면 paymentKey 포함 critical 경보가 적재되어 수동 처리 추적이 가능해야 합니다. (§7 C1)",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "integration",
+    "verifyNote": "supabase/functions/billing-issue try/catch 보상 경로. 실주입은 결제 QA 환경에서. 코드상 cancelPayment + admin_notifications + 원장 upsert 확인."
+  },
+  {
+    "id": "BILL-13",
+    "category": "Billing",
+    "title": "웹훅 남용 차단 (미보유 orderId 무시 + 선택 시크릿)",
+    "method": "toss-webhook 에 우리 billing_history 에 없는 임의 orderId 로 호출하고, TOSS_WEBHOOK_SECRET 설정 시 잘못된 시크릿으로 호출합니다.",
+    "expected": "미보유 orderId 는 Toss 원장 조회 없이 200 으로 조기 무시되어 외부발 Toss API 폭주가 차단되고, 시크릿 설정 시 불일치 호출은 401 로 거부되어야 합니다. (§7 C2)",
+    "platforms": [
+      "Web"
+    ],
+    "verifyTier": "integration",
+    "verifyNote": "supabase/functions/toss-webhook: billing_history 존재확인 후 getPaymentByOrderId. TOSS_WEBHOOK_SECRET 미설정 시 종전 동작."
+  },
+  {
+    "id": "BILL-14",
+    "category": "Billing",
+    "title": "해지(canceled) 만료 시 FREE 자동 정리",
+    "method": "status='canceled' 이고 current_period_end 가 지난 구독에 대해 charge-renewals 배치를 실행합니다.",
+    "expected": "청구 없이 plan_id='free', status='none', billing_key/customer_key=null 로 정리되어 'pro' 잔존 행이 남지 않아야 합니다. (§7 H1)",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "integration",
+    "verifyNote": "charge-renewals 가 status in (active,grace_period,canceled) 조회 후 canceled 는 cleaned 처리."
+  },
+  {
+    "id": "BILL-15",
+    "category": "Billing",
+    "title": "관리자 강제 환불 (admin-refund)",
+    "method": "어드민 계정으로 admin-refund 를 호출해 특정 결제를 전액/부분 환불하고, 비(非)어드민 호출이 거부되는지 확인합니다.",
+    "expected": "profiles.is_admin=true 만 호출 가능(그 외 403), 실제 Toss 취소 후 원장이 refunded/partially_refunded 로 갱신되고, downgrade 옵션 시 FREE 강등 + 감사 로그가 적재되어야 합니다. (§11 M4-c)",
+    "platforms": [
+      "Web"
+    ],
+    "verifyTier": "integration",
+    "verifyNote": "supabase/functions/admin-refund. 어드민 판별 profiles.is_admin. cancelPayment cancelAmount 로 부분환불."
+  },
+  {
+    "id": "BILL-16",
+    "category": "Billing",
+    "title": "결제 라이프사이클 사용자 알림 메일 (H2)",
+    "method": "정기결제 실패(유예 시작)·유예 만료(FREE 강등)·환불 완료·구독 해지 예약 각 상황에서 사용자에게 이메일이 발송되는지 확인합니다.",
+    "expected": "각 이벤트마다 해당 사용자 이메일로 안내 메일(카드 갱신/강등/환불/해지)이 발송되어야 합니다. RESEND_API_KEY 미설정 시에는 본 로직을 막지 않고 조용히 생략됩니다. (§11 H2)",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "integration",
+    "verifyNote": "_shared/email.ts(Resend) 를 charge-renewals/payment-cancel/admin-refund/subscription-manage 에서 호출. RESEND_API_KEY 시크릿 등록 필요."
+  },
+  {
+    "id": "BILL-17",
+    "category": "Billing",
+    "title": "정기청구 스케줄(pg_cron) 등록·동작",
+    "method": "배포 후 Supabase 대시보드에서 pg_cron/pg_net 활성화 + charge-renewals 일배치 등록 여부와 최근 실행 로그를 확인합니다.",
+    "expected": "매일 정해진 시각에 charge-renewals 가 호출되어 만기 구독 정기청구/더닝이 수행되어야 합니다. 미등록 시 정기결제가 전면 정지되므로 배포 체크 필수. (§11 H3)",
+    "platforms": [
+      "Web"
+    ],
+    "verifyTier": "manual",
+    "verifyNote": "migration 20260521000010 하단 cron.schedule 주석을 프로젝트 ref/service_role 로 치환해 1회 실행. 최근 24h 실행 0건이면 경보 권장."
+  },
+  {
+    "id": "BILL-C01",
+    "category": "Billing",
+    "title": "[정적] 앱=로그인+PRO 모니터링 게이트 와이어링",
+    "method": "MonitorView·useMonitoringEngine 의 모니터링 활성 조건을 소스에서 정적 확인합니다.",
+    "expected": "MonitorView 가 isMonitoringEntitled(user, subPlan) 로 게이팅하고, useMonitoringEngine 의 usePoseLoop enabled 에 subPlan==='pro' 가 있으며 opts.visible 바이패스가 제거돼 있어야 합니다. (§7 E3)",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep src/views/MonitorView.tsx 'isMonitoringEntitled(user, subPlan)'; src/hooks/useMonitoringEngine.ts enabled 에 'subPlan === \"pro\"' 있고 '|| opts.visible' 없음."
+  },
+  {
+    "id": "BILL-C02",
+    "category": "Billing",
+    "title": "[정적] 플랜 캐시 누수 차단 와이어링 (E1·E2)",
+    "method": "signOut 의 캐시 제거와 App.fetchSub 의 write-back 을 소스에서 확인합니다.",
+    "expected": "useAuth.signOut 가 localStorage.removeItem('barosit:subscription_plan') 를 호출하고, App.tsx fetchSub 가 해석된 plan 을 localStorage.setItem 으로 write-back 해야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep src/auth/useAuth.ts removeItem(\"barosit:subscription_plan\"); src/App.tsx setItem(\"barosit:subscription_plan\", actualPlan)."
+  },
+  {
+    "id": "BILL-C03",
+    "category": "Billing",
+    "title": "[정적] 서버 검증 entitlement 훅 와이어링 (E3-②)",
+    "method": "useEntitlement 의 서버 재검증·변조 강등 로직과 게이트의 훅 사용을 확인합니다.",
+    "expected": "src/auth/useEntitlement.ts 가 user_subscriptions 재조회 + tampering_detected 경보를 포함하고, MonitorView·useMonitoringEngine 가 useEntitlement() 의 plan 을 사용해야 합니다(localStorage 직접 신뢰 금지).",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep useEntitlement.ts 'user_subscriptions' 및 'tampering_detected'; MonitorView·useMonitoringEngine 에 useEntitlement() 호출."
+  },
+  {
+    "id": "BILL-C04",
+    "category": "Billing",
+    "title": "[정적] 첫 결제 후 활성화 실패 보상 와이어링 (C1)",
+    "method": "billing-issue 의 DB 실패 보상(자동 환불) 경로를 소스에서 확인합니다.",
+    "expected": "billing-issue 가 DB 저장 실패 시 catch 에서 cancelPayment 로 환불 보상하고, 환불 실패 시 paymentKey 포함 critical 알림을 적재해야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep supabase/functions/billing-issue/index.ts: try/catch 내 'cancelPayment(' 및 admin_notifications 'system_error'."
+  },
+  {
+    "id": "BILL-C05",
+    "category": "Billing",
+    "title": "[정적] billing_key 암호화 저장/복호화 와이어링 (SEC)",
+    "method": "billing-issue 저장 암호화와 charge-renewals 청구 전 복호화를 확인합니다.",
+    "expected": "billing-issue 가 encryptSecret 으로 billing_key/customer_key 를 저장하고, charge-renewals 가 청구 전 decryptSecret 으로 복호화해야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep billing-issue 'encryptSecret('; charge-renewals 'decryptSecret('; _shared/crypto.ts 존재."
+  },
+  {
+    "id": "BILL-C06",
+    "category": "Billing",
+    "title": "[정적] canceled 정리 + 더닝 간격/cap 와이어링 (H1·M3)",
+    "method": "charge-renewals 의 해지 정리와 더닝 제어를 소스에서 확인합니다.",
+    "expected": "charge-renewals 가 canceled 만료를 FREE 로 정리하고, last_dunning_at 기반 2일 간격 가드 + MAX_DUNNING_ATTEMPTS(3) cap 을 적용해야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep charge-renewals: status==='canceled' 정리 분기, 'last_dunning_at', 'MAX_DUNNING_ATTEMPTS'."
+  },
+  {
+    "id": "BILL-C07",
+    "category": "Billing",
+    "title": "[정적] 웹훅 남용 차단 와이어링 (C2)",
+    "method": "toss-webhook 의 미보유 orderId 조기 무시와 선택 시크릿 검증을 확인합니다.",
+    "expected": "toss-webhook 가 billing_history 미보유 orderId 를 Toss 조회 없이 200 으로 무시하고, TOSS_WEBHOOK_SECRET 설정 시 불일치 호출을 401 거부해야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep toss-webhook: 'unknown orderId' 조기 return, 'TOSS_WEBHOOK_SECRET'."
+  },
+  {
+    "id": "BILL-C08",
+    "category": "Billing",
+    "title": "[정적] 관리자 환불 권한·UI 와이어링 (M4-c)",
+    "method": "admin-refund 의 어드민 검증과 대시보드 환불 UI 연결을 확인합니다.",
+    "expected": "admin-refund 가 profiles.is_admin 을 검증하고, AdminDashboard 시스템 탭이 admin-refund 를 invoke 하는 환불 폼을 가져야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep admin-refund 'is_admin'; AdminDashboardView 'admin-refund' invoke + handleAdminRefund."
+  },
+  {
+    "id": "BILL-C09",
+    "category": "Billing",
+    "title": "[정적] 카드표시·customerKey·금액 단일화 (M1·M2·L1)",
+    "method": "M1/M2/L1 수정이 코드에 반영돼 있고 회귀하지 않았는지 확인합니다.",
+    "expected": "ProfileView 가 cardInfo.company 를 표시(brand 아님)하고, customerKey 가 cust-${user.id} 결정적 값이며, 클라이언트에 4900/36000 하드코딩이 없어야(priceFor 사용) 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "grep ProfileView 'cardInfo.company'; PricingView·Marketing 에 'cust-${' 결정적 customerKey + priceFor 사용; 결제 금액 리터럴은 src/lib/pricing.ts 의 PRICE_KRW 한 곳만 — 단어경계 grep -nE '\\\\b(4900|36000)\\\\b' src/views src/web 결과 없음(rateLimit 의 3600000 은 무관)."
+  },
+  {
+    "id": "BILL-C10",
+    "category": "Billing",
+    "title": "[정적] 결제 보안 마이그레이션 존재",
+    "method": "본 점검에서 추가된 마이그레이션 파일과 핵심 DDL 을 확인합니다.",
+    "expected": "20260521000012(admin_notifications INSERT→authenticated), 20260521000013(billing_key TEXT 확장 + last_dunning_at) 마이그레이션이 존재해야 합니다.",
+    "platforms": [
+      "Web"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "ls supabase/migrations/20260521000012_*.sql 20260521000013_*.sql; 후자에 'last_dunning_at' 및 ALTER ... TYPE TEXT 포함."
+  },
+  {
+    "id": "BILL-U01",
+    "category": "Billing",
+    "title": "[단위] 금액·권한 판정 단위테스트",
+    "method": "vitest 로 가격/권한 순수 로직 회귀를 검증합니다.",
+    "expected": "src/lib/pricing.test.ts(priceFor)·entitlement.test.ts(isMonitoringEntitled) 가 모두 통과해야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "unit",
+    "verifyNote": "npx vitest run — pricing/entitlement/launchMode/analyzer 전부 pass."
+  },
+  {
+    "id": "BILL-U02",
+    "category": "Billing",
+    "title": "[단위] 암호화·메일 템플릿 단위테스트 (Edge)",
+    "method": "deno test 로 crypto 왕복·메일 템플릿 내용을 검증합니다.",
+    "expected": "_shared/crypto.test.ts(암복호 왕복·평문 폴백)·email.test.ts(템플릿 4종) 가 통과해야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "unit",
+    "verifyNote": "cd supabase/functions && deno task test (deno test --allow-env _shared/crypto.test.ts _shared/email.test.ts)."
   }
 ]

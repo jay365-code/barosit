@@ -7,6 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, getUser } from "../_shared/admin.ts";
 import { cancelPayment } from "../_shared/toss.ts";
+import { sendUserEmail, tplRefunded } from "../_shared/email.ts";
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
@@ -72,6 +73,11 @@ serve(async (req) => {
       refunded_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq("id", latest.id);
+
+    // 환불 완료 안내 메일 (§11 H2) — 발송 실패해도 환불 결과엔 영향 없음
+    const refunded = Number(latest.amount);
+    const m = tplRefunded(refunded, true);
+    await sendUserEmail(user.email, m.subject, m.html);
 
     return json({ success: true, refundedAmount: cancelResult.cancels?.[0]?.cancelAmount ?? latest.amount });
   } catch (e: any) {

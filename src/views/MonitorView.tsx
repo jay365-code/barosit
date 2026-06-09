@@ -7,6 +7,8 @@ import {
   type UserProfile,
 } from "../userProfile";
 import { useAuth } from "../auth/useAuth";
+import { useEntitlement } from "../auth/useEntitlement";
+import { isMonitoringEntitled } from "../lib/entitlement";
 import { extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
 import { loadBaseline, determineAngle, determineAngleSticky } from "../pose/calibration";
 import { useCamera } from "../hooks/useCamera";
@@ -244,24 +246,12 @@ export function MonitorView({
 }: Props) {
   const { t, i18n } = useTranslation(["monitor", "posture", "coaching", "stretch", "common"]);
   const { user } = useAuth();
-  const [subPlan, setSubPlan] = useState<"free" | "pro">(() => {
-    return (localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free";
-  });
+  // 권한은 localStorage 가 아니라 서버 검증 값을 신뢰한다(§7 E3-②). 캐시 조작 시
+  // useEntitlement 가 다음 검증에서 서버 값으로 강등한다.
+  const { plan: subPlan } = useEntitlement();
 
   const isMac = typeof navigator !== "undefined" && navigator.userAgent.indexOf("Mac") !== -1;
   const shortcutText = isMac ? t("monitor:shortcut.mac") : t("monitor:shortcut.win");
-
-  useEffect(() => {
-    const syncPlan = () => {
-      setSubPlan((localStorage.getItem("barosit:subscription_plan") as "free" | "pro") || "free");
-    };
-    window.addEventListener("barosit:subscription-changed", syncPlan);
-    window.addEventListener("storage", syncPlan);
-    return () => {
-      window.removeEventListener("barosit:subscription-changed", syncPlan);
-      window.removeEventListener("storage", syncPlan);
-    };
-  }, []);
 
   const initialAngle = useMemo<"front" | "left" | "right">(() => {
     if (!baseline || !baseline.face) return "front";
@@ -1074,9 +1064,13 @@ export function MonitorView({
   }, []);
 
   const loopParams = usePerformanceProfile(visible);
+  // 데스크톱 앱은 로그인 + PRO 전용(§7 E3, 해석 B). 비로그인/FREE 는 모니터링을
+  // 돌리지 않고 기존 업셀 배너(아래 !user || subPlan==='free')로 로그인·업그레이드를
+  // 유도한다. subPlan 캐시는 App.fetchSub 가 실효 플랜(베타 모드 포함)으로 정합한다.
+  const monitoringEntitled = isMonitoringEntitled(user, subPlan);
   const { error: detectorError, retry: detectorRetry } = usePoseLoop({
     videoRef,
-    enabled: cameraReady && !paused,
+    enabled: cameraReady && !paused && monitoringEntitled,
     // 윈도우가 다른 앱 뒤로 가려져도 (Tauri/macOS occlusion → document.hidden)
     // 모니터링은 계속해야 함. face/hands 는 자리비움 판정과 chin_resting 검출에
     // 필수라 항상 ON. 성능 프로필(Full/Eco)에 따라 fps·모델 실행 주기만 조절.

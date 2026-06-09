@@ -7,6 +7,7 @@ import termsMd from "../../docs/terms.md?raw";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import { resolveEffectivePlan, isBetaFree, refreshLaunchMode } from "../launchMode";
+import { priceFor } from "../lib/pricing";
 import { interpolateLegalTemplate } from "../lib/legal";
 import i18n from "../i18n";
 import { LanguageSelect } from "../components/LanguageSelect";
@@ -3687,7 +3688,7 @@ function Pricing() {
           if (paymentStatus === "success") {
             setPaymentState("checkout");
             const cycleParam = params.get("cycle") as "monthly" | "yearly" || "monthly";
-            const finalAmount = cycleParam === "yearly" ? 36000 : 4900;
+            const finalAmount = priceFor(cycleParam);
             
             setTimeout(async () => {
               const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
@@ -3806,7 +3807,7 @@ function Pricing() {
     setPaymentState("checkout");
     const activeUser = userOverride || currentUser;
     const activeCycle = cycleOverride || billingCycle;
-    const amount = activeCycle === "yearly" ? 36000 : 4900;
+    const amount = priceFor(activeCycle);
 
     // 정기 결제 카드 등록 시도 로깅
     trackPaymentEvent("checkout_initiated", {
@@ -3819,9 +3820,10 @@ function Pricing() {
     try {
       const TossPaymentsLib = await loadTossPayments();
       const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
-      
+
+      // user 당 안정적 customerKey (§11 M2)
       const customerKey = activeUser
-        ? `cust-${activeUser.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`
+        ? `cust-${activeUser.id}`
         : `cust-guest-${Math.random().toString(36).substring(2, 10)}`;
 
       // 정기 구독 결제를 위한 카드 등록 창(requestBillingAuth) 실행
@@ -4610,7 +4612,7 @@ function PlanTab({
       const TossPaymentsLib = await loadTossPayments();
       const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
       
-      const customerKey = `cust-${user.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
+      const customerKey = `cust-${user.id}`; // user 당 안정적 (§11 M2)
       
       trackPaymentEvent("card_update_initiated", {
         user: user.email
