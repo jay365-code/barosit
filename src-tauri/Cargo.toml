@@ -1,6 +1,6 @@
 [package]
 name = "barosit"
-version = "0.3.1"
+version = "0.3.2"
 description = "BaroSit — 데스크톱 자세 모니터링"
 authors = ["jay"]
 edition = "2021"
