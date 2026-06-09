@@ -112,7 +112,7 @@
     "fieldEmail": "이메일",
     "fieldProvider": "로그인 방식",
     "fieldJoined": "가입일",
-    "noPasswordPre": "BaroSit 은 비밀번호 가입을 사용하지 않습니다. 소셜 로그인 또는 이메일 매직링크로 로그인하세요. 계정 삭제·데이터 내려받기는 ",
+    "noPasswordPre": "BaroSit 은 비밀번호 가입을 사용하지 않습니다. 소셜 로그인으로 로그인하세요. 계정 삭제·데이터 내려받기는 ",
     "noPasswordLink": "문의",
     "noPasswordPost": " 로 요청 주시면 처리해드립니다.",
     "planTitle": "플랜과 결제",

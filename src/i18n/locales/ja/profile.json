@@ -112,7 +112,7 @@
     "fieldEmail": "メール",
     "fieldProvider": "ログイン方法",
     "fieldJoined": "登録日",
-    "noPasswordPre": "BaroSitはパスワード登録を使用しません。ソーシャルログインまたはメールのマジックリンクでログインしてください。アカウント削除・データのダウンロードは",
+    "noPasswordPre": "BaroSitはパスワード登録を使用しません。ソーシャルログインでログインしてください。アカウント削除・データのダウンロードは",
     "noPasswordLink": "お問い合わせ",
     "noPasswordPost": "よりご依頼いただければ対応いたします。",
     "planTitle": "プランと決済",

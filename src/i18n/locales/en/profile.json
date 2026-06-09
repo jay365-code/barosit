@@ -112,7 +112,7 @@
     "fieldEmail": "Email",
     "fieldProvider": "Login method",
     "fieldJoined": "Joined",
-    "noPasswordPre": "BaroSit doesn't use password sign-up. Sign in with social login or an email magic link. For account deletion or data download, ",
+    "noPasswordPre": "BaroSit doesn't use password sign-up. Sign in with social login. For account deletion or data download, ",
     "noPasswordLink": "contact us",
     "noPasswordPost": " and we'll take care of it.",
     "planTitle": "Plan & billing",

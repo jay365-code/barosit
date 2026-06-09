@@ -845,7 +845,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
               )}
             </section>
 
-            {/* 🔐 인증 패널 — Google/Kakao/Email Magic Link 실 연동 */}
+            {/* 🔐 인증 패널 — Google/Kakao 소셜 로그인 실 연동 */}
             <section className="profile-card">
               <div className="profile-card-head">
                 <Icon name="shield" size={16} />

@@ -3,7 +3,7 @@ import { supabase } from "../auth/supabase";
 
 interface TestCase {
   id: string;
-  category: "Auth" | "Billing" | "Monitoring" | "Offline" | "Q&A" | "Admin";
+  category: "Auth" | "Billing" | "Monitoring" | "Settings" | "Offline" | "Q&A" | "Web" | "Admin" | "Lifecycle" | "Desktop";
   title: string;
   method: string;
   expected: string;
@@ -34,16 +34,8 @@ const INITIAL_TEST_CASES: TestCase[] = [
     actualResult: "",
     platforms: ["Web", "Mac", "Windows"]
   },
-  {
-    id: "AUTH-03",
-    category: "Auth",
-    title: "이메일 매직 링크 전송",
-    method: "로그인 화면 이메일 입력 칸에 주소를 입력하고 Magic Link 전송 버튼을 누른 뒤, Supabase Mailpit 메일함(http://localhost:54324)으로 가입/로그인 인증 메일이 도달하는지 확인합니다.",
-    expected: "성공 메시지가 화면에 출력되고, 로컬 SMTP 서버 메일함에 인증 메일 링크가 1초 이내에 안전하게 발송 적재되어야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
-  },
+  // ※ 구 AUTH-03(이메일 매직 링크 전송)은 삭제됨 — 서비스 미제공 기능.
+  //   관련 dead code(useAuth signInWithMagicLink)와 안내문구(profile.json)도 함께 제거 완료.
   {
     id: "AUTH-04",
     category: "Auth",
@@ -74,38 +66,20 @@ const INITIAL_TEST_CASES: TestCase[] = [
     actualResult: "",
     platforms: ["Web", "Mac", "Windows"]
   },
+  {
+    id: "AUTH-07",
+    category: "Auth",
+    title: "구글 프로필 사진 403 차단 우회 및 리퍼러 제거 (Google Avatar Referrer Bypass)",
+    method: "프로필 화면 및 어드민/QA 상단 헤더의 구글 계정 아바타를 로드합니다. 개발자 도구의 Network 탭에서 `tauri://localhost` 리퍼러(Referrer) 헤더 노출 여부를 감시합니다.",
+    expected: "`referrerPolicy='no-referrer'`를 강제 적용함으로써 구글 CDN의 403 Forbidden 차단 없이 아바타 이미지가 리액티브하고 깨끗하게 노출되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
 
   // 2. 인터랙티브 결제 및 플랜 관리 (Billing)
-  {
-    id: "BILL-01",
-    category: "Billing",
-    title: "인터랙티브 카드 입력 폼 포커스 자동 전환",
-    method: "프로필 화면 -> 카드 정보 등록 위저드 창을 열고, 카드 번호(16자리)를 순차 입력합니다. 유효기간(4자리), 비밀번호 앞 2자리, 생년월일(6자리) 입력 시 다음 입력 창으로 자동 포커싱(Auto-Focus Move)되는지 검증합니다.",
-    expected: "각 입력창에 규정된 글자 수가 다 차는 순간, 마우스 조작이나 Tab 키 누름 없이 자동으로 다음 인풋창으로 포커스가 부드럽게 전환되어야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
-  },
-  {
-    id: "BILL-02",
-    category: "Billing",
-    title: "Luhn 알고리즘 기반 실시간 카드 번호 검증",
-    method: "카드 번호 16자리 입력 중, 마지막 16번째 자리를 입력하여 Luhn 체크썸 공식에 위배되는 가짜 번호일 때 경고를 표출하는지 시험합니다.",
-    expected: "Luhn 공식 검증에 실패하면 '올바르지 않은 카드 번호입니다' 빨간색 메시지가 노출되고, 올바른 카드 번호가 완성되면 초록색 체크 마크가 나타나야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
-  },
-  {
-    id: "BILL-03",
-    category: "Billing",
-    title: "카드 식별 코드(BIN) 연동 다이내믹 그라디언트 테마",
-    method: "신한카드(4673), 현대카드(4311), 삼성카드(5242), KB국민카드(9411) 등 알려진 카드사 고유 식별 번호를 첫 4자리에 입력해 봅니다.",
-    expected: "입력된 앞자리 식별자에 맞게 상단 인터랙티브 가상 카드 플레이트의 그라디언트 테마(신한: Deep Blue, 현대: Matte Black, 삼성: Royal Blue, 국민: Yellow Gold 등)가 다이내믹하게 실시간 전환되어야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
-  },
+  // ※ 구 BILL-01(자동포커스 카드폼)/BILL-02(Luhn 검증)/BILL-03(BIN 그라디언트 테마)은
+  //   'PCI 자체 카드폼 제거'(commit 2173c55) 정책으로 삭제됨 — 카드 입력은 Toss 호스티드 UI에 위임.
   {
     id: "BILL-04",
     category: "Billing",
@@ -140,7 +114,7 @@ const INITIAL_TEST_CASES: TestCase[] = [
     id: "BILL-07",
     category: "Billing",
     title: "결제 지연 유예 기간(Grace Period) 경보 배너 활성화",
-    method: "데이터베이스에서 특정 사용자의 user_subscriptions.grace_period_until 컬럼 값을 현재 시점보다 약 3일 뒤 미래 날짜로 수정하고, user_subscriptions.status를 'payment_failed'로 지정한 채 앱 화면을 로드합니다.",
+    method: "데이터베이스에서 특정 사용자의 user_subscriptions.grace_period_until 컬럼 값을 현재 시점보다 약 3일 뒤 미래 날짜로 수정하고, user_subscriptions.status를 'grace_period'로 지정한 채 앱 화면을 로드합니다. (코드 기준 상태값은 'payment_failed'가 아닌 'grace_period')",
     expected: "앱 화면 최상단에 주황색 경고 톤의 '🚨 정기 결제 실패 - 유예 기간 동안 프로필에서 카드 정보를 업데이트하세요' 연체 및 만료 예정일 고지 배너가 즉각 슬라이드 노출되어야 합니다.",
     status: "Untested",
     actualResult: "",
@@ -149,9 +123,9 @@ const INITIAL_TEST_CASES: TestCase[] = [
   {
     id: "BILL-08",
     category: "Billing",
-    title: "환불 신청 접수 흐름 (RLS 우회형 이벤터)",
-    method: "구독자가 프로필 설정 창에서 '구독 즉시 해지 및 환불 신청' 버튼을 클릭합니다.",
-    expected: "구독 데이터 직접 수정 대신 RLS 우회 구조인 admin_notifications 테이블에 event_type = 'refund_requested' 속성 정보가 무사 인서트 적재되어 관리자 대시보드 알림 피드에 즉각 소출되어야 합니다.",
+    title: "구독 해지/환불 신청 처리 (payment-cancel Edge Function)",
+    method: "구독자가 프로필 설정 창에서 '구독 즉시 해지 및 환불 신청' 버튼(handleRefund)을 클릭합니다.",
+    expected: "클라이언트가 클라이언트 단에서 직접 DB를 수정하지 않고 payment-cancel Edge Function을 invoke하여, 서버 검증을 거쳐 user_subscriptions가 plan_id='free' / status='none'(해지) 상태로 갱신되고 billing_history(결제 이력)에 취소 내역이 안전하게 기록되어야 합니다.",
     status: "Untested",
     actualResult: "",
     platforms: ["Web", "Mac", "Windows"]
@@ -191,9 +165,9 @@ const INITIAL_TEST_CASES: TestCase[] = [
   {
     id: "MONI-04",
     category: "Monitoring",
-    title: "FREE 플랜 요금제 격하 (AI 코칭 잠금)",
-    method: "FREE 플랜 로그인 상태에서 스마트 자세 AI 피드백 탭을 클릭해 봅니다.",
-    expected: "스마트 피드백 영역 전체가 반투명 글래스모피즘 락(Lock) 처리되며 자물쇠 기호와 함께 'PRO 전용 혜택' 알림 및 결제 가격 페이지로의 이동 유도 레이어가 팝업 차단되어야 합니다.",
+    title: "FREE 플랜 AI 코칭 접근 정책 (현재 런칭 체험 개방 상태)",
+    method: "FREE 플랜 로그인 상태에서 스마트 자세 AI 피드백/코칭 탭을 클릭해 봅니다.",
+    expected: "현행 런칭 정책상 코칭 탭은 무료 체험으로 개방되어 있어(MonitorView.tsx 임시 잠금 해제, `{true ? ...}`) FREE 사용자도 코칭 콘텐츠에 접근 가능해야 합니다. ※ 추후 PRO 잠금(글래스모피즘 락+가격 페이지 유도)을 재활성화하면 본 기대결과를 'PRO 전용 잠금'으로 환원해야 합니다.",
     status: "Untested",
     actualResult: "",
     platforms: ["Web"]
@@ -218,8 +192,140 @@ const INITIAL_TEST_CASES: TestCase[] = [
     actualResult: "",
     platforms: ["Web", "Mac", "Windows"]
   },
+  {
+    id: "MONI-07",
+    category: "Monitoring",
+    title: "실시간 자세 점수 링 및 일/주간 통계 대시보드",
+    method: "모니터링 화면의 자세 점수 링(ScoreRing)과 대시보드 탭을 확인합니다. 나쁜 자세를 유발해 점수가 내려갔다가 좋은 자세로 회복 시 상승하는지, 대시보드의 자세 유형별/시간대별 통계가 갱신되는지 봅니다.",
+    expected: "점수 링이 0~100을 색상(녹색>85 / 앰버 / 적색<50)으로 표시하고 부드럽게 애니메이션되며, 대시보드에 오늘·주간 위반 집계와 시간대 막대 차트가 실시간 반영되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "MONI-08",
+    category: "Monitoring",
+    title: "자세 기준선 캘리브레이션 플로우 (최초 실행/재보정)",
+    method: "최초 실행 또는 기준선 삭제(localStorage:calibration_baseline) 후 진입하여 5초 캘리브레이션 화면의 라이브 체크(신체 가시성/머리 기울기/턱괴임/안정성)를 확인합니다.",
+    expected: "안정적인 바른 자세를 5초 유지하면 체크 항목들이 녹색으로 충족되고, OK 프레임 비율이 기준 이상이면 기준선이 캡처되어야 합니다. 기준 미달 시 재시도 안내가 떠야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "MONI-09",
+    category: "Monitoring",
+    title: "다각도(정면/좌/우) 기준선 자동 전환 감지",
+    method: "캘리브레이션 후 머리를 좌/우로 약 15° 돌려 시점 각도를 변경합니다.",
+    expected: "히스테리시스(진입 ±12° / 이탈 ±8°)로 각도를 감지해 해당 각도의 기준선으로 자동 전환되고, 미보정 각도일 경우 보정 안내가 표시되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
 
-  // 4. 오프라인 회복 탄력성 및 싱크 로직 (Offline & Sync)
+  // 4. 설정 및 사용자 환경 (Settings) — SettingsDrawer 실연동. 모니터링 동작·알림·표시 구성.
+  {
+    id: "SET-01",
+    category: "Settings",
+    title: "알림 민감도 프리셋 및 자세별 민감도·지속시간",
+    method: "설정 → 알림(Alerts)에서 프리셋(엄격/보통/관대) 버튼과 자세 유형별 민감도(0.5~2.0)·지속시간 슬라이더를 조작합니다.",
+    expected: "프리셋 선택 시 7개 자세 민감도가 일괄 적용되고, 개별 슬라이더·지속시간 변경이 저장·반영되어 경보 발동 임계가 달라져야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-02",
+    category: "Settings",
+    title: "알림 부스트 모드 (엣지 글로우/풀스크린 토스트/사운드/위젯 확장)",
+    method: "설정 → 알림 부스트(Alert Boost)에서 4개 토글과 미리보기(약/강) 버튼을 시험합니다.",
+    expected: "각 모드 ON 시 경보 발동에 맞춰 화면 가장자리 글로우, 중앙 풀스크린 토스트, 비프음, (데스크톱)위젯 확장이 동작해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-03",
+    category: "Settings",
+    title: "휴식 리마인더 3단계 (마이크로/스탠드업/딥)",
+    method: "설정 → 휴식 리마인더에서 마이크로(기본 30분)/스탠드업(50분)/딥(120분) 토글·주기 슬라이더와 미리보기를 확인합니다.",
+    expected: "착석 누적 시간이 각 단계 주기에 도달하면 해당 단계 토스트가 표출되고, 주기 조정·기본값 초기화가 정상 동작해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-04",
+    category: "Settings",
+    title: "누적 부하 경보 (롤링 윈도/임계 비율)",
+    method: "설정 → 누적 부하(Cumulative Load)에서 윈도(10~60분)·임계(10~50%) 슬라이더와 미리보기를 확인합니다.",
+    expected: "윈도 내 특정 자세 위반 누적 비율이 임계를 초과하면 앰버 톤 누적 경보 토스트가 표시되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-05",
+    category: "Settings",
+    title: "자세 변동성 경보 (정적 자세 감지, 긍정 톤)",
+    method: "설정 → 자세 변동성(Postural Variability)에서 윈도(5~30분)를 설정하고 장시간 정적 자세를 유지합니다.",
+    expected: "움직임이 적은 정적 상태가 감지되면 '자세 안정성 좋아요, 자세를 바꿔보세요' 식의 긍정 톤 토스트가 표시되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-06",
+    category: "Settings",
+    title: "적응형 민감도 (세션 길이/시간대 피로 보정)",
+    method: "설정 → 적응형 민감도(Adaptive Sensitivity)를 켜고 장시간 세션·오후 시간대에서 상태 표시를 확인합니다.",
+    expected: "장시간 세션·오후 피로 시간대에 자세 민감도/휴식 주기 보정이 활성화되고, 현재 보정률(%)이 실시간 표기되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-07",
+    category: "Settings",
+    title: "프라이버시 실루엣 모드",
+    method: "설정 → 프라이버시에서 실루엣 모드를 켭니다.",
+    expected: "카메라 영상이 사라지고 스켈레톤(관절 점·선) 오버레이로 대체되며(상태별 색상), 설정이 재시작 후에도 유지되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-08",
+    category: "Settings",
+    title: "성능 프로파일 (Full/Eco)",
+    method: "설정 → 성능에서 Full ↔ Eco를 전환합니다.",
+    expected: "Eco 선택 시 FPS·고비용 모델(얼굴/손)이 축소되어 CPU/배터리 사용이 감소하고, 변경이 즉시 적용되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-09",
+    category: "Settings",
+    title: "테마 (Auto/Light/Dark)",
+    method: "설정 → 화면에서 Auto/Light/Dark를 전환합니다.",
+    expected: "선택 테마가 즉시 적용되고 Auto는 OS 설정을 따르며, 재시작 후에도 유지되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-10",
+    category: "Settings",
+    title: "데이터 내보내기/가져오기 (JSON 백업) 및 기록 삭제",
+    method: "설정 → 데이터에서 내보내기(JSON 다운로드)·가져오기(파일 선택 복원)·이벤트 기록 삭제를 시험합니다.",
+    expected: "타임스탬프 파일로 백업이 다운로드되고, 가져오기로 설정/기록이 복원되며, 기록 삭제 시 대시보드 통계가 초기화되어야 합니다. (API 키 등 민감정보는 백업 제외)",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+
+  // 5. 오프라인 회복 탄력성 및 싱크 로직 (Offline & Sync)
   {
     id: "SYNC-01",
     category: "Offline",
@@ -261,7 +367,7 @@ const INITIAL_TEST_CASES: TestCase[] = [
     platforms: ["Web", "Mac", "Windows"]
   },
 
-  // 5. 커뮤니티 Q&A 기능 (Q&A)
+  // 5. 커뮤니티 Q&A 기능 (Q&A) — 웹 마케팅 사이트의 #/community 라우트(Marketing.tsx) 전용. 데스크톱 앱 미노출 → Web only.
   {
     id: "COMM-01",
     category: "Q&A",
@@ -270,7 +376,7 @@ const INITIAL_TEST_CASES: TestCase[] = [
     expected: "DB의 posts 테이블에 레코드가 즉시 생성되고, 리스트 최상단에 본인이 쓴 글 카드가 리액티브하게 즉시 바인딩되어 나타나야 합니다.",
     status: "Untested",
     actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
+    platforms: ["Web"]
   },
   {
     id: "COMM-02",
@@ -280,7 +386,7 @@ const INITIAL_TEST_CASES: TestCase[] = [
     expected: "상세 조회 시 views 값이 1 카운트 업되고, 좋아요 클릭 시 즉각 likes 수치가 리액티브하게 갱신되며 Supabase 데이터베이스와 연동 정합성이 보장되어야 합니다.",
     status: "Untested",
     actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
+    platforms: ["Web"]
   },
   {
     id: "COMM-03",
@@ -290,7 +396,7 @@ const INITIAL_TEST_CASES: TestCase[] = [
     expected: "본인의 작성글에만 편집/삭제 버튼이 렌더링되어야 하며, 타 유저의 글에 강제 갱신 API 호출 유발 시 Supabase RLS 정책에 의해 차단 에러를 뿜어야 합니다.",
     status: "Untested",
     actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
+    platforms: ["Web"]
   },
   {
     id: "COMM-04",
@@ -300,7 +406,39 @@ const INITIAL_TEST_CASES: TestCase[] = [
     expected: "comments 테이블에 user_id, post_id와 함께 매핑되어 즉시 적재되고, 하단 댓글 리스트에 깜빡임 없이 리액티브하게 로드되어야 합니다.",
     status: "Untested",
     actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
+    platforms: ["Web"]
+  },
+
+  // 7. 웹 마케팅 사이트 (Web) — 가격/법적문서/다운로드 등 데스크톱 앱 외 웹 전용 페이지.
+  {
+    id: "WEB-01",
+    category: "Web",
+    title: "가격 페이지 및 플랜 선택 + Toss 결제 진입",
+    method: "웹 #/pricing 또는 업그레이드 CTA로 가격 페이지에 진입하여 월/연 토글, 플랜 비교, 결제(토스) 진입을 확인합니다.",
+    expected: "플랜 비교 카드와 월/연 토글이 표시되고, 결제 진입 시 Toss 결제 플로우로 정상 연결되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "WEB-02",
+    category: "Web",
+    title: "법적 문서 페이지 렌더 (약관/개인정보/체인지로그)",
+    method: "웹 푸터의 약관/개인정보/체인지로그 링크(#/terms, #/privacy, #/changelog)를 각각 클릭합니다.",
+    expected: "각 문서가 마크다운(remark-gfm)으로 깨짐 없이 정상 렌더링되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "WEB-03",
+    category: "Web",
+    title: "다운로드 페이지 (mac/win)",
+    method: "웹 다운로드 페이지(#/download/mac, #/download/win)에 진입합니다.",
+    expected: "버전·시스템 요구사항·설치 안내가 표시되고, 다운로드 버튼이 GitHub 릴리스 자산으로 정상 연결되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
   },
 
   // 6. 실시간 어드민 관제 센터 (Admin)
@@ -395,66 +533,6 @@ const INITIAL_TEST_CASES: TestCase[] = [
     platforms: ["Web", "Mac", "Windows"]
   },
   {
-    id: "AUTH-07",
-    category: "Auth",
-    title: "구글 프로필 사진 403 차단 우회 및 리퍼러 제거 (Google Avatar Referrer Bypass)",
-    method: "프로필 화면 및 어드민/QA 상단 헤더의 구글 계정 아바타를 로드합니다. 개발자 도구의 Network 탭에서 `tauri://localhost` 리퍼러(Referrer) 헤더 노출 여부를 감시합니다.",
-    expected: "`referrerPolicy='no-referrer'`를 강제 적용함으로써 구글 CDN의 403 Forbidden 차단 없이 아바타 이미지가 리액티브하고 깨끗하게 노출되어야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Web", "Mac", "Windows"]
-  },
-  {
-    id: "MONI-07",
-    category: "Monitoring",
-    title: "투명 미니바 위젯 레이어 깨짐 및 더블 섀도우 해결 (WebKit 3D Layer & Double Shadow Fix)",
-    method: "데스크톱 위젯 미니바 화면을 켜고, 위젯 주변의 250x54 사각형 회색 투명도 그림자 박스 찌꺼기 혹은 알약 모양 외곽의 뿌연 거품 이중 테두리가 생기는지 면밀히 육안 관찰합니다.",
-    expected: "컴포지팅 강제 레이어 프로모션(`translate3d`)과 투명 배경 적용, 그리고 `html.is-tauri-transparent` 미니바 섀도우 무효화(Quartz 드롭섀도우 일임)에 따라 뿌연 회색 잡티나 이중 테두리 없이 극도로 깔끔하고 선명한 알약 모양 위젯과 부드러운 단일 네이티브 그림자가 출력되어야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Mac"]
-  },
-  {
-    id: "ADMN-10",
-    category: "Admin",
-    title: "데스크톱 앱 최소화-투-위젯 파이프라인 (Tauri Minimize-to-Widget)",
-    method: "메인 윈도우의 타이틀 바 최소화(-) 버튼을 클릭하거나 윈도우 최소화 단축키를 입력합니다.",
-    expected: "Dock으로 윈도우가 들어가 숨는 대신, 메인 창은 즉시 안전하게 은닉(`window.hide()`)되고 그 즉시 마우스 호버 차단이 구현된 투명 플로팅 미니바 위젯이 화면에 출현해야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Mac", "Windows"]
-  },
-  {
-    id: "ADMN-11",
-    category: "Admin",
-    title: "메인 윈도우 X 닫기 시 앱 프로세스 완전 종료 (Quit App Policy)",
-    method: "메인 윈도우 타이틀 바의 붉은색 닫기(X) 버튼을 클릭합니다.",
-    expected: "단순히 창이 가려지거나 위젯 모드로 가던 기존 버그에서 완전히 벗어나, `app_handle().exit(0)` 정책에 따라 데스크톱 프로세스가 안전하고 완전하게 죽어 무사 종료되어야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Mac", "Windows"]
-  },
-  {
-    id: "ADMN-12",
-    category: "Admin",
-    title: "데스크톱 앱 네이티브 새로고침 단축키 바인딩 (App Native Reload)",
-    method: "메인 윈도우 혹은 미니바 상태에서 키보드 새로고침 단축키(`Cmd+R` / `Ctrl+R` / `F5`)를 무작위로 여러 번 연타해 봅니다.",
-    expected: "웹뷰가 프리징되지 않고 브라우저 표준 리로딩 동작이 데스크톱 환경에서도 안정적이고 신속하게 기동되어 화면 상태가 안전하게 갱신되어야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Mac", "Windows"]
-  },
-  {
-    id: "ADMN-13",
-    category: "Admin",
-    title: "어드민 대시보드 OS 기본 브라우저 아웃고잉 (Tauri Native Browser Open)",
-    method: "데스크톱 앱 프로필 뷰 하단의 `📊 어드민 대시보드 구동 (웹 브라우저로 열기)` 버튼을 클릭해 봅니다.",
-    expected: "데스크톱 내부의 좁은 창에서 열리는 대신, Rust 백엔드의 `open_browser` 프로세스 위임을 거쳐 사용자의 시스템 기본 브라우저(Chrome, Safari 등)가 즉시 새 탭으로 실행되며 어드민 대시보드가 넓고 쾌적하게 띄워져야 합니다.",
-    status: "Untested",
-    actualResult: "",
-    platforms: ["Mac", "Windows"]
-  },
-  {
     id: "ADMN-14",
     category: "Admin",
     title: "헤더 프리미엄 글래스모피즘 어드민 계정 정보 카드 (Premium Header Account Card)",
@@ -463,6 +541,130 @@ const INITIAL_TEST_CASES: TestCase[] = [
     status: "Untested",
     actualResult: "",
     platforms: ["Web", "Mac", "Windows"]
+  },
+
+  // 9. 앱 라이프사이클 및 글로벌 (Lifecycle) — 온보딩/언어/업데이트.
+  {
+    id: "LIFE-01",
+    category: "Lifecycle",
+    title: "최초 실행 온보딩 3단계 + 건너뛰기 + 카메라 권한",
+    method: "최초 실행(localStorage:onboarded_v1 삭제 후 재진입)하여 온보딩 모달을 확인합니다.",
+    expected: "3단계 안내(환영 → 자세 감지 안내 → 프라이버시/카메라 권한)와 건너뛰기 버튼이 동작하고, 완료/건너뛰기 후에는 다시 표시되지 않아야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "LIFE-02",
+    category: "Lifecycle",
+    title: "언어 전환 (ko/en/ja) 즉시 반영·유지",
+    method: "헤더/설정의 언어 선택에서 한국어/English/日本語를 전환합니다.",
+    expected: "UI 텍스트(알림·설정 라벨 등)가 즉시 해당 언어로 바뀌고, 선택이 저장되어 재시작/재방문 후에도 유지되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "LIFE-03",
+    category: "Lifecycle",
+    title: "자동 업데이트 알림 배너 + 진행률 + 재시작 (수동 확인 포함)",
+    method: "데스크톱에서 새 버전 존재 시 업데이트 배너 및 설정 → 정보의 수동 '업데이트 확인'을 확인합니다.",
+    expected: "버전 정보·다운로드 진행률·재시작 버튼이 있는 배너가 표시되고, 설치 후 자동 재실행되며, 오프라인/오류는 안내 상태로 처리되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+
+  // 10. 데스크톱 네이티브 동작 (Desktop / Tauri) — 구 MONI-07 및 ADMN-10~13에서 재분류. Web 미해당.
+  {
+    id: "DESK-01",
+    category: "Desktop",
+    title: "투명 미니바 위젯 레이어 깨짐 및 더블 섀도우 해결 (WebKit 3D Layer & Double Shadow Fix)",
+    method: "데스크톱 위젯 미니바 화면을 켜고, 위젯 주변의 250x54 사각형 회색 투명도 그림자 박스 찌꺼기 혹은 알약 모양 외곽의 뿌연 거품 이중 테두리가 생기는지 면밀히 육안 관찰합니다.",
+    expected: "컴포지팅 강제 레이어 프로모션(`translate3d`)과 투명 배경 적용, 그리고 `html.is-tauri-transparent` 미니바 섀도우 무효화(Quartz 드롭섀도우 일임)에 따라 뿌연 회색 잡티나 이중 테두리 없이 극도로 깔끔하고 선명한 알약 모양 위젯과 부드러운 단일 네이티브 그림자가 출력되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac"]
+  },
+  {
+    id: "DESK-02",
+    category: "Desktop",
+    title: "데스크톱 앱 최소화-투-위젯 파이프라인 (Tauri Minimize-to-Widget)",
+    method: "메인 윈도우의 타이틀 바 최소화(-) 버튼을 클릭하거나 윈도우 최소화 단축키를 입력합니다.",
+    expected: "Dock으로 윈도우가 들어가 숨는 대신, 메인 창은 즉시 안전하게 은닉(`window.hide()`)되고 그 즉시 마우스 호버 차단이 구현된 투명 플로팅 미니바 위젯이 화면에 출현해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "DESK-03",
+    category: "Desktop",
+    title: "메인 윈도우 X 닫기 시 앱 프로세스 완전 종료 (Quit App Policy)",
+    method: "메인 윈도우 타이틀 바의 붉은색 닫기(X) 버튼을 클릭합니다.",
+    expected: "단순히 창이 가려지거나 위젯 모드로 가던 기존 버그에서 완전히 벗어나, `app_handle().exit(0)` 정책에 따라 데스크톱 프로세스가 안전하고 완전하게 죽어 무사 종료되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "DESK-04",
+    category: "Desktop",
+    title: "데스크톱 앱 네이티브 새로고침 단축키 바인딩 (App Native Reload)",
+    method: "메인 윈도우 혹은 미니바 상태에서 키보드 새로고침 단축키(`Cmd+R` / `Ctrl+R` / `F5`)를 무작위로 여러 번 연타해 봅니다.",
+    expected: "웹뷰가 프리징되지 않고 브라우저 표준 리로딩 동작이 데스크톱 환경에서도 안정적이고 신속하게 기동되어 화면 상태가 안전하게 갱신되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "DESK-05",
+    category: "Desktop",
+    title: "어드민 대시보드 OS 기본 브라우저 아웃고잉 (Tauri Native Browser Open)",
+    method: "데스크톱 앱 프로필 뷰 하단의 `📊 어드민 대시보드 구동 (웹 브라우저로 열기)` 버튼을 클릭해 봅니다.",
+    expected: "데스크톱 내부의 좁은 창에서 열리는 대신, Rust 백엔드의 `open_browser` 프로세스 위임을 거쳐 사용자의 시스템 기본 브라우저(Chrome, Safari 등)가 즉시 새 탭으로 실행되며 어드민 대시보드가 넓고 쾌적하게 띄워져야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "DESK-06",
+    category: "Desktop",
+    title: "시스템 트레이 메뉴 (표시/일시정지/재개/종료) 및 상태 툴팁",
+    method: "시스템 트레이 아이콘을 우클릭하여 메뉴(표시/일시정지/재개/종료)와 상태 툴팁을 확인합니다.",
+    expected: "4개 메뉴가 정상 동작(일시정지/재개 이벤트 발화, 종료 시 앱 종료)하고, 툴팁에 모니터링 상태(🟢🟡🔴⚪)가 반영되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "DESK-07",
+    category: "Desktop",
+    title: "로그인 시 자동 시작 토글 (Autostart)",
+    method: "설정 → 데스크톱에서 '로그인 시 자동 시작' 토글을 켜고 재로그인/재부팅합니다.",
+    expected: "토글 상태가 저장되고 OS 로그인 시 앱이 자동 실행되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "DESK-08",
+    category: "Desktop",
+    title: "미니바 표시 토글 (Minibar Visibility)",
+    method: "설정 → 데스크톱에서 미니바 표시 토글을 전환합니다.",
+    expected: "플로팅 미니바 위젯의 표시/숨김이 토글되고, 설정이 재시작 후에도 유지되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+  {
+    id: "DESK-09",
+    category: "Desktop",
+    title: "백그라운드 모니터링 유지(keep-awake) + 워치독 자동 복구",
+    method: "메인 창을 숨긴 위젯 상태로 장시간 두어(백그라운드) 모니터링 지속 여부를 확인하고, 의도적으로 포즈 루프를 멈춰 자동 복구를 관찰합니다.",
+    expected: "백그라운드에서도 모니터링이 끊기지 않고(keep-awake), 하트비트 중단 시 워치독이 약 60초 후 자동 새로고침으로 복구해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
   }
 ];
 
@@ -927,18 +1129,25 @@ export function QaDashboardView() {
             </div>
           </div>
 
-          {/* 세부 카운팅 메트릭 */}
+          {/* 세부 카운팅 메트릭 (클릭 시 해당 상태로 필터링) */}
           {[
-            { title: "검증 대상 (Total)", val: totalCount, sub: "전체 검증 가이드 개수", color: "#ccc" },
-            { title: "성공 (Pass)", val: passCount, sub: "테스트 정상 확인됨", color: "#5b8c7a", icon: "✓" },
-            { title: "실패 (Fail)", val: failCount, sub: "디버깅 및 수정 필요", color: "#c95c5c", icon: "✗" },
-            { title: "미수행 (Untested)", val: untestedCount, sub: "아직 테스트하지 않음", color: "#8a9aa8", icon: "●" },
-          ].map((m, idx) => (
+            { title: "검증 대상 (Total)", val: totalCount, sub: "전체 검증 가이드 개수 · 클릭 시 전체", color: "#ccc", filter: "All" },
+            { title: "성공 (Pass)", val: passCount, sub: "테스트 정상 확인됨 · 클릭 시 필터", color: "#5b8c7a", icon: "✓", filter: "Pass" },
+            { title: "실패 (Fail)", val: failCount, sub: "디버깅 및 수정 필요 · 클릭 시 필터", color: "#c95c5c", icon: "✗", filter: "Fail" },
+            { title: "미수행 (Untested)", val: untestedCount, sub: "아직 테스트하지 않음 · 클릭 시 필터", color: "#8a9aa8", icon: "●", filter: "Untested" },
+          ].map((m, idx) => {
+            const isActive =
+              activeStatusFilter === m.filter ||
+              (m.filter === "All" && (activeStatusFilter === "All" || activeStatusFilter === "all"));
+            return (
             <div
               key={idx}
+              onClick={() => setActiveStatusFilter(m.filter)}
+              title={m.filter === "All" ? "전체 항목 보기" : `${m.title} 항목만 필터링`}
               style={{
-                background: "rgba(255, 255, 255, 0.02)",
-                border: "1px solid rgba(255, 255, 255, 0.05)",
+                background: isActive ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.02)",
+                border: `1px solid ${isActive ? m.color : "rgba(255, 255, 255, 0.05)"}`,
+                boxShadow: isActive ? `0 0 0 1px ${m.color}, 0 8px 24px rgba(0,0,0,0.25)` : "none",
                 borderRadius: 20,
                 padding: "20px 24px",
                 display: "flex",
@@ -946,9 +1155,28 @@ export function QaDashboardView() {
                 gap: 4,
                 position: "relative",
                 overflow: "hidden",
+                cursor: "pointer",
+                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+              onMouseEnter={e => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
+                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.05)";
+                  e.currentTarget.style.transform = "none";
+                }
               }}
             >
-              <div style={{ fontSize: 12, opacity: 0.5, fontWeight: 600 }}>{m.title}</div>
+              <div style={{ fontSize: 12, opacity: 0.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                {m.title}
+                {isActive && <span style={{ fontSize: 9, fontWeight: 800, color: m.color, background: `${m.color}22`, padding: "1px 6px", borderRadius: 5 }}>필터 적용중</span>}
+              </div>
               <div style={{ fontSize: 32, fontWeight: 900, color: m.color, marginTop: 4 }}>
                 {m.val}
                 <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.5, marginLeft: 2 }}>건</span>
@@ -962,7 +1190,7 @@ export function QaDashboardView() {
                     bottom: 12,
                     fontSize: 48,
                     fontWeight: 900,
-                    opacity: 0.03,
+                    opacity: isActive ? 0.08 : 0.03,
                     color: m.color,
                     pointerEvents: "none",
                   }}
@@ -971,7 +1199,8 @@ export function QaDashboardView() {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </section>
 
         {/* 플랫폼 구분 탭 필터 (프리미엄 세그먼트 컨트롤러) */}
@@ -1080,7 +1309,7 @@ export function QaDashboardView() {
         >
           {/* 카테고리 탭 필터 */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {["All", "Auth", "Billing", "Monitoring", "Offline", "Q&A", "Admin"].map(cat => {
+            {["All", "Auth", "Billing", "Monitoring", "Settings", "Offline", "Q&A", "Web", "Admin", "Lifecycle", "Desktop"].map(cat => {
               const count = cat === "All" ? platformFilteredCases.length : platformFilteredCases.filter(t => t.category === cat).length;
               const isActive = activeCategory === cat;
               return (

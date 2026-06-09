@@ -1473,10 +1473,9 @@ function Contact() {
     if (!sessionStorage.getItem(viewKey)) {
       sessionStorage.setItem(viewKey, "true");
       try {
-        await supabase
-          .from("posts")
-          .update({ views: post.views + 1 })
-          .eq("id", post.id);
+        // SECURITY DEFINER RPC — posts UPDATE RLS(소유자 전용) 우회하여 타인 글 조회수도 증가
+        const { error } = await supabase.rpc("increment_post_views", { p_id: post.id });
+        if (error) throw error;
         // Update local state views count
         setPosts((prev) =>
           prev.map((p) => (p.id === post.id ? { ...p, views: p.views + 1 } : p))
@@ -1496,10 +1495,8 @@ function Contact() {
     }
 
     try {
-      const { error } = await supabase
-        .from("posts")
-        .update({ likes: post.likes + 1 })
-        .eq("id", post.id);
+      // SECURITY DEFINER RPC — posts UPDATE RLS(소유자 전용) 우회하여 타인 글 좋아요도 증가
+      const { error } = await supabase.rpc("increment_post_likes", { p_id: post.id });
       if (error) throw error;
 
       localStorage.setItem(likeKey, "true");

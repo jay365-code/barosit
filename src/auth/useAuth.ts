@@ -398,23 +398,6 @@ export function useAuth() {
 
   const signInWithGoogle = useCallback(() => signInWithOAuth("google"), [signInWithOAuth]);
 
-  const signInWithMagicLink = useCallback(async (email: string) => {
-    if (!IS_AUTH_CONFIGURED) {
-      throw new Error(i18n.t("errors:auth.notConfigured"));
-    }
-    const normalized = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-      throw new Error(i18n.t("errors:auth.invalidEmail"));
-    }
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalized,
-      options: {
-        emailRedirectTo: authRedirectUrl(),
-      },
-    });
-    if (error) throw error;
-  }, []);
-
   const signInWithApple = useCallback(() => signInWithOAuth("apple"), [signInWithOAuth]);
 
   const signInWithKakao = useCallback(() => signInWithOAuth("kakao"), [signInWithOAuth]);
@@ -463,7 +446,6 @@ export function useAuth() {
     signInWithKakao,
     signInWithNaver,
     signInWithLine,
-    signInWithMagicLink,
     signOut,
   };
 }
