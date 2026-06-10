@@ -50,8 +50,11 @@
     "guestSub": "🔒 3초 만에 소셜 로그인하고 소중한 거북목 분석 데이터 지키기",
     "guestCta": "평생 백업하기",
     "freeMsg": "현재 웹 전용 FREE 플랜입니다. 백그라운드 무정지 감지, 미니 위젯 등 풍부한 네이티브 기능이 포함된 데스크톱 설치형 앱 다운로드(PRO 전용)를 이용해보세요.",
+    "freeMsg_beta": "백그라운드 무정지 감지, 미니 위젯 등 풍부한 네이티브 기능이 포함된 데스크톱 설치형 앱을 지금 무료로 설치하여 이용해보세요.",
     "freeSub": "💻 Windows / macOS 무정지 백그라운드 구동 & 실시간 플로팅 위젯 지원",
-    "freeCta": "PRO 혜택 확인"
+    "freeSub_beta": "💻 Windows / macOS 무정지 백그라운드 구동 & 실시간 플로팅 위젯 지원",
+    "freeCta": "PRO 혜택 확인",
+    "freeCta_beta": "커뮤니티 소식 보기"
   },
   "cameraLock": {
     "guestTitle": "로그인하면 자세 감지가 시작돼요",
@@ -286,9 +289,12 @@
     "closeX": "닫기 ✕",
     "noViolationOnDate": "👏 선택하신 날짜에는 {{label}} 위반이 기록되지 않았습니다!",
     "proOnlyTitle": "정밀 분석 리포트 기능은 PRO 전용입니다",
+    "proOnlyTitle_beta": "정밀 분석 리포트 기능 안내",
     "proOnlyDesc": "오늘 누적된 데이터를 기반으로 하는 **임상 물리치료 및 인체공학 관점의 AI 조언 피드백**과 초 단위로 기록된 **정밀 타임스탬프 로그**는 PRO 회원에게만 제공되는 고급 기능입니다.",
+    "proOnlyDesc_beta": "오늘 누적된 데이터를 기반으로 분석한 인체공학 관점의 AI 피드백 조언과 초 단위의 정밀 타임스탬프 기록을 확인해 보세요. 향후 지원 예정인 정밀 통계 및 AI 코칭 추가 로드맵은 커뮤니티에서 확인해 보세요.",
     "later": "다음에 할게요",
     "checkPro": "PRO 요금제 확인하기",
+    "checkPro_beta": "커뮤니티 바로가기",
     "todaySeating": "오늘 착석: ",
     "yesterdaySeating": "어제 착석: ",
     "nowTime": "현재 {{time}}",

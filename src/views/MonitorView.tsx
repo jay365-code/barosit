@@ -9,7 +9,7 @@ import {
 import { useAuth } from "../auth/useAuth";
 import { useEntitlement } from "../auth/useEntitlement";
 import { isMonitoringEntitled } from "../lib/entitlement";
-import { extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
+import { extractSocialAvatarUrl, pickInitial, supabase } from "../auth/supabase";
 import { loadBaseline, determineAngle, determineAngleSticky } from "../pose/calibration";
 import { useCamera } from "../hooks/useCamera";
 import { usePoseLoop } from "../hooks/usePoseLoop";
@@ -92,7 +92,8 @@ import {
   updateStatus,
   type WidgetLastAlarm,
 } from "../ipc";
-import { platform } from "../platform";
+import { platform, IS_WEB } from "../platform";
+import { isBetaFree } from "../launchMode";
 import {
   appendEvent,
   computeDailyStats,
@@ -249,6 +250,32 @@ export function MonitorView({
   // 권한은 localStorage 가 아니라 서버 검증 값을 신뢰한다(§7 E3-②). 캐시 조작 시
   // useEntitlement 가 다음 검증에서 서버 값으로 강등한다.
   const { plan: subPlan } = useEntitlement();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!error && data?.is_admin) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        console.error("[MonitorView] Failed to check admin status:", err);
+        setIsAdmin(false);
+      }
+    };
+    checkAdminStatus();
+  }, [user]);
 
   const isMac = typeof navigator !== "undefined" && navigator.userAgent.indexOf("Mac") !== -1;
   const shortcutText = isMac ? t("monitor:shortcut.mac") : t("monitor:shortcut.win");
@@ -1685,10 +1712,10 @@ export function MonitorView({
       )}
       <div style={{ padding: "22px 40px 20px", maxWidth: 1100, margin: "0 auto" }}>
         {/* Nudge Alert Banner for Guest / Free Users */}
-        {(!user || subPlan === "free") && (
+        {(!user || (isBetaFree() ? IS_WEB : subPlan === "free")) && (
           <div
             className="barosit-nudge-banner"
-            onClick={!user ? onOpenProfile : onOpenPricing}
+            onClick={!user ? onOpenProfile : (isBetaFree() ? () => { window.location.hash = "#/community"; } : onOpenPricing)}
             style={{
               cursor: "pointer",
               position: "relative",
@@ -1766,7 +1793,7 @@ export function MonitorView({
                 >
                   {!user
                     ? t("monitor:proBanner.guestMsg")
-                    : t("monitor:proBanner.freeMsg")}
+                    : (isBetaFree() ? t("monitor:proBanner.freeMsg_beta") : t("monitor:proBanner.freeMsg"))}
                 </span>
                 <span
                   style={{
@@ -1778,7 +1805,7 @@ export function MonitorView({
                 >
                   {!user
                     ? t("monitor:proBanner.guestSub")
-                    : t("monitor:proBanner.freeSub")}
+                    : (isBetaFree() ? t("monitor:proBanner.freeSub_beta") : t("monitor:proBanner.freeSub"))}
                 </span>
               </div>
             </div>
@@ -1808,7 +1835,7 @@ export function MonitorView({
               }}
               className="nudge-action-btn"
             >
-              {!user ? t("monitor:proBanner.guestCta") : t("monitor:proBanner.freeCta")}
+              {!user ? t("monitor:proBanner.guestCta") : (isBetaFree() ? t("monitor:proBanner.freeCta_beta") : t("monitor:proBanner.freeCta"))}
               <Icon name="chev-r" size={11} />
             </button>
 
@@ -2030,6 +2057,29 @@ export function MonitorView({
                 }}
               >
                 {t("monitor:controls.home")}
+              </a>
+            )}
+            {user && isAdmin && (
+              <a
+                href="#/admin"
+                className="b-btn b-btn-ghost b-tip"
+                aria-label="어드민 제어 센터"
+                data-tip="어드민 대시보드 구동"
+                style={{
+                  height: 32,
+                  padding: "0 10px",
+                  fontSize: 12,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  color: "#e08866",
+                  border: "1px solid rgba(224, 136, 102, 0.3)",
+                  background: "rgba(224, 136, 102, 0.04)"
+                }}
+              >
+                <Icon name="shield" size={13} style={{ opacity: 0.8 }} />
+                <span>관리자</span>
               </a>
             )}
             {user ? (
@@ -4782,10 +4832,10 @@ export function MonitorView({
                   👑
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "var(--b-fg-1)", marginBottom: 8, letterSpacing: "-0.015em" }}>
-                  {t("monitor:report.proOnlyTitle")}
+                  {isBetaFree() ? t("monitor:report.proOnlyTitle_beta") : t("monitor:report.proOnlyTitle")}
                 </div>
                 <div style={{ fontSize: 12.5, color: "var(--b-fg-3)", lineHeight: 1.6, marginBottom: 24, maxWidth: 360 }}>
-                  {t("monitor:report.proOnlyDesc")}
+                  {isBetaFree() ? t("monitor:report.proOnlyDesc_beta") : t("monitor:report.proOnlyDesc")}
                 </div>
                 <div
                   style={{
@@ -4821,7 +4871,11 @@ export function MonitorView({
                     className="b-btn"
                     onClick={() => {
                       setDetailedReportOpen(false);
-                      onOpenPricing();
+                      if (isBetaFree()) {
+                        window.location.hash = "#/community";
+                      } else {
+                        onOpenPricing();
+                      }
                     }}
                     style={{
                       flex: 1.5,
@@ -4837,7 +4891,7 @@ export function MonitorView({
                       boxShadow: "0 4px 12px rgba(45, 143, 126, 0.3)",
                     }}
                   >
-                    {t("monitor:report.checkPro")}
+                    {isBetaFree() ? t("monitor:report.checkPro_beta") : t("monitor:report.checkPro")}
                   </button>
                 </div>
               </div>

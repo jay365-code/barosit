@@ -50,8 +50,11 @@
     "guestSub": "🔒 Social login in 3 seconds and protect your posture analytics",
     "guestCta": "Back up forever",
     "freeMsg": "You're on the web-only FREE plan. Try the installable desktop app (PRO) with rich native features like nonstop background detection and a mini widget.",
+    "freeMsg_beta": "Try the installable desktop app with rich native features like nonstop background detection and a mini widget, now available for free.",
     "freeSub": "💻 Nonstop background on Windows / macOS & real-time floating widget",
-    "freeCta": "See PRO benefits"
+    "freeSub_beta": "💻 Nonstop background on Windows / macOS & real-time floating widget",
+    "freeCta": "See PRO benefits",
+    "freeCta_beta": "View Community News"
   },
   "cameraLock": {
     "guestTitle": "Sign in to start posture detection",
@@ -286,9 +289,12 @@
     "closeX": "Close ✕",
     "noViolationOnDate": "👏 No {{label}} violations were recorded on the selected date!",
     "proOnlyTitle": "The precision analysis report is a PRO feature",
+    "proOnlyTitle_beta": "Precision Analysis Report Guide",
     "proOnlyDesc": "Based on today's accumulated data, **clinical physical-therapy and ergonomic AI advice feedback** and **second-level precision timestamp logs** are advanced features available only to PRO members.",
+    "proOnlyDesc_beta": "Check out the ergonomic AI feedback advice based on today's accumulated data and the second-level precision timestamp log. You can check the upcoming roadmap for advanced stats and AI coaching in the community.",
     "later": "Maybe later",
     "checkPro": "View PRO plans",
+    "checkPro_beta": "Go to Community",
     "todaySeating": "Today's sitting: ",
     "yesterdaySeating": "Yesterday's sitting: ",
     "nowTime": "Now {{time}}",

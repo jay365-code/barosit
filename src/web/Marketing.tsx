@@ -88,12 +88,41 @@ export const trackPaymentEvent = (
 function TopNav({ active }: { active?: string }) {
   const { user } = useAuth();
   const { t } = useTranslation("marketing");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!error && data?.is_admin) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (e) {
+        setIsAdmin(false);
+      }
+    };
+    checkAdminStatus();
+  }, [user]);
+
   const items = [
     { key: "features", label: t("nav.features"), hash: "#/landing" },
     { key: "pricing", label: t("nav.pricing"), hash: "#/pricing" },
     { key: "download", label: t("nav.download"), hash: "#/download" },
     { key: "community", label: t("nav.community"), hash: "#/community" },
   ];
+  if (isAdmin) {
+    items.push({ key: "admin", label: "관리자", hash: "#/admin" });
+  }
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
   let customName = "";
   if (typeof window !== "undefined") {
@@ -3361,19 +3390,25 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
 
   const handleDownloadClick = () => {
     if (!user) {
-      alert(t("downloadPage.loginNeeded"));
+      alert(t(isBetaFree() ? "downloadPage.loginNeeded_beta" : "downloadPage.loginNeeded"));
       // 현재 다운로드 페이지를 redirect 로 저장 → 로그인 후 복귀.
       navigateToLogin();
       return;
     }
 
-    if (userPlan !== "pro") {
-      alert(t("downloadPage.freeUpsell"));
-      window.location.hash = "#/pricing";
-    } else {
-      alert(t("downloadPage.proSuccess", { name: m.name, file: m.file }));
+    if (isBetaFree()) {
+      alert(t("downloadPage.proSuccess_beta", { name: m.name, file: m.file }));
       const downloadUrl = `https://github.com/jay365-code/barosit/releases/download/v${currentVer}/${m.file}`;
       window.location.href = downloadUrl;
+    } else {
+      if (userPlan !== "pro") {
+        alert(t("downloadPage.freeUpsell"));
+        window.location.hash = "#/pricing";
+      } else {
+        alert(t("downloadPage.proSuccess", { name: m.name, file: m.file }));
+        const downloadUrl = `https://github.com/jay365-code/barosit/releases/download/v${currentVer}/${m.file}`;
+        window.location.href = downloadUrl;
+      }
     }
   };
 

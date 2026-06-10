@@ -277,6 +277,8 @@ export default function App() {
   const [_subPlan, setSubPlan] = useState<"free" | "pro">("free");
   const [subStatus, setSubStatus] = useState<string>("active");
   const [gracePeriodUntil, setGracePeriodUntil] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authLoaded, setAuthLoaded] = useState(false);
 
   useEffect(() => {
     const onVis = () => {
@@ -390,6 +392,14 @@ export default function App() {
         let graceUntil: string | null = null;
 
         if (session?.user) {
+          // 어드민 권한 체크
+          const { data: profData } = await supabase
+            .from("profiles")
+            .select("is_admin")
+            .eq("id", session.user.id)
+            .maybeSingle();
+          setIsAdmin(!!profData?.is_admin);
+
           const { data, error } = await supabase
             .from("user_subscriptions")
             .select("plan_id, status, current_period_end, grace_period_until")
@@ -406,6 +416,7 @@ export default function App() {
             actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
           }
         } else {
+          setIsAdmin(false);
           const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
           actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
         }
@@ -420,10 +431,12 @@ export default function App() {
         setSubPlan(actualPlan);
         setSubStatus(status);
         setGracePeriodUntil(graceUntil);
+        setAuthLoaded(true);
       } catch (err) {
         console.error("App: failed to fetch sub:", err);
         const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
         setSubPlan(localPlan || "free");
+        setAuthLoaded(true);
       }
     };
 
@@ -554,6 +567,13 @@ export default function App() {
   };
 
   if (currentHash === "#/admin") {
+    if (!authLoaded) {
+      return null;
+    }
+    if (!isAdmin) {
+      window.location.hash = "";
+      return null;
+    }
     return (
       <ErrorBoundary>
         <AdminDashboardView onClose={() => { window.location.hash = ""; }} />
