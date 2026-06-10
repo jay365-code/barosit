@@ -91,7 +91,7 @@ function TopNav({ active }: { active?: string }) {
   const items = [
     { key: "features", label: t("nav.features"), hash: "#/landing" },
     { key: "pricing", label: t("nav.pricing"), hash: "#/pricing" },
-    { key: "download", label: t("nav.download"), hash: "#/download/mac" },
+    { key: "download", label: t("nav.download"), hash: "#/download" },
     { key: "community", label: t("nav.community"), hash: "#/community" },
   ];
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
@@ -194,7 +194,7 @@ function TopNav({ active }: { active?: string }) {
           </a>
         )}
         <a
-          href="#/download/mac"
+          href="#/download"
           className="b-btn b-btn-primary"
           style={{ textDecoration: "none" }}
         >
@@ -456,18 +456,11 @@ function Landing() {
             <Icon name="arrow-r" size={14} /> {t("landing.cta.webStart")}
           </a>
           <a
-            href="#/download/mac"
+            href="#/download"
             className="b-btn b-btn-ghost"
-            style={{ height: 48, padding: "0 20px", fontSize: 14, textDecoration: "none" }}
+            style={{ height: 48, padding: "0 22px", fontSize: 14, textDecoration: "none" }}
           >
-            {t("landing.cta.mac")}
-          </a>
-          <a
-            href="#/download/win"
-            className="b-btn b-btn-ghost"
-            style={{ height: 48, padding: "0 20px", fontSize: 14, textDecoration: "none" }}
-          >
-            {t("landing.cta.win")}
+            {t("landing.cta.downloadApp")}
           </a>
         </div>
         <div className="b-num" style={{ fontSize: 12, color: "var(--b-fg-4)" }}>
@@ -752,28 +745,20 @@ function Landing() {
         </p>
         <div style={{ display: "inline-flex", gap: 10 }}>
           <a
-            href="#/download/mac"
+            href="#/download"
             className="b-btn b-btn-primary"
             style={{
               height: 48,
-              padding: "0 22px",
+              padding: "0 24px",
               fontSize: 14,
               textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            {t("landing.final.mac")}
-          </a>
-          <a
-            href="#/download/win"
-            className="b-btn b-btn-ghost"
-            style={{
-              height: 48,
-              padding: "0 22px",
-              fontSize: 14,
-              textDecoration: "none",
-            }}
-          >
-            {t("landing.final.win")}
+            <Icon name="arrow-r" size={14} style={{ marginRight: 6 }} />
+            {t("landing.final.downloadApp")}
           </a>
         </div>
       </div>
@@ -3440,6 +3425,56 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
           </div>
         </div>
 
+        {/* OS Segmented Tab Selector */}
+        <div
+          style={{
+            display: "flex",
+            background: "var(--b-surface-2, #242629)",
+            border: "1px solid var(--b-line, #333)",
+            padding: 4,
+            borderRadius: 12,
+            maxWidth: 240,
+            marginBottom: 30,
+          }}
+        >
+          <button
+            onClick={() => { window.location.hash = "#/download/mac"; }}
+            className="b-btn"
+            style={{
+              flex: 1,
+              height: 34,
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: 8,
+              border: "none",
+              background: os === "mac" ? "var(--b-sig, #5b8c7a)" : "transparent",
+              color: os === "mac" ? "#fff" : "var(--b-fg-3, #8a8d90)",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            macOS
+          </button>
+          <button
+            onClick={() => { window.location.hash = "#/download/win"; }}
+            className="b-btn"
+            style={{
+              flex: 1,
+              height: 34,
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: 8,
+              border: "none",
+              background: os === "win" ? "var(--b-sig, #5b8c7a)" : "transparent",
+              color: os === "win" ? "#fff" : "var(--b-fg-3, #8a8d90)",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            Windows
+          </button>
+        </div>
+
         <button
           onClick={handleDownloadClick}
           className="b-btn b-btn-primary"
@@ -3801,7 +3836,7 @@ function Pricing() {
   ) => {
     // 베타 무료 기간에는 결제 대신 다운로드로 안내 — 전 기능이 이미 개방돼 있음
     if (isBetaFree()) {
-      window.location.hash = "#/download/mac";
+      window.location.hash = "#/download";
       return;
     }
     setPaymentState("checkout");
@@ -4731,7 +4766,7 @@ function PlanTab({
         <p style={{ color: "var(--b-fg-2)", lineHeight: 1.7, marginBottom: 20 }}>
           {t("web.betaPlanBody")}
         </p>
-        <a href="#/download/mac" className="b-btn b-btn-primary">
+        <a href="#/download" className="b-btn b-btn-primary">
           {t("web.betaPlanCta")}
         </a>
       </>
@@ -5432,6 +5467,7 @@ export type MarketingRoute =
   | "signup"
   | "download-mac"
   | "download-win"
+  | "download"
   | "pricing"
   | "profile"
   | "privacy"
@@ -5440,6 +5476,13 @@ export type MarketingRoute =
   | "changelog"
   | "auth-callback";
 
+function detectOS(): "mac" | "win" {
+  if (typeof window === "undefined" || !navigator) return "mac";
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes("win")) return "win";
+  return "mac";
+}
+
 export function routeFromHash(hash: string): MarketingRoute | null {
   const h = hash.replace(/^#\/?/, "").split("?")[0];
   if (h === "landing") return "landing";
@@ -5447,6 +5490,7 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   if (h === "signup") return "signup";
   if (h === "download/mac") return "download-mac";
   if (h === "download/win") return "download-win";
+  if (h === "download") return "download";
   if (h === "pricing") return "pricing";
   if (h === "profile" || h === "account") return "profile";
   if (h === "privacy") return "privacy";
@@ -5469,6 +5513,8 @@ function routeBody(route: MarketingRoute) {
       return <Download os="mac" />;
     case "download-win":
       return <Download os="win" />;
+    case "download":
+      return <Download os={detectOS()} />;
     case "pricing":
       return <Pricing />;
     case "profile":

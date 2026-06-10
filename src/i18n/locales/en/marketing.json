@@ -26,6 +26,7 @@
     },
     "cta": {
       "webStart": "Start in your browser",
+      "downloadApp": "Download for Desktop",
       "mac": "Download for Mac",
       "win": "Download for Windows",
       "note": "Run instantly in your browser, no install · The desktop app adds background mode and a widget"
@@ -92,6 +93,7 @@
     "final": {
       "title": "Shall we start sitting right today?",
       "sub": "Start for free, upgrade to Pro anytime.",
+      "downloadApp": "Download for Desktop",
       "mac": "Download for Mac",
       "win": "Download for Windows"
     }

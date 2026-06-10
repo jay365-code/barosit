@@ -26,6 +26,7 @@
     },
     "cta": {
       "webStart": "웹에서 바로 시작",
+      "downloadApp": "PC 버전 다운로드",
       "mac": "Mac 다운로드",
       "win": "Windows 다운로드",
       "note": "설치 없이 브라우저에서 바로 · 데스크탑 앱은 백그라운드·위젯 지원"
@@ -92,6 +93,7 @@
     "final": {
       "title": "오늘부터 바르게 앉아볼까요",
       "sub": "무료로 시작하고, Pro는 언제든 결제하세요.",
+      "downloadApp": "PC 버전 다운로드",
       "mac": "Mac 다운로드",
       "win": "Windows 다운로드"
     }
