@@ -104,7 +104,7 @@
     "notConfiguredBody": "<code>.env.local</code> 의 <code>VITE_SUPABASE_URL</code> / <code>VITE_SUPABASE_ANON_KEY</code> 를 채우고 다시 시작하세요. 자세한 셋업은 <code>docs/auth-google-setup.md</code> 참고.",
     "backToLanding": "랜딩으로 돌아가기",
     "accountTitle": "계정",
-    "accountSubtitle": "소셜 로그인 정보를 보여드려요. 표시 이름·아바타 편집은 곧 지원할 예정이에요.",
+    "accountSubtitle": "현재 로그인된 바로씻 계정의 기본 정보입니다.",
     "loggedInGoogle": "Google 로 로그인됨",
     "loggedInNone": "로그인 정보 없음",
     "loggedInProvider": "{{provider}} 로 로그인됨",

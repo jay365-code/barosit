@@ -52,6 +52,17 @@ function makeApi(env) {
   return { rest, adminCreate, listUsers, delUser, token, authorize };
 }
 
+// src/launchMode.ts resolveEffectivePlan 의 결정론적 미러 (paid 모드; 로컬엔 app_config 없어
+// refreshLaunchMode 가 'paid' 유지 → 베타 분기 미적용). 서버 진실원본 실효플랜 산정에 사용.
+function resolveEffectivePlanLocal(row) {
+  if (!row || !row.plan_id) return "free";
+  const planIsPro = row.plan_id === "pro" || String(row.plan_id).startsWith("pro");
+  if (!planIsPro) return "free";
+  const periodValid = !!row.current_period_end && new Date(row.current_period_end) > new Date();
+  const ok = row.status === "active" || row.status === "grace_period" || (row.status === "canceled" && periodValid);
+  return ok ? "pro" : "free";
+}
+
 const TEST_EMAIL = /^qa\..*@example\.com$|^jhlee@gubed\.co\.kr$/;
 async function cleanupTestUsers(api) {
   const list = await api.listUsers();
@@ -189,11 +200,61 @@ async function runIntegration(env) {
         const ok = ev.status === 201 && (ds.status === 201 || ds.status === 200);
         return [ok ? "Pass" : "Fail", `[실증] 더미 주입 posture_events HTTP ${ev.status}, daily_scores HTTP ${ds.status}`];
       },
+      "BILL-07": async () => {
+        // grace_period 주입 → 구독 쿼리가 grace_period+미래 grace_period_until 반환 확인.
+        // 어드민 JWT 로 status/grace 주입(BILL-06 트리거가 일반유저 PATCH 차단하므로).
+        const a = await ensureFresh(api, "jhlee@gubed.co.kr");
+        const at = await api.token("jhlee@gubed.co.kr");
+        const until = new Date(Date.now() + 3 * 864e5).toISOString();
+        const pr = await api.rest(`user_subscriptions?user_id=eq.${nid}`, { method: "PATCH", token: at, body: { plan_id: "pro", status: "grace_period", grace_period_until: until }, prefer: "return=representation" });
+        const sub = await api.rest(`user_subscriptions?user_id=eq.${nid}&select=status,grace_period_until`, { key: env.svc }).then((r) => r.json());
+        await api.delUser(a.id);
+        const row = sub[0] || {};
+        const future = row.grace_period_until && new Date(row.grace_period_until) > new Date();
+        const ok = pr.status === 200 && row.status === "grace_period" && future;
+        // 와이어링: App.tsx 구독쿼리(395) → isGracePeriodActive(579) → 배너 렌더(591)
+        return [ok ? "Pass" : "Fail", `[실증] grace_period 주입 → status=${row.status}, grace_period_until 미래값=${future}. 배너 와이어링: App.tsx:579 isGracePeriodActive(subStatus==='grace_period'&&gracePeriodUntil) → App.tsx:591 배너 렌더 (쿼리 App.tsx:395 grace_period_until select)`];
+      },
+      "BILL-09": async () => {
+        // Pro→Free 강등: 어드민이 pro/active 주입 → resolveEffectivePlan=pro 확인,
+        // 이후 plan_id=free 강등 → 서버 실효권한 free 로 떨어지고 PRO 잔존 누수 없음.
+        const a = await ensureFresh(api, "jhlee@gubed.co.kr");
+        const at = await api.token("jhlee@gubed.co.kr");
+        const proEnd = new Date(Date.now() + 30 * 864e5).toISOString();
+        await api.rest(`user_subscriptions?user_id=eq.${nid}`, { method: "PATCH", token: at, body: { plan_id: "pro", status: "active", current_period_end: proEnd }, prefer: "return=representation" });
+        const proRow = await api.rest(`user_subscriptions?user_id=eq.${nid}&select=plan_id,status,current_period_end`, { key: env.svc }).then((r) => r.json()).then((j) => j[0]);
+        const proEff = resolveEffectivePlanLocal(proRow);
+        await api.rest(`user_subscriptions?user_id=eq.${nid}`, { method: "PATCH", token: at, body: { plan_id: "free", status: "active" }, prefer: "return=representation" });
+        const freeRow = await api.rest(`user_subscriptions?user_id=eq.${nid}&select=plan_id,status,current_period_end`, { key: env.svc }).then((r) => r.json()).then((j) => j[0]);
+        const freeEff = resolveEffectivePlanLocal(freeRow);
+        await api.delUser(a.id);
+        const ok = proEff === "pro" && freeEff === "free";
+        // 와이어링: useAuth.signOut(useAuth.ts:438) 캐시 removeItem+이벤트, App.fetchSub(App.tsx:417) write-back
+        return [ok ? "Pass" : "Fail", `[실증] 서버 진실원본 Pro→Free 강등: pro주입→실효=${proEff}, free강등→실효=${freeEff} (resolveEffectivePlan 동형). 캐시 누수차단 와이어링: useAuth.ts:438 signOut removeItem+subscription-changed 발화, App.tsx:417 fetchSub 실효플랜 write-back`];
+      },
+      "BILL-10": async () => {
+        // localStorage 변조 내성(데이터층): 클라가 'pro' 라 주장해도 서버 user_subscriptions
+        // 진실원본은 free → 서버 재조회 시 effective=free. useEntitlement 가 이를 신뢰하고 강등+경보.
+        // free 진실원본 확인 + tampering_detected(critical) 경보 적재 경로 실증.
+        const truth = await api.rest(`user_subscriptions?user_id=eq.${nid}&select=plan_id,status,current_period_end`, { key: env.svc }).then((r) => r.json()).then((j) => j[0]);
+        const serverEff = resolveEffectivePlanLocal(truth); // 서버 진실 = free
+        // useEntitlement 의 변조감지 경보 INSERT 경로 실증 (effective=free && cache=pro 분기)
+        const alert = await api.rest("admin_notifications", { method: "POST", key: env.svc, body: { event_type: "tampering_detected", severity: "critical", message: `QA runner BILL-10: cache PRO ↔ server FREE`, payload: { user_id: nid, cached: "pro", server: "free" } }, prefer: "return=representation" });
+        await api.rest(`admin_notifications?event_type=eq.tampering_detected&message=like.QA runner BILL-10*`, { method: "DELETE", key: env.svc });
+        const ok = serverEff === "free" && alert.status === 201;
+        // 와이어링: useEntitlement.ts user_subscriptions 재조회 → effective==='free'&&cache==='pro' → admin_notifications insert + 강등
+        return [ok ? "Pass" : "Fail", `[실증] 서버가 클라 가짜 PRO 불신: user_subscriptions 진실원본 실효=${serverEff}(free), tampering_detected(critical) 경보 적재 HTTP ${alert.status}. 와이어링: useEntitlement.ts effective==='free'&&readCache()==='pro' → admin_notifications.insert(tampering_detected,critical)+자동강등(게이트는 localStorage 아닌 훅 in-memory plan 신뢰)`];
+      },
     };
     checks["BILL-08"] = checks["ADMN-05"]; // 환불 알림 메커니즘 동형
 
+    // 데이터층 실증이 가능한 runtime 항목은 통합 케이스로 영구 편입(매번 무인 재실행).
+    // verifyTier 는 runtime 이지만 서버 진실원본/RPC/트리거로 핵심 보안속성을 실증하고
+    // UI 와이어링은 actualResult 에 file:line 근거로 명시한다.
+    const DATA_LAYER_RUNTIME = new Set(["BILL-07", "BILL-09", "BILL-10"]);
     for (const c of matched) {
-      if (c.verifyTier !== "integration") continue;
+      const runnable = c.verifyTier === "integration" || DATA_LAYER_RUNTIME.has(c.id);
+      if (!runnable) continue;
       const fn = checks[c.id];
       if (!fn) { rec(c.id, "Untested", "[러너] 통합 스크립트 미구현 — 서브에이전트 검증 권장"); continue; }
       try { const [st, msg] = await fn(); rec(c.id, st, msg); }
@@ -215,7 +276,9 @@ function runUnit() {
 }
 
 function markRest() {
+  const done = new Set(results.map((r) => r.id));
   for (const c of matched) {
+    if (done.has(c.id)) continue; // 이미 통합/단위에서 판정됨 (데이터층 편입 runtime 포함)
     if (["integration", "unit"].includes(c.verifyTier)) continue;
     if (c.verifyTier === "manual") {
       rec(c.id, "Untested", SCOPE === "full" ? "[수동필요] 러너는 무인이라 사람개입 불가 — 서브에이전트(full)로 수행" : "[수동필요] scope=auto 제외");

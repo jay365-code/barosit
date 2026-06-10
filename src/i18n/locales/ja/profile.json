@@ -104,7 +104,7 @@
     "notConfiguredBody": "<code>.env.local</code> の <code>VITE_SUPABASE_URL</code> / <code>VITE_SUPABASE_ANON_KEY</code> を入力して再起動してください。詳しいセットアップは <code>docs/auth-google-setup.md</code> をご参照ください。",
     "backToLanding": "ランディングに戻る",
     "accountTitle": "アカウント",
-    "accountSubtitle": "ソーシャルログイン情報を表示します。表示名・アバターの編集は近日対応予定です。",
+    "accountSubtitle": "現在ログイン中のBaroSitアカウントの基本情報です。",
     "loggedInGoogle": "Googleでログイン中",
     "loggedInNone": "ログイン情報なし",
     "loggedInProvider": "{{provider}} でログイン中",

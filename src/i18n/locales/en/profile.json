@@ -104,7 +104,7 @@
     "notConfiguredBody": "Fill in <code>VITE_SUPABASE_URL</code> / <code>VITE_SUPABASE_ANON_KEY</code> in <code>.env.local</code> and restart. For detailed setup, see <code>docs/auth-google-setup.md</code>.",
     "backToLanding": "Back to landing",
     "accountTitle": "Account",
-    "accountSubtitle": "Here's your social login info. Editing your display name and avatar is coming soon.",
+    "accountSubtitle": "Basic information of your logged-in BaroSit account.",
     "loggedInGoogle": "Signed in with Google",
     "loggedInNone": "No login info",
     "loggedInProvider": "Signed in with {{provider}}",
