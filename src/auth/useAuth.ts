@@ -150,17 +150,35 @@ export function useAuth() {
 
       const { onOpenUrl } = await import("@tauri-apps/plugin-deep-link");
       const { openUrl } = await import("@tauri-apps/plugin-opener");
+      const { invoke } = await import("@tauri-apps/api/core");
 
       // v0.2.15 의 I1(verifier 사전 클리어) 는 *진행 중* verifier 까지 손상
       // 시켜 "PKCE code verifier not found" 가 더 자주 발생하는 부작용.
       // 제거하고, handler 안에서 *verifier 존재 확인* + *stale 패턴 재대기*
       // 로 방어합니다 (아래 K1, K2 참고).
 
+      // ─── loopback 폴백 서버 (RFC 8252) ─────────────────────────────────
+      // Windows MSIX(스토어) 설치본에서 barosit:// 활성화가 실패하는 환경
+      // 확인 (2026-06 스토어 인증 거부 10.1.2.10). Rust 가 127.0.0.1 임시
+      // 포트로 listen 하고, 브리지 페이지가 딥링크 시도 후에도 남아 있으면
+      // 이 포트로 최상위 이동해 code 를 전달. 수신 query 는 기존
+      // `barosit:deep-link` 채널로 emit 되어 아래 custom listener 가
+      // 딥링크와 동일하게 처리. 시작 실패는 non-fatal — 딥링크만 사용.
+      let loopbackPort: number | null = null;
+      try {
+        loopbackPort = await invoke<number>("start_auth_loopback");
+      } catch (err) {
+        console.warn("[useAuth] loopback fallback unavailable (non-fatal):", err);
+      }
+
       // 환경별 override 허용. 미설정 시 production 웹 사용.
       // 로컬 개발 시 .env.local 에 VITE_DESKTOP_AUTH_REDIRECT 로
       // http://localhost:1430/desktop-auth-redirect.html 같이 지정 가능.
-      const bridgeUrl = (import.meta.env.VITE_DESKTOP_AUTH_REDIRECT as string | undefined)
+      const bridgeBase = (import.meta.env.VITE_DESKTOP_AUTH_REDIRECT as string | undefined)
         ?? "https://barosit.com/desktop-auth-redirect.html";
+      const bridgeUrl = loopbackPort !== null
+        ? `${bridgeBase}${bridgeBase.includes("?") ? "&" : "?"}port=${loopbackPort}`
+        : bridgeBase;
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -371,6 +389,28 @@ export function useAuth() {
         console.warn("[useAuth] Failed to register custom deep-link listener (non-fatal):", err);
       }
 
+      // dev 전용 loopback relay 폴링 — macOS 에서 `tauri dev` 인스턴스는
+      // barosit:// 스킴을 받을 수 없으므로 (스킴은 번들 .app 에만 등록되어
+      // 설치본으로 라우팅), vite dev 서버의 /__dev-auth-relay 가 중계한
+      // 콜백 query 를 폴링으로 수신해 동일 handler 로 전달. production
+      // 빌드에선 DEV=false 라 비활성.
+      let pollId: number | null = null;
+      if (import.meta.env.DEV) {
+        pollId = window.setInterval(async () => {
+          if (settled) return;
+          try {
+            const res = await fetch("/__dev-auth-relay/poll");
+            const { query } = (await res.json()) as { query: string | null };
+            if (query) {
+              console.log("[useAuth] dev relay callback received");
+              void handler([`barosit://auth-callback?${query}`]);
+            }
+          } catch {
+            /* relay 미응답 (vite 재시작 등) — 다음 tick 재시도 */
+          }
+        }, 1000);
+      }
+
       // 외부 브라우저에서 provider 인증 페이지 열기.
       await openUrl(data.url);
 
@@ -380,6 +420,17 @@ export function useAuth() {
         await sessionPromise;
       } finally {
         unlistenCustom?.();
+        if (pollId !== null) window.clearInterval(pollId);
+        // loopback 서버는 10초 유예 후 종료 — 로그인 성공 직후 브리지
+        // 페이지의 지연 폴백 네비게이션(3.2초)이 connection refused 에러
+        // 페이지 대신 "창을 닫으세요" 안내를 받을 수 있게 함. stop 은 포트
+        // 일치 시에만 동작하므로 그 사이 새 시도가 연 새 서버는 무영향.
+        if (loopbackPort !== null) {
+          const port = loopbackPort;
+          window.setTimeout(() => {
+            invoke("stop_auth_loopback", { port }).catch(() => {});
+          }, 10_000);
+        }
       }
     } else {
       // ─── 웹 (PKCE, full-page redirect) ───────────────────────────────────

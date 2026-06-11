@@ -371,6 +371,123 @@ fn hide_alert_window(app: AppHandle) -> Result<(), String> {
 
 // AI(LLM) 코칭은 정적 다국어 코칭으로 대체되어 폐기됨. (llm.rs 모듈 미사용)
 
+// ─── OAuth loopback 콜백 폴백 서버 (RFC 8252 §7.3) ──────────────────────
+//
+// Windows MSIX(스토어) 설치본에서 barosit:// 딥링크 활성화가 실패하는 케이스
+// 확인 (2026-06 스토어 인증 거부 10.1.2.10 — 테스터 스크린샷상 브리지 페이지
+// 도달 후 앱이 안 열림). 폴백 경로:
+//   1. 로그인 시작 시 JS 가 start_auth_loopback 호출 → 127.0.0.1 임시 포트
+//      listen, 포트를 브리지 URL 의 ?port= 로 전달.
+//   2. 브리지 페이지가 딥링크 시도 후에도 남아 있으면
+//      http://127.0.0.1:<port>/auth-callback?code=... 로 *최상위 네비게이션*.
+//      (fetch 가 아닌 이유: Safari 는 HTTPS 페이지의 http://127.0.0.1 fetch 를
+//      mixed content 로 차단하지만 최상위 네비게이션은 허용.)
+//   3. 서버가 query 를 기존 `barosit:deep-link` 이벤트로 emit → JS useAuth 의
+//      custom listener 가 딥링크와 완전히 동일한 경로로 PKCE exchange.
+//
+// 보안: 127.0.0.1 에만 bind — LAN 미노출 + macOS 방화벽 프롬프트 회피.
+// code 는 일회성이고 PKCE verifier 가 앱 webview localStorage 에만 있으므로
+// 로컬의 다른 프로세스가 code 를 엿봐도 세션 교환은 불가.
+
+struct AuthLoopback {
+    port: u16,
+    shutdown: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+#[derive(Default)]
+struct AuthLoopbackState(std::sync::Mutex<Option<AuthLoopback>>);
+
+fn shutdown_loopback(lb: &AuthLoopback) {
+    lb.shutdown.store(true, std::sync::atomic::Ordering::SeqCst);
+    // accept() 블로킹을 깨우기 위한 self-connect. 실패해도 무방 — 다음 연결
+    // 도착 시점에 flag 를 보고 종료한다.
+    let _ = std::net::TcpStream::connect(("127.0.0.1", lb.port));
+}
+
+const LOOPBACK_OK_HTML: &str = "<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>BaroSit</title></head><body style=\"margin:0;height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;background:#0f1113;color:#e6ebf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',system-ui,sans-serif;line-height:1.55\"><div style=\"max-width:420px;padding:32px 28px\"><h1 style=\"font-size:18px;margin:0 0 8px\">로그인 정보가 BaroSit 앱으로 전달되었습니다</h1><p style=\"font-size:14px;color:#aab3bd;margin:8px 0 0\">이 창을 닫고 앱으로 돌아가세요.<br>Sign-in was forwarded to the BaroSit app — you can close this window.</p></div></body></html>";
+
+const LOOPBACK_NOT_FOUND_HTML: &str = "<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><title>BaroSit</title></head><body></body></html>";
+
+fn handle_loopback_request(mut stream: std::net::TcpStream, app: &AppHandle) {
+    use std::io::{Read, Write};
+    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
+    // 요청 라인 ("GET /auth-callback?... HTTP/1.1") 만 필요 — 2KB 면 충분.
+    let mut buf = [0u8; 2048];
+    let n = stream.read(&mut buf).unwrap_or(0);
+    let req = String::from_utf8_lossy(&buf[..n]);
+    let path = req
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .unwrap_or("");
+
+    let (status, body) = match path.strip_prefix("/auth-callback") {
+        Some(query) => {
+            let query = query.trim_start_matches('?');
+            if query.is_empty() {
+                ("400 Bad Request", LOOPBACK_NOT_FOUND_HTML)
+            } else {
+                let url = format!("barosit://auth-callback?{}", query);
+                eprintln!("[auth-loopback] callback received — forwarding to webview");
+                let _ = app.emit("barosit:deep-link", url);
+                ("200 OK", LOOPBACK_OK_HTML)
+            }
+        }
+        // favicon.ico 등 — 본문 없이 종료.
+        None => ("404 Not Found", LOOPBACK_NOT_FOUND_HTML),
+    };
+
+    let resp = format!(
+        "HTTP/1.1 {}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{}",
+        status,
+        body.len(),
+        body
+    );
+    let _ = stream.write_all(resp.as_bytes());
+}
+
+#[tauri::command]
+fn start_auth_loopback(
+    app: AppHandle,
+    state: tauri::State<AuthLoopbackState>,
+) -> Result<u16, String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    // 이전 시도의 서버가 남아 있으면 교체 — 로그인 시도마다 fresh 포트.
+    if let Some(prev) = guard.take() {
+        shutdown_loopback(&prev);
+    }
+    let listener =
+        std::net::TcpListener::bind(("127.0.0.1", 0)).map_err(|e| e.to_string())?;
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+    let shutdown = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let thread_shutdown = shutdown.clone();
+    std::thread::spawn(move || {
+        for conn in listener.incoming() {
+            if thread_shutdown.load(std::sync::atomic::Ordering::SeqCst) {
+                break;
+            }
+            let Ok(stream) = conn else { break };
+            handle_loopback_request(stream, &app);
+        }
+        eprintln!("[auth-loopback] server on port {} stopped", port);
+    });
+    eprintln!("[auth-loopback] listening on 127.0.0.1:{}", port);
+    *guard = Some(AuthLoopback { port, shutdown });
+    Ok(port)
+}
+
+#[tauri::command]
+fn stop_auth_loopback(port: u16, state: tauri::State<AuthLoopbackState>) {
+    let Ok(mut guard) = state.0.lock() else { return };
+    // 포트가 일치할 때만 종료 — JS 의 지연 stop(유예 10초) 이 그 사이 시작된
+    // *새* 로그인 시도의 서버를 죽이지 않도록 가드.
+    if guard.as_ref().map(|lb| lb.port) == Some(port) {
+        if let Some(lb) = guard.take() {
+            shutdown_loopback(&lb);
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -425,6 +542,7 @@ pub fn run() {
         .manage(tray::TrayI18nState(std::sync::Mutex::new(
             tray::TrayI18n::default(),
         )))
+        .manage(AuthLoopbackState::default())
         .setup(|app| {
             use tauri_plugin_global_shortcut::GlobalShortcutExt;
             tray::setup_tray(app.handle())?;
@@ -514,6 +632,8 @@ pub fn run() {
             set_tray_i18n,
             open_browser,
             system_idle_secs,
+            start_auth_loopback,
+            stop_auth_loopback,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
