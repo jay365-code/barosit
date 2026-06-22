@@ -34,6 +34,12 @@ import {
   type VariabilityConfig,
 } from "../pose/variabilityTracker";
 import {
+  ComplianceTracker,
+  DEFAULT_COMPLIANCE_CONFIG,
+  recordDailyCompliance,
+  type NudgeKind,
+} from "../pose/complianceTracker";
+import {
   ADAPTIVE_CONFIG_CHANGED_EVENT,
   computeSensitivityModifier,
   loadAdaptiveConfig,
@@ -56,6 +62,7 @@ import {
   dispatchBreakReminder,
   dispatchCumulativeAlert,
   dispatchVariabilityAlert,
+  dispatchComplianceReward,
   intensityFromDuration,
 } from "../alertConfig";
 import { logEvent, useHeartbeat, useWatchdog } from "../watchdog";
@@ -169,6 +176,7 @@ export function useMonitoringEngine(opts: {
   const cumulativeConfigRef = useRef<CumulativeLoadConfig>(loadCumulativeConfig());
   const variabilityTrackerRef = useRef(new VariabilityTracker());
   const variabilityConfigRef = useRef<VariabilityConfig>(loadVariabilityConfig());
+  const complianceTrackerRef = useRef(new ComplianceTracker());
   const adaptiveConfigRef = useRef<AdaptiveSensitivityConfig>({
     ...loadAdaptiveConfig(),
     sessionStartedAt: Date.now(),
@@ -295,6 +303,7 @@ export function useMonitoringEngine(opts: {
       breakTrackerRef.current.reset();
       cumulativeTrackerRef.current.reset();
       variabilityTrackerRef.current.reset();
+      complianceTrackerRef.current.reset();
       setMaxDurationSecs(0);
       scoreInputsRef.current = {
         durations: [],
@@ -550,6 +559,10 @@ export function useMonitoringEngine(opts: {
       );
       if (breakResult.fired) {
         dispatchBreakReminder(breakResult.fired);
+        complianceTrackerRef.current.notifyFired(
+          `break_${breakResult.fired.stage}` as NudgeKind,
+          Date.now(),
+        );
       }
 
       // Phase 2 — 누적 부하 추적. raw violations 기준 (analyzer 가 시간 게이트로
@@ -586,6 +599,29 @@ export function useMonitoringEngine(opts: {
       );
       if (variabilityResult.fired) {
         dispatchVariabilityAlert(variabilityResult.fired);
+        complianceTrackerRef.current.notifyFired("variability", Date.now());
+      }
+
+      // Phase 5 — 알림 준수 추적. 발사된 알림 후 응답 윈도우 내 행동으로 준수/미준수
+      // 확정. 준수 시 긍정 강화(점수 보너스), 둘 다 일일 집계.
+      const complianceResult = complianceTrackerRef.current.push(
+        Date.now(),
+        {
+          tookBreak:
+            !!stretchFired ||
+            !!result.isStanding ||
+            result.isResting ||
+            !result.personPresent,
+          movedSlightly:
+            variabilityResult.status.movementIndex >=
+            variabilityConfigRef.current.threshold,
+        },
+        DEFAULT_COMPLIANCE_CONFIG,
+      );
+      if (complianceResult.resolved) {
+        const { kind, complied } = complianceResult.resolved;
+        recordDailyCompliance(complied, Date.now());
+        if (complied) dispatchComplianceReward(kind);
       }
 
       // 위반 안정화

@@ -5,5 +5,7 @@
   "cumulativeFrequent": "{{label}}が頻発",
   "staticMinutes": "{{min}}分間ほぼ静止",
   "variabilityGood": "よく保てています",
-  "variabilityTip": "肩と首をほぐして姿勢を変えてみましょう"
+  "variabilityTip": "肩と首をほぐして姿勢を変えてみましょう",
+  "rewardTitle": "いいですね！動けました",
+  "rewardMsg": "+{{points}}点"
 }

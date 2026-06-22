@@ -5,12 +5,14 @@ import {
   BREAK_REMINDER_EVENT,
   CUMULATIVE_ALERT_EVENT,
   VARIABILITY_ALERT_EVENT,
+  COMPLIANCE_REWARD_EVENT,
   loadAlertModes,
   type AlertFiredDetail,
   type AlertModes,
   type BreakReminderDetail,
   type CumulativeAlertDetail,
   type VariabilityAlertDetail,
+  type ComplianceRewardDetail,
 } from "../alertConfig";
 import {
   emitAlertFired,
@@ -43,6 +45,12 @@ interface ActiveCumulative {
 interface ActiveVariability {
   id: number;
   detail: VariabilityAlertDetail;
+  expiresAt: number;
+}
+
+interface ActiveReward {
+  id: number;
+  detail: ComplianceRewardDetail;
   expiresAt: number;
 }
 
@@ -93,10 +101,12 @@ export function AlertOverlay() {
   const [activeBreak, setActiveBreak] = useState<ActiveBreak | null>(null);
   const [activeCumulative, setActiveCumulative] = useState<ActiveCumulative | null>(null);
   const [activeVariability, setActiveVariability] = useState<ActiveVariability | null>(null);
+  const [activeReward, setActiveReward] = useState<ActiveReward | null>(null);
   const idRef = useRef(0);
   const breakIdRef = useRef(0);
   const cumIdRef = useRef(0);
   const varIdRef = useRef(0);
+  const rewardIdRef = useRef(0);
 
   // alert_modes 가 settings에서 바뀌면 storage 이벤트로 받아 반영
   useEffect(() => {
@@ -249,7 +259,29 @@ export function AlertOverlay() {
     return () => window.removeEventListener(VARIABILITY_ALERT_EVENT, onFire);
   }, []);
 
-  if (!active && !activeBreak && !activeCumulative && !activeVariability)
+  // Phase 5 — 준수 보상 (긍정 강화). 가장 짧고 밝은 톤 — 초록.
+  useEffect(() => {
+    const onFire = (e: Event) => {
+      const detail = (e as CustomEvent<ComplianceRewardDetail>).detail;
+      if (!detail) return;
+      const duration = 2500;
+      const id = ++rewardIdRef.current;
+      setActiveReward({ id, detail, expiresAt: Date.now() + duration });
+      window.setTimeout(() => {
+        setActiveReward((prev) => (prev?.id === id ? null : prev));
+      }, duration);
+    };
+    window.addEventListener(COMPLIANCE_REWARD_EVENT, onFire);
+    return () => window.removeEventListener(COMPLIANCE_REWARD_EVENT, onFire);
+  }, []);
+
+  if (
+    !active &&
+    !activeBreak &&
+    !activeCumulative &&
+    !activeVariability &&
+    !activeReward
+  )
     return null;
 
   // 자세 위반 알림 렌더 데이터 (active 가 있을 때만 사용)
@@ -306,6 +338,15 @@ export function AlertOverlay() {
         coaching: t("alerts:variabilityTip"),
         accent: "#5b8fa8",
         durationMin: Math.round(activeVariability.detail.durationSecs / 60),
+      }
+    : null;
+
+  // 준수 보상 — 알림을 따랐을 때 긍정 강화. 밝은 초록.
+  const rewardRender = activeReward
+    ? {
+        title: t("alerts:rewardTitle"),
+        msg: t("alerts:rewardMsg", { points: activeReward.detail.points }),
+        accent: "#3fb37f",
       }
     : null;
 
@@ -512,6 +553,42 @@ export function AlertOverlay() {
             </div>
             <div style={{ fontSize: 13, opacity: 0.85 }}>
               {variabilityRender.coaching}
+            </div>
+          </div>
+        </div>
+      )}
+      {rewardRender && (
+        <div
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            top: 100,
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 9996,
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(20, 22, 24, 0.94)",
+              color: "#fff",
+              padding: "12px 20px",
+              borderRadius: 14,
+              border: `2px solid ${rewardRender.accent}`,
+              boxShadow: `0 8px 28px rgba(0,0,0,0.35), 0 0 0 6px ${rewardRender.accent}22`,
+              maxWidth: "60vw",
+              textAlign: "center",
+              animation: "barosit-toast-in 0.25s ease-out",
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>
+              {rewardRender.title}
+            </div>
+            <div style={{ fontSize: 13, color: rewardRender.accent, fontWeight: 700 }}>
+              {rewardRender.msg}
             </div>
           </div>
         </div>

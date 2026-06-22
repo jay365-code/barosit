@@ -5,5 +5,7 @@
   "cumulativeFrequent": "Frequent {{label}}",
   "staticMinutes": "Still for {{min}} min",
   "variabilityGood": "You're holding it well",
-  "variabilityTip": "Loosen your shoulders and neck, and shift your posture"
+  "variabilityTip": "Loosen your shoulders and neck, and shift your posture",
+  "rewardTitle": "Nice — you moved!",
+  "rewardMsg": "+{{points}} pts"
 }

@@ -5,6 +5,7 @@ import type { PostureType } from "./pose/types";
 import type { BreakFiredEvent } from "./pose/breakTracker";
 import type { CumulativeFiredEvent } from "./pose/cumulativeLoadTracker";
 import type { VariabilityFiredEvent } from "./pose/variabilityTracker";
+import type { NudgeKind } from "./pose/complianceTracker";
 
 export interface AlertModes {
   /** 화면 가장자리 펄스 글로우 (default On) */
@@ -119,4 +120,30 @@ export function dispatchVariabilityAlert(event: VariabilityFiredEvent): void {
   window.dispatchEvent(
     new CustomEvent(VARIABILITY_ALERT_EVENT, { detail }),
   );
+}
+
+// ─── Phase 5 — 알림 준수 보상 (긍정 강화) ─────────────────────────────────────
+// 근거: 보상 > 처벌(자기결정이론). 알림을 따랐을 때만 긍정 피드백 + 점수 보너스.
+
+/** 준수 1건당 부여하는 점수 보너스. 스트레칭 보너스(3~5)보다 작게. */
+export const COMPLIANCE_REWARD_POINTS = 2;
+
+export interface ComplianceRewardDetail {
+  kind: NudgeKind;
+  points: number;
+}
+
+export const COMPLIANCE_REWARD_EVENT = "barosit:nudge-complied";
+
+export function dispatchComplianceReward(kind: NudgeKind): void {
+  // 점수 시스템은 기존 `posture-bonus` 이벤트를 듣는다 → 점수 가산.
+  window.dispatchEvent(
+    new CustomEvent("posture-bonus", { detail: COMPLIANCE_REWARD_POINTS }),
+  );
+  // 긍정 토스트용 별도 이벤트.
+  const detail: ComplianceRewardDetail = {
+    kind,
+    points: COMPLIANCE_REWARD_POINTS,
+  };
+  window.dispatchEvent(new CustomEvent(COMPLIANCE_REWARD_EVENT, { detail }));
 }
