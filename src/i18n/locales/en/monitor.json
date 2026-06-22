@@ -40,9 +40,9 @@
   },
   "aiGuide": {
     "none": "No posture issues detected today yet! You're maintaining excellent posture. Periodic light stretching is all you need.",
-    "forwardHead": "Forward head and sitting too close to the screen are your main issues. Raise your monitor 5–10 cm so your eye line meets the top third of the screen. This lowers tension in the splenius muscles and helps prevent cervical arthritis.",
-    "slouching": "Slouching was detected often. Press your pelvis fully against the chair back and keep your knees at 90°. Maintaining lumbar lordosis can cut disc pressure by more than half.",
-    "chinResting": "Chin resting was observed somewhat. It's a habit that promotes carpal tunnel syndrome and shoulder imbalance. Rest both elbows lightly on the desk to distribute the load ergonomically.",
+    "forwardHead": "Forward head and sitting too close to the screen are your main issues. Raise your monitor 5–10 cm so your eye line meets the top third of the screen. This helps reduce tension in the neck and shoulders.",
+    "slouching": "Slouching was detected often. Press your pelvis fully against the chair back and keep your knees at 90°. Supporting your lumbar curve helps reduce load on the lower back.",
+    "chinResting": "Chin resting was observed somewhat. It tends to concentrate force on one side and can throw off shoulder balance. Rest both elbows lightly on the desk to spread the load more evenly.",
     "generic": "{{label}} was detected most often. After 50 minutes of focus, always loosen your shoulders for 1 minute and add light full-body stretching to relieve joint pressure."
   },
   "proBanner": {
@@ -109,17 +109,17 @@
     "violations": {
       "label": "Posture violations",
       "tooltip": "How often posture violations such as forward head, slouching, and chin resting were detected during today's real-time monitoring.",
-      "ground": "Harvard Medical School guideline: cumulative posture-violation exposure causes static muscle fatigue, raising pain-syndrome risk by 3.1×."
+      "ground": "Holding one position for a long time tends to build up static muscle fatigue. Rather than keeping a single 'correct' posture, changing position and moving often matters more."
     },
     "stretch": {
       "label": "Stretch score",
       "tooltip": "Today's score for resetting static spinal load with chest openers, shoulder stretches, and more.",
-      "ground": "After 50 minutes of sitting, 1 minute of stretching restores local oxygen supply by 25% and fully prevents lactic-acid buildup — a skeletal-muscle reset therapy."
+      "ground": "The longer you sit, the more it helps to get up and move periodically. About every 50 minutes, change posture with roughly a minute of stretching or walking to ease muscle tension. (per KOSHA guidance)"
     },
     "usage": {
       "label": "Total time today",
       "tooltip": "Total active work time during which the real-time posture analysis engine ran to precisely protect your spinal health.",
-      "ground": "Feedback behavioral-intervention research: workers given alerts and visual feedback recover good posture 4.2× more proactively than those without."
+      "ground": "Reminders such as on-screen prompts are reported to help reduce sitting time and increase movement (meta-analysis of randomized controlled trials). Small but consistent nudges build posture habits."
     },
     "criteria": {
       "title": "[Posture health grade criteria]",
@@ -132,7 +132,7 @@
       "cRange": "Grade C (70–80)",
       "cDesc": "Caution (1.5× vertical load)",
       "dRange": "Grade D (under 70)",
-      "dDesc": "At risk (neck load exceeds 27 kg)"
+      "dDesc": "Caution (static load building up)"
     }
   },
   "grade": {
@@ -154,7 +154,7 @@
     },
     "D": {
       "label": "At risk",
-      "desc": "Risk of chronic pain and neck stiffness"
+      "desc": "A pattern that can lead to fatigue or discomfort if it accumulates over time"
     }
   },
   "sensitivity": {
@@ -204,7 +204,7 @@
     "goodTimeUp": "Your focus endurance is improving!",
     "goodTimeKeep": "Try to increase your posture-holding time vs yesterday.",
     "basisTitle": "Scientific spinal-mechanics basis for the posture health grade",
-    "basisBody": "The grade classification (S/A/B/C/D) in this report is deeply based on <strong>Nachemson's spinal biomechanics research on intradiscal pressure</strong> and the <strong>NASA Neutral Body Posture</strong> guideline, designed with real-time posture-sensing data. With slumped alignment (grades C·D), the vertical disc load rises to <strong>1.5×–2.2× (150%–220%)</strong> versus standing, and forward head applies up to <strong>27 kg</strong> of moment shear load on the cervical spine. The index improvement and faster-reaction metrics in this report fully demonstrate how well harmful static load on the spine is being relieved.",
+    "basisBody": "The grade classification (S/A/B/C/D) in this report is designed with reference to <strong>Nachemson's spinal biomechanics research on intradiscal pressure</strong> and the <strong>NASA Neutral Body Posture</strong> guideline as biomechanical models. These models estimate that seated disc load tends to be higher than standing, and that load on the neck grows as the head moves forward — note that such figures are model-based estimates. That said, there is <strong>no single 'perfect posture'</strong>: not holding one position for too long and changing it often matters more. Use this metric as a reference to help build the habit of resetting your posture frequently.",
     "trendTitle": "Posture health score trend by hour (today)",
     "unitPoints": "Unit: points",
     "tooltipScore": "Posture health score:",
@@ -219,7 +219,7 @@
     "legendSA": "S/A (perfect/excellent balance)",
     "legendB": "B (good ligament distribution)",
     "legendC": "C (caution · 1.5× disc load)",
-    "legendD": "D (risk · neck exceeds 27 kg)",
+    "legendD": "D (static load building up · move often recommended)",
     "points": "{{n}} pts",
     "weekdays": "Sun,Mon,Tue,Wed,Thu,Fri,Sat",
     "todaySuffix": " (today)",
@@ -245,23 +245,23 @@
     "yesterdayViolation": "Yesterday's violations: ",
     "byTypeCount": "{{count}} detected ({{percent}}%)",
     "clinicalWarn": {
-      "forward_head": "Loss of cervical lordosis adds up to 27 kg of load on the neck bones and causes forward-head (tech neck) syndrome.",
-      "chin_resting": "Causes facial asymmetry and uneven pressure on the TMJ disc, which can progress to joint disorders.",
-      "shoulder_tilt": "Applies biased load on the shoulder axis, causing pelvic displacement and scoliosis.",
-      "slouching": "Collapses lumbar lordosis, increasing the risk of a herniated disc by more than 3×.",
-      "monitor_too_close": "Causes severe fatigue of the eye-focusing muscles and unconscious over-tension of the neck muscles.",
-      "shoulder_asymmetry": "Promotes asymmetric trapezius tension, causing chronic shoulder knots and damage to neck muscle mechanics.",
-      "head_roll": "A direct trigger for biased wear of the cervical facet joints and shoulder myofascial pain syndrome."
+      "forward_head": "This position tends to concentrate static load on the neck. Try gently pulling your chin back and changing posture often.",
+      "chin_resting": "Resting on one hand can put uneven tension on the jaw and neck. Rest both elbows lightly and switch your position regularly.",
+      "shoulder_tilt": "Leaning to one side puts biased load on the shoulders. Try to balance both sides and reset your posture often.",
+      "slouching": "Slumping tends to increase load on the lower back. Sit your pelvis back into the chair and stand up to move now and then.",
+      "monitor_too_close": "Sitting too close tends to tire your eyes and tense your neck. Step back a little and let your eyes rest periodically.",
+      "shoulder_asymmetry": "Uneven shoulders concentrate tension on one side. Loosen both shoulders and change posture often.",
+      "head_roll": "Tilting your head to one side puts tension on one side of the neck. Keep it level and move often."
     },
     "biomechDetail": {
-      "forward_head": "When the cervical spine shifts forward, about 4.5 kg of extra load occurs on the neck joints, causing chronic forward-head syndrome.",
-      "slouching": "Slumped spinal alignment surges lumbar vertical disc pressure to over 150% of normal, inducing back pain and disc damage.",
-      "shoulder_tilt": "One-sided shoulder drop causes clavicular asymmetry and severe imbalanced tension in both trapezius muscles (myofascial pain).",
-      "chin_resting": "Applies uneven shear force to the TMJ, which can cause disc displacement and asymmetric facial shift.",
-      "monitor_too_close": "Sitting too close to the monitor causes sustained tension of the eye-focusing muscles, leading to dry eye and accommodative myopia.",
-      "shoulder_asymmetry": "A representative skeletal-asymmetry warning that causes one-sided compressive stress on the lumbosacral joint, linked to pelvic misalignment.",
-      "head_roll": "Causes imbalance of the splenius and small muscles around the cervical spine, raising the risk of cervical arthritis.",
-      "default": "We recommend maintaining neutral spinal alignment by adjusting your chair and monitor heights ergonomically."
+      "forward_head": "As the head moves forward, load on the neck joints tends to increase. Pull your chin back gently and change position often.",
+      "slouching": "Slumped alignment tends to raise load on the lower back. Support your lumbar curve and reset your posture often.",
+      "shoulder_tilt": "Dropping one shoulder tends to build up tension on that side. Try to balance both shoulders and move often.",
+      "chin_resting": "Resting your chin on your hand puts uneven force on the jaw. Spread the load with both elbows and switch position often.",
+      "monitor_too_close": "Sitting close tends to keep your eye muscles tense. Step back a little and rest your eyes periodically.",
+      "shoulder_asymmetry": "Uneven shoulders tend to concentrate load on one side. Balance both sides and change posture often.",
+      "head_roll": "Tilting your head puts tension on one side of the neck. Keep it level and move often.",
+      "default": "Adjust your chair and monitor heights to a comfortable position — and above all, avoid holding one posture too long. Changing position often matters most."
     },
     "legend": {
       "sRange": "95+",

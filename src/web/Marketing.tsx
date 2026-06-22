@@ -719,6 +719,8 @@ function Landing() {
           {(
             [
               { i: "target", id: "detect7" },
+              { i: "stretch", id: "breaks" },
+              { i: "bell", id: "variability" },
               { i: "sparkle", id: "score" },
               { i: "minimize", id: "widget" },
               { i: "moon", id: "dark" },
@@ -784,7 +786,7 @@ function Landing() {
           {t("landing.faq.title")}
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {["privacy", "detect", "devices", "webapp", "background", "widget", "offline", "price", "data"].map((id) => (
+          {["goodposture", "privacy", "detect", "devices", "webapp", "background", "widget", "offline", "price", "data"].map((id) => (
             <details
               key={id}
               style={{

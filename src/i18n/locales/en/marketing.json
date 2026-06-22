@@ -22,7 +22,7 @@
       "title1": "Sit right,",
       "title2": "right now.",
       "sub": "Your webcam becomes your posture coach.",
-      "desc": "We watch your posture through your webcam. We track seven types — forward head, chin resting, shoulder tilt, slouching, screen distance, shoulder asymmetry, head tilt — and gently let you know when poor posture lingers."
+      "desc": "We watch your posture through your webcam. We track seven types — forward head, chin resting, shoulder tilt, slouching, screen distance, shoulder asymmetry, head tilt — and gently let you know when you hold one position too long. We don't force perfect posture — the key is helping you not stay in one position too long, and move often."
     },
     "cta": {
       "webStart": "Start in your browser",
@@ -76,6 +76,14 @@
           "t": "Detects 7 posture types",
           "d": "Tells apart forward head · chin resting · shoulder tilt · slouching · screen distance · shoulder asymmetry · head tilt"
         },
+        "breaks": {
+          "t": "Sit-too-long reminder",
+          "d": "Gentle nudges at 30/50/120 min of accumulated sitting to get you up and moving. Sitting less is the core of posture health (per KOSHA guidance)."
+        },
+        "variability": {
+          "t": "Move-it nudges",
+          "d": "Even good posture, held frozen too long, gets a gentle nudge. 'The best posture is your next posture' — changing often matters more."
+        },
         "score": {
           "t": "0–100 score system",
           "d": "Good posture speeds recovery; violations incur a penalty after a 2-second grace period"
@@ -94,6 +102,10 @@
       "eyebrow": "FAQ",
       "title": "Questions, answered",
       "items": {
+        "goodposture": {
+          "q": "Do I have to keep 'perfect posture' all the time?",
+          "a": "No. Research shows there isn't a single 'perfect posture' that fits everyone — what matters is not holding one position too long and changing it often. Rather than forcing perfect alignment, BaroSit gently alerts you when one posture lingers, helping you shift and move."
+        },
         "privacy": {
           "q": "Is my webcam video sent to a server?",
           "a": "No. All posture analysis runs entirely on your device — video is never stored or sent anywhere."

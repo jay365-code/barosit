@@ -210,6 +210,7 @@
 
   <h3><span class="phase-tag">PHASE 2 · 30–60일</span> &nbsp;런치 — 부스트 이벤트</h3>
   <ul class="tasks" id="phase2">
+    <li><label class="task"><input type="checkbox" data-id="p2-drafts"><span class="body"><span class="title">채널별 런치 글 초안 작성 (섹션 6) <span class="tag content">콘텐츠</span></span><span class="desc">긱뉴스·Show HN·네이버 카페·Reddit 4종 복붙용 완성. 게시는 게이트 해제·워밍업 후</span></span></label></li>
     <li><label class="task"><input type="checkbox" data-id="p2-ph"><span class="body"><span class="title">Product Hunt 런치 <span class="tag content">콘텐츠</span></span><span class="desc">데스크탑 앱 + 프라이버시 각도. 썸네일·갤러리·태그라인 준비</span></span></label></li>
     <li><label class="task"><input type="checkbox" data-id="p2-hn"><span class="body"><span class="title">Show HN (Hacker News) 글 <span class="tag content">콘텐츠</span></span><span class="desc">온디바이스·프라이버시 각도가 폭발적으로 먹히는 곳</span></span></label></li>
     <li><label class="task"><input type="checkbox" data-id="p2-reddit"><span class="body"><span class="title">Reddit 시딩 <span class="tag content">콘텐츠</span></span><span class="desc">r/posture · r/ergonomics · r/productivity · r/selfhosted</span></span></label></li>
@@ -236,6 +237,102 @@
     <li><strong>AI 검색 인용 여부</strong> — ChatGPT·Perplexity에 "거북목 교정 앱" 물어 BaroSit 언급되는지 직접 테스트</li>
   </ul>
 
+  <!-- ========================= -->
+  <style>
+    details.ch { background: var(--panel); border:1px solid var(--line); border-radius:10px; margin:10px 0; overflow:hidden; }
+    details.ch > summary { cursor:pointer; padding:13px 16px; font-weight:700; color:var(--fg); list-style:none; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    details.ch > summary::-webkit-details-marker { display:none; }
+    details.ch[open] > summary { border-bottom:1px solid var(--line); }
+    details.ch .ch-body { padding:6px 16px 16px; }
+    .post { background:var(--code-bg); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:8px 0 4px; white-space:pre-wrap; color:#d5dde5; font-size:13px; line-height:1.62; }
+    .pill { font-size:11px; font-weight:700; padding:2px 9px; border-radius:99px; white-space:nowrap; }
+    .pill.open { background:rgba(126,176,156,.15); color:var(--ok); }
+    .pill.gate { background:rgba(232,155,74,.15); color:var(--high); }
+    .field { font-size:11px; color:var(--fg-3); text-transform:uppercase; letter-spacing:.06em; margin:13px 0 3px; font-weight:700; }
+  </style>
+  <h2>6. 채널별 런치 키트 <span style="font-size:13px;color:var(--fg-3);font-weight:400;">(2026-06-22 업데이트)</span></h2>
+  <p>제출 직전 형태의 글 + 위치·게이트·규칙. 각 채널을 클릭해 펼치세요. <strong>모든 글은 "메이커의 솔직한 후기" 톤</strong> — 광고톤·AI냄새(em-dash·정형 마무리·과한 리스트)는 뺍니다.</p>
+
+  <table>
+    <thead><tr><th>채널</th><th>위치</th><th>게이트</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td>긱뉴스</td><td>news.hada.io → 글쓰기</td><td class="no">⏳ 6/29 15:30 (가입 1주)</td><td>글·리마인더 준비됨</td></tr>
+      <tr><td>Show HN</td><td>news.ycombinator.com/submit</td><td class="no">⏳ 기여 후 (karma 워밍업)</td><td>글 준비됨 · 제출 보류(URL 태움 방지)</td></tr>
+      <tr><td>네이버 카페</td><td>가입 카페 자유/정보 게시판</td><td class="ok">✅ 지금 가능</td><td>글 준비됨</td></tr>
+      <tr><td>Reddit</td><td>r/posture·r/ergonomics·r/privacy</td><td>🔶 sub별 karma·연령</td><td>글 준비됨</td></tr>
+      <tr><td>Product Hunt</td><td>producthunt.com</td><td>🔶 이미지·갤러리 준비</td><td>추후</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout"><p class="h">⚠️ 공통 원칙</p><p>① 채널당 1글, 같은 글 도배 금지(스팸 처리) &nbsp;② 광고 아닌 "만들었고 피드백 받고싶다" 프레임 &nbsp;③ 올린 직후 댓글 성실·신속 응답(노출 유지의 핵심) &nbsp;④ 신규 계정 게이트(긱뉴스 1주·HN karma)는 댓글·추천 워밍업으로 해소 — 이력 있는 계정이 AI/홍보 의심도 덜 받음</p></div>
+
+  <details class="ch"><summary><span class="pill gate">긱뉴스 · KO</span> 웹캠으로 앉은 자세 봐주는 거 만들었습니다 <span style="font-weight:400;color:var(--fg-3);font-size:12px;">(기술 한 줄 포함)</span></summary>
+    <div class="ch-body">
+      <div class="field">제목</div>웹캠으로 앉은 자세 봐주는 거 만들었습니다. (영상은 기기 밖으로 안 나갑니다)
+      <div class="field">URL</div>https://barosit.com
+      <div class="field">본문</div>
+      <div class="post">하루 종일 앉아서 일하다 보니 거북목이 점점 심해지더라고요. 자세 교정 앱을 몇 개 써봤는데, 일단 안 예뻐서 띄워두기 싫었고 결정적으로 백그라운드로 조용히 돌아주는 게 없었어요. 켜놓고 신경 끄고 일하다가 자세 망가지면 알려주는 걸 원했는데, 그게 없어서 그냥 직접 만들었습니다.
+
+웹캠으로 자세를 봐주는 도구예요. 거북목, 턱 괴임, 어깨 기울임, 등 구부정, 모니터 거리, 어깨 비대칭, 머리 갸우뚱 이렇게 7가지를 봅니다. 자세가 무너지면 똑바로 앉으라고 알려주고, 0~100 점수로 관리하는데 2초 정도 잠깐 움직인 건 그냥 넘어가고 계속 안 좋으면 점수가 깎여요. 바르게 앉아 있으면 회복되고, 스트레칭하면 보너스 점수도 줍니다. 통계로 날짜별 추이를 보면서 실제로 나아지는지 확인할 수 있고요.
+
+제일 신경 쓴 건 프라이버시예요. 웹캠 영상이 서버로 가는 게 싫어서 분석을 전부 기기 안에서 하도록 만들었습니다. 자세 추정은 브라우저에서 MediaPipe(PoseLandmarker)로 돌리고, 프레임은 어디로도 안 나가요. 설치 없이 브라우저에서 바로 써볼 수 있고, 데스크탑 앱(Windows/macOS, Tauri)은 백그라운드로 돌면서 작은 위젯으로 점수만 보여줍니다.
+
+솔직히 아직 부족한 점도 있어요. MediaPipe를 계속 돌리니까 CPU/GPU랑 메모리를 꽤 먹어서 그거 줄이는 최적화에 시간을 많이 썼고, 스트레칭 동작 인식은 아직 좀 부정확합니다. 이건 계속 연구하면서 정확도를 올릴 생각이에요.
+
+지금 무료 베타입니다. 써보시고 부족한 부분이나 "이런 거 있으면 좋겠다" 싶은 게 있으면 편하게 제안해 주세요.
+https://barosit.com</div>
+      <p class="note">규칙: 광고톤 금지. 태그 AI/도구. 올린 직후 댓글 응답.</p>
+    </div>
+  </details>
+
+  <details class="ch"><summary><span class="pill gate">Show HN · EN</span> BaroSit – Webcam posture coach that runs fully on-device <span style="font-weight:400;color:var(--fg-3);font-size:12px;">(제출 보류 중)</span></summary>
+    <div class="ch-body">
+      <div class="field">제목 (Title 칸)</div>Show HN: BaroSit – Webcam posture coach that runs fully on-device
+      <div class="field">URL 칸</div>https://barosit.com
+      <div class="field">본문 (제출 직후 첫 댓글로)</div>
+      <div class="post">I sit at a desk all day and my neck posture kept getting worse. I tried a few posture apps but they were kind of ugly so I never wanted to leave them open, and more importantly none of them ran quietly in the background. I wanted something I could turn on, forget about, and have it tell me when my posture falls apart. That didn't exist, so I built it.
+
+It watches your posture through the webcam: forward head, chin resting, shoulder tilt, slouching, screen distance, shoulder asymmetry, head tilt (7 in total). When you slump it tells you to sit up and tracks a 0-100 score. A brief slump (under ~2s) is ignored so it doesn't nag on every little movement, but if it persists the score drops, and it recovers while you sit well. Stretching gives bonus points. There are date-based stats so you can see whether you're actually improving.
+
+The thing I cared about most is privacy. I didn't want webcam frames going to a server, so all the analysis happens on your device. Pose estimation runs in the browser via MediaPipe (PoseLandmarker), GPU-accelerated with a WASM fallback, and frames never leave the machine. You can try it in the browser with no install, and there's a desktop app (Windows/macOS, built with Tauri) that runs in the background with a small floating widget showing just the score.
+
+It's still rough in places. Running MediaPipe continuously eats a fair amount of CPU/GPU and memory, so I spent a lot of time bringing that down. Stretch detection is still a bit off and I'm working on it.
+
+It's a free open beta right now. I'd really appreciate feedback on detection accuracy, the privacy model, and whether the background widget gets in your way.</div>
+      <p class="note">규칙: 제목 반드시 <code>Show HN:</code>. 화~목 미국 오전(KST 밤10시~새벽). karma 워밍업 전 제출 시 글이 죽고 URL을 태우니 보류. 제한 해제 후 첫 제출.</p>
+    </div>
+  </details>
+
+  <details class="ch"><summary><span class="pill open">네이버 카페 · KO</span> 웹캠으로 거북목 잡아주는 거 만들었어요 <span style="font-weight:400;color:var(--fg-3);font-size:12px;">(기술 없음·친근체)</span></summary>
+    <div class="ch-body">
+      <div class="field">제목</div>웹캠으로 거북목 잡아주는 거 만들었어요 (영상 안 나가요, 무료 베타)
+      <div class="field">본문</div>
+      <div class="post">책상 앞에 오래 앉아 계신 분들 거북목 다들 있으시죠. 저도 심해져서 웹캠으로 자세 봐주는 걸 직접 만들었습니다.
+
+웹캠으로 거북목·어깨 기울임 같은 자세 7종을 실시간으로 보다가, 자세가 일정 시간 무너지면 살짝 알려줘요. 영상은 전부 내 컴퓨터 안에서만 처리되고 밖으로 안 나갑니다.
+
+설치 없이 브라우저에서 바로 써볼 수 있고(barosit.com), 데스크탑 앱은 백그라운드로 돌면서 작은 위젯으로 점수만 보여줘요. 지금 무료 베타라 부담 없이 써보시고 피드백 주시면 감사하겠습니다.</div>
+      <p class="note">규칙: 카페별 외부링크·홍보 규정 먼저 확인. 홍보 게시판 있으면 거기에. "후기·공유" 톤.</p>
+    </div>
+  </details>
+
+  <details class="ch"><summary><span class="pill open">Reddit · EN</span> webcam posture app, fully on-device <span style="font-weight:400;color:var(--fg-3);font-size:12px;">(프라이버시 앞세움)</span></summary>
+    <div class="ch-body">
+      <div class="field">제목</div>I built a webcam posture app that runs fully on-device (no video ever leaves your computer)
+      <div class="field">본문 (Text post)</div>
+      <div class="post">I sit at a desk all day and my posture kept getting worse. I tried a few posture apps but they were ugly and none of them ran quietly in the background, so I ended up building my own.
+
+It uses your webcam to watch for forward head, slouching, shoulder tilt and a few other patterns (7 total), and nudges you once you've been slumped for a while. It scores your posture 0-100 and keeps date-based stats so you can see if you're actually improving.
+
+The part I cared about most: everything runs on your device. Pose detection happens locally in the browser via MediaPipe, and webcam frames are never stored or uploaded. There's a no-install browser version and a desktop app (Windows/macOS) that runs in the background with a tiny widget.
+
+It's a free beta. Honest heads-up: stretch detection is still a bit rough and I'm working on it. I'd love feedback on accuracy, and whether you'd actually trust the privacy model.
+
+barosit.com</div>
+      <p class="note">서브레딧: r/posture(온토픽) → r/ergonomics → r/privacy(온디바이스). 한 sub씩 2~3일 간격, 첫 줄을 sub 성격에 맞게 변형. 각 sub 규칙·karma·연령 확인. 동시 도배 금지.</p>
+    </div>
+  </details>
+
   <footer>
     BaroSit Marketing &amp; SEO Playbook · 진행 상태는 브라우저 localStorage에 저장됩니다 · 문서 갱신 시 작업 항목 추가/수정 가능
   </footer>
@@ -246,6 +343,10 @@
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { return {}; } }
   function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
   var state = load();
+  // 2026-06-22 기준 완료 항목 — 처음 열 때 자동 체크(이후 수동 해제 가능)
+  var DONE_DEFAULTS = ["p1-naver", "p1-verify-meta", "p1-ogimage", "p1-canonical", "p1-faq", "p1-aibot", "p2-drafts"];
+  DONE_DEFAULTS.forEach(function (id) { if (state[id] === undefined) state[id] = true; });
+  save(state);
   var boxes = Array.prototype.slice.call(document.querySelectorAll('.task input[type=checkbox]'));
 
   function apply(cb) {
