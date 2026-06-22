@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ComplianceTracker,
   DEFAULT_COMPLIANCE_CONFIG,
+  computeBackoffMultiplier,
   type ComplianceConfig,
   type ComplianceSignals,
 } from "./complianceTracker";
@@ -80,5 +81,25 @@ describe("ComplianceTracker", () => {
     t.notifyFired("break_standup", 1_000); // 교체
     const { resolved } = t.push(2_000, BREAK, cfg);
     expect(resolved?.kind).toBe("break_standup");
+  });
+});
+
+describe("computeBackoffMultiplier", () => {
+  const at = (ignoreStreak: number) =>
+    computeBackoffMultiplier({ pending: false, recentComplianceRate: 0, ignoreStreak });
+
+  it("연속무시 없으면 1.0(백오프 없음)", () => {
+    expect(at(0)).toBe(1.0);
+  });
+
+  it("연속무시에 따라 선형 증가", () => {
+    expect(at(1)).toBe(1.25);
+    expect(at(2)).toBe(1.5);
+    expect(at(3)).toBe(1.75);
+  });
+
+  it("4회 이상은 2.0 상한", () => {
+    expect(at(4)).toBe(2.0);
+    expect(at(10)).toBe(2.0);
   });
 });

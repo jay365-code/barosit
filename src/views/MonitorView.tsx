@@ -52,6 +52,7 @@ import {
 import {
   ComplianceTracker,
   DEFAULT_COMPLIANCE_CONFIG,
+  computeBackoffMultiplier,
   recordDailyCompliance,
   type NudgeKind,
 } from "../pose/complianceTracker";
@@ -1369,12 +1370,20 @@ export function MonitorView({
               p: frame.face?.pitch ?? 0,
             }
           : null;
+      // 적응형 백오프 — 연속 무시가 쌓이면 변동성 알림 쿨다운을 늘려 빈도를 낮춘다.
+      const backoff = computeBackoffMultiplier(
+        complianceTrackerRef.current.status(),
+      );
+      const adjustedVariabilityConfig: VariabilityConfig = {
+        ...variabilityConfigRef.current,
+        cooldownMinutes: variabilityConfigRef.current.cooldownMinutes * backoff,
+      };
       const variabilityResult = variabilityTrackerRef.current.push(
         Date.now(),
         result.personPresent,
         result.isResting,
         variabilityMetrics,
-        variabilityConfigRef.current,
+        adjustedVariabilityConfig,
       );
       if (variabilityResult.fired) {
         dispatchVariabilityAlert(variabilityResult.fired);

@@ -133,6 +133,17 @@ export class ComplianceTracker {
   }
 }
 
+// ─── 적응형 백오프 ───────────────────────────────────────────────────────────
+// 근거(docs/posture-nudge-design.md §2-2): 무시 가속은 알림 피로·이탈의 조기경보.
+// 연속 무시가 쌓이면 알림 빈도를 조용히 낮춰(쿨다운·임계 확대) 자율성을 지킨다.
+// (처벌 아님 — 단지 덜 귀찮게.)
+
+/** 연속 무시(ignoreStreak)에 따른 빈도 배수. 1.0(정상)~2.0(최대 백오프).
+ *  streak 0→1.0, 1→1.25, 2→1.5, 3→1.75, 4+→2.0 (선형, 상한 2). */
+export function computeBackoffMultiplier(status: ComplianceStatus): number {
+  return 1 + Math.min(Math.max(status.ignoreStreak, 0), 4) * 0.25;
+}
+
 // ─── 일일 준수 집계(영속화) ──────────────────────────────────────────────────
 // churn 분석·리포트용. 날짜가 바뀌면 자동 리셋.
 
