@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BaroSit 마케팅·SEO 전략 — 첫 출시 실행 가이드</title>
+<style>
+  :root {
+    --bg: #0f1113;
+    --panel: #161a1e;
+    --panel-2: #1d2228;
+    --line: #2a3038;
+    --fg: #e6ebf0;
+    --fg-2: #aab3bd;
+    --fg-3: #6f7882;
+    --sig: #7eb09c;
+    --sig-deep: #5b8c7a;
+    --crit: #e15554;
+    --high: #e89b4a;
+    --med: #e6c34a;
+    --low: #6aa1d6;
+    --ok: #7eb09c;
+    --code-bg: #0b0d0f;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+    line-height: 1.6;
+    font-size: 14.5px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 32px 120px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 12px; }
+  header .eyebrow { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sig); font-weight: 700; }
+  header h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin: 10px 0 8px; }
+  header .meta { color: var(--fg-3); font-size: 13px; }
+  header .meta strong { color: var(--fg-2); font-weight: 600; }
+
+  h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.015em; margin: 48px 0 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  h3 { font-size: 16px; font-weight: 700; margin: 26px 0 8px; color: var(--fg); }
+  p { color: var(--fg-2); margin: 8px 0; }
+  ul, ol { color: var(--fg-2); padding-left: 22px; }
+  ul li, ol li { margin: 5px 0; }
+  strong { color: var(--fg); font-weight: 600; }
+
+  code { font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12.5px; background: var(--code-bg); padding: 1px 6px; border-radius: 4px; color: #d5dde5; }
+  a { color: var(--sig); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* progress */
+  .progress-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 22px 0 8px; position: sticky; top: 0; z-index: 5; backdrop-filter: blur(6px); }
+  .progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .progress-head .label { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); font-weight: 700; }
+  .progress-head .pct { font-size: 20px; font-weight: 800; color: var(--sig); }
+  .bar { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--sig-deep), var(--sig)); transition: width .35s ease; }
+  .progress-foot { margin-top: 8px; font-size: 12.5px; color: var(--fg-3); display: flex; gap: 16px; flex-wrap: wrap; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--fg-3); font-weight: 600; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+  td { color: var(--fg-2); }
+  .ok { color: var(--ok); font-weight: 600; }
+  .no { color: var(--crit); font-weight: 600; }
+
+  /* task list */
+  .tasks { list-style: none; padding: 0; margin: 14px 0; }
+  .tasks > li { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; padding: 0; overflow: hidden; transition: border-color .2s; }
+  .tasks > li:hover { border-color: var(--sig-deep); }
+  .task { display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px; cursor: pointer; }
+  .task input[type=checkbox] { appearance: none; -webkit-appearance: none; flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; border: 2px solid var(--fg-3); border-radius: 6px; cursor: pointer; position: relative; transition: all .15s; }
+  .task input[type=checkbox]:checked { background: var(--sig); border-color: var(--sig); }
+  .task input[type=checkbox]:checked::after { content: ""; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid #0f1113; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+  .task .body { flex: 1; min-width: 0; }
+  .task .title { font-weight: 600; color: var(--fg); font-size: 14.5px; }
+  .task .desc { color: var(--fg-3); font-size: 13px; margin-top: 3px; }
+  .task.done .title { text-decoration: line-through; color: var(--fg-3); }
+  .task.done .desc { opacity: .6; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
+  .tag.code { background: rgba(126,176,156,.15); color: var(--sig); }
+  .tag.ext { background: rgba(106,161,214,.15); color: var(--low); }
+  .tag.content { background: rgba(232,155,74,.15); color: var(--high); }
+  .phase-tag { font-size: 11px; font-weight: 700; color: var(--fg-3); }
+
+  .callout { border-left: 3px solid var(--high); background: var(--panel); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 16px 0; }
+  .callout.crit { border-left-color: var(--crit); }
+  .callout.ok { border-left-color: var(--ok); }
+  .callout p { margin: 4px 0; color: var(--fg-2); }
+  .callout .h { font-weight: 700; color: var(--fg); }
+
+  .note { font-size: 12.5px; color: var(--fg-3); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--fg-3); margin: 6px 0 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--fg-3); font-size: 12.5px; }
+  .reset { background: none; border: 1px solid var(--line); color: var(--fg-3); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .reset:hover { color: var(--fg); border-color: var(--fg-3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Marketing & SEO Playbook</div>
+    <h1>BaroSit 마케팅·SEO 전략</h1>
+    <div class="meta">데스크탑 자세 교정 웹/앱 · 첫 출시 · 무료 베타 단계 · 최종 업데이트 <strong>2026-06-22</strong></div>
+  </header>
+
+  <!-- live progress -->
+  <div class="progress-card">
+    <div class="progress-head">
+      <span class="label">전체 진행률</span>
+      <span class="pct" id="pct">0%</span>
+    </div>
+    <div class="bar"><span id="bar"></span></div>
+    <div class="progress-foot">
+      <span id="count">0 / 0 완료</span>
+      <span class="legend">
+        <span><i class="dot" style="background:var(--sig)"></i>코드</span>
+        <span><i class="dot" style="background:var(--low)"></i>외부 등록</span>
+        <span><i class="dot" style="background:var(--high)"></i>콘텐츠</span>
+      </span>
+      <button class="reset" id="reset">체크 초기화</button>
+    </div>
+  </div>
+  <p class="note">체크 상태는 이 브라우저에 자동 저장됩니다(localStorage). 작업하면서 직접 체크하세요.</p>
+
+  <!-- ========================= -->
+  <h2>1. 핵심 진단 — AI 검색, 기존 SEO로 커버되나?</h2>
+  <p><strong>절반만 커버됩니다.</strong> AI 검색(ChatGPT 검색·Perplexity·구글 AI Overviews·네이버 Cue:)은 "10개 링크 나열"이 아니라 <strong>여러 출처를 읽고 답을 합성하며 일부를 인용</strong>합니다. 목표가 "순위에 드는 것"에서 <strong>"인용되는 출처가 되는 것"</strong>으로 이동했고, 이를 GEO(Generative Engine Optimization) / AEO라 부릅니다.</p>
+  <ul>
+    <li><strong>겹치는 토대(기존 SEO 그대로 유효):</strong> 크롤링 가능, 시맨틱 HTML, schema.org 구조화 데이터, 빠른 로딩, 명확한 사실 서술.</li>
+    <li><strong>추가로 필요(GEO):</strong> 단정적·사실 기반 문장, Q&A 형식, 엔티티 인식, 그리고 <strong>외부 출처의 교차 검증</strong>(리뷰·커뮤니티·디렉터리). AI는 자사 키워드보다 "남들이 뭐라 하는가"를 신뢰합니다.</li>
+  </ul>
+
+  <h3>현재 라이브 상태 점검 (2026-06-22 직접 확인)</h3>
+  <table>
+    <thead><tr><th>항목</th><th>상태</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td>robots.txt</td><td class="ok">정상</td><td>검색 허용 + Sitemap 지정. Cloudflare가 AI봇 차단 블록 자동 추가</td></tr>
+      <tr><td>sitemap.xml</td><td class="ok">정상</td><td>라이브 200, 유효 XML (홈 1개 URL)</td></tr>
+      <tr><td>JSON-LD 구조화 데이터</td><td class="ok">정상</td><td>SoftwareApplication 스키마 라이브 반영</td></tr>
+      <tr><td>메타 description / OG / twitter:card</td><td class="ok">정상</td><td>기본 태그 반영됨</td></tr>
+      <tr><td>og:image / twitter:image</td><td class="no">누락</td><td>summary_large_image인데 이미지 없음 → 공유 미리보기 빈칸</td></tr>
+      <tr><td>canonical / og:url / og:site_name</td><td class="no">누락</td><td>권장 항목</td></tr>
+      <tr><td>구글/네이버 서치 등록</td><td class="no">미확인</td><td>인증 메타 없음 → 등록·사이트맵 제출 필요(색인 전제조건)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout crit">
+    <p class="h">⚠️ 지금 결정해야 할 것 — AI 봇 차단 정책</p>
+    <p>라이브 robots.txt에 <strong>Cloudflare 관리형 블록</strong>이 깔려 있습니다. AI 검색 엔진별 효과가 갈립니다:</p>
+  </div>
+  <table>
+    <thead><tr><th>AI 검색 엔진</th><th>크롤러</th><th>현재 상태</th></tr></thead>
+    <tbody>
+      <tr><td>ChatGPT 검색</td><td><code>OAI-SearchBot</code></td><td class="ok">✅ 허용</td></tr>
+      <tr><td>Perplexity</td><td><code>PerplexityBot</code></td><td class="ok">✅ 허용</td></tr>
+      <tr><td>구글 AI Overviews</td><td><code>Googlebot</code></td><td class="ok">✅ 허용</td></tr>
+      <tr><td>Claude</td><td><code>ClaudeBot</code></td><td class="no">❌ 차단됨</td></tr>
+      <tr><td>Gemini 인용</td><td><code>Google-Extended</code></td><td class="no">❌ 차단됨</td></tr>
+    </tbody>
+  </table>
+  <p class="note">정책 기조는 <code>search=yes, ai-train=no</code>(검색 허용·학습 거부). 학습 거부를 유지하면서 검색용 봇만 열 수 있습니다. <strong>이 블록은 레포 <code>public/robots.txt</code>가 아니라 Cloudflare 대시보드 관리형 설정에서 나옵니다</strong> — 정책 변경은 Cloudflare에서 해야 합니다.</p>
+
+  <!-- ========================= -->
+  <h2>2. 포지셔닝 — 무엇을 한 문장으로 파는가</h2>
+  <p>채널보다 메시지가 먼저입니다. BaroSit의 무기 3개:</p>
+  <ul>
+    <li><strong>🔒 프라이버시:</strong> 웹캠 영상이 기기 밖으로 안 나간다(온디바이스). 웹캠 앱은 다들 무서워하니 <strong>이게 1순위 메시지</strong> — AI도 가장 잘 집어가는 차별점.</li>
+    <li><strong>🖥 데스크탑 상주:</strong> 폰 앱과 달리 일하는 내내 실시간 감지. "오래 앉아 일하는 사람"용.</li>
+    <li><strong>🎯 다중 자세 감지:</strong> 거북목·턱 괴임·어깨 기울임·등 구부정 동시 감지.</li>
+  </ul>
+  <p><strong>타깃:</strong> 책상 앞에 오래 앉는 사람 — 직장인·개발자·수험생·재택근무자. 글로벌은 "privacy-first / on-device" 키워드 반응층.</p>
+
+  <!-- ========================= -->
+  <h2>3. 채널 전략 (인디 첫 출시 ROI 순)</h2>
+  <table>
+    <thead><tr><th>우선</th><th>채널</th><th>핵심</th></tr></thead>
+    <tbody>
+      <tr><td>A</td><td>커뮤니티/언드</td><td>🇰🇷 GeekNews·OKKY·블라인드·클리앙·거북목 카페 / 🌍 Show HN·Reddit(r/posture·ergonomics·selfhosted)·Product Hunt</td></tr>
+      <tr><td>B</td><td>콘텐츠/SEO</td><td>"거북목 자가진단/교정법", "자세 교정 앱 비교" — 검색 트래픽 + AI 인용 소스</td></tr>
+      <tr><td>C</td><td>앱스토어 ASO</td><td>MS Store(진행 중) + Mac App Store. 키워드·스크린샷·초기 리뷰</td></tr>
+      <tr><td>D</td><td>인플루언서/PR</td><td>생산성·건강 유튜버, 물리치료사에게 무료 베타 시딩</td></tr>
+      <tr><td>E</td><td>유료 광고</td><td>PMF 확인 후로 미룸. 베타 단계엔 오가닉 먼저</td></tr>
+    </tbody>
+  </table>
+  <p class="note">무료 베타는 <strong>수익화 전에 증언·리뷰·입소문·피드백 루프를 쌓는 기간</strong>입니다.</p>
+
+  <!-- ========================= -->
+  <h2>4. 실행 작업 — 우선순위 체크리스트</h2>
+  <p class="legend" style="margin-bottom:14px;">
+    <span><span class="tag code">코드</span> 코드/문서 작업</span>
+    <span><span class="tag ext">외부</span> 외부 서비스 등록·설정</span>
+    <span><span class="tag content">콘텐츠</span> 글쓰기·디자인</span>
+  </p>
+
+  <h3><span class="phase-tag">PHASE 1 · 0–30일</span> &nbsp;토대 — 색인되고 공유되게</h3>
+  <ul class="tasks" id="phase1">
+    <li><label class="task"><input type="checkbox" data-id="p1-gsc"><span class="body"><span class="title">구글 Search Console 등록 + 사이트맵 제출 <span class="tag ext">외부</span></span><span class="desc">인증 메타 또는 DNS 방식으로 소유 확인 → sitemap.xml 제출. 이거 없으면 검색 색인 자체가 안 됨</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p1-naver"><span class="body"><span class="title">네이버 서치어드바이저 등록 + 사이트맵 제출 <span class="tag ext">외부</span></span><span class="desc">국내 검색 노출 필수. 사이트 확인 → 수집 요청 → 사이트맵 제출</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p1-verify-meta"><span class="body"><span class="title">구글/네이버 인증 메타 태그를 index.html에 삽입 <span class="tag code">코드</span></span><span class="desc">HTML 메타 방식 선택 시 head에 추가 (DNS 방식이면 생략)</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p1-ogimage"><span class="body"><span class="title">og:image / twitter:image 추가 (1200×630) <span class="tag code">코드</span></span><span class="desc">카톡·X·페북 공유 미리보기. 대표 이미지 디자인 + index.html 메타 추가</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p1-canonical"><span class="body"><span class="title">canonical / og:url / og:site_name 추가 <span class="tag code">코드</span></span><span class="desc">권장 메타 보강</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p1-faq"><span class="body"><span class="title">FAQ 페이지 + FAQPage 스키마 <span class="tag code">코드</span></span><span class="desc">"웹캠 영상이 외부로 나가나요" 등 Q&A. AI가 가장 잘 퍼가는 형식</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p1-aibot"><span class="body"><span class="title">Cloudflare AI 봇 정책 결정·조정 <span class="tag ext">외부</span></span><span class="desc">ClaudeBot·Google-Extended 허용 여부 결정. 대시보드에서 관리형 robots 설정</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p1-community1"><span class="body"><span class="title">국내 커뮤니티 첫 소개글 3~4곳 <span class="tag content">콘텐츠</span></span><span class="desc">GeekNews·OKKY·거북목 카페 등. 프라이버시 각도로</span></span></label></li>
+  </ul>
+
+  <h3><span class="phase-tag">PHASE 2 · 30–60일</span> &nbsp;런치 — 부스트 이벤트</h3>
+  <ul class="tasks" id="phase2">
+    <li><label class="task"><input type="checkbox" data-id="p2-ph"><span class="body"><span class="title">Product Hunt 런치 <span class="tag content">콘텐츠</span></span><span class="desc">데스크탑 앱 + 프라이버시 각도. 썸네일·갤러리·태그라인 준비</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p2-hn"><span class="body"><span class="title">Show HN (Hacker News) 글 <span class="tag content">콘텐츠</span></span><span class="desc">온디바이스·프라이버시 각도가 폭발적으로 먹히는 곳</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p2-reddit"><span class="body"><span class="title">Reddit 시딩 <span class="tag content">콘텐츠</span></span><span class="desc">r/posture · r/ergonomics · r/productivity · r/selfhosted</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p2-review"><span class="body"><span class="title">만족 유저에게 리뷰·증언 요청 흐름 구축 <span class="tag code">코드</span></span><span class="desc">앱 내 또는 이메일로 스토어 리뷰 유도. 베타 증언 수집</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p2-content"><span class="body"><span class="title">SEO 콘텐츠 글 2~3개 <span class="tag content">콘텐츠</span></span><span class="desc">"거북목 자가진단", "거북목 교정법", "자세 교정 앱 비교"</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p2-aso"><span class="body"><span class="title">MS Store ASO 최적화 <span class="tag ext">외부</span></span><span class="desc">키워드·스크린샷·설명 최적화. (스토어 재제출과 연계)</span></span></label></li>
+  </ul>
+
+  <h3><span class="phase-tag">PHASE 3 · 60–90일</span> &nbsp;강화 — 엔티티 & 전환 대비</h3>
+  <ul class="tasks" id="phase3">
+    <li><label class="task"><input type="checkbox" data-id="p3-directory"><span class="body"><span class="title">소프트웨어 디렉터리 등록 <span class="tag ext">외부</span></span><span class="desc">AlternativeTo·AppSumo류·국내 앱소개 사이트. AI 엔티티 인식 강화</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p3-compare"><span class="body"><span class="title">경쟁 제품 비교 콘텐츠 <span class="tag content">콘텐츠</span></span><span class="desc">프라이버시·데스크탑 상주 우위 강조</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p3-email"><span class="body"><span class="title">이메일/알림 리스트 구축 <span class="tag code">코드</span></span><span class="desc">유료 전환 대비 오디언스 확보</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p3-influencer"><span class="body"><span class="title">인플루언서 시딩 <span class="tag content">콘텐츠</span></span><span class="desc">생산성·건강 유튜버, 물리치료사에게 무료 베타 제공</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="p3-doubledown"><span class="body"><span class="title">성과 채널 더블다운 <span class="tag content">콘텐츠</span></span><span class="desc">데이터 보고 가장 잘 되는 채널에 집중</span></span></label></li>
+  </ul>
+
+  <!-- ========================= -->
+  <h2>5. 추적 지표</h2>
+  <ul>
+    <li><strong>설치 수</strong> / <strong>활성 유지율(리텐션)</strong> — 자세 앱은 리텐션이 생명</li>
+    <li><strong>트래픽 출처</strong> — 어느 채널이 실제 유입을 만드는가</li>
+    <li><strong>스토어·커뮤니티 리뷰 수/평점</strong></li>
+    <li><strong>AI 검색 인용 여부</strong> — ChatGPT·Perplexity에 "거북목 교정 앱" 물어 BaroSit 언급되는지 직접 테스트</li>
+  </ul>
+
+  <footer>
+    BaroSit Marketing &amp; SEO Playbook · 진행 상태는 브라우저 localStorage에 저장됩니다 · 문서 갱신 시 작업 항목 추가/수정 가능
+  </footer>
+</div>
+
+<script>
+  var KEY = "barosit-mkt-strategy-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { return {}; } }
+  function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+  var state = load();
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.task input[type=checkbox]'));
+
+  function apply(cb) {
+    var id = cb.getAttribute('data-id');
+    var on = !!state[id];
+    cb.checked = on;
+    cb.closest('.task').classList.toggle('done', on);
+  }
+  function refresh() {
+    var total = boxes.length, done = boxes.filter(function (b) { return b.checked; }).length;
+    var pct = total ? Math.round(done / total * 100) : 0;
+    document.getElementById('pct').textContent = pct + '%';
+    document.getElementById('bar').style.width = pct + '%';
+    document.getElementById('count').textContent = done + ' / ' + total + ' 완료';
+  }
+  boxes.forEach(function (cb) {
+    apply(cb);
+    cb.addEventListener('change', function () {
+      state[cb.getAttribute('data-id')] = cb.checked;
+      save(state);
+      cb.closest('.task').classList.toggle('done', cb.checked);
+      refresh();
+    });
+  });
+  document.getElementById('reset').addEventListener('click', function () {
+    if (!confirm('모든 체크를 초기화할까요?')) return;
+    state = {}; save(state);
+    boxes.forEach(function (cb) { cb.checked = false; cb.closest('.task').classList.remove('done'); });
+    refresh();
+  });
+  refresh();
+</script>
+</body>
+</html>

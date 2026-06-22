@@ -90,6 +90,36 @@
         }
       }
     },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "Questions, answered",
+      "items": {
+        "privacy": {
+          "q": "Is my webcam video sent to a server?",
+          "a": "No. All posture analysis runs entirely on your device — video is never stored or sent anywhere."
+        },
+        "detect": {
+          "q": "What postures does it detect?",
+          "a": "Seven types in real time: forward head, chin resting, shoulder tilt, slouching, screen distance, shoulder asymmetry, and head tilt."
+        },
+        "devices": {
+          "q": "Which devices are supported?",
+          "a": "Desktop apps for Windows and macOS, and you can also try it right away in a web browser."
+        },
+        "offline": {
+          "q": "Do I need an internet connection?",
+          "a": "Posture analysis runs on-device, so it works offline. Only features like sign-in and sync need a connection."
+        },
+        "price": {
+          "q": "Is there a fee?",
+          "a": "It's currently free during the open beta. Try the core features at no cost."
+        },
+        "data": {
+          "q": "Do you collect personal data?",
+          "a": "We do not collect webcam video. For account and payment data, please see our Privacy Policy."
+        }
+      }
+    },
     "final": {
       "title": "Shall we start sitting right today?",
       "sub": "Start for free, upgrade to Pro anytime.",

@@ -761,6 +761,65 @@ function Landing() {
         </div>
       </div>
 
+      <div style={{ padding: "80px 56px", maxWidth: 820, margin: "0 auto" }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--b-sig)",
+            letterSpacing: "0.1em",
+            marginBottom: 12,
+          }}
+        >
+          {t("landing.faq.eyebrow")}
+        </div>
+        <h2
+          style={{
+            fontSize: 36,
+            fontWeight: 700,
+            letterSpacing: "-0.026em",
+            marginBottom: 32,
+          }}
+        >
+          {t("landing.faq.title")}
+        </h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {["privacy", "detect", "devices", "offline", "price", "data"].map((id) => (
+            <details
+              key={id}
+              style={{
+                padding: "18px 22px",
+                borderRadius: 14,
+                background: "var(--b-surface)",
+                border: "1px solid var(--b-line)",
+              }}
+            >
+              <summary
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  listStyle: "none",
+                  color: "var(--b-fg-1)",
+                }}
+              >
+                {t(`landing.faq.items.${id}.q`)}
+              </summary>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: "var(--b-fg-2)",
+                  lineHeight: 1.6,
+                  margin: "12px 0 0",
+                }}
+              >
+                {t(`landing.faq.items.${id}.a`)}
+              </p>
+            </details>
+          ))}
+        </div>
+      </div>
+
       <div
         style={{
           padding: "80px 56px 100px",

@@ -1,0 +1,92 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fafaf7"/>
+      <stop offset="1" stop-color="#f1f3ee"/>
+    </linearGradient>
+    <linearGradient id="sage" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7eb09c"/>
+      <stop offset="1" stop-color="#5b8c7a"/>
+    </linearGradient>
+    <style>
+      .ko { font-family: 'Apple SD Gothic Neo','AppleSDGothicNeo','Pretendard','Noto Sans KR','Malgun Gothic',sans-serif; }
+      .en { font-family: 'Inter','Helvetica Neue',-apple-system,'Apple SD Gothic Neo',sans-serif; }
+    </style>
+  </defs>
+
+  <!-- backdrop -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- soft frame -->
+  <rect x="24" y="24" width="1152" height="582" rx="28" fill="none" stroke="#dfe3da" stroke-width="2"/>
+
+  <!-- ===== LEFT: text block ===== -->
+  <!-- eyebrow -->
+  <g transform="translate(88,128)">
+    <rect x="0" y="-18" width="34" height="6" rx="3" fill="url(#sage)"/>
+    <text x="48" y="-9" class="en" font-size="20" letter-spacing="3.5" font-weight="700" fill="#5b8c7a">ON-DEVICE POSTURE MONITOR</text>
+  </g>
+
+  <!-- wordmark -->
+  <text x="84" y="262" class="en" font-size="116" font-weight="800" letter-spacing="-3" fill="#1a1c1a">BaroSit</text>
+  <text x="92" y="318" class="ko" font-size="40" font-weight="600" fill="#6f7882">바로씻 · 바른 자세 도우미</text>
+
+  <!-- tagline -->
+  <text x="86" y="406" class="ko" font-size="38" font-weight="700" fill="#2a3028">웹캠으로 거북목·어깨 기울임을</text>
+  <text x="86" y="456" class="ko" font-size="38" font-weight="700" fill="#2a3028">실시간으로 감지·교정</text>
+
+  <!-- privacy chip -->
+  <g transform="translate(86,506)">
+    <rect x="0" y="0" width="486" height="58" rx="29" fill="#eef3ee" stroke="#cfe0d6" stroke-width="1.5"/>
+    <!-- lock -->
+    <g transform="translate(26,15)" stroke="#5b8c7a" stroke-width="3" fill="none">
+      <rect x="2" y="11" width="24" height="18" rx="4" fill="#5b8c7a" stroke="none"/>
+      <path d="M7 11 V7 a7 7 0 0 1 14 0 V11" />
+    </g>
+    <text x="70" y="38" class="ko" font-size="23" font-weight="600" fill="#3a4a42">영상은 기기를 벗어나지 않습니다</text>
+  </g>
+
+  <!-- ===== RIGHT: monitor + posture figure ===== -->
+  <g transform="translate(760,150)">
+    <!-- monitor -->
+    <rect x="0" y="0" width="340" height="232" rx="18" fill="#ffffff" stroke="#d4d9cf" stroke-width="3"/>
+    <rect x="18" y="18" width="304" height="180" rx="10" fill="#f4f7f2"/>
+    <!-- camera dot -->
+    <circle cx="170" cy="9" r="4" fill="#7eb09c"/>
+    <!-- stand -->
+    <rect x="150" y="232" width="40" height="34" fill="#d4d9cf"/>
+    <rect x="112" y="266" width="116" height="14" rx="7" fill="#d4d9cf"/>
+
+    <!-- seated figure with spine guide (inside screen) -->
+    <g transform="translate(108,40)">
+      <!-- good-posture spine reference (dashed) -->
+      <path d="M62 18 C62 50 62 80 62 118" stroke="#cfe0d6" stroke-width="4" stroke-dasharray="2 9" stroke-linecap="round"/>
+      <!-- head -->
+      <circle cx="62" cy="30" r="20" fill="url(#sage)"/>
+      <!-- torso -->
+      <path d="M62 50 C58 78 60 96 62 118" stroke="#5b8c7a" stroke-width="12" stroke-linecap="round" fill="none"/>
+      <!-- shoulder line -->
+      <path d="M30 70 L94 70" stroke="#7eb09c" stroke-width="9" stroke-linecap="round"/>
+      <!-- detection markers -->
+      <circle cx="62" cy="30" r="27" fill="none" stroke="#7eb09c" stroke-width="2.5" stroke-dasharray="5 6"/>
+    </g>
+  </g>
+
+  <!-- detection pills floating near monitor -->
+  <g class="ko" font-size="19" font-weight="600">
+    <g transform="translate(742,420)">
+      <rect width="150" height="42" rx="21" fill="#ffffff" stroke="#cfe0d6" stroke-width="1.5"/>
+      <circle cx="24" cy="21" r="6" fill="#7eb09c"/>
+      <text x="42" y="28" fill="#3a4a42">거북목 감지</text>
+    </g>
+    <g transform="translate(910,420)">
+      <rect width="168" height="42" rx="21" fill="#ffffff" stroke="#cfe0d6" stroke-width="1.5"/>
+      <circle cx="24" cy="21" r="6" fill="#e89b4a"/>
+      <text x="42" y="28" fill="#3a4a42">어깨 기울임</text>
+    </g>
+    <g transform="translate(806,476)">
+      <rect width="186" height="42" rx="21" fill="#ffffff" stroke="#cfe0d6" stroke-width="1.5"/>
+      <circle cx="24" cy="21" r="6" fill="#6aa1d6"/>
+      <text x="42" y="28" fill="#3a4a42">실시간 알림</text>
+    </g>
+  </g>
+</svg>
