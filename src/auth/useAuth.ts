@@ -479,6 +479,30 @@ export function useAuth() {
     if (error) throw error;
   }, []);
 
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
+    if (!IS_AUTH_CONFIGURED) {
+      throw new Error(i18n.t("errors:auth.notConfigured"));
+    }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw error;
+    if (data.session) {
+      dispatchAuthSync(data.session);
+    }
+    try {
+      const saved = localStorage.getItem("barosit:auth_redirect");
+      localStorage.removeItem("barosit:auth_redirect");
+      const safe = saved && /^#\/[a-zA-Z0-9/_?=&-]*$/.test(saved);
+      window.location.hash = safe ? saved! : "#/app";
+    } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent("barosit:login-completed"));
+    } catch {}
+    return data;
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!IS_AUTH_CONFIGURED) return;
     // 로그아웃 시 Pro 권한 캐시를 즉시 제거한다 — 다음 사용자(또는 같은 기기의
@@ -505,6 +529,7 @@ export function useAuth() {
     signInWithKakao,
     signInWithNaver,
     signInWithLine,
+    signInWithPassword,
     signOut,
   };
 }

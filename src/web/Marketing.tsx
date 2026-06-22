@@ -3057,12 +3057,21 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
   const {
     signInWithGoogle,
     signInWithKakao,
+    signInWithPassword,
     configured,
     user,
     loading
   } = useAuth();
   const [oauthBusy, setOauthBusy] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
+
+  // Reviewer bypass states
+  const [logoClickCount, setLogoClickCount] = useState(0);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && user) {
@@ -3096,6 +3105,38 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
     }
   };
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setLogoClickCount((prev) => {
+      const next = prev + 1;
+      if (next >= 3) {
+        setShowEmailForm(true);
+        return 0;
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (logoClickCount === 0) return;
+    const t = setTimeout(() => {
+      setLogoClickCount(0);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [logoClickCount]);
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError(null);
+    setEmailLoading(true);
+    try {
+      await signInWithPassword(email, password);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
+      setEmailLoading(false);
+    }
+  };
+
   const handleGoogle = () => handleOAuth("google", signInWithGoogle);
   const handleKakao = () => handleOAuth("kakao", signInWithKakao);
 
@@ -3114,6 +3155,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
       >
         <a
           href="#/landing"
+          onClick={handleLogoClick}
           style={{
             display: "flex",
             alignItems: "center",
@@ -3341,6 +3383,80 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
             >
               {oauthError}
             </div>
+          )}
+
+          {showEmailForm && (
+            <form
+              onSubmit={handleEmailLogin}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                marginBottom: 18,
+                padding: 16,
+                background: "var(--b-surface)",
+                border: "1px solid var(--b-line)",
+                borderRadius: 12,
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "var(--b-fg-1)" }}>
+                Sign in with Email (Reviewer Bypass)
+              </div>
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{
+                  height: 38,
+                  padding: "0 12px",
+                  borderRadius: 6,
+                  border: "1px solid var(--b-line)",
+                  background: "var(--b-bg)",
+                  color: "var(--b-fg-1)",
+                  fontSize: 13,
+                }}
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{
+                  height: 38,
+                  padding: "0 12px",
+                  borderRadius: 6,
+                  border: "1px solid var(--b-line)",
+                  background: "var(--b-bg)",
+                  color: "var(--b-fg-1)",
+                  fontSize: 13,
+                }}
+              />
+              {emailError && (
+                <div style={{ color: "#dc2626", fontSize: 12 }}>
+                  {emailError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={emailLoading}
+                className="b-btn b-btn-primary"
+                style={{
+                  height: 38,
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: emailLoading ? "wait" : "pointer",
+                }}
+              >
+                {emailLoading ? "Signing in..." : "Sign In"}
+              </button>
+            </form>
           )}
 
           <p
