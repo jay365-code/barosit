@@ -6,7 +6,7 @@ import privacyMd from "../../docs/privacy.md?raw";
 import termsMd from "../../docs/terms.md?raw";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
-import { resolveEffectivePlan, isBetaFree, refreshLaunchMode } from "../launchMode";
+import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, LAUNCH_MODE_CHANGED_EVENT } from "../launchMode";
 import { priceFor } from "../lib/pricing";
 import { interpolateLegalTemplate } from "../lib/legal";
 import i18n from "../i18n";
@@ -89,6 +89,17 @@ function TopNav({ active }: { active?: string }) {
   const { user } = useAuth();
   const { t } = useTranslation("marketing");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [betaFree, setBetaFree] = useState(isBetaFree());
+
+  useEffect(() => {
+    const handleLaunchModeChange = () => {
+      setBetaFree(isBetaFree());
+    };
+    window.addEventListener(LAUNCH_MODE_CHANGED_EVENT, handleLaunchModeChange);
+    return () => {
+      window.removeEventListener(LAUNCH_MODE_CHANGED_EVENT, handleLaunchModeChange);
+    };
+  }, []);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -116,7 +127,7 @@ function TopNav({ active }: { active?: string }) {
 
   const items = [
     { key: "features", label: t("nav.features"), hash: "#/landing" },
-    { key: "pricing", label: t("nav.pricing"), hash: "#/pricing" },
+    ...(betaFree ? [] : [{ key: "pricing", label: t("nav.pricing"), hash: "#/pricing" }]),
     { key: "download", label: t("nav.download"), hash: "#/download" },
     { key: "community", label: t("nav.community"), hash: "#/community" },
   ];
@@ -5590,6 +5601,20 @@ export function Marketing({ route }: { route: MarketingRoute }) {
   useEffect(() => {
     refreshLaunchMode();
   }, []);
+
+  // 무료 베타 기간에는 가격 페이지 접근 시 메인 홈으로 리다이렉트
+  useEffect(() => {
+    const checkRedirect = () => {
+      if (route === "pricing" && isBetaFree()) {
+        window.location.hash = "#/landing";
+      }
+    };
+    checkRedirect();
+    window.addEventListener(LAUNCH_MODE_CHANGED_EVENT, checkRedirect);
+    return () => {
+      window.removeEventListener(LAUNCH_MODE_CHANGED_EVENT, checkRedirect);
+    };
+  }, [route]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
