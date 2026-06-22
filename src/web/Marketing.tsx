@@ -784,7 +784,7 @@ function Landing() {
           {t("landing.faq.title")}
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {["privacy", "detect", "devices", "offline", "price", "data"].map((id) => (
+          {["privacy", "detect", "devices", "webapp", "background", "widget", "offline", "price", "data"].map((id) => (
             <details
               key={id}
               style={{

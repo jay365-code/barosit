@@ -106,6 +106,18 @@
           "q": "Which devices are supported?",
           "a": "Desktop apps for Windows and macOS, and you can also try it right away in a web browser."
         },
+        "webapp": {
+          "q": "What's the difference between the web version and the desktop app?",
+          "a": "The web version runs right in your browser with no install. The desktop app (Windows·macOS) adds uninterrupted background detection even when the window is closed, plus a floating mini widget and system-tray control."
+        },
+        "background": {
+          "q": "Does it keep detecting when I close the main window?",
+          "a": "Yes — the desktop app keeps detecting your posture in the background even with the main window closed. It lives in the system tray and notifies you when poor posture persists. (The web version runs while its browser tab is open.)"
+        },
+        "widget": {
+          "q": "What are the mini bar and widget mode?",
+          "a": "The mini bar is a small floating pill that shows just your current posture score without getting in the way. Drag it anywhere and its position is saved; switch to widget mode to close the main window and keep only the mini bar on screen."
+        },
         "offline": {
           "q": "Do I need an internet connection?",
           "a": "Posture analysis runs on-device, so it works offline. Only features like sign-in and sync need a connection."
