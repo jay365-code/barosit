@@ -14,6 +14,11 @@ dist-ssr
 
 # QA 실행 산출물 (체크리스트/플레이북/러너는 커밋, 결과는 제외)
 qa/results/*.json
+# QA 임시 검증/probe 스크립트 (_ 접두 — 일회성 디버그용, 커밋 안 함)
+qa/scripts/_*.mjs
+
+# Supabase CLI 로컬 상태 (project-ref·pooler-url 등 — 로컬 전용, 커밋 금지)
+supabase/.temp/
 .env
 .env.local
 .env.*.local
