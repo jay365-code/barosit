@@ -944,7 +944,7 @@ function Landing() {
           {t("landing.final.title")}
         </h2>
         <p style={{ fontSize: 16, color: "var(--b-fg-2)", marginBottom: 28 }}>
-          {t("landing.final.sub")}
+          {isBetaFree() ? t("landing.final.sub_beta") : t("landing.final.sub")}
         </p>
         <div style={{ display: "inline-flex", gap: 10 }}>
           <a
