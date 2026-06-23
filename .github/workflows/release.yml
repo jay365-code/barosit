@@ -86,3 +86,30 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      # tauri-action 은 .app 만 공증·스테이플하고 .dmg 는 unnotarized 로 남긴다.
+      # 사용자가 브라우저로 .dmg 다운로드(quarantine 부착) 후 더블클릭 시
+      # "확인되지 않은 개발자" 경고가 다시 뜨는 것을 막기 위해 DMG 도 공증+스테이플.
+      - name: Notarize & staple DMG (macOS only)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG=$(find src-tauri/target -name "*.dmg" -type f | head -1)
+          if [ -z "$DMG" ]; then echo "No DMG found"; exit 1; fi
+          echo "DMG: $DMG"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_PASSWORD" \
+            --wait
+          xcrun stapler staple "$DMG"
+          spctl -a -vv -t install "$DMG"
+          # tauri-action 이 이미 release 에 올린 동일 이름 자산을 staple 된 파일로 교체
+          gh release upload "${{ github.ref_name }}" "$DMG" \
+            --clobber --repo "${{ github.repository }}"
