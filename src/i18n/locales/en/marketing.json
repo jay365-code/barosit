@@ -12,6 +12,7 @@
     "address": "Address: #3425, 3F, 5-12 Ogeum-ro 15-gil, Songpa-gu, Seoul, Korea",
     "registration": "Business Reg. No.: 512-88-00059 | Mail-order License: 2025-Seoul Songpa-2552",
     "changelog": "Changelog",
+    "science": "Science",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "community": "Community"
@@ -49,7 +50,8 @@
           "t": "Encouragement, not guilt",
           "d": "Move well and we cheer you on. We never scold."
         }
-      }
+      },
+      "cta": "See the evidence"
     },
     "how": {
       "eyebrow": "How it works",
@@ -171,6 +173,22 @@
       "mac": "Download for Mac",
       "win": "Download for Windows"
     }
+  },
+  "science": {
+    "eyebrow": "THE SCIENCE",
+    "title": "The evidence behind BaroSit",
+    "intro": "BaroSit focuses on 'sit less, move more' rather than 'fix your posture to perfection.' That direction is grounded in the following peer-reviewed research.",
+    "findings": {
+      "noStandard": "There is no scientifically validated single 'standard' posture that fits everyone — reviews conclude the 'standard posture' is essentially a myth.",
+      "causation": "An umbrella review of 41 systematic reviews found no causal consensus that specific postures or physical exposures cause low back pain; associations are weak and inconsistent.",
+      "forwardHead": "The link between forward head posture and neck pain is small in adults and not significant in adolescents, and all evidence is cross-sectional — so it can't establish causation.",
+      "sitting": "The risk of prolonged sitting is strongly conditioned on activity level. About 60–75 minutes of moderate daily activity essentially offset the mortality risk linked to high sitting time.",
+      "cadence": "A light movement break of about 5 minutes every 20–30 minutes was the best-supported cadence for glucose and fatigue outcomes.",
+      "reminders": "On-screen reminders are reported to reduce objectively measured sitting time by about 12 minutes per day (meta-analysis of 18 randomized controlled trials)."
+    },
+    "closing": "In short — there is no single perfect posture; what matters is not staying in one position too long and moving often. BaroSit's nudges, rewards, and movement-aware design all follow this principle.",
+    "disclaimer": "This page is general health information, not medical advice. If pain persists, consult a professional.",
+    "back": "Back to home"
   },
   "legalTitle": {
     "privacy": "Privacy Policy",

@@ -298,6 +298,9 @@ function Footer() {
           <a href="#/changelog" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.changelog")}
           </a>
+          <a href="#/science" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
+            {t("footer.science")}
+          </a>
           <a href="#/privacy" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.privacy")}
           </a>
@@ -589,6 +592,21 @@ function Landing() {
               </div>
             ))}
           </div>
+          <a
+            href="#/science"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 28,
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--b-sig-deep)",
+              textDecoration: "none",
+            }}
+          >
+            {t("landing.why.cta")} <Icon name="arrow-r" size={14} />
+          </a>
         </div>
       </div>
 
@@ -5781,6 +5799,7 @@ export type MarketingRoute =
   | "terms"
   | "community"
   | "changelog"
+  | "science"
   | "auth-callback";
 
 function detectOS(): "mac" | "win" {
@@ -5788,6 +5807,96 @@ function detectOS(): "mac" | "win" {
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("win")) return "win";
   return "mac";
+}
+
+// 근거(Science) 페이지 — 출처는 docs/posture-evidence-and-reflection.md §2 검증 항목.
+// 인용 라벨/URL 은 언어 중립이라 상수로 두고, 주장 문장만 i18n.
+const SCIENCE_SOURCES: Array<{ id: string; cite: string; url: string }> = [
+  { id: "noStandard", cite: "Barra-López, 2024 · J Rehabil Med", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC11492508/" },
+  { id: "causation", cite: "Swain et al., 2020 · J Biomechanics", url: "https://pubmed.ncbi.nlm.nih.gov/31451200/" },
+  { id: "forwardHead", cite: "Mahmoud et al., 2019 · Curr Rev Musculoskelet Med", url: "https://pubmed.ncbi.nlm.nih.gov/31773477/" },
+  { id: "sitting", cite: "Ekelund et al., 2016 · The Lancet", url: "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(16)30370-1/abstract" },
+  { id: "cadence", cite: "Network meta-analysis, 2024 · Applied Sciences", url: "https://www.mdpi.com/2076-3417/14/8/3201" },
+  { id: "reminders", cite: "Chen et al., 2025 · IJBNPA (18 RCT)", url: "https://ijbnpa.biomedcentral.com/articles/10.1186/s12966-025-01781-0" },
+];
+
+function SciencePage() {
+  const { t } = useTranslation("marketing");
+  return (
+    <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
+      <TopNav />
+      <div style={{ maxWidth: 820, margin: "0 auto", padding: "60px 56px 80px" }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--b-sig)",
+            letterSpacing: "0.1em",
+            marginBottom: 10,
+          }}
+        >
+          {t("science.eyebrow")}
+        </div>
+        <h1 style={{ fontSize: 40, fontWeight: 700, letterSpacing: "-0.028em", marginBottom: 18 }}>
+          {t("science.title")}
+        </h1>
+        <p style={{ fontSize: 17, color: "var(--b-fg-2)", lineHeight: 1.7, marginBottom: 40 }}>
+          {t("science.intro")}
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {SCIENCE_SOURCES.map((s, i) => (
+            <div
+              key={s.id}
+              style={{
+                padding: 22,
+                borderRadius: 14,
+                background: "var(--b-surface)",
+                border: "1px solid var(--b-line)",
+              }}
+            >
+              <div className="b-num" style={{ fontSize: 12, fontWeight: 700, color: "var(--b-sig-deep)", marginBottom: 8 }}>
+                {String(i + 1).padStart(2, "0")}
+              </div>
+              <p style={{ fontSize: 15, lineHeight: 1.65, marginBottom: 12, color: "var(--b-fg-1)" }}>
+                {t(`science.findings.${s.id}`)}
+              </p>
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                style={{ fontSize: 13, color: "var(--b-fg-3)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <Icon name="arrow-r" size={12} /> {s.cite}
+              </a>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: 40,
+            padding: 22,
+            borderRadius: 14,
+            background: "var(--b-sig-bg)",
+            border: "1px solid var(--b-line)",
+          }}
+        >
+          <p style={{ fontSize: 15, lineHeight: 1.7, color: "var(--b-fg-2)", margin: 0 }}>
+            {t("science.closing")}
+          </p>
+        </div>
+
+        <p style={{ fontSize: 12, color: "var(--b-fg-4)", lineHeight: 1.6, marginTop: 28 }}>
+          {t("science.disclaimer")}
+        </p>
+        <a href="#/landing" style={{ fontSize: 14, color: "var(--b-sig-deep)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, marginTop: 20 }}>
+          <Icon name="chev-l" size={14} /> {t("science.back")}
+        </a>
+      </div>
+      <Footer />
+    </div>
+  );
 }
 
 export function routeFromHash(hash: string): MarketingRoute | null {
@@ -5804,6 +5913,7 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   if (h === "terms") return "terms";
   if (h === "changelog" || h === "release" || h === "releases") return "changelog";
   if (h === "community" || h === "contact" || h === "support") return "community";
+  if (h === "science" || h === "evidence") return "science";
   if (h === "auth/callback") return "auth-callback";
   return null;
 }
@@ -5834,6 +5944,8 @@ function routeBody(route: MarketingRoute) {
       return <ChangelogPage />;
     case "community":
       return <Contact />;
+    case "science":
+      return <SciencePage />;
     case "auth-callback":
       return <AuthCallback />;
   }
