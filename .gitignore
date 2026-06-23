@@ -28,3 +28,9 @@ qa/results/*.json
 *.njsproj
 *.sln
 *.sw?
+
+# Xcode (BaroSit 네이티브 앱) — 사용자 로컬 상태/빌드 산출물
+**/xcuserdata/
+*.xcuserstate
+BaroSit/build/
+DerivedData/
