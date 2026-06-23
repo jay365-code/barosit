@@ -258,7 +258,10 @@
     "releaseNotes": "전체 릴리스 노트",
     "otherOsQ": "{{other}}를 쓰시나요?",
     "otherOsDesc": "{{other}}용 빌드도 준비되어 있어요",
-    "otherOsBtn": "{{other}} 버전"
+    "otherOsBtn": "{{other}} 버전",
+    "getFromStore": "Microsoft Store에서 받기",
+    "storeSubtitle": "Microsoft Store에서 안전하게 설치 · 자동 업데이트",
+    "storeStep1": "Microsoft Store에서 '설치'를 눌러요"
   },
   "community": {
     "boardLabel": "COMMUNITY BOARD",

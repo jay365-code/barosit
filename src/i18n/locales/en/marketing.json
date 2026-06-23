@@ -258,7 +258,10 @@
     "releaseNotes": "Full release notes",
     "otherOsQ": "Using {{other}}?",
     "otherOsDesc": "A {{other}} build is ready too",
-    "otherOsBtn": "{{other}} version"
+    "otherOsBtn": "{{other}} version",
+    "getFromStore": "Get from Microsoft Store",
+    "storeSubtitle": "Install safely from the Microsoft Store · auto-updates",
+    "storeStep1": "Click \"Install\" on the Microsoft Store page"
   },
   "community": {
     "boardLabel": "COMMUNITY BOARD",

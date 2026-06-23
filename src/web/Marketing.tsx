@@ -3678,7 +3678,15 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
           installSecond: t("downloadPage.winInstallSecond"),
         };
 
+  // Windows 는 Microsoft Store 배포 → 로그인/Pro 게이팅 없이 스토어로 (스토어 설치 무료, Pro 는 인앱 Toss)
+  const isWin = os === "win";
+  const MS_STORE_URL = "https://apps.microsoft.com/detail/9nmg33l2thhh";
+
   const handleDownloadClick = () => {
+    if (isWin) {
+      window.location.href = MS_STORE_URL;
+      return;
+    }
     if (!user) {
       alert(t(isBetaFree() ? "downloadPage.loginNeeded_beta" : "downloadPage.loginNeeded"));
       // 현재 다운로드 페이지를 redirect 로 저장 → 로그인 후 복귀.
@@ -3745,7 +3753,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
               {t("downloadPage.forName", { name: m.name })}
             </h1>
             <div className="b-num" style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
-              {t("downloadPage.version", { ver: currentVer, size: m.size })}
+              {isWin ? t("downloadPage.storeSubtitle") : t("downloadPage.version", { ver: currentVer, size: m.size })}
             </div>
           </div>
         </div>
@@ -3805,7 +3813,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
           className="b-btn b-btn-primary"
           style={{ height: 52, padding: "0 28px", fontSize: 15, marginBottom: 14 }}
         >
-          <Icon name="arrow-r" size={15} /> {t("downloadPage.downloadFile", { file: m.file })}
+          <Icon name="arrow-r" size={15} /> {isWin ? t("downloadPage.getFromStore") : t("downloadPage.downloadFile", { file: m.file })}
         </button>
         <div style={{ fontSize: 12, color: "var(--b-fg-4)", marginBottom: 36 }}>
           {t("downloadPage.agreePrefix")}
@@ -3852,9 +3860,18 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
                 lineHeight: 1.8,
               }}
             >
-              <li>{t("downloadPage.installStep1")}</li>
-              <li>{m.installSecond}</li>
-              <li>{t("downloadPage.installStep3")}</li>
+              {isWin ? (
+                <>
+                  <li>{t("downloadPage.storeStep1")}</li>
+                  <li>{t("downloadPage.installStep3")}</li>
+                </>
+              ) : (
+                <>
+                  <li>{t("downloadPage.installStep1")}</li>
+                  <li>{m.installSecond}</li>
+                  <li>{t("downloadPage.installStep3")}</li>
+                </>
+              )}
             </ol>
           </MiniCard>
         </div>

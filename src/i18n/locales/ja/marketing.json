@@ -258,7 +258,10 @@
     "releaseNotes": "リリースノート全体",
     "otherOsQ": "{{other}}をお使いですか？",
     "otherOsDesc": "{{other}}版ビルドもご用意しています",
-    "otherOsBtn": "{{other}} 版"
+    "otherOsBtn": "{{other}} 版",
+    "getFromStore": "Microsoft Store で入手",
+    "storeSubtitle": "Microsoft Store から安全にインストール · 自動更新",
+    "storeStep1": "Microsoft Store ページで「インストール」を押します"
   },
   "community": {
     "boardLabel": "COMMUNITY BOARD",
