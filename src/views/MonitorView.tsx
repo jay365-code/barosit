@@ -23,7 +23,11 @@ import { LandmarkSmoother } from "../pose/smoothing";
 import { captureMonitorSnapshot, saveSnapshot } from "../lib/viewportSnapshot";
 import { analyzeFrame, type AnalysisDebug, type AnalyzerState } from "../pose/analyzer";
 import { DebugOverlay } from "../components/DebugOverlay";
-import { ViolationTracker } from "../pose/violationTracker";
+import {
+  ViolationTracker,
+  computeMovementRelaxation,
+  relaxThresholdDurations,
+} from "../pose/violationTracker";
 import { ViolationSmoother } from "../pose/violationSmoother";
 import {
   detectStretch,
@@ -1485,10 +1489,20 @@ export function MonitorView({
       if (result.isResting) {
         trackerRef.current.reset();
       }
+      // 움직임 인지 완화 — 활발히 움직이는(변동성 높은) 사용자는 위반 알람 임계를
+      // 늘려 "자세 바꾸는 중 잠깐 나쁜 모양"을 봐준다. 한 자세에 눌러앉으면(움직임↓)
+      // movementIndex 가 떨어져 정상 임계로 복귀.
+      const relaxedThresholds = relaxThresholdDurations(
+        thresholds,
+        computeMovementRelaxation(
+          variabilityResult.status.movementIndex,
+          variabilityConfigRef.current.threshold,
+        ),
+      );
       const fired = result.isResting
         ? []
-        : trackerRef.current.update(stableViolations, thresholds);
-      
+        : trackerRef.current.update(stableViolations, relaxedThresholds);
+
       const cleared = trackerRef.current.getAndClearRecentCleared();
       for (const event of cleared) {
         updateEventDuration(event.id, event.durationSecs);

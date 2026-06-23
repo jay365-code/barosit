@@ -18,6 +18,43 @@ interface OngoingViolation {
 const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
 
 /**
+ * 움직임 인지 완화 (movement-aware relaxation).
+ *
+ * 근거(docs/posture-nudge-design.md): "변동성을 벌하지 말고 보상하라". 좋은 자세든
+ * 나쁜 자세든 *오래 고정*이 문제이고, 잠깐 다른 자세를 지나가는 것은 건강한 변동성이다.
+ * 최근 활발히 움직인(변동성 높은) 사용자는 잠깐 나쁜 모양을 지나가도 봐주고, 한 자세에
+ * 정말 눌러앉았을 때(움직임 낮음)만 정상 임계로 알람하도록 위반 durationSecs 를 늘린다.
+ *
+ * @param movementIndex 변동성 트래커의 movement index (높을수록 활발)
+ * @param variabilityThreshold 변동성 알림 임계(이 값 미만이면 "정지"로 판정)
+ * @returns durationSecs 에 곱할 배수 1.0(정지)~2.0(임계의 2배 이상으로 활발).
+ */
+export function computeMovementRelaxation(
+  movementIndex: number,
+  variabilityThreshold: number,
+): number {
+  if (variabilityThreshold <= 0) return 1;
+  const over = movementIndex / variabilityThreshold - 1; // 임계 대비 초과분
+  return 1 + Math.min(Math.max(over, 0), 1); // 1.0 ~ 2.0
+}
+
+/** durationSecs 에만 배수를 적용한 threshold map 반환(sensitivity 등은 보존). */
+export function relaxThresholdDurations(
+  thresholds: ThresholdMap,
+  multiplier: number,
+): ThresholdMap {
+  if (multiplier === 1) return thresholds;
+  const out = {} as ThresholdMap;
+  for (const key of Object.keys(thresholds) as PostureType[]) {
+    out[key] = {
+      ...thresholds[key],
+      durationSecs: thresholds[key].durationSecs * multiplier,
+    };
+  }
+  return out;
+}
+
+/**
  * Tracks per-posture violation duration and decides when to fire an alert.
  *
  * - A violation must persist for at least `thresholds[type].durationSecs`

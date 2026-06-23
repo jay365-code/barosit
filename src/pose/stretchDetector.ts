@@ -278,12 +278,13 @@ export function isShoulderShrug(
   if (re && re.visibility >= 0.15 && Math.abs(re.x - shoulderMidX) < xGuardThresh) return false;
 
   const midY = (ls.y + rs.y) / 2;
-  // baseline 대비 어깨가 sw*0.35 이상 위로 (음수) - 민감도 조정 (더 뚜렷한 으쓱임 요구)
+  // baseline 대비 어깨가 sw*0.42 이상 위로 (음수) — 과민감(일반적 어깨 들림 오감지) 완화로
+  // 0.35→0.42 상향. 의도적이고 뚜렷한 으쓱만 인정.
   const lift = baseline.shoulderMidY - midY;
-  if (lift < sw * 0.35) return false;
-  // 양쪽 모두 올라가야 (한쪽만이면 사이드 굽힘 또는 비대칭) - 각 어깨 임계값 sw*0.18 -> sw*0.24로 상향
-  return ls.y < baseline.meanLandmarks[LANDMARK_INDEX.LEFT_SHOULDER].y - sw * 0.24 &&
-         rs.y < baseline.meanLandmarks[LANDMARK_INDEX.RIGHT_SHOULDER].y - sw * 0.24;
+  if (lift < sw * 0.42) return false;
+  // 양쪽 모두 올라가야 (한쪽만이면 사이드 굽힘 또는 비대칭) — 각 어깨 임계 0.24→0.30 상향.
+  return ls.y < baseline.meanLandmarks[LANDMARK_INDEX.LEFT_SHOULDER].y - sw * 0.30 &&
+         rs.y < baseline.meanLandmarks[LANDMARK_INDEX.RIGHT_SHOULDER].y - sw * 0.30;
 }
 
 /**

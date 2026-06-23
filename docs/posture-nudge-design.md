@@ -112,5 +112,6 @@
   - ✅ 슬라이스 2 — 적응형 백오프(ignoreStreak→변동성 쿨다운 확대, computeBackoffMultiplier, 테스트 통과)
   - ✅ 슬라이스 3a — JITAI 발사 타이밍(jitaiGate, 휴식 알림을 방해 가능 순간에 발사, 테스트 7개)
   - ✅ 슬라이스 3b — 집중모드(옵트인 에스컬레이션 토글, AlertModes.focusMode, 비잠금 프롬프트)
-  - **설계의 코드 빈칸 5개 전부 구현 완료.** 남은 것: 실기기 수동 QA(준수·보상·백오프·JITAI·에스컬레이션 end-to-end는 카메라+시간 임계 필요)
+  - ✅ 슬라이스 4 — **움직임 인지 완화**(violationTracker: computeMovementRelaxation/relaxThresholdDurations). 활발히 움직이는(movementIndex 높은) 사용자는 위반 알람 durationSecs 를 ×1.0~2.0 늘려 "자세 바꾸는 중 잠깐 나쁜 모양"을 봐줌 → 변동성을 벌하지 않고 보상. 두 루프 배선, 테스트 7개. (부수: 어깨 으쓱 stretch 과민감 임계 상향 0.35→0.42/0.24→0.30, 실기기 튜닝 필요)
+  - **설계 코드 빈칸 5개 + 개념정합 완화 1개 구현 완료.** 남은 것: 실기기 수동 QA(end-to-end는 카메라+시간 임계 필요)
 - 미검증: 보상 토스트 시각·준수 흐름 end-to-end는 카메라+시간 임계 필요 → 실 모니터링 세션 수동 QA 필요
