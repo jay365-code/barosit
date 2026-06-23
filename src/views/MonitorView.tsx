@@ -36,6 +36,7 @@ import {
   loadBreakConfig,
   type BreakConfig,
   type BreakStatus,
+  type BreakFiredEvent,
 } from "../pose/breakTracker";
 import {
   CumulativeLoadTracker,
@@ -56,6 +57,12 @@ import {
   recordDailyCompliance,
   type NudgeKind,
 } from "../pose/complianceTracker";
+import {
+  JitaiGate,
+  DEFAULT_JITAI_CONFIG,
+  JITAI_INTERRUPTIBLE_YAW_RAD,
+  type JitaiConfig,
+} from "../pose/jitaiGate";
 import {
   ADAPTIVE_CONFIG_CHANGED_EVENT,
   computeSensitivityModifier,
@@ -860,6 +867,8 @@ export function MonitorView({
   const variabilityTrackerRef = useRef(new VariabilityTracker());
   const variabilityConfigRef = useRef<VariabilityConfig>(loadVariabilityConfig());
   const complianceTrackerRef = useRef(new ComplianceTracker());
+  const breakJitaiGateRef = useRef(new JitaiGate<BreakFiredEvent>());
+  const jitaiConfigRef = useRef<JitaiConfig>({ ...DEFAULT_JITAI_CONFIG });
   const adaptiveConfigRef = useRef<AdaptiveSensitivityConfig>({
     ...loadAdaptiveConfig(),
     sessionStartedAt: Date.now(),
@@ -925,6 +934,7 @@ export function MonitorView({
       cumulativeTrackerRef.current.reset();
       variabilityTrackerRef.current.reset();
       complianceTrackerRef.current.reset();
+      breakJitaiGateRef.current.reset();
       setMaxDurationSecs(0);
       scoreInputsRef.current = {
         durations: [],
@@ -1340,11 +1350,8 @@ export function MonitorView({
       );
       setBreakStatus(breakResult.status);
       if (breakResult.fired) {
-        dispatchBreakReminder(breakResult.fired);
-        complianceTrackerRef.current.notifyFired(
-          `break_${breakResult.fired.stage}` as NudgeKind,
-          Date.now(),
-        );
+        // JITAI — 즉시 발사하지 않고 방해 가능 순간까지 보류(아래 Phase 6 에서 발사).
+        breakJitaiGateRef.current.hold(breakResult.fired, Date.now());
       }
 
       // Phase 2 — 누적 부하 추적
@@ -1388,6 +1395,39 @@ export function MonitorView({
       if (variabilityResult.fired) {
         dispatchVariabilityAlert(variabilityResult.fired);
         complianceTrackerRef.current.notifyFired("variability", Date.now());
+      }
+
+      // Phase 6 — JITAI: 보류된 휴식 알림을 방해 가능 순간(고개 돌림·움직임)에 발사.
+      // 사용자가 이미 휴식을 취했으면 보류 폐기. 좋은 순간이 없어도 maxHold 후 발사.
+      const movedNow =
+        variabilityResult.status.movementIndex >=
+        variabilityConfigRef.current.threshold;
+      const tookBreakNow =
+        !!stretchFired ||
+        !!result.isStanding ||
+        result.isResting ||
+        !result.personPresent;
+      if (tookBreakNow) {
+        breakJitaiGateRef.current.reset();
+      } else if (breakJitaiGateRef.current.isPending) {
+        const yawDelta =
+          frame.face && baselineState?.face
+            ? Math.abs(frame.face.yaw - baselineState.face.yaw)
+            : 0;
+        const interruptible =
+          yawDelta > JITAI_INTERRUPTIBLE_YAW_RAD || movedNow;
+        const releasedBreak = breakJitaiGateRef.current.push(
+          Date.now(),
+          { interruptible },
+          jitaiConfigRef.current,
+        );
+        if (releasedBreak) {
+          dispatchBreakReminder(releasedBreak);
+          complianceTrackerRef.current.notifyFired(
+            `break_${releasedBreak.stage}` as NudgeKind,
+            Date.now(),
+          );
+        }
       }
 
       // Phase 5 — 알림 준수 추적. 발사된 알림 후 응답 윈도우 내 행동을 보고
