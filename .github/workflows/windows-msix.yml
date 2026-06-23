@@ -1,0 +1,54 @@
+name: Windows MSIX
+
+# 무인 MSIX 패키징 — 외부 Windows 머신/GUI 캡처 불필요.
+# 태그 푸시(v*) 또는 수동 실행 시 .msix 를 빌드해 아티팩트로 올린다.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  msix:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Add Windows SDK (makeappx) to PATH
+        shell: pwsh
+        run: |
+          $sdk = Get-ChildItem "C:/Program Files (x86)/Windows Kits/10/bin" -Directory |
+            Where-Object { Test-Path "$($_.FullName)/x64/makeappx.exe" } |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $sdk) { throw "makeappx.exe 를 가진 Windows SDK 를 찾지 못함" }
+          "$($sdk.FullName)/x64" | Out-File -FilePath $env:GITHUB_PATH -Append
+          Write-Host "SDK: $($sdk.FullName)/x64"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build MSIX
+        shell: pwsh
+        run: pwsh scripts/build-msix.ps1
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: barosit-msix
+          path: windows/dist/*.msix
+          if-no-files-found: error
+
+      # 제출 자동화(선택): Microsoft Store Developer CLI(msstore) 또는 StoreBroker 로
+      # Partner Center(제품 9NMG33L2THHH) 업로드·제출. Azure AD 자격증명 시크릿 필요.
+      # - name: Publish to Store
+      #   run: msstore publish ... (또는 StoreBroker PowerShell)

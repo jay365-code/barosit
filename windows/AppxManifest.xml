@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  BaroSit MSIX 패키지 매니페스트 (Store 직접 제출용, MSIX Packaging Tool GUI 불필요).
+  {{VERSION}} 토큰은 scripts/build-msix.ps1 이 tauri.conf.json 버전으로 치환한다.
+  Identity(Name/Publisher)는 Partner Center 예약값과 글자 단위로 일치해야 업로드가 통과한다.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  IgnorableNamespaces="uap uap3 rescap desktop">
+
+  <Identity Name="GUBED.BaroSit"
+            Publisher="CN=F6C23DAA-92F4-4319-806C-7E202637863C"
+            Version="{{VERSION}}"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>BaroSit</DisplayName>
+    <PublisherDisplayName>GUBED</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="ko-KR" />
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <Application Id="BaroSit" Executable="barosit.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="BaroSit"
+        Description="An AI-powered desktop application for real-time posture detection and correction."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Square150x150Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          Square71x71Logo="Assets\Square71x71Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- barosit:// 딥링크 (URI 를 %1 로 풀트러스트 exe 에 전달). 활성화 실패 대비 loopback 폴백 병행. -->
+        <uap3:Extension Category="windows.protocol">
+          <uap3:Protocol Name="barosit" Parameters="&quot;%1&quot;">
+            <uap:DisplayName>BaroSit Deep Link</uap:DisplayName>
+          </uap3:Protocol>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- 풀트러스트 데스크톱 브리지(Win32 Tauri 앱) -->
+    <rescap:Capability Name="runFullTrust" />
+    <!-- 자세 분석용 웹캠 -->
+    <DeviceCapability Name="webcam" />
+  </Capabilities>
+</Package>
