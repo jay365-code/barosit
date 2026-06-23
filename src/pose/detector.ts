@@ -33,6 +33,8 @@ let poseLm: PoseLandmarker | null = null;
 let faceLm: FaceLandmarker | null = null;
 let handLm: HandLandmarker | null = null;
 let segLm: ImageSegmenter | null = null;
+// 실제로 성사된 delegate. GPU(WebGL) 컨텍스트 생성이 실패하면 CPU 로 폴백한다.
+let activeDelegate: "GPU" | "CPU" = "GPU";
 // 마스크 버퍼 재사용 — 매 프레임 new Uint8Array 하면 GC 압력이 크다.
 let reusableMaskBuf: Uint8Array | null = null;
 // Eco 모드는 face/hands 를 strided 로 돌린다(N틱당 1회). 스킵된 틱에서 frame.face /
@@ -58,8 +60,8 @@ export interface DetectorPerf {
   faceRan: boolean;
   handsRan: boolean;
   segRan: boolean;
-  /** 생성 시 요청한 delegate. 실제 GPU 작동 여부는 ms 로 판단. */
-  delegate: "GPU";
+  /** 실제로 성사된 delegate. GPU 실패 시 CPU 로 폴백된 상태를 반영. */
+  delegate: "GPU" | "CPU";
 }
 
 const perf = { pose: 0, face: 0, hands: 0, seg: 0, fps: 0 };
@@ -83,8 +85,29 @@ export function getDetectorPerf(): DetectorPerf {
     faceRan: perfFaceRan,
     handsRan: perfHandsRan,
     segRan: perfSegRan,
-    delegate: "GPU",
+    delegate: activeDelegate,
   };
+}
+
+/**
+ * GPU(WebGL) delegate 로 먼저 시도하고, 컨텍스트 생성 실패 시 CPU 로 폴백해 모델을
+ * 생성한다. WKWebView(Tauri macOS)에서 페이지를 반복 reload 하면 WebGL 컨텍스트가
+ * 고갈되어 createFromOptions 가 "null is not an object (evaluating 't.alpha')" 류로
+ * throw 하는데, 폴백이 없으면 전체 자세 감지 초기화가 실패한다. CPU 는 느리지만 동작은
+ * 보장된다. 한 모델이 GPU 에 실패하면 activeDelegate 를 CPU 로 내려 이후 모델은 곧장
+ * CPU 로 생성(불필요한 GPU 재시도·컨텍스트 추가 소모 방지).
+ */
+async function createWithFallback<T>(
+  create: (delegate: "GPU" | "CPU") => Promise<T>,
+): Promise<T> {
+  if (activeDelegate === "CPU") return create("CPU");
+  try {
+    return await create("GPU");
+  } catch (e) {
+    console.warn("GPU delegate init failed; falling back to CPU:", e);
+    activeDelegate = "CPU";
+    return create("CPU");
+  }
 }
 
 export async function initLandmarkers(): Promise<void> {
@@ -92,47 +115,55 @@ export async function initLandmarkers(): Promise<void> {
   const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
 
   if (!poseLm) {
-    poseLm = await PoseLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: "GPU" },
-      runningMode: "VIDEO",
-      numPoses: 1,
-      minPoseDetectionConfidence: 0.5,
-      minPosePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
+    poseLm = await createWithFallback((delegate) =>
+      PoseLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate },
+        runningMode: "VIDEO",
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      }),
+    );
   }
 
   if (!faceLm) {
-    faceLm = await FaceLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate: "GPU" },
-      runningMode: "VIDEO",
-      numFaces: 1,
-      outputFacialTransformationMatrixes: true,
-      minFaceDetectionConfidence: 0.5,
-      minFacePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
+    faceLm = await createWithFallback((delegate) =>
+      FaceLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate },
+        runningMode: "VIDEO",
+        numFaces: 1,
+        outputFacialTransformationMatrixes: true,
+        minFaceDetectionConfidence: 0.5,
+        minFacePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      }),
+    );
   }
 
   if (!handLm) {
-    handLm = await HandLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate: "GPU" },
-      runningMode: "VIDEO",
-      numHands: 2,
-      minHandDetectionConfidence: 0.5,
-      minHandPresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
+    handLm = await createWithFallback((delegate) =>
+      HandLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate },
+        runningMode: "VIDEO",
+        numHands: 2,
+        minHandDetectionConfidence: 0.5,
+        minHandPresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      }),
+    );
   }
 
   if (!segLm) {
     try {
-      segLm = await ImageSegmenter.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: SEG_MODEL_URL, delegate: "GPU" },
-        runningMode: "VIDEO",
-        outputCategoryMask: true,
-        outputConfidenceMasks: false,
-      });
+      segLm = await createWithFallback((delegate) =>
+        ImageSegmenter.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: SEG_MODEL_URL, delegate },
+          runningMode: "VIDEO",
+          outputCategoryMask: true,
+          outputConfidenceMasks: false,
+        }),
+      );
     } catch (e) {
       console.warn("ImageSegmenter init failed; falling back to polygon", e);
       segLm = null;
@@ -142,6 +173,25 @@ export async function initLandmarkers(): Promise<void> {
 
 /** Back-compat shim for any caller still importing initPoseLandmarker. */
 export const initPoseLandmarker = initLandmarkers;
+
+/**
+ * 모델만 해제 후 재생성한다(페이지 reload 없이). MediaPipe WASM 힙·GPU 텍스처 등
+ * 외부 메모리의 가장 큰 덩어리를 회수하면서, 전체 페이지 reload 의 화면 깜빡임을
+ * 피하기 위한 경량 메모리 회수 경로다.
+ *
+ * dispose→reinit 사이의 짧은 구간(~1~2s)에는 모델이 null 이라 detectFromVideo 가
+ * 빈 프레임(pose=null, mask=null)을 반환하지만, detectFromVideo 가 각 모델을 null
+ * 체크하므로 크래시는 없고, SilhouetteOverlay 는 직전 mask 를 유지해 화면이 비지
+ * 않는다. 재생성 완료 후 추론이 자연히 재개된다.
+ *
+ * 주의: video 디코드 버퍼·canvas backing·detached DOM 누적은 JS 컨텍스트가 살아
+ * 있어 회수되지 않는다 — 그 잔여분은 드문 full reload(useMemoryReloadGuard 의
+ * fullIntervalMs 백스톱)로 정리한다.
+ */
+export async function refreshLandmarkers(): Promise<void> {
+  disposeLandmarker();
+  await initLandmarkers();
+}
 
 function toPoseLandmarks(
   raw: { x: number; y: number; z: number; visibility?: number }[],

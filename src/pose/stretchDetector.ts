@@ -324,17 +324,20 @@ export function isForwardFold(
   if (!vis(ls, 0.20) || !vis(rs, 0.20) || !vis(nose, 0.20)) return false;
   const sw = Math.abs(ls.x - rs.x);
   if (sw < 0.05) return false;
-  // 코가 baseline 대비 sw*0.30 이상 아래
+  // 코가 baseline 대비 sw*0.45 이상 아래 — 과민감(미세 움직임 오감지) 완화로 0.30→0.45 상향.
+  // 화면 쪽으로 다가가거나 의자에서 살짝 내려앉는 평행이동은 통과시키지 않음.
   const noseDrop = nose.y - baseline.noseY;
-  if (noseDrop < sw * 0.30) return false;
-  // 어깨도 baseline 대비 sw*0.15 이상 아래
+  if (noseDrop < sw * 0.45) return false;
+  // 어깨도 baseline 대비 sw*0.25 이상 아래 (0.15→0.25 상향).
   const shoulderDrop = (ls.y + rs.y) / 2 - baseline.shoulderMidY;
-  if (shoulderDrop < sw * 0.15) return false;
-  // face 있으면 pitch가 앞으로 숙임 — 추가 확정. 없어도 코+어깨만으로 인정.
+  if (shoulderDrop < sw * 0.25) return false;
+  // face 있으면 pitch(턱이 내려가는 3D 머리 각도)가 명확히 앞으로 숙여야 확정.
+  // [핵심 수정] 기존엔 "뒤로 젖힘(pitchDelta < -0.10)"만 차단해 머리 각도가 그대로인
+  // 아래쪽 평행이동도 전부 통과했음 → 미세 움직임이 상체 숙이기로 오감지되던 주원인.
+  // 진짜 상체 앞 숙이기는 머리가 함께 숙여져 pitchDelta가 뚜렷한 양수가 되므로 이를 필수 조건으로 격상.
   if (face && baseline.face) {
     const pitchDelta = face.pitch - baseline.face.pitch;
-    // pitch가 살짝이라도 앞쪽이거나 baseline과 비슷해야 (뒤로 젖힘=leaning back 차단)
-    if (pitchDelta < -0.10) return false;
+    if (pitchDelta < 0.15) return false;  // ~8.6도 이상 실제 고개 숙임 요구
   }
   return true;
 }

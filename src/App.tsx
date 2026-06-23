@@ -264,7 +264,10 @@ export default function App() {
   // paused 상태에선 camera/engine 이 멈춰 메모리 증가 자체가 없으므로
   // reload 도 비활성 — 수면 중 deep race 같은 부작용 회피.
   useMemoryReloadGuard({
-    intervalMs: 60_000,
+    // 평상시 90초마다 모델만 dispose+reinit(깜빡임 없는 경량 회수), 20분마다 한 번만
+    // 전체 페이지 reload(잔여 메모리 정리, 이때만 화면 깜빡임). 깜빡임 빈도 분당 1회 → 시간당 3회.
+    softIntervalMs: 90_000,
+    fullIntervalMs: 1_200_000,
     idleMs: 10_000,
     // 자리비움/일시정지(status "paused") 중엔 비활성화. 그 상태에선 카메라가 꺼지고
     // 모델이 해제돼(메모리 이미 반납) reload 가 불필요하고, idle reload 가 화면을

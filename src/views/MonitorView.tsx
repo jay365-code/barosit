@@ -1138,6 +1138,31 @@ export function MonitorView({
     onFrame: (frame: DetectionFrame) => {
       monitorHeartbeat.tick();
       if (paused) return;
+
+      // [실루엣 블랙아웃 수정] mask(세그멘테이션) 처리는 pose 검출과 독립적이므로
+      // pose 가드보다 먼저 수행한다. Why: 주기적 메모리 reload 후 maskReadyRef 가
+      // 리셋된 상태에서 첫 프레임에 pose 가 없으면(자리비움/pose 깜빡임) 아래
+      // `if (!frame.pose) return` 에 막혀 mask 가 영영 set 되지 않아 SilhouetteOverlay
+      // 가 계속 빈(검은) 화면으로 남던 버그. 세그멘터는 pose 없이도 사람 실루엣을
+      // 만들어내므로 항상 반영한다.
+      if (frame.mask) {
+        setMask(frame.mask);
+        if (!firstMaskFiredRef.current) {
+          firstMaskFiredRef.current = true;
+          try {
+            window.dispatchEvent(new CustomEvent("barosit:mask-ready"));
+          } catch {
+            /* noop */
+          }
+          // SilhouetteOverlay 가 mask prop 을 받아 useEffect 로 canvas 에
+          // 그리려면 commit + 다음 frame 필요. RAF 2 번 대기 후 LandmarkOverlay
+          // 표시 → silhouette 이 먼저 paint 되어 졸라맨 노출 차단.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => setLandmarkReady(true));
+          });
+        }
+      }
+
       if (!frame.pose) {
         setLandmarks(null);
         const since = Date.now() - lastPresentAtRef.current;
@@ -1170,23 +1195,7 @@ export function MonitorView({
       latestPoseRef.current = smoothed;
       setFaceLandmarks(frame.face?.landmarks ?? null);
       setHandsData(frame.hands);
-      if (frame.mask) {
-        setMask(frame.mask);
-        if (!firstMaskFiredRef.current) {
-          firstMaskFiredRef.current = true;
-          try {
-            window.dispatchEvent(new CustomEvent("barosit:mask-ready"));
-          } catch {
-            /* noop */
-          }
-          // SilhouetteOverlay 가 mask prop 을 받아 useEffect 로 canvas 에
-          // 그리려면 commit + 다음 frame 필요. RAF 2 번 대기 후 LandmarkOverlay
-          // 표시 → silhouette 이 먼저 paint 되어 졸라맨 노출 차단.
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => setLandmarkReady(true));
-          });
-        }
-      }
+      // mask 처리는 pose 가드 이전으로 이동됨 (위 참조).
 
       // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동.
       // lastAngleRef 로 hysteresis 적용 — yaw 임계 근처 진동에 의한 flap 차단.

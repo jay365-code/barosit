@@ -58,7 +58,8 @@ export function useCamera(enabled: boolean = true): UseCameraResult {
         if (cancelled) return;
         if (isStreamLive()) {
           await videoRef.current?.play().catch(() => undefined);
-          setReady(true);
+          // 스트림이 live 여도 실제 프레임이 흐르는지는 워치독이 readyState 로 확정.
+          if ((videoRef.current?.readyState ?? 0) >= 2) setReady(true);
           return;
         }
         stop();
@@ -76,11 +77,22 @@ export function useCamera(enabled: boolean = true): UseCameraResult {
           return;
         }
         stream = s;
+        // 트랙이 muted/ended 로 빠지면(다른 앱/창이 카메라 선점) 프레임이 끊긴다.
+        // 이벤트로 즉시 재획득을 트리거해 검은 화면 고착을 막는다.
+        s.getVideoTracks().forEach((t) => {
+          t.addEventListener("ended", recover);
+          t.addEventListener("mute", recover);
+        });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
-        setReady(true);
+        // [핵심] getUserMedia 성공이 아니라 "실제 프레임 도착(readyState≥2)" 으로
+        // ready 를 판정. 일부 webview 는 live 지만 muted 인 트랙을 돌려줘 play() 가
+        // resolve 돼도 프레임이 0 → 검은 화면. 프레임이 올 때만 ready=true.
+        if (videoRef.current && videoRef.current.readyState >= 2) {
+          setReady(true);
+        }
         setError(null);
       } catch (e) {
         setError(friendlyCameraError(e));
@@ -105,12 +117,51 @@ export function useCamera(enabled: boolean = true): UseCameraResult {
       }
     };
 
+    // 실제 비디오가 디코딩한 프레임이 도착하면 그때 ready 확정.
+    const onLoadedData = () => {
+      if (!cancelled && (videoRef.current?.readyState ?? 0) >= 2) setReady(true);
+    };
+
+    // [프레임 워치독] 스트림이 live 라고 보고돼도 실제 프레임이 멈추는 경우
+    // (track muted, webview decode stall, reload 직후 재획득 레이스)를 currentTime
+    // 정지로 감지해 강제 재획득한다. DEBUG 의 "no frame yet / fps=0" 고착의 직접 해소책.
+    let lastVideoTime = -1;
+    let stallCount = 0;
+    const WATCHDOG_MS = 1500;
+    const watchdog = window.setInterval(() => {
+      if (cancelled) return;
+      const v = videoRef.current;
+      if (!v) return;
+      // 스트림 자체가 죽었으면 즉시 재획득.
+      if (!isStreamLive()) {
+        stallCount = 0;
+        recover();
+        return;
+      }
+      const playingFrames = v.readyState >= 2 && v.currentTime !== lastVideoTime;
+      if (playingFrames) {
+        lastVideoTime = v.currentTime;
+        stallCount = 0;
+        if (!ready) setReady(true);
+        return;
+      }
+      // 프레임이 안 흐름 — 2회 연속(=~3s) 지속되면 stream 을 버리고 재획득.
+      stallCount += 1;
+      if (stallCount >= 2) {
+        stallCount = 0;
+        setReady(false);
+        stop(); // 선점/muted 트랙을 명확히 놓아주고 깨끗이 다시 잡는다.
+        start();
+      }
+    }, WATCHDOG_MS);
+
     const onVisibility = () => {
       if (document.hidden) return;
       recover();
     };
 
     start();
+    videoRef.current?.addEventListener("loadeddata", onLoadedData);
     document.addEventListener("visibilitychange", onVisibility);
     // 슬립/덮개 닫힘에선 visibilitychange 가 안 떠 스트림이 죽은 채 남을 수 있다.
     // wake(타이머 드리프트) 신호로도 동일 복구.
@@ -118,6 +169,8 @@ export function useCamera(enabled: boolean = true): UseCameraResult {
 
     return () => {
       cancelled = true;
+      window.clearInterval(watchdog);
+      videoRef.current?.removeEventListener("loadeddata", onLoadedData);
       document.removeEventListener("visibilitychange", onVisibility);
       unsubWake();
       if (retryTimer != null) window.clearTimeout(retryTimer);

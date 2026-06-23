@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import i18n from "../i18n";
-import { detectFromVideo, initLandmarkers, disposeLandmarker } from "../pose/detector";
+import {
+  detectFromVideo,
+  initLandmarkers,
+  disposeLandmarker,
+  refreshLandmarkers,
+} from "../pose/detector";
 import { startKeepAwake, stopKeepAwake } from "../keepAwake";
 import type { DetectionFrame } from "../pose/types";
 
@@ -113,6 +118,42 @@ export function usePoseLoop({
       disposeLandmarker();
     };
   }, []);
+
+  // 메모리 reload 직전에 모델을 명시적으로 해제해 GPU(WebGL) 컨텍스트·WASM 버퍼를
+  // 반납한다. WKWebView 는 hard reload 시 WebGL 컨텍스트를 즉시 회수하지 않아,
+  // 분당 reload 가 누적되면 컨텍스트가 고갈돼 다음 init 의 createFromOptions 가
+  // "null is not an object (evaluating 't.alpha')" 로 throw 한다(GPU delegate 생성 실패).
+  // reload 전에 close() 로 비워 GPU 경로를 유지한다(폴백 CPU 로 떨어지지 않게).
+  useEffect(() => {
+    const onBeforeReload = () => disposeLandmarker();
+    window.addEventListener("barosit:before-memory-reload", onBeforeReload);
+    return () =>
+      window.removeEventListener("barosit:before-memory-reload", onBeforeReload);
+  }, []);
+
+  // [경량 메모리 회수] useMemoryReloadGuard 가 자주(기본 90s) 발행하는 soft-refresh
+  // 신호에 모델만 dispose+reinit 한다. 페이지 reload 가 아니라 화면 깜빡임이 없고,
+  // MediaPipe/GPU 메모리(증가분의 대부분)를 회수한다. 재생성 중(~1~2s)에는 빈 프레임이
+  // 흐르지만 detectFromVideo 의 null 가드 + SilhouetteOverlay 의 직전 mask 유지로
+  // 화면은 그대로다. enabled 가 아니면(일시정지/유휴) 스킵, 중복 실행은 ref 로 차단.
+  const refreshingRef = useRef(false);
+  useEffect(() => {
+    if (!enabled) return;
+    const onSoftRefresh = async () => {
+      if (refreshingRef.current) return;
+      refreshingRef.current = true;
+      try {
+        await refreshLandmarkers();
+      } catch (e) {
+        console.warn("soft model refresh failed:", e);
+      } finally {
+        refreshingRef.current = false;
+      }
+    };
+    window.addEventListener("barosit:soft-memory-refresh", onSoftRefresh);
+    return () =>
+      window.removeEventListener("barosit:soft-memory-refresh", onSoftRefresh);
+  }, [enabled]);
 
   // [배터리] keepAwake(무음 오디오로 webview suspend 방지)를 enabled 에 묶는다.
   // 감지 중일 때만 깨어 있고, 일시정지/자리비움/유휴/언마운트면 즉시 중단해 시스템이
