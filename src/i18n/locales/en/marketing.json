@@ -31,6 +31,26 @@
       "win": "Download for Windows",
       "note": "Run instantly in your browser, no install · The desktop app adds background mode and a widget"
     },
+    "why": {
+      "eyebrow": "Evidence-based",
+      "title": "There's no perfect posture",
+      "body": "Research shows there isn't one 'correct' posture that fits everyone — and the evidence that specific postures like forward head or slouching cause pain is weaker than you'd think. The real problem isn't the shape of your posture; it's staying in one position too long.",
+      "quote": "Your best posture is — your next one.",
+      "points": {
+        "noPerfect": {
+          "t": "We don't demand perfection",
+          "d": "No nagging you to hold one 'correct' alignment. Varying your posture is healthier."
+        },
+        "moveOften": {
+          "t": "We keep you from sitting too long",
+          "d": "When one position lingers, a gentle nudge helps you get up and move."
+        },
+        "noGuilt": {
+          "t": "Encouragement, not guilt",
+          "d": "Move well and we cheer you on. We never scold."
+        }
+      }
+    },
     "how": {
       "eyebrow": "How it works",
       "title1": "Just remember",

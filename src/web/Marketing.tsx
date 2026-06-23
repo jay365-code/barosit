@@ -508,6 +508,90 @@ function Landing() {
         </div>
       </div>
 
+      {/* 왜 BaroSit은 다른가 — 근거 기반 "완벽한 자세는 없다" 내러티브 */}
+      <div
+        style={{
+          padding: "72px 56px",
+          background: "var(--b-sig-bg)",
+          borderTop: "1px solid var(--b-line)",
+          borderBottom: "1px solid var(--b-line)",
+        }}
+      >
+        <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--b-sig)",
+              letterSpacing: "0.1em",
+              marginBottom: 12,
+            }}
+          >
+            {t("landing.why.eyebrow")}
+          </div>
+          <h2
+            style={{
+              fontSize: 44,
+              fontWeight: 700,
+              letterSpacing: "-0.028em",
+              marginBottom: 20,
+              maxWidth: 760,
+            }}
+          >
+            {t("landing.why.title")}
+          </h2>
+          <p
+            style={{
+              fontSize: 17,
+              color: "var(--b-fg-2)",
+              lineHeight: 1.7,
+              maxWidth: 720,
+              marginBottom: 24,
+            }}
+          >
+            {t("landing.why.body")}
+          </p>
+          <div
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: "var(--b-sig-deep)",
+              letterSpacing: "-0.02em",
+              marginBottom: 44,
+            }}
+          >
+            {t("landing.why.quote")}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+            {(["noPerfect", "moveOften", "noGuilt"] as const).map((id) => (
+              <div
+                key={id}
+                style={{
+                  padding: 24,
+                  borderRadius: 16,
+                  background: "var(--b-surface)",
+                  border: "1px solid var(--b-line)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 17,
+                    fontWeight: 700,
+                    marginBottom: 8,
+                    letterSpacing: "-0.015em",
+                  }}
+                >
+                  {t(`landing.why.points.${id}.t`)}
+                </div>
+                <div style={{ fontSize: 14, color: "var(--b-fg-3)", lineHeight: 1.6 }}>
+                  {t(`landing.why.points.${id}.d`)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div style={{ padding: "80px 56px", maxWidth: 1180, margin: "0 auto" }}>
         <div
           style={{
