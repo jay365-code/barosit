@@ -17,7 +17,9 @@ export interface AlertModes {
   /** 사운드 큐 (default Off) */
   sound: boolean;
   /** 집중모드 — 휴식 알림을 무시하면 더 단호한(비잠금) 에스컬레이션 프롬프트.
-   *  근거상 강제는 장기 이탈/해악 위험이라 기본 Off, 옵트인 전용 (§2-1). */
+   *  근거(§2-1)상 강제성은 옵트인 권장이나, 본 구현은 화면을 잠그지 않는
+   *  8초 자동소멸 카드(하드스톱 아님)라 제품 결정상 기본 On 으로 둔다.
+   *  사용자가 설정에서 끌 수 있음. */
   focusMode: boolean;
 }
 
@@ -26,7 +28,7 @@ export const DEFAULT_ALERT_MODES: AlertModes = {
   widgetExpand: true,
   fullscreenToast: false,
   sound: false,
-  focusMode: false,
+  focusMode: true,
 };
 
 const STORAGE_KEY = "alert_modes";

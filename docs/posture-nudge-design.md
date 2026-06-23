@@ -96,9 +96,10 @@
    - 두 루프 배선, 변동성 알림엔 미적용(트리거가 "정지"라 부적합), 단위테스트 7개
    - [§2-(3)] "빈도/강도보다 타이밍"(OR 1.71) 직접 구현 — BaroSit 카메라 = 핵심 차별점
 
-5. **집중모드(옵트인 에스컬레이션)** — ✅ **구현 완료**
-   - AlertModes.focusMode(기본 OFF) + SettingsDrawer 토글(ko/en/ja). 무시된 *휴식* 알림에 한해 더 또렷한 중앙 프롬프트로 한 번 더 권유([AlertOverlay](../src/components/AlertOverlay.tsx) escalation 카드, 8초, 주황)
-   - **화면 잠금 같은 하드 강제 아님** — "단호하지만 닫을 수 있는" 비잠금. 죄책감 없는 카피. [§2-(1)] 근거상 기본 OFF·옵트인 전용
+5. **집중모드(에스컬레이션)** — ✅ **구현 완료**
+   - AlertModes.focusMode + SettingsDrawer 토글(ko/en/ja). 무시된 *휴식* 알림에 한해 더 또렷한 중앙 프롬프트로 한 번 더 권유([AlertOverlay](../src/components/AlertOverlay.tsx) escalation 카드, 8초, 주황)
+   - **화면 잠금 같은 하드 강제 아님** — "단호하지만 닫을 수 있는" 비잠금. 죄책감 없는 카피.
+   - **기본값 ON**(제품 결정, 2026-06-23). §2-(1)은 강제성 옵트인을 권장하나, 본 구현은 화면 비잠금·8초 자동소멸이라 하드스톱과 다름. 사용자가 설정에서 끌 수 있음. (원 설계는 기본 OFF였음)
    - 두 루프에 배선(준수 resolved=미준수 & break_* & focusMode → dispatchEscalationAlert)
 
 ---
