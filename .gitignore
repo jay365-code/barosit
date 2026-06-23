@@ -19,6 +19,8 @@ qa/scripts/_*.mjs
 
 # Supabase CLI 로컬 상태 (project-ref·pooler-url 등 — 로컬 전용, 커밋 금지)
 supabase/.temp/
+# 로컬 Supabase dev 실행 헬퍼 (개인 로컬용 — 커밋 안 함)
+supabase/start-local.sh
 .env
 .env.local
 .env.*.local
