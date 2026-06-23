@@ -6,6 +6,7 @@ import {
   CUMULATIVE_ALERT_EVENT,
   VARIABILITY_ALERT_EVENT,
   COMPLIANCE_REWARD_EVENT,
+  ESCALATION_ALERT_EVENT,
   loadAlertModes,
   type AlertFiredDetail,
   type AlertModes,
@@ -13,6 +14,7 @@ import {
   type CumulativeAlertDetail,
   type VariabilityAlertDetail,
   type ComplianceRewardDetail,
+  type EscalationDetail,
 } from "../alertConfig";
 import {
   emitAlertFired,
@@ -51,6 +53,12 @@ interface ActiveVariability {
 interface ActiveReward {
   id: number;
   detail: ComplianceRewardDetail;
+  expiresAt: number;
+}
+
+interface ActiveEscalation {
+  id: number;
+  detail: EscalationDetail;
   expiresAt: number;
 }
 
@@ -102,11 +110,13 @@ export function AlertOverlay() {
   const [activeCumulative, setActiveCumulative] = useState<ActiveCumulative | null>(null);
   const [activeVariability, setActiveVariability] = useState<ActiveVariability | null>(null);
   const [activeReward, setActiveReward] = useState<ActiveReward | null>(null);
+  const [activeEscalation, setActiveEscalation] = useState<ActiveEscalation | null>(null);
   const idRef = useRef(0);
   const breakIdRef = useRef(0);
   const cumIdRef = useRef(0);
   const varIdRef = useRef(0);
   const rewardIdRef = useRef(0);
+  const escIdRef = useRef(0);
 
   // alert_modes 가 settings에서 바뀌면 storage 이벤트로 받아 반영
   useEffect(() => {
@@ -275,12 +285,29 @@ export function AlertOverlay() {
     return () => window.removeEventListener(COMPLIANCE_REWARD_EVENT, onFire);
   }, []);
 
+  // 집중모드 에스컬레이션 — 무시된 휴식 알림의 단호한(비잠금) 프롬프트. 길고 또렷.
+  useEffect(() => {
+    const onFire = (e: Event) => {
+      const detail = (e as CustomEvent<EscalationDetail>).detail;
+      if (!detail) return;
+      const duration = 8000;
+      const id = ++escIdRef.current;
+      setActiveEscalation({ id, detail, expiresAt: Date.now() + duration });
+      window.setTimeout(() => {
+        setActiveEscalation((prev) => (prev?.id === id ? null : prev));
+      }, duration);
+    };
+    window.addEventListener(ESCALATION_ALERT_EVENT, onFire);
+    return () => window.removeEventListener(ESCALATION_ALERT_EVENT, onFire);
+  }, []);
+
   if (
     !active &&
     !activeBreak &&
     !activeCumulative &&
     !activeVariability &&
-    !activeReward
+    !activeReward &&
+    !activeEscalation
   )
     return null;
 
@@ -347,6 +374,15 @@ export function AlertOverlay() {
         title: t("alerts:rewardTitle"),
         msg: t("alerts:rewardMsg", { points: activeReward.detail.points }),
         accent: "#3fb37f",
+      }
+    : null;
+
+  // 집중모드 에스컬레이션 — 단호하지만 닫을 수 있음(비잠금). 주황 톤, 죄책감 X.
+  const escalationRender = activeEscalation
+    ? {
+        title: t("alerts:escalationTitle"),
+        msg: t("alerts:escalationMsg"),
+        accent: "#d98a3d",
       }
     : null;
 
@@ -589,6 +625,44 @@ export function AlertOverlay() {
             </div>
             <div style={{ fontSize: 13, color: rewardRender.accent, fontWeight: 700 }}>
               {rewardRender.msg}
+            </div>
+          </div>
+        </div>
+      )}
+      {escalationRender && (
+        <div
+          aria-live="assertive"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 9997,
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(20, 22, 24, 0.96)",
+              color: "#fff",
+              padding: "22px 30px",
+              borderRadius: 18,
+              border: `2px solid ${escalationRender.accent}`,
+              boxShadow: `0 12px 40px rgba(0,0,0,0.45), 0 0 0 8px ${escalationRender.accent}22`,
+              maxWidth: "70vw",
+              textAlign: "center",
+              animation: "barosit-toast-in 0.25s ease-out",
+            }}
+          >
+            <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>
+              {escalationRender.title}
+            </div>
+            <div style={{ fontSize: 15, opacity: 0.9 }}>
+              {escalationRender.msg}
             </div>
           </div>
         </div>

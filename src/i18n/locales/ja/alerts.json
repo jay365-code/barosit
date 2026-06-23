@@ -7,5 +7,7 @@
   "variabilityGood": "よく保てています",
   "variabilityTip": "肩と首をほぐして姿勢を変えてみましょう",
   "rewardTitle": "いいですね！動けました",
-  "rewardMsg": "+{{points}}点"
+  "rewardMsg": "+{{points}}点",
+  "escalationTitle": "立ち上がる時間です",
+  "escalationMsg": "1分動くだけでぐっと楽になります"
 }

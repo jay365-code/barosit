@@ -16,6 +16,9 @@ export interface AlertModes {
   fullscreenToast: boolean;
   /** 사운드 큐 (default Off) */
   sound: boolean;
+  /** 집중모드 — 휴식 알림을 무시하면 더 단호한(비잠금) 에스컬레이션 프롬프트.
+   *  근거상 강제는 장기 이탈/해악 위험이라 기본 Off, 옵트인 전용 (§2-1). */
+  focusMode: boolean;
 }
 
 export const DEFAULT_ALERT_MODES: AlertModes = {
@@ -23,6 +26,7 @@ export const DEFAULT_ALERT_MODES: AlertModes = {
   widgetExpand: true,
   fullscreenToast: false,
   sound: false,
+  focusMode: false,
 };
 
 const STORAGE_KEY = "alert_modes";
@@ -146,4 +150,19 @@ export function dispatchComplianceReward(kind: NudgeKind): void {
     points: COMPLIANCE_REWARD_POINTS,
   };
   window.dispatchEvent(new CustomEvent(COMPLIANCE_REWARD_EVENT, { detail }));
+}
+
+// ─── 집중모드 에스컬레이션 (옵트인, 비잠금) ───────────────────────────────────
+// 근거(§2-1): 강제는 단기 순응↑이나 장기 이탈/해악↑ → 기본 Off, 옵트인만. 화면 잠금
+// 같은 하드 강제가 아니라 "단호하지만 닫을 수 있는" 프롬프트로 구현한다.
+
+export interface EscalationDetail {
+  kind: NudgeKind;
+}
+
+export const ESCALATION_ALERT_EVENT = "barosit:escalation-alert";
+
+export function dispatchEscalationAlert(kind: NudgeKind): void {
+  const detail: EscalationDetail = { kind };
+  window.dispatchEvent(new CustomEvent(ESCALATION_ALERT_EVENT, { detail }));
 }

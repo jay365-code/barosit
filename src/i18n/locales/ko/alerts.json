@@ -7,5 +7,7 @@
   "variabilityGood": "잘 유지 중이에요",
   "variabilityTip": "잠깐 어깨·목을 풀고 자세 바꿔볼까요",
   "rewardTitle": "좋아요! 잘 움직였어요",
-  "rewardMsg": "+{{points}}점"
+  "rewardMsg": "+{{points}}점",
+  "escalationTitle": "잠깐 일어날 시간이에요",
+  "escalationMsg": "1분만 움직이면 훨씬 가뿐해져요"
 }

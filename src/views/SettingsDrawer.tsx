@@ -455,6 +455,12 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             v={alertModes.sound}
             onChange={(v) => setAlertMode("sound", v)}
           />
+          <Row
+            label={t("alertBoost.focusMode.label")}
+            sub={t("alertBoost.focusMode.sub")}
+            v={alertModes.focusMode}
+            onChange={(v) => setAlertMode("focusMode", v)}
+          />
           <div
             style={{
               fontSize: 11,

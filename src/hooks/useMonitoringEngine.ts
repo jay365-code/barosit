@@ -71,6 +71,8 @@ import {
   dispatchCumulativeAlert,
   dispatchVariabilityAlert,
   dispatchComplianceReward,
+  dispatchEscalationAlert,
+  loadAlertModes,
   intensityFromDuration,
 } from "../alertConfig";
 import { logEvent, useHeartbeat, useWatchdog } from "../watchdog";
@@ -670,7 +672,12 @@ export function useMonitoringEngine(opts: {
       if (complianceResult.resolved) {
         const { kind, complied } = complianceResult.resolved;
         recordDailyCompliance(complied, Date.now());
-        if (complied) dispatchComplianceReward(kind);
+        if (complied) {
+          dispatchComplianceReward(kind);
+        } else if (kind.startsWith("break_") && loadAlertModes().focusMode) {
+          // 집중모드(옵트인): 무시된 휴식 알림을 단호한(비잠금) 프롬프트로 에스컬레이션.
+          dispatchEscalationAlert(kind);
+        }
       }
 
       // 위반 안정화

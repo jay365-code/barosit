@@ -40,6 +40,10 @@
       "label": "Sound",
       "sub": "A short tone (mind meetings and headphones)"
     },
+    "focusMode": {
+      "label": "Focus mode",
+      "sub": "If you ignore a break reminder, nudge once more with a bolder prompt (never locks your screen)"
+    },
     "hint": "Fires when bad posture <b>lasts {{secs}}s or more</b>. The same posture has a 5-minute cooldown. The longer it lasts, the deeper the color and duration.",
     "previewLight": "Preview (subtle)",
     "previewStrong": "Preview (strong)"
