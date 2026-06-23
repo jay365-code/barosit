@@ -81,9 +81,10 @@ jobs:
           releaseBody: |
             ## 변경사항
             아래 자산을 다운로드해 설치하세요. 기존 사용자는 앱이 자동으로 업데이트를 안내합니다.
-          # 서명·공증이 검증되면 false 로 바꿔 태그 푸시 시 자동 공개.
-          # (그 전까지는 unsigned 빌드가 공개되지 않도록 draft 유지)
-          releaseDraft: true
+          # v0.3.6 에서 서명·공증(.app + .dmg staple) 검증 완료 → 자동 공개로 전환.
+          # 태그 푸시 시 빌드 후 Release 가 즉시 Latest 로 공개되고 기존 사용자에게
+          # 자동 업데이트가 나간다. 문제 빌드도 바로 배포되므로 빌드 신뢰가 전제.
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
 
