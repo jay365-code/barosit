@@ -261,6 +261,76 @@
     "verifyTier": "manual"
   },
   {
+    "id": "MONI-10",
+    "category": "Monitoring",
+    "title": "알림 준수 추적 + 긍정강화 보상 루프 (넛지 슬라이스1)",
+    "method": "위반 경보 노출 후 (a)휴식/스트레칭으로 응답하거나 (b)응답 윈도우가 지나도록 무시하는 두 경로를 수행합니다. 휴식 알림과 변동성 알림 각각에서 가벼운 움직임의 준수 인정 차이를 확인합니다.",
+    "expected": "알림에 응답하면 '준수'로 확정되어 긍정강화 보상(격려) 피드백이 뜨고, 무시하면 '미준수'로 확정되어 연속무시 카운트가 누적되며 준수 시 0으로 리셋되어야 합니다. 변동성 알림은 가벼운 움직임도 준수 인정, 휴식 알림은 가벼운 움직임만으로는 준수 불인정.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "unit",
+    "verifyNote": "단위테스트 src/pose/complianceTracker.test.ts (ComplianceTracker describe) 자동검증. 구현 src/pose/complianceTracker.ts, 와이어링 useMonitoringEngine.ts·AlertOverlay.tsx 보상 UI."
+  },
+  {
+    "id": "MONI-11",
+    "category": "Monitoring",
+    "title": "적응형 백오프 — 연속 무시 시 알림 빈도 축소 (넛지 슬라이스2)",
+    "method": "휴식/변동성 알림을 연속으로 무시하며 다음 알림까지의 간격(쿨다운)이 변하는지 관찰합니다.",
+    "expected": "연속무시가 없으면 배수 1.0(백오프 없음), 무시가 누적될수록 알림 간격 배수가 선형 증가하고 4회 이상부터 2.0 상한으로 캡되어 과도한 알림 피로를 막아야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "unit",
+    "verifyNote": "단위테스트 src/pose/complianceTracker.test.ts (computeBackoffMultiplier describe) 자동검증. 구현 complianceTracker.ts computeBackoffMultiplier, 적용 useMonitoringEngine.ts."
+  },
+  {
+    "id": "MONI-12",
+    "category": "Monitoring",
+    "title": "JITAI 발사 타이밍 — 방해 가능 순간에 휴식 알림 전달 (넛지 슬라이스3a)",
+    "method": "휴식 알림이 보류(hold)된 상태에서 사용자가 자연스럽게 움직임을 멈추는 '방해 가능 순간'이 오기 전후로 알림 발사 시점을 확인합니다. 집중모드 비활성 시 고정 스케줄 동작도 확인합니다.",
+    "expected": "보류 중 방해 가능 순간이 오면 그때 발사, 좋은 순간이 없어도 maxHold 초과 시 발사, JITAI 비활성(enabled=false)이면 즉시 고정 스케줄로 발사. 발사는 한 번만 일어나고 reset 시 보류가 폐기되어야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "unit",
+    "verifyNote": "단위테스트 src/pose/jitaiGate.test.ts (7 cases) 자동검증. 구현 src/pose/jitaiGate.ts, 와이어링 useMonitoringEngine.ts."
+  },
+  {
+    "id": "MONI-13",
+    "category": "Monitoring",
+    "title": "집중모드 에스컬레이션(옵트인·비잠금) + 기본 ON (넛지 슬라이스3b)",
+    "method": "설정에서 집중모드 토글을 확인하고(기본 ON), 휴식 알림을 무시했을 때 더 단호한 비잠금 에스컬레이션 프롬프트가 뜨는지 봅니다.",
+    "expected": "집중모드가 기본 활성(focusMode:true)이며, 휴식 알림을 무시하면 화면을 잠그지 않는 더 단호한 에스컬레이션 안내가 표시되어야 합니다. SettingsDrawer에서 옵트아웃 가능.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "정적검증: src/alertConfig.ts DEFAULT focusMode:true + 에스컬레이션 섹션(L157~). 와이어링 AlertOverlay.tsx, SettingsDrawer.tsx 토글."
+  },
+  {
+    "id": "MONI-14",
+    "category": "Monitoring",
+    "title": "움직임 인지 완화 + 어깨 으쓱 오감지 수정 (넛지 슬라이스4)",
+    "method": "모니터링 중 활발히 움직이는 동안과 정지 상태에서 위반 판정 지속시간(duration) 임계가 달라지는지, 어깨를 으쓱하는 동작이 어깨 비대칭(shoulder_tilt) 위반으로 오감지되지 않는지 확인합니다.",
+    "expected": "정지(movementIndex<=threshold) 시 완화배수 1.0, 움직임이 많을수록 위반 지속시간 임계가 최대 2.0배까지 완화되어 활동 중 과민 경보를 줄여야 합니다. 완화는 sensitivity는 보존하고 durationSecs에만 적용하며 원본을 변형하지 않아야 합니다. 어깨 으쓱은 위반으로 오판하지 않아야 합니다.",
+    "platforms": [
+      "Web",
+      "Mac",
+      "Windows"
+    ],
+    "verifyTier": "unit",
+    "verifyNote": "단위테스트 src/pose/violationTracker.test.ts (computeMovementRelaxation·relaxThresholdDurations) 자동검증. 구현 violationTracker.ts, stretchDetector.ts 으쓱 보정, 적용 useMonitoringEngine.ts."
+  },
+  {
     "id": "SET-01",
     "category": "Settings",
     "title": "알림 민감도 프리셋 및 자세별 민감도·지속시간",
@@ -519,6 +589,54 @@
       "Web"
     ],
     "verifyTier": "runtime"
+  },
+  {
+    "id": "WEB-04",
+    "category": "Web",
+    "title": "근거 기반 '움직임 코치' 랜딩 섹션 + Science 페이지",
+    "method": "웹 랜딩에서 '완벽한 자세는 없습니다' 근거 기반 섹션과 #/science 근거 페이지에 진입합니다.",
+    "expected": "랜딩에 근거 기반 포지셔닝 섹션이 노출되고, #/science 페이지에서 자세 통념 반박·움직임 중심 코칭 근거 콘텐츠가 표시되어야 합니다.",
+    "platforms": [
+      "Web"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "정적검증: src/i18n/locales/{ko,en,ja}/marketing.json 에 '완벽한 자세'·'근거' 카피, src/web/Marketing.tsx 에 science 라우트(13곳). 도입 5edac5b(A)/ce4047a(B)."
+  },
+  {
+    "id": "WEB-05",
+    "category": "Web",
+    "title": "정적 크롤링 가능 근거 콘텐츠 (science.html + 블로그 + sitemap)",
+    "method": "https://barosit.com/science.html 와 /blog/posture-myth.html 에 직접 접근하고, sitemap.xml 등록 여부를 확인합니다. (해시 SPA는 크롤링 불가 → 정적 HTML 옵션)",
+    "expected": "크롤러가 읽을 수 있는 정적 HTML(public/science.html, public/blog/posture-myth.html)이 존재하고 sitemap.xml 에 두 URL이 등록되어 검색엔진에 색인 가능해야 합니다.",
+    "platforms": [
+      "Web"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "정적검증: public/science.html·public/blog/posture-myth.html 존재 + public/sitemap.xml 에 두 URL 등록. dist-web 빌드 동기화. 도입 fa244eb(C)/d9e7e45(옵션1)."
+  },
+  {
+    "id": "WEB-06",
+    "category": "Web",
+    "title": "랜딩 FAQ 섹션 + FAQPage 구조화 데이터 (ko/en/ja)",
+    "method": "웹 랜딩의 FAQ 섹션과 페이지 소스의 FAQPage JSON-LD 구조화 데이터를 확인합니다. (웹/앱 차이·백그라운드·미니바/위젯 문항 포함)",
+    "expected": "3개 언어(ko/en/ja) FAQ 문항이 렌더링되고, index.html 에 FAQPage schema.org JSON-LD가 삽입되어 검색결과 리치 스니펫 대상이 되어야 합니다.",
+    "platforms": [
+      "Web"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "정적검증: src/i18n/locales/{ko,en,ja}/marketing.json faq 키 + index.html 'FAQPage' JSON-LD. 도입 7bf3643/62bc450."
+  },
+  {
+    "id": "WEB-07",
+    "category": "Web",
+    "title": "베타 무료 기간 최종 CTA 부제 분기 (sub_beta)",
+    "method": "베타 무료 기간(isBetaFree) 상태에서 웹 랜딩 최종 CTA의 부제 카피를 확인합니다.",
+    "expected": "베타 무료 기간이면 최종 CTA 부제가 미니바·위젯·백그라운드 동작 안내(sub_beta)로 분기되고, 아니면 기본 부제(sub)가 노출되어야 합니다.",
+    "platforms": [
+      "Web"
+    ],
+    "verifyTier": "code",
+    "verifyNote": "정적검증: src/web/Marketing.tsx isBetaFree()?sub_beta:sub 분기 + i18n {ko,en,ja} sub_beta 키. isBetaFree 동작은 src/launchMode.test.ts 단위검증. 도입 b020966."
   },
   {
     "id": "ADMN-01",

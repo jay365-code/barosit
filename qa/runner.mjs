@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // BaroSit 독립 QA 러너 (B) — 모델 불필요 결정론적 검증.
-// integration(로컬 Supabase) + unit(vitest) 티어를 실제 실행하고 결과 JSON 을 쓴다.
-// runtime/code 티어는 에이전트(A) 영역 → "needs-agent" 표기. manual → "needs-human".
+// integration(로컬 Supabase) + unit(vitest) + code(결정론적 정적검사) 티어를 실제 실행하고 결과 JSON 을 쓴다.
+// runtime 티어와 미등록 code 항목은 에이전트(A) 영역 → "needs-agent" 표기. manual → "needs-human".
 //
 //   node qa/runner.mjs [--scope auto|full] [--only AUTH,BILL-06,...]
 //
@@ -265,13 +265,71 @@ async function runIntegration(env) {
   }
 }
 
+// unit 티어 → 결정론적 vitest 파일 매핑. 같은 파일은 1회만 실행하고 결과를 공유한다.
+const UNIT_TESTS = {
+  "MONI-02": "src/pose/analyzer.test.ts",          // shoulder_tilt 검출
+  "MONI-10": "src/pose/complianceTracker.test.ts", // 준수추적+보상 (슬라이스1)
+  "MONI-11": "src/pose/complianceTracker.test.ts", // 적응형 백오프 (슬라이스2)
+  "MONI-12": "src/pose/jitaiGate.test.ts",         // JITAI 발사 타이밍 (슬라이스3a)
+  "MONI-14": "src/pose/violationTracker.test.ts",  // 움직임완화+으쓱보정 (슬라이스4)
+};
 function runUnit() {
+  const byFile = {}; // file → [ids]
   for (const c of matched) {
     if (c.verifyTier !== "unit") continue;
-    if (c.id === "MONI-02") {
-      try { sh("npx vitest run src/pose/analyzer.test.ts"); rec(c.id, "Pass", "[단위테스트] analyzer.test.ts 통과 (shoulder_tilt 검출)"); }
-      catch (e) { rec(c.id, "Fail", `[단위테스트] 실패: ${String(e).slice(0, 120)}`); }
-    } else rec(c.id, "Untested", "[러너] 단위테스트 미연결 — 서브에이전트 검증 권장");
+    const f = UNIT_TESTS[c.id];
+    if (!f) { rec(c.id, "Untested", "[러너] 단위테스트 미연결 — 서브에이전트 검증 권장"); continue; }
+    (byFile[f] ||= []).push(c.id);
+  }
+  for (const [file, ids] of Object.entries(byFile)) {
+    let st, msg;
+    try { sh(`npx vitest run ${file}`); st = "Pass"; msg = `[단위테스트] ${file} 통과`; }
+    catch (e) { st = "Fail"; msg = `[단위테스트] ${file} 실패: ${String(e).slice(0, 120)}`; }
+    for (const id of ids) rec(id, st, msg);
+  }
+}
+
+// code 티어 → 결정론적 정적검사(파일 존재/패턴 grep). 브라우저 불필요·무인.
+// 미등록 code 항목은 markRest 에서 서브에이전트로 위임된다.
+function has(rel, ...patterns) {
+  let txt; try { txt = readFileSync(resolve(ROOT, rel), "utf-8"); } catch { return false; }
+  return patterns.every((p) => txt.includes(p));
+}
+function exists(rel) { try { readFileSync(resolve(ROOT, rel)); return true; } catch { return false; } }
+function runCode() {
+  const codeChecks = {
+    "MONI-13": () => {
+      const dflt = has("src/alertConfig.ts", "focusMode: true");
+      const esc = has("src/alertConfig.ts", "에스컬레이션");
+      return [dflt && esc ? "Pass" : "Fail", `[정적] alertConfig.ts focusMode 기본ON=${dflt}, 에스컬레이션 구현=${esc}`];
+    },
+    "WEB-04": () => {
+      const ko = has("src/i18n/locales/ko/marketing.json", "완벽한 자세", "근거");
+      const route = has("src/web/Marketing.tsx", "science");
+      return [ko && route ? "Pass" : "Fail", `[정적] 근거 카피(ko)=${ko}, Marketing.tsx science 라우트=${route}`];
+    },
+    "WEB-05": () => {
+      const sci = exists("public/science.html"), blog = exists("public/blog/posture-myth.html");
+      const sm = has("public/sitemap.xml", "science.html") && has("public/sitemap.xml", "posture-myth.html");
+      return [sci && blog && sm ? "Pass" : "Fail", `[정적] science.html=${sci}, blog=${blog}, sitemap 등록=${sm}`];
+    },
+    "WEB-06": () => {
+      const faq = ["ko", "en", "ja"].every((l) => has(`src/i18n/locales/${l}/marketing.json`, "faq"));
+      const jsonld = has("index.html", "FAQPage");
+      return [faq && jsonld ? "Pass" : "Fail", `[정적] i18n faq(ko/en/ja)=${faq}, index.html FAQPage JSON-LD=${jsonld}`];
+    },
+    "WEB-07": () => {
+      const branch = has("src/web/Marketing.tsx", "sub_beta", "isBetaFree");
+      const keys = ["ko", "en", "ja"].every((l) => has(`src/i18n/locales/${l}/marketing.json`, "sub_beta"));
+      return [branch && keys ? "Pass" : "Fail", `[정적] Marketing.tsx isBetaFree?sub_beta 분기=${branch}, i18n sub_beta 키(ko/en/ja)=${keys}`];
+    },
+  };
+  for (const c of matched) {
+    if (c.verifyTier !== "code") continue;
+    const fn = codeChecks[c.id];
+    if (!fn) continue; // 미등록 code → markRest 가 서브에이전트로 위임
+    try { const [st, msg] = fn(); rec(c.id, st, msg); }
+    catch (e) { rec(c.id, "Fail", `[정적 오류] ${e.message}`); }
   }
 }
 
@@ -300,6 +358,7 @@ try {
   for (const c of matched) if (c.verifyTier === "integration") rec(c.id, "Untested", `[러너] Supabase 미가동: ${e.message}`);
 }
 runUnit();
+runCode();
 markRest();
 
 const out = resolve(ROOT, `qa/results/${ts}.json`);
