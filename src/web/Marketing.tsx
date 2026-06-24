@@ -4731,7 +4731,33 @@ function AccountTab({
       }
     } catch (e) {}
   }
+  // DB(profiles.name)를 진짜 소스로 우선 조회 — 로컬 캐시/메타데이터가 기기마다
+  // 다를 수 있어, 동기화된 DB 이름이 있으면 그 값을 표시한다.
+  const [dbName, setDbName] = useState<string>("");
+  useEffect(() => {
+    let alive = true;
+    if (!user?.id) {
+      setDbName("");
+      return;
+    }
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (alive && !error) {
+          setDbName((data?.name as string | undefined)?.trim() || "");
+        }
+      } catch (e) {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
   const fullName =
+    dbName ||
     customName ||
     ((meta.full_name as string | undefined) ??
       (meta.name as string | undefined) ??
