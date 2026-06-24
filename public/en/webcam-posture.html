@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>웹캠 자세 감지 — 영상 전송 없는 온디바이스 자세 앱 | BaroSit</title>
+    <title>Webcam Posture Detection — Private, On-Device, No Video Upload | BaroSit</title>
     <meta
       name="description"
-      content="웹캠으로 자세를 감지하는 앱, 개인정보가 걱정된다면. BaroSit은 웹캠 영상을 기기 안에서만 분석하고 외부로 전송·저장하지 않는 온디바이스 자세 앱입니다."
+      content="Worried about privacy with a webcam posture app? BaroSit detects your posture entirely on your device. Your webcam video is never uploaded or stored — fully on-device, no video upload."
     />
-    <link rel="canonical" href="https://barosit.com/webcam-posture" />
+    <link rel="canonical" href="https://barosit.com/en/webcam-posture" />
     <link rel="alternate" hreflang="ko" href="https://barosit.com/webcam-posture" />
     <link rel="alternate" hreflang="en" href="https://barosit.com/en/webcam-posture" />
     <link rel="alternate" hreflang="ja" href="https://barosit.com/ja/webcam-posture" />
@@ -17,14 +17,14 @@
     <meta name="robots" content="index, follow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="웹캠 자세 감지 — 영상 전송 없는 온디바이스 자세 앱" />
+    <meta property="og:title" content="Webcam Posture Detection — Private, On-Device, No Video Upload" />
     <meta
       property="og:description"
-      content="웹캠 영상을 기기 안에서만 분석하고 외부로 전송·저장하지 않는 온디바이스 자세 앱 BaroSit."
+      content="BaroSit analyzes your webcam feed entirely on your device and never uploads or stores your video. A private, on-device posture app."
     />
-    <meta property="og:url" content="https://barosit.com/webcam-posture" />
+    <meta property="og:url" content="https://barosit.com/en/webcam-posture" />
     <meta property="og:site_name" content="BaroSit" />
-    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:image" content="https://barosit.com/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://barosit.com/og-image.png" />
@@ -37,12 +37,12 @@
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "BaroSit",
-        "alternateName": ["바로씻", "웹캠 자세 감지", "자세 교정 앱"],
+        "alternateName": ["BaroSit", "webcam posture detection", "on-device posture app"],
         "operatingSystem": "Windows, macOS",
         "applicationCategory": "HealthApplication",
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "KRW" },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "url": "https://barosit.com/",
-        "description": "웹캠 영상을 기기 안에서만 분석하는 온디바이스 방식으로 거북목 등 자세를 감지하고, 영상을 저장·전송하지 않는 무료 자세 앱입니다."
+        "description": "A free posture app that detects forward head posture and more by analyzing your webcam feed entirely on-device — your video is never uploaded or stored."
       }
     </script>
     <script type="application/ld+json">
@@ -52,18 +52,18 @@
         "mainEntity": [
           {
             "@type": "Question",
-            "name": "웹캠으로 자세를 감지하면 영상이 외부로 나가나요?",
-            "acceptedAnswer": { "@type": "Answer", "text": "아니요. BaroSit의 모든 자세 분석은 사용자의 기기 안에서만 처리됩니다. 웹캠 영상은 저장되지 않고 외부 서버로 전송되지도 않습니다." }
+            "name": "Does webcam posture detection send my video anywhere?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. All of BaroSit's posture analysis happens entirely on your own device. Your webcam video is never stored and is never uploaded to any server." }
           },
           {
             "@type": "Question",
-            "name": "웹캠 자세 감지는 어떤 원리인가요?",
-            "acceptedAnswer": { "@type": "Answer", "text": "온디바이스 AI가 웹캠 화면에서 머리·어깨 위치를 읽어 거북목, 어깨 기울임, 등 구부정 등 7종 자세를 실시간으로 추정합니다. 영상 자체를 보관하지 않고 자세 신호만 사용합니다." }
+            "name": "How does webcam posture detection actually work?",
+            "acceptedAnswer": { "@type": "Answer", "text": "On-device AI reads the position of your head and shoulders from the webcam frame to estimate 7 posture types in real time — forward head, shoulder tilt, slouching and more. It never keeps the video itself; it only uses the posture signals." }
           },
           {
             "@type": "Question",
-            "name": "인터넷 없이도 웹캠 자세 감지가 되나요?",
-            "acceptedAnswer": { "@type": "Answer", "text": "자세 분석은 온디바이스로 동작하므로 오프라인에서도 사용할 수 있습니다. 로그인·동기화 등 일부 기능에만 연결이 필요합니다." }
+            "name": "Does webcam posture detection work without internet?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Posture analysis runs on-device, so it works offline. Only a few features like sign-in and sync need a connection." }
           }
         ]
       }
@@ -101,48 +101,49 @@
   </head>
   <body>
     <main class="wrap">
-      <div class="eyebrow">웹캠 자세 감지 · BaroSit</div>
-      <h1>웹캠으로 자세를 감지하되, 영상은 나가지 않게</h1>
+      <div class="eyebrow">Webcam Posture Detection · BaroSit</div>
+      <h1>Detect posture with your webcam — but your video stays put</h1>
       <p class="lead">
-        웹캠 자세 감지 앱에서 가장 큰 걱정은 ‘내 영상이 어디로 가나’입니다.
-        BaroSit은 모든 분석을 기기 안에서만 처리해, 영상이 저장·전송되지 않습니다.
+        The biggest worry with any webcam posture app is "where does my video go?" BaroSit does all
+        of its analysis on your device, so your video is never stored or uploaded.
       </p>
 
-      <h2>웹캠 자세 감지, 어떻게 동작하나</h2>
+      <h2>How webcam posture detection works</h2>
       <p>
-        온디바이스 AI가 웹캠 화면에서 <strong>머리와 어깨의 위치</strong>를 읽어 거북목,
-        어깨 기울임, 등 구부정 등 7종 자세를 실시간으로 추정합니다. 중요한 점은 <strong>영상
-        자체를 보관하지 않고 자세 신호만 사용</strong>한다는 것입니다.
+        On-device AI reads <strong>the position of your head and shoulders</strong> from the webcam
+        frame to estimate 7 posture types in real time — forward head, shoulder tilt, slouching and
+        more. The key point: <strong>it never keeps the video itself, only the posture signals</strong>.
       </p>
 
-      <h2>‘온디바이스’가 왜 중요한가</h2>
+      <h2>Why "on-device" matters</h2>
       <p>
-        많은 카메라 기반 서비스는 영상을 서버로 보내 분석합니다. BaroSit은 그 반대입니다.
+        Many camera-based services send your video to a server to analyze it. BaroSit does the
+        opposite.
       </p>
       <ul>
-        <li>웹캠 영상은 <strong>기기 밖으로 나가지 않음</strong> — 저장·전송 없음</li>
-        <li>자세 분석은 <strong>오프라인</strong>에서도 동작</li>
-        <li>거북목·어깨 기울임 등 <strong>7종 자세</strong> 실시간 감지</li>
-        <li>한 자세가 오래 이어지면 <strong>부드러운 알림</strong>으로 환기</li>
+        <li>Your webcam video <strong>never leaves your device</strong> — no storage, no upload</li>
+        <li>Posture analysis works <strong>offline</strong></li>
+        <li>Real-time detection of <strong>7 posture types</strong> — forward head, shoulder tilt and more</li>
+        <li>A <strong>gentle nudge</strong> when one position has lasted too long</li>
       </ul>
-      <p class="quote">자세를 보는 것은 BaroSit, 영상을 보는 것은 아무도 아닙니다.</p>
+      <p class="quote">BaroSit watches your posture — and nobody watches your video.</p>
 
       <div class="cta">
-        <strong>개인정보 걱정 없이, 웹캠으로 자세부터 확인해 보세요.</strong>
+        <strong>No privacy worries — just check your posture with your webcam.</strong>
         <p style="margin: 8px 0 0; color: var(--fg-2); font-size: 15px">
-          설치 없이 웹에서 바로 체험하거나, Windows·macOS 앱으로 받을 수 있습니다. 무료입니다.
+          Try it instantly on the web with no install, or download the Windows or macOS app. It's free.
         </p>
-        <a class="btn" href="https://barosit.com/">BaroSit 무료로 시작하기</a>
+        <a class="btn" href="https://barosit.com/">Start BaroSit for free</a>
       </div>
 
       <div class="related">
-        함께 보기:
-        <a href="/turtle-neck-app">거북목 교정 앱</a>
-        <a href="/desk-posture">재택근무·사무직 자세</a>
+        See also:
+        <a href="/en/turtle-neck-app">Posture reminder app</a>
+        <a href="/en/desk-posture">Desk posture app</a>
       </div>
 
       <p class="disclaimer">
-        본 글은 일반 건강 정보이며 의학적 조언이 아닙니다. 통증이 지속된다면 전문가와 상담하세요.
+        This article is general health information, not medical advice. If pain persists, please consult a professional.
       </p>
       <footer>© BaroSit · <a href="https://barosit.com/">barosit.com</a></footer>
     </main>
