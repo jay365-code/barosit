@@ -20,7 +20,7 @@ import {
   type LegalDocKind,
 } from "./components/LegalDocument";
 import { loadBaseline } from "./pose/calibration";
-import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, LAUNCH_MODE_CHANGED_EVENT } from "./launchMode";
+import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, LAUNCH_MODE_CHANGED_EVENT } from "./launchMode";
 import type { CalibrationBaseline, PostureStatus } from "./pose/types";
 import {
   hideMainWindow,
@@ -443,8 +443,8 @@ export default function App() {
       }
     };
 
-    // 부팅 시 런치 모드 원격값을 먼저 읽고(베타↔유료) 그 다음 플랜 해석
-    refreshLaunchMode().finally(() => fetchSub());
+    // 부팅 시 런치 모드 원격값 + 테스터 여부를 먼저 읽고(staged 해석) 그 다음 플랜 해석
+    Promise.all([refreshLaunchMode(), refreshTesterStatus()]).finally(() => fetchSub());
 
     const handleSubChanged = () => {
       fetchSub();

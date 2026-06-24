@@ -6,7 +6,7 @@ import privacyMd from "../../docs/privacy.md?raw";
 import termsMd from "../../docs/terms.md?raw";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
-import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, LAUNCH_MODE_CHANGED_EVENT } from "../launchMode";
+import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, LAUNCH_MODE_CHANGED_EVENT } from "../launchMode";
 import { priceFor } from "../lib/pricing";
 import { interpolateLegalTemplate } from "../lib/legal";
 import i18n from "../i18n";
@@ -5987,9 +5987,10 @@ export function Marketing({ route }: { route: MarketingRoute }) {
   const { t } = useTranslation("marketing");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // 부팅 시 런치 모드 원격값 동기화 (베타↔유료). 실패해도 캐시/env 폴백.
+  // 부팅 시 런치 모드 원격값 + 테스터 여부 동기화 (베타↔시험↔유료). 실패해도 캐시/env 폴백.
   useEffect(() => {
     refreshLaunchMode();
+    refreshTesterStatus();
   }, []);
 
   // 무료 베타 기간에는 가격 페이지 접근 시 메인 홈으로 리다이렉트

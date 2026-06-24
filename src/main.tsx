@@ -4,10 +4,15 @@ import "./styles.css";
 import "./i18n"; // i18n 초기화 (렌더 전 동기 — 깜빡임/누락 방지)
 import { Marketing, routeFromHash, type MarketingRoute } from "./web/Marketing";
 import { applyThemeMode, watchOsTheme } from "./themeConfig";
+import { reconcileProfileCache } from "./userProfile";
 
 // 사용자가 명시 선택한 테마(localStorage)를 가장 먼저 적용해 깜빡임 방지
 applyThemeMode();
 watchOsTheme();
+
+// 계정 전환 시 이전 계정의 프로필 캐시(user_profile_v1)가 새어 다른 계정 화면에
+// 표시되던 누수를 렌더 전 동기적으로 차단. (import 만으로 auth 변경 리스너도 등록됨)
+reconcileProfileCache();
 
 // 토스페이먼츠 결제 완료 후 돌아왔을 때 query string의 redirect_route를 감지하여 해시 라우트 복원
 if (typeof window !== "undefined") {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../auth/supabase";
-import { getLaunchMode, setLaunchModeRemote, type LaunchMode } from "../launchMode";
+import { getLaunchMode, setLaunchModeRemote, isPreviewAsUser, setPreviewAsUser, type LaunchMode } from "../launchMode";
 import { Icon } from "../components/Icon";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,6 +12,7 @@ interface UserProfileData {
   avatar: string;
   work_env: string;
   is_admin: boolean;
+  is_beta_tester?: boolean;
   created_at: string;
   email?: string;
 }
@@ -94,6 +95,7 @@ export function AdminDashboardView({ onClose }: Props) {
   const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
+  const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
   const [currentUser, setCurrentUser] = useState<{ email?: string; avatarUrl?: string; name?: string } | null>(null);
   
   // 릴리즈 관리 상태
@@ -503,16 +505,41 @@ export function AdminDashboardView({ onClose }: Props) {
   };
 
   // 5. 90일 미활동 데이터 만료 청소 (수동 실행)
+  const LAUNCH_MODE_LABEL: Record<LaunchMode, string> = {
+    beta_free: "무료 베타 (전 기능 무료)",
+    staged: "시험 (테스터만 결제·게이팅)",
+    paid: "유료 정식 (구독 게이팅)",
+  };
   const handleSetLaunchMode = async (mode: LaunchMode) => {
     if (mode === launchMode) return;
-    const label = mode === "beta_free" ? "무료 베타 (전 기능 무료)" : "유료 정식 (구독 게이팅)";
-    if (!window.confirm(`런치 모드를 [${label}] 로 전환할까요?\n모든 사용자에게 즉시 적용됩니다.`)) return;
+    const label = LAUNCH_MODE_LABEL[mode];
+    const extra =
+      mode === "staged"
+        ? "\n일반 사용자는 기존 무료 베타와 동일(전 기능 무료·결제 숨김)하고, 테스터로 지정한 계정만 결제/게이팅이 적용됩니다."
+        : mode === "paid"
+        ? "\n전환 시 비구독자는 즉시 FREE 로 강등됩니다."
+        : "";
+    if (!window.confirm(`런치 모드를 [${label}] 로 전환할까요?\n모든 사용자에게 즉시 적용됩니다.${extra}`)) return;
     try {
       await setLaunchModeRemote(mode);
       setLaunchModeState(mode);
       window.alert(`런치 모드가 [${label}] 로 전환되었습니다.`);
     } catch (e: any) {
       window.alert("전환 실패 (어드민 권한 필요): " + (e?.message || e));
+    }
+  };
+
+  // 베타 테스터 지정/해제 (staged 모드에서 결제·게이팅 적용 대상)
+  const handleToggleTester = async (userId: string, next: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_beta_tester: next })
+        .eq("id", userId);
+      if (error) throw error;
+      setProfiles(prev => prev.map(p => (p.id === userId ? { ...p, is_beta_tester: next } : p)));
+    } catch (e: any) {
+      window.alert("테스터 설정 실패: " + (e?.message || e));
     }
   };
 
@@ -1418,6 +1445,7 @@ export function AdminDashboardView({ onClose }: Props) {
                           <th style={{ padding: 16 }}>사용자 정보</th>
                           <th style={{ padding: 16 }}>등급(플랜)</th>
                           <th style={{ padding: 16 }}>구독 상태</th>
+                          <th style={{ padding: 16 }}>테스터(결제 시험)</th>
                           <th style={{ padding: 16 }}>가입 일시</th>
                           <th style={{ padding: 16 }}>등급 변경 조작</th>
                         </tr>
@@ -1459,6 +1487,28 @@ export function AdminDashboardView({ onClose }: Props) {
                                 <span style={{ color: sub.status === "active" ? "#5b8c7a" : "#c95c5c" }}>
                                   ● {sub.status === "active" ? "활성" : "비활성"}
                                 </span>
+                              </td>
+                              <td style={{ padding: 16 }}>
+                                {user.is_admin ? (
+                                  <span style={{ fontSize: 11, opacity: 0.5 }}>어드민(자동)</span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleToggleTester(user.id, !user.is_beta_tester)}
+                                    title="시험(staged) 모드에서 이 계정만 결제/게이팅을 적용합니다."
+                                    style={{
+                                      background: user.is_beta_tester ? "#e08866" : "rgba(255,255,255,0.06)",
+                                      color: user.is_beta_tester ? "#1a1a1a" : "#ccc",
+                                      border: "1px solid rgba(255,255,255,0.1)",
+                                      borderRadius: 6,
+                                      padding: "4px 10px",
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    {user.is_beta_tester ? "✓ 테스터" : "테스터 지정"}
+                                  </button>
+                                )}
                               </td>
                               <td style={{ padding: 16, opacity: 0.6 }}>
                                 {new Date(user.created_at).toLocaleDateString()}
@@ -1659,8 +1709,9 @@ export function AdminDashboardView({ onClose }: Props) {
                       </div>
                       <p style={{ fontSize: 12, opacity: 0.6, lineHeight: 1.6 }}>
                         <strong>무료 베타</strong>: 페이월을 숨기고 전 사용자에게 모든 PRO 기능을 개방합니다(결제 백엔드 완성 전 사용자 확보용).
+                        <strong> 시험</strong>: 일반 사용자는 무료 베타와 동일(전 기능 무료·결제 숨김), <strong>테스터로 지정한 계정만</strong> 결제 UI 노출 + 정상 게이팅이 적용돼 토스 샌드박스로 결제를 시험할 수 있습니다(가입자 관리 탭에서 지정).
                         <strong> 유료 정식</strong>: 정상 구독 게이팅으로 전환합니다. 전환 시 비구독자는 즉시 FREE로 강등됩니다.
-                        현재 모드: <strong style={{ color: launchMode === "beta_free" ? "#d9a752" : "#5b8c7a" }}>{launchMode === "beta_free" ? "무료 베타" : "유료 정식"}</strong>
+                        <br />현재 모드: <strong style={{ color: launchMode === "beta_free" ? "#d9a752" : launchMode === "staged" ? "#e08866" : "#5b8c7a" }}>{LAUNCH_MODE_LABEL[launchMode]}</strong>
                       </p>
                       <div style={{ display: "flex", gap: 10 }}>
                         <button
@@ -1676,6 +1727,18 @@ export function AdminDashboardView({ onClose }: Props) {
                           무료 베타로 전환
                         </button>
                         <button
+                          onClick={() => handleSetLaunchMode("staged")}
+                          style={{
+                            flex: 1,
+                            background: launchMode === "staged" ? "#e08866" : "rgba(255,255,255,0.06)",
+                            color: launchMode === "staged" ? "#1a1a1a" : "#fff",
+                            border: "none", borderRadius: 8, padding: "10px 16px",
+                            fontSize: 12, fontWeight: 700, cursor: "pointer",
+                          }}
+                        >
+                          시험(테스터 결제)으로 전환
+                        </button>
+                        <button
                           onClick={() => handleSetLaunchMode("paid")}
                           style={{
                             flex: 1,
@@ -1686,6 +1749,26 @@ export function AdminDashboardView({ onClose }: Props) {
                           }}
                         >
                           유료 정식으로 전환
+                        </button>
+                      </div>
+
+                      {/* 일반 사용자로 미리보기 — 어드민/테스터가 별도 계정 없이 비테스터 화면 확인 */}
+                      <div style={{ marginTop: 4, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <div style={{ fontSize: 12, opacity: 0.65, lineHeight: 1.6, flex: "1 1 320px" }}>
+                          <strong>👁 일반 사용자로 미리보기</strong> — 켜면 이 브라우저에서만 어드민/테스터 권한을 무시하고
+                          <strong> 일반 사용자(비테스터) 화면</strong>으로 봅니다(staged 에서 결제 숨김+전 기능 무료). 별도 계정 로그인 없이 일반 사용자 경험을 확인할 때 사용하세요. 결제/게이팅 시험은 끄고 진행.
+                          {previewAsUser && <span style={{ color: "#e08866", fontWeight: 700 }}> · 현재 미리보기 켜짐</span>}
+                        </div>
+                        <button
+                          onClick={() => { const next = !previewAsUser; setPreviewAsUser(next); setPreviewAsUserState(next); }}
+                          style={{
+                            background: previewAsUser ? "#e08866" : "rgba(255,255,255,0.06)",
+                            color: previewAsUser ? "#1a1a1a" : "#fff",
+                            border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 16px",
+                            fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                          }}
+                        >
+                          {previewAsUser ? "✓ 미리보기 끄기" : "일반 사용자로 미리보기"}
                         </button>
                       </div>
                     </div>

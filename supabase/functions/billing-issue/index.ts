@@ -8,6 +8,7 @@ import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, getUser, makeOrderId } from "../_shared/admin.ts";
 import { issueBillingKey, chargeBilling, cancelPayment, PRICE, type BillingCycle } from "../_shared/toss.ts";
 import { encryptSecret } from "../_shared/crypto.ts";
+import { assertPaymentAllowed, PaymentBlockedError } from "../_shared/launch.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -17,6 +18,15 @@ serve(async (req) => {
     const supabase = adminClient();
     const user = await getUser(req, supabase);
     if (!user) return json({ error: "Unauthorized" }, 401);
+
+    // 런치 모드 가드: staged 면 테스터만, beta_free 면 차단(전원 이미 PRO).
+    // UI 를 숨겨도 직접 호출될 수 있으므로 서버에서 강제한다.
+    try {
+      await assertPaymentAllowed(supabase, user.id);
+    } catch (e) {
+      if (e instanceof PaymentBlockedError) return json({ error: e.message }, 403);
+      throw e;
+    }
 
     const { authKey, customerKey, billingCycle, mode } = await req.json();
     if (!authKey || !customerKey) return json({ error: "authKey/customerKey required" }, 400);

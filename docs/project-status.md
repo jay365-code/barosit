@@ -13,7 +13,7 @@
 - ✅ **런치 모드 토글** 구현 — `src/launchMode.ts` 하이브리드 플래그(원격 `app_config` > 캐시 > `VITE_LAUNCH_MODE` env > `'paid'`), plan 판정 6곳 중앙화(`resolveEffectivePlan`), AdminDashboard 전환 토글. 베타면 페이월 숨김+전원 PRO 개방
 - ✅ **결제 백엔드 P0-1** 구현 — Edge Functions 5종(`billing-issue`/`payment-cancel`/`subscription-manage`/`toss-webhook`/`charge-renewals`) + `_shared`, 마이그레이션 `20260521000009`(app_config)·`20260521000010`(트리거 service_role 허용+customer_key/billing_cycle/멱등), 프론트 결제/환불/해지/카드변경 전부 Edge Function 결선(mock 제거). [supabase/functions/README.md](../supabase/functions/README.md)
 - ✅ **PCI** — ProfileView 자체 카드 입력 위저드(raw 카드 수집) 완전 제거 → 웹 Toss 호스티드 결제창 위임
-- ⬜ 남은 블로커: macOS 코드서명·공증(P0-2), 결제 백엔드 **배포**(functions deploy + TOSS_SECRET_KEY + pg_cron + 웹훅 + live key + E2E QA)
+- ⬜ 남은 블로커: 결제 백엔드 **배포**(functions deploy + TOSS_SECRET_KEY + pg_cron + 웹훅 + live key + E2E QA)
 
 - ✅ macOS 핵심 기능 동작 (자세 6종 + 점수 + 스트레칭 7종 + 위젯 모드 + 장시간 사용성 보호)
 - ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
@@ -21,10 +21,11 @@
 - ✅ **첫 실행 온보딩** + **약관·처리방침 (초안)** + **사용자 프로필 Phase 0**
 - ✅ **마케팅 사이트 라이브** — `https://barosit.com` (Cloudflare Pages, main push 시 자동 배포)
 - ✅ **Google OAuth 인증** — Supabase + Custom Domain `auth.barosit.com`, consent screen 에 BaroSit 로고
+- ✅ macOS 코드 서명·공증 완료 (v0.3.6+ 배포 자동화 및 Gatekeeper 통과 확인)
 - 🟡 Windows 빌드 — release.yml 매트릭스로 빌드됨, 실 사용 검증은 미진행
 - 🟡 일부 UX 다듬기 + 영문화 미진행
 - 🟡 Kakao OAuth (Kakao Developers 검수 필요) (※ Resend 매직링크는 도입하지 않기로 최종 결정)
-- ❌ macOS 코드 서명·공증 안 됨 · 데스크탑 앱에 OAuth 미연결 · 클라우드 동기화 (profiles/posture_events 테이블) 미구현
+- ❌ 데스크탑 앱에 OAuth 미연결 · 클라우드 동기화 (profiles/posture_events 테이블) 미구현
 
 ### 🔴 출시 블로커 진행 상황
 
@@ -33,7 +34,7 @@
 | 1 | 첫 실행 온보딩 | ✅ 완료 |
 | 2 | 자동 업데이트 | ✅ 완료 + 풀 시연 검증 |
 | 3 | 프라이버시 정책 + 이용약관 | ✅ 사업자 실값(주식회사 구비드) + 인앱 모달 + 웹 라우트 (결제 조항 변호사 검토 권장) |
-| 4 | macOS 코드 서명 + 공증 | 🟡 Apple Developer **신청 완료** — 승인 후 `release.yml`에 APPLE_* + `releaseDraft:false` |
+| 4 | macOS 코드 서명 + 공증 | ✅ 완료 — Developer ID 인증서 발급 및 `.app`과 `.dmg` 자동 공증/스테이플 완료 (v0.3.6+ 검증 완료) |
 | 5 | 랜딩 페이지 + 도메인 | ✅ `barosit.com` 라이브 (Cloudflare Pages, 자동 배포) |
 | 6 | 인증 (웹) | ✅ Google·Kakao·Apple OAuth + 데스크톱 deep-link |
 | 7 | 결제 백엔드 (Toss) | 🟡 **코드 구현 완료** — 배포/심사/E2E QA 대기 ([계획서 P0-1](./launch-readiness-plan.md)) |
@@ -219,7 +220,7 @@
 
 ### 🔴 출시 블로커 (반드시)
 
-- [ ] **macOS 코드 서명 + 공증** — Apple Developer 계정 필요. 안 하면 사용자가 "확인되지 않은 개발자" 경고 뚫어야 함
+- [x] **macOS 코드 서명 + 공증** — Apple Developer ID 인증서 발급 및 `notarytool`/`stapler` 공증 완료. v0.3.6+ 빌드부터 `.app`과 `.dmg` 모두 공증 및 스테이플 처리되어 Gatekeeper 경고 없이 실행 가능.
 - [x] **자동 업데이트** — `tauri-plugin-updater` + `plugin-process` 통합, useUpdater hook, UpdateNotice 배너, [release.yml](../.github/workflows/release.yml) CI, jay365-code/barosit Releases + Secrets 셋업. **2026-05-19 v0.1.0 → v0.1.1 풀 시연 검증 완료**
 - [x] **프라이버시 정책 + 이용약관 (초안)** — [privacy.md](./privacy.md) + [terms.md](./terms.md). 카메라 온디바이스 처리·localStorage·LLM 옵션 명시. 한국 개인정보보호법 + GDPR 시야. Onboarding 3페이지·SettingsDrawer "정보" 섹션에 링크 노출. **최종 출시 전 변호사 검토 필요**
 - [x] **첫 실행 온보딩** — 3 페이지 (환영 / 작동 원리 / 프라이버시) + 카메라 권한 요청 통합 ([src/views/Onboarding.tsx](../src/views/Onboarding.tsx), [App.tsx:177](../src/App.tsx))

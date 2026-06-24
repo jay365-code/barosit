@@ -31,7 +31,7 @@
 | 키 | 용도 | 상태 |
 |---|---|---|
 | `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` | 자동 업데이트 minisign 서명 | ✅ 등록됨 |
-| `APPLE_CERTIFICATE` / `_PASSWORD` / `APPLE_SIGNING_IDENTITY` / `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` | macOS 코드서명·공증 | ⏳ Apple 승인 후 |
+| `APPLE_CERTIFICATE` / `_PASSWORD` / `APPLE_SIGNING_IDENTITY` / `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` | macOS 코드서명·공증 | ✅ 등록됨 |
 | (선택) Windows 코드서명 인증서 | SmartScreen 회피 | ⬜ 인증서 구매 후 |
 
 ## 2. 배포 순서
@@ -40,7 +40,7 @@
 2. [ ] **pg_cron**: 대시보드에서 `pg_cron`/`pg_net` 활성화 → `migrations/20260521000010` 하단 `cron.schedule` 실행
 3. [ ] **웹훅**: Toss 개발자센터에 `https://<ref>.supabase.co/functions/v1/toss-webhook` 등록
 4. [ ] **웹**: `npm run build:web` → Cloudflare Pages 배포 (`barosit.com` 자동 배포 동작 확인)
-5. [ ] **데스크톱**: (Apple 승인 후) Secrets 등록 → `releaseDraft:false` → `git tag vX.Y.Z && git push --tags`
+5. [x] **데스크톱**: Apple Secrets 등록 및 `releaseDraft:false` 완료 → `git tag vX.Y.Z && git push --tags` (빌드 및 공증 자동 배포)
 6. [ ] **런치 모드**: AdminDashboard "시스템" 탭에서 `beta_free`/`paid` 선택
 
 ## 3. 출시 전 검증

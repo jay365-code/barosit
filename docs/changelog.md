@@ -657,6 +657,29 @@ GitHub 외부 링크로만 노출되던 것을 **앱 안 모달**로 옮김. 동
 - TypeScript 정적 분석 `tsc --noEmit` — 0 errors
 - 빌드 검증 `npm run build:web` — 100% 성공
 
+## 24. macOS 코드 서명 및 공증 완료 (2026-06-24)
+
+### 배경
+- macOS용 데스크톱 앱을 사용자가 웹사이트에서 다운로드하여 설치 시, "확인되지 않은 개발자" 또는 Gatekeeper 경고 창이 떠서 앱이 정상 실행되지 않는 출시 블로커 이슈를 완벽히 해결했습니다.
+- Apple Developer ID 인증서를 발급받아 Tauri 빌드 프로세스에 탑재하고, Apple의 Notarization(공증) 및 Staple(스테이플) 과정을 완전 연동했습니다.
+
+### 24-1. 로컬 빌드 서명 및 공증 스크립트 구축
+- [scripts/build-mac-signed.sh](../scripts/build-mac-signed.sh) — 로컬 개발 환경에서 macOS 서명 및 공증 빌드를 수행하고, codesign/Gatekeeper/stapler 상태를 즉시 검증하는 자동화 스크립트를 구현했습니다.
+- [src-tauri/.notarize.env.example](../src-tauri/.notarize.env.example) — 로컬 공증에 필요한 Apple ID 및 앱 전용 비밀번호(app-specific password) 템플릿 환경변수 파일을 작성했습니다.
+- [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) — macOS Bundle 설정 내 `signingIdentity`("Developer ID Application: Gu B Deu Co., Ltd. (LHR4658746)"), `hardenedRuntime: true`, `entitlements`를 설정했습니다.
+
+### 24-2. CI/CD 자동 릴리스 파이프라인(GitHub Actions) 연동 및 검증 완료
+- [.github/workflows/release.yml](../.github/workflows/release.yml) — GitHub Actions의 `release.yml` 내 `APPLE_*` 관련 6개 Secrets 환경변수 주석을 모두 해제하고 Secrets 바인딩을 완료했습니다.
+- **DMG 공증 및 스테이플 보완**: Tauri 기본 액션이 `.app`만 스테이플하고 `.dmg`는 미공증 상태로 릴리스하는 한계를 해결하기 위해, 빌드 완료 후 `notarytool submit` 및 `stapler staple`을 추가 실행하여 DMG 파일까지 완전히 공증 후 교체 업로드하는 스크립트를 추가했습니다 (`v0.3.6`).
+- **릴리스 배포 자동 공개**: 서명 및 공증이 검증됨에 따라 GitHub Release의 `releaseDraft` 옵션을 `false`로 전환하여, 태그 푸시 시 빌드와 서명/공증을 거쳐 실시간 릴리스 및 자동 업데이트(`latest.json`)가 정상 배포되도록 설정했습니다.
+
+### 검증
+- 로컬 verification 명령 실행 결과:
+  - `spctl -a -vvv --type execute BaroSit.app` → **accepted (Notarized Developer ID)**
+  - `xcrun stapler validate BaroSit.app` → **The validate action worked!**
+  - `xcrun stapler validate BaroSit_0.3.4_aarch64.dmg` → **The validate action worked!**
+- Gatekeeper 승인 및 Apple 공증 티켓이 정상적으로 스테이플되어, 다운로드 후 경고 없이 바로 실행 가능함을 성공적으로 검증했습니다.
+
 ## 알려진 한계
 
 1. **macOS 전용 일부 동작** — 트레이 + Reopen 이벤트 + macOSPrivateApi

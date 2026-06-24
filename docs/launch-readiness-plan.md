@@ -4,21 +4,21 @@
 >
 > ⚠️ 본 계획서는 **유료 SaaS(PRO 구독) 정식 오픈**을 목표로 하되, **무료 베타를 출시 전략으로 선택 가능**하게 한다(런치 모드 토글, §6.1). "유료 정식"이 완성 목표, "무료 베타"는 그동안 사용자를 받는 경로.
 >
-> **외부 의존 진행 상황 (2026-06-04 기준)**: 🟡 Toss Payments 가맹점 **심사 중** · 🟡 Apple Developer Program **신청 완료**. 리드타임이 도는 동안 결제 백엔드(P0-1)·PCI(P0-4)·런치 토글(§6.1)을 **구현 완료**(이번 세션). 남은 건 macOS 서명(P0-2)과 결제 배포/심사.
+> **외부 의존 진행 상황**: 🟡 Toss Payments 가맹점 **심사 중** · ✅ Apple Developer Program **등록 완료 및 코드서명/공증 활성화**. 리드타임이 도는 동안 결제 백엔드(P0-1)·PCI(P0-4)·런치 토글(§6.1)을 구현 완료하고 macOS 서명(P0-2)까지 완전 완료하여 이제 남은 건 결제 배포/심사뿐.
 
 ---
 
 ## 0. 한 줄 결론
 
-**P0 블로커 3개 중 2개(실결제 백엔드·PCI)는 코드 구현 완료, 남은 건 macOS 서명과 "배포/심사" 운영 단계뿐.**
-범례: **✅ 구현 완료(런타임 검증)** · **🟢 코드 구현 완료(배포·실행 검증 대기)** · **⏳ 외부 의존 진행 중** · **⬜ 미착수**
+**P0 블로커 3개 중 macOS 서명이 완료되었으며, 실결제 백엔드·PCI는 코드 구현 완료, 남은 건 "배포/심사" 운영 단계뿐.**
+범례: **✅ 완료(검증)** · **🟢 코드 구현 완료(배포·실행 검증 대기)** · **⏳ 외부 의존 진행 중** · **⬜ 미착수**
 
 - 🟢 **실결제 백엔드 (P0-1)** — Edge Functions 5종 + 마이그레이션 + 프론트 결선 **구현 완료**. mock 전부 제거. 남은 건 `supabase functions deploy` + 시크릿/pg_cron/웹훅 등록 + live key + E2E QA(배포 후).
 - 🟢 **PCI 자체 카드폼 (P0-4)** — ProfileView raw 카드 수집 위저드 **완전 제거** → 웹 Toss 결제창 위임 완료.
-- 🟡 **macOS 코드서명·공증 (P0-2)** — `release.yml`에 APPLE_* env **주석 블록 준비**(승인 후 주석 해제용). ⚠️ tauri 는 빈 인증서로도 서명을 시도하다 실패하므로 인증서 없는 동안엔 **주석 유지 = unsigned**. Apple 승인(⏳) 후 Secrets 6개 + 주석 해제 + `releaseDraft:false`.
+- ✅ **macOS 코드서명·공증 (P0-2)** — Apple Developer ID 발급 완료 및 CI/CD 워크플로우(`release.yml`) 내 `APPLE_*` Secrets 연동 완료. `.app`과 `.dmg` 모두 공증 및 스테이플 처리되어 Gatekeeper acceptance 확인.
 - ✅ **런치 모드 토글 (§6.1)** — 베타↔유료 전환 **구현 완료·브라우저 검증**.
 
-→ **무료 베타 출시의 당장 블로커는 P0-2(서명)뿐.** 유료 정식은 P0-1 **배포 4단계**(§7) + Toss 심사(⏳) 완료가 남음.
+→ **무료 베타 출시의 블로커(macOS 서명)는 완전히 해결됨.** 유료 정식은 P0-1 **배포 4단계**(§7) + Toss 심사(⏳) 완료가 남음.
 
 ---
 
@@ -70,7 +70,7 @@
 | 법무 문서(사업자 실값) / i18n ko·en·ja / 마케팅 사이트 | ✅ 완성 | |
 | 자동 업데이트 인프라 | ✅ 완성·검증 | |
 | 런치 모드 토글 (베타↔유료) | ✅ 완성·검증 | 이번 세션 |
-| **macOS 코드서명·공증 (P0-2)** | 🟢 **와이어링 완료** / ⏳ 인증서 대기 | release.yml에 APPLE_* env 추가됨. Apple 승인 후 Secrets 채우고 `releaseDraft:false`만 |
+| **macOS 코드서명·공증 (P0-2)** | ✅ **완료** | release.yml에 Secrets 연동 및 v0.3.6+ 배포 자동화 완료, Gatekeeper acceptance 검증 |
 | **Windows 코드서명** | 🔴 미설정 | SmartScreen 경고 |
 | Windows 실기 검증 | ⬜ 미진행 | 실제 윈도우 기기 필요 |
 | 프로덕션 시크릿 점검 / 웹배포 자동화 확인 | 🟡 부분 | 배포 시 확인 |
@@ -79,7 +79,7 @@
 | 자동화 테스트 | 🔴 0개 | 결제 경로 통합테스트 권장 |
 | 데모 GIF/스크린샷 | ⬜ 미진행 | 랜딩 전환율 |
 
-> **결론: 비결제 항목 중 유일한 출시 블로커는 P0-2(macOS 서명).** 나머지(Windows 서명·테스트·크래시리포트)는 출시 후 개선 가능. 베타 출시는 P0-2만 끝내면 됨.
+> **결론: macOS 서명 및 공증이 완료되었으므로 베타 출시 준비는 완료되었습니다.** 나머지(Windows 서명·테스트·크래시리포트)는 출시 후 개선 가능합니다. 유료 정식 출시를 위해서는 결제 백엔드 배포 및 Toss 심사 완료가 남았습니다.
 
 ---
 
@@ -246,11 +246,10 @@ P0-1(결제) 없이도 가능. PRO를 잠시 "무료 베타"로 개방하거나 
 - [x] ProfileView 자체 카드 입력 위저드 제거 (raw 카드 수집 코드 삭제, `platform.openBrowser` 웹 결제창 안내로 대체)
 - [x] 카드 등록/변경 → Toss `requestBillingAuth` 단일 경로 통일 (update_card 는 `billing-issue` 경유)
 
-**P0-2 macOS 실행 가능화**
-- [x] `release.yml`에 Apple 서명·공증 env **주석 블록** 준비 (빈 값이면 codesign 실패하므로 주석 유지 = unsigned 통과)
-- [ ] (Apple 승인 후) Developer ID 인증서 → GitHub Secrets 6개 등록 + **주석 6줄 해제**
-- [ ] (서명 검증 후) `releaseDraft: false`
-- [ ] 다른 Mac에서 다운로드→실행 검증
+**P0-2 macOS 실행 가능화 — ✅ 완료**
+- [x] `release.yml`에 Apple 서명·공증 env 주석 해제 및 GitHub Secrets 연동 완료
+- [x] 빌드 및 공증 자동화 연동 (`releaseDraft: false`로 설정하여 자동 공개)
+- [x] 다른 Mac에서 다운로드 후 실행하여 Gatekeeper 및 공증 검증 완료 (v0.3.6+ 에서 `.app` 및 `.dmg` 공증 및 스테이플 처리 확인)
 
 **P0-1 실결제** (코드 구현 완료 — 배포/심사 대기)
 - [x] Edge Functions 구현 (`billing-issue`/`payment-cancel`/`subscription-manage`/`toss-webhook`/`charge-renewals` + `_shared`) · [README](../supabase/functions/README.md)

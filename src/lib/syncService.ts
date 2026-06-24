@@ -1,5 +1,6 @@
 import { supabase } from "../auth/supabase";
 import { loadEvents, type PostureEvent } from "../pose/eventLog";
+import { PROFILE_OWNER_KEY } from "../userProfile";
 import i18n from "../i18n";
 
 interface SyncableEvent extends PostureEvent {
@@ -405,7 +406,9 @@ export async function pullProfileFromServer(): Promise<void> {
         workEnv: data.work_env || "mixed",
       };
       localStorage.setItem("user_profile_v1", JSON.stringify(localProfile));
-      
+      // 캐시 소유자 각인 — 계정 전환 시 reconcileProfileCache 가 누수를 차단할 수 있게.
+      localStorage.setItem(PROFILE_OWNER_KEY, userId);
+
       // 프로필 변경 통지용 이벤트 발송 (CustomEvent로 디테일 전달)
       window.dispatchEvent(
         new CustomEvent("barosit:profile-changed", { detail: localProfile })
