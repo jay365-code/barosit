@@ -1027,12 +1027,13 @@ function AuthCallback() {
 
         const redirectTo = localStorage.getItem("barosit:auth_redirect");
         // 저장된 값이 *내부 hash 패턴* 일 때만 적용 — javascript: URI / 외부
-        // URL 주입 방어. 비정상 값이면 #/app 으로 fallback.
+        // URL 주입 방어. 비정상/부재 시 마케팅 홈(#/landing) 으로 fallback.
         localStorage.removeItem("barosit:auth_redirect");
         if (isSafeRedirectHash(redirectTo)) {
           window.location.replace(redirectTo);
         } else {
-          window.location.replace("#/app");
+          // 웹 OAuth 콜백도 저장된 복귀 hash 가 없으면 마케팅 홈(랜딩)으로.
+          window.location.replace("#/landing");
         }
       } catch (e) {
         if (cancelled) return;
@@ -3183,7 +3184,10 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
       if (isSafeRedirectHash(redirectTo)) {
         window.location.replace(redirectTo);
       } else {
-        window.location.replace("#/app");
+        // 웹에서 로그인하면 마케팅 홈(랜딩)으로 복귀. 빈 해시(barosit.com 맨
+        // 주소)에서 로그인 시 직전 hash 가 저장되지 않아 예전엔 #/app(실루엣
+        // 감지 페이지)로 튕기던 문제 해결.
+        window.location.replace("#/landing");
       }
     }
   }, [loading, user]);
