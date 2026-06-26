@@ -41,6 +41,8 @@ import { pullProfileFromServer, pullSettingsFromServer } from "./lib/syncService
 import { reportError } from "./lib/errorReporting";
 import { DATA_WARNING_EVENT, type DataWarningDetail } from "./pose/eventLog";
 import { trackUsage } from "./lib/usageAnalytics";
+import { recordSession, shouldShowNudge, markNudgeDone } from "./lib/feedbackNudge";
+import { FeedbackModal } from "./components/FeedbackModal";
 
 const ONBOARDED_KEY = "onboarded_v1";
 
@@ -290,6 +292,9 @@ export default function App() {
   const [authLoaded, setAuthLoaded] = useState(false);
   // DATA-1: 로컬 자세 기록 손상/용량/절단 경고 (조용히 유실되지 않게 사용자에게 표시)
   const [dataWarning, setDataWarning] = useState<DataWarningDetail | null>(null);
+  // 능동 피드백 넛지
+  const [nudgeOpen, setNudgeOpen] = useState(false);
+  const [nudgeFeedbackOpen, setNudgeFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const onVis = () => {
@@ -304,6 +309,17 @@ export default function App() {
   // 측정: 앱 실행(하루 1회) — 재방문/리텐션
   useEffect(() => {
     trackUsage("app_opened", { scope: "daily" });
+  }, []);
+
+  // 능동 피드백 넛지: 세션 기록 후, 조건 충족 시 잠시 뒤 노출(좌절 직후 회피 위해 지연)
+  useEffect(() => {
+    recordSession();
+    if (!shouldShowNudge()) return;
+    const id = window.setTimeout(() => {
+      setNudgeOpen(true);
+      trackUsage("feedback_nudge_shown", { scope: "once" });
+    }, 8000);
+    return () => window.clearTimeout(id);
   }, []);
 
   // DATA-1: eventLog 의 데이터 경고를 받아 배너 표시 + OPS-1 관측 리포트로 연결
@@ -632,6 +648,16 @@ export default function App() {
   if (isGracePeriodActive) paddingTopVal += 40;
   if (isUpdateNoticeActive) paddingTopVal += 48;
   if (dataWarning) paddingTopVal += 40;
+  // 넛지는 저우선순위 — 중요 배너가 떠 있거나 캘리브레이션/온보딩 중이면 양보
+  const showNudgeBanner =
+    nudgeOpen && !!baseline && !onboardingOpen && !isGracePeriodActive && !isUpdateNoticeActive && !dataWarning;
+  if (showNudgeBanner) paddingTopVal += 44;
+
+  const closeNudge = (sent: boolean) => {
+    markNudgeDone();
+    setNudgeOpen(false);
+    trackUsage(sent ? "feedback_nudge_clicked" : "feedback_nudge_dismissed", { scope: "once" });
+  };
 
   return (
     <ErrorBoundary>
@@ -717,6 +743,48 @@ export default function App() {
             </button>
           </div>
         )}
+
+        {/* 능동 피드백 넛지 — 정착 사용자에게 1회 부드럽게 의견 요청 */}
+        {showNudgeBanner && (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            minHeight: "44px",
+            zIndex: 9300,
+            background: "var(--b-sig-bg)",
+            borderBottom: "1px solid var(--b-sig-soft)",
+            padding: "8px 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "12px",
+            color: "var(--b-fg-1)",
+            fontSize: "13px",
+            flexWrap: "wrap",
+          }}>
+            <span>💬 {t("app:feedbackNudge.message")}</span>
+            <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button
+                className="b-btn b-btn-primary"
+                onClick={() => { closeNudge(true); setNudgeFeedbackOpen(true); }}
+                style={{ fontSize: 12, height: 30, padding: "0 12px" }}
+              >
+                {t("app:feedbackNudge.cta")}
+              </button>
+              <button
+                className="b-btn b-btn-ghost"
+                onClick={() => closeNudge(false)}
+                style={{ fontSize: 12, height: 30, padding: "0 12px" }}
+              >
+                {t("app:feedbackNudge.later")}
+              </button>
+            </span>
+          </div>
+        )}
+
+        {nudgeFeedbackOpen && <FeedbackModal onClose={() => setNudgeFeedbackOpen(false)} />}
 
         <main className="content">
           {!baseline ? (

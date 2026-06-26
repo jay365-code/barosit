@@ -24,5 +24,10 @@
     "installFailed": "アップデートのインストールに失敗: {{msg}}"
   },
   "tagline": "今すぐ、正しく座ろう。",
-  "taglineSub": "毎日、より健やかな姿勢習慣を。"
+  "taglineSub": "毎日、より健やかな姿勢習慣を。",
+  "feedbackNudge": {
+    "message": "BaroSit の使い心地はいかがですか？ひと言だけ聞かせてください 🙂",
+    "cta": "フィードバックを送る",
+    "later": "後で"
+  }
 }

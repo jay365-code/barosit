@@ -24,5 +24,10 @@
     "installFailed": "업데이트 설치 실패: {{msg}}"
   },
   "tagline": "바른 자세의 시작, 바로씻",
-  "taglineSub": "건강한 자세 습관을 매일."
+  "taglineSub": "건강한 자세 습관을 매일.",
+  "feedbackNudge": {
+    "message": "BaroSit 잘 쓰고 계신가요? 의견 한 가지만 들려주세요 🙂",
+    "cta": "의견 보내기",
+    "later": "다음에"
+  }
 }

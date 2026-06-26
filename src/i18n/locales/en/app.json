@@ -24,5 +24,10 @@
     "installFailed": "Update install failed: {{msg}}"
   },
   "tagline": "Sit right, right now.",
-  "taglineSub": "A healthier posture habit, every day."
+  "taglineSub": "A healthier posture habit, every day.",
+  "feedbackNudge": {
+    "message": "How's BaroSit working for you? We'd love one quick thought 🙂",
+    "cta": "Send feedback",
+    "later": "Later"
+  }
 }

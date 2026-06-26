@@ -474,7 +474,7 @@
       <div class="item-top"><span class="title">익명 사용 분석 (활성화 퍼널/재방문)</span><span class="gapid">MEASURE</span></div>
       <div class="detail">"사용자가 뭘 원하는지 모름"을 데이터로 전환. usage_events 테이블 + track_usage RPC + 익명 install_id. 추적 이벤트: app_opened(일1회)·onboarding_completed·calibration_succeeded·calibration_failed(사유). 설정 옵트아웃 토글(베타 기본 ON, 익명·마일스톤만·영상/자세/PII 없음). 어드민 "사용 분석" 탭(퍼널·재방문·이벤트별 카운트). 로컬 E2E + 단위테스트 6건. <b>프로덕션 db push 완료(2026-06-26).</b></div>
       <div class="ref">src/lib/usageAnalytics.ts · supabase/migrations/20260626120000_usage_events.sql · AdminDashboardView.tsx</div>
-      <div class="next"><b>후속(선택):</b> 능동 피드백 넛지(타이밍 기반 FeedbackModal) · privacy.md 에 익명 사용통계 1줄 명시 검토.</div>
+      <div class="detail" style="margin-top:6px">✅ <b>능동 피드백 넛지</b>(설치3일+·2세션+ 1회성, 비차단, src/lib/feedbackNudge.ts) + <b>privacy.md</b> 익명 진단·사용통계 항목 명시 완료(2026-06-26).</div>
     </div>
   </section>
 
