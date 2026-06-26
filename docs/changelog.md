@@ -2,6 +2,17 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-3. 클라우드 동기화 복원력·가시화 (SYNC-1) — 2026-06-26
+
+동기화가 "조용히 실패"하던 문제 해소 — 사내망 등 네트워크 차단 시나리오 대응.
+
+- **가시화**: 신규 [src/lib/syncStatus.ts](../src/lib/syncStatus.ts) 상태 모듈(idle/syncing/synced/offline/error + last-synced) → 설정 "클라우드 동기화" 인디케이터(점 색 + 상태 + 마지막 동기화 시각, ko/en/ja).
+- **재시도**: 각 동기화 작업을 지수 백오프(1/2/4s, 2회)로 재시도. push 함수는 throw 대신 boolean 반환으로 통일해 fire-and-forget 호출의 unhandled rejection 방지.
+- **오프라인**: `navigator.onLine` 가드 + `offline` 이벤트 즉시 상태 표시 + `online` 복귀 시 자동 flush.
+- **증분 영속화(버그 수정)**: `syncEventsToServer` 가 청크 성공마다 uploaded 플래그를 저장 → 중간 실패 시 이미 올린 청크를 재업로드(중복 insert)하던 문제 해결. localStorage 의 uploaded 플래그가 곧 오프라인 큐.
+- 단위테스트 신규 [src/lib/syncStatus.test.ts](../src/lib/syncStatus.test.ts) 5건. 브라우저에서 offline→상태 전파 E2E 확인.
+- 남음(후속): 설정 업로드 충돌해결(updated_at 비교)·플랜 캐시 재검증은 partial 유지.
+
 ## 0-2. 로컬 자세기록 무음 유실 방지 (DATA-1) — 2026-06-26
 
 `posture_events`(localStorage)가 사용자도 모르게 사라지던 3경로 차단.

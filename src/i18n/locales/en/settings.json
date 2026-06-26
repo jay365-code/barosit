@@ -167,6 +167,17 @@
     "title": "Desktop app",
     "note": "Background monitoring, tray alerts, and the floating widget are available only in the desktop app."
   },
+  "sync": {
+    "title": "Cloud sync",
+    "lastSynced": "Last synced {{time}}",
+    "state": {
+      "idle": "Idle",
+      "syncing": "Syncing…",
+      "synced": "Synced",
+      "offline": "Offline — will sync when reconnected",
+      "error": "Sync failed — retrying automatically"
+    }
+  },
   "about": {
     "title": "About",
     "version": "BaroSit · version {{version}}",

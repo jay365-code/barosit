@@ -167,6 +167,17 @@
     "title": "데스크톱 앱",
     "note": "백그라운드 모니터링·트레이 알림·플로팅 위젯은 데스크톱 앱에서만 가능합니다."
   },
+  "sync": {
+    "title": "클라우드 동기화",
+    "lastSynced": "마지막 동기화 {{time}}",
+    "state": {
+      "idle": "대기 중",
+      "syncing": "동기화 중…",
+      "synced": "동기화됨",
+      "offline": "오프라인 — 연결되면 자동 동기화",
+      "error": "동기화 실패 — 자동 재시도 중"
+    }
+  },
   "about": {
     "title": "정보",
     "version": "BaroSit · 버전 {{version}}",

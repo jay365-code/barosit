@@ -311,16 +311,15 @@
       <div class="detail">5분 주기 백그라운드 + 소급 패키징(pack-and-sync). RLS + 변조방지 트리거.</div>
       <div class="ref">src/lib/syncService.ts · supabase/migrations/</div>
     </div>
-    <div class="item" data-status="todo">
+    <div class="item" data-status="done">
       <div class="item-top"><span class="title">동기화 실패 가시화 + 재시도(backoff)</span><span class="gapid">SYNC-1</span></div>
-      <div class="detail">모든 sync 함수가 실패 시 console.error 후 return. 사용자 알림·재시도 없음.</div>
-      <div class="ref">src/lib/syncService.ts · src/hooks/useMonitoringEngine.ts:142</div>
-      <div class="next"><b>다음 작업:</b> last-synced UI + exponential backoff 래퍼.</div>
+      <div class="detail">syncStatus 모듈(idle/syncing/synced/offline/error + last-synced) + 설정 "클라우드 동기화" 인디케이터(ko/en/ja). 각 작업을 지수 백오프(1/2/4s, 2회) 재시도. boolean 반환식이라 fire-and-forget 호출도 안전. 단위테스트 5건 + 브라우저에서 offline→상태 전파 검증.</div>
+      <div class="ref">src/lib/syncStatus.ts · src/lib/syncService.ts · src/views/SettingsDrawer.tsx</div>
     </div>
-    <div class="item" data-status="todo">
-      <div class="item-top"><span class="title">오프라인 큐 (IndexedDB)</span><span class="gapid">SYNC-1</span></div>
-      <div class="detail">auth-sync-plan.md가 약속한 onLine 감지 + 큐 flush 미구현.</div>
-      <div class="next"><b>다음 작업:</b> 실패 페이로드 큐잉 + online 이벤트 flush.</div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">오프라인 큐 + 증분 영속화</span><span class="gapid">SYNC-1</span></div>
+      <div class="detail">localStorage 의 uploaded 플래그가 곧 영속 큐 — 청크 성공마다 증분 저장하여 중간 실패 시 재업로드(중복 insert) 버그 수정. online 복귀 시 자동 flush, offline 전환 시 상태 표시. (IndexedDB 대신 기존 localStorage 큐 활용)</div>
+      <div class="ref">src/lib/syncService.ts (syncEventsToServer)</div>
     </div>
     <div class="item" data-status="partial">
       <div class="item-top"><span class="title">충돌 해결 / FREE·PRO 차등</span><span class="gapid">SYNC-1</span></div>

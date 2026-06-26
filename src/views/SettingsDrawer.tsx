@@ -51,6 +51,7 @@ import {
 import type { PostureType } from "../pose/types";
 import { isPrivacyMode, setPrivacyMode } from "../privacyConfig";
 import { isErrorReportingEnabled, setErrorReportingEnabled } from "../lib/errorReporting";
+import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from "../lib/syncStatus";
 import {
   loadPerformanceProfile,
   setPerformanceProfile,
@@ -142,6 +143,9 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
     setErrReport(v);
     setErrorReportingEnabled(v);
   };
+  // SYNC-1: 클라우드 동기화 상태 표시(가시화)
+  const [syncStatus, setSyncStatusState] = useState<SyncStatus>(() => getSyncStatus());
+  useEffect(() => subscribeSyncStatus(setSyncStatusState), []);
 
   const updateBreakConfig = (next: BreakConfig) => {
     setBreakConfigState(next);
@@ -1250,6 +1254,31 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             </div>
           </Section>
         )}
+
+        <Section title={t("sync.title")}>
+          {(() => {
+            const cfg = {
+              idle: { color: "var(--b-fg-3)", label: t("sync.state.idle") },
+              syncing: { color: "#6ea8fe", label: t("sync.state.syncing") },
+              synced: { color: "var(--b-sig)", label: t("sync.state.synced") },
+              offline: { color: "#d9a752", label: t("sync.state.offline") },
+              error: { color: "#f87171", label: t("sync.state.error") },
+            }[syncStatus.state];
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, flexWrap: "wrap" }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: cfg.color, flexShrink: 0 }} />
+                <span style={{ color: "var(--b-fg-2)", fontWeight: 600 }}>{cfg.label}</span>
+                {syncStatus.lastSyncedAt && (
+                  <span style={{ color: "var(--b-fg-3)", marginLeft: "auto" }}>
+                    {t("sync.lastSynced", {
+                      time: new Date(syncStatus.lastSyncedAt).toLocaleString(i18n.language),
+                    })}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+        </Section>
 
         <Section title={t("about.title")} last>
           <div
