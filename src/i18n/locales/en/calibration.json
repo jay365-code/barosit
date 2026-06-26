@@ -3,7 +3,19 @@
   "back": "Go back",
   "rejected": {
     "title": "Your posture wasn't stable enough",
-    "body": "Only {{pct}}% of frames over {{secs}}s qualified (65% required). Reduce movement, meet all the items below, and try again."
+    "body": "Only {{pct}}% of frames over {{secs}}s qualified (65% required).",
+    "fixTitle": "Please check the following"
+  },
+  "checkHint": {
+    "bodyVisible": "Keep your upper body clearly in frame — move the camera back a bit or push your chair back.",
+    "headNotTiltedDown": "Don't tilt your head down — look comfortably straight ahead at the monitor.",
+    "headUpright": "Keep your head level, not tilted left or right.",
+    "noChinRest": "Don't rest your chin or face on your hand — keep your hands on the desk.",
+    "stable": "Hold still and minimize movement during the 5-second capture."
+  },
+  "error": {
+    "title": "Couldn't build a baseline",
+    "body": "The camera didn't capture enough of your posture. Improve lighting, make sure your upper body is visible, and try again."
   },
   "retry": "Try again",
   "holdPosture": "Hold a good posture for a moment",

@@ -134,11 +134,10 @@
       <div class="ref">src/pose/calibration.ts · thresholds.ts</div>
     </div>
 
-    <div class="item" data-status="todo">
+    <div class="item" data-status="done">
       <div class="item-top"><span class="title">캘리브레이션 실패 사용자 안내</span><span class="gapid">UX-1</span></div>
-      <div class="detail">실패를 <code>catch→setPhase("idle")</code> 로 처리 → 원인 안내 없이 시작 화면 복귀. 온보딩 첫 관문 이탈.</div>
-      <div class="ref">src/views/CalibrationView.tsx</div>
-      <div class="next"><b>다음 작업:</b> 5가지 적합성 체크 결과를 분류해 사용자 메시지 + "다시 시도" 노출.</div>
+      <div class="detail">build() 예외 시 무음 idle 복귀 대신 <b>error 화면</b>(사유+재시도) + OPS-1 reportError. 적합 프레임 부족(rejected) 시 collector 가 항목별 통과율을 추적해 <b>부족한 5체크를 구체 안내</b>("상체가 잘 안 보였어요" 등). i18n ko/en/ja. collector 단위테스트 4건.</div>
+      <div class="ref">src/pose/calibration.ts · src/pose/calibration.test.ts · src/views/CalibrationView.tsx</div>
     </div>
 
     <div class="item" data-status="partial">

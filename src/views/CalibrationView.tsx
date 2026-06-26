@@ -20,6 +20,7 @@ import { Icon } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import { platform } from "../platform";
 import { PostureFigure } from "../components/PostureFigure";
+import { reportError } from "../lib/errorReporting";
 
 interface Props {
   onComplete: (baseline: CalibrationBaseline) => void;
@@ -44,11 +45,13 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
   const [faceLandmarks, setFaceLandmarks] = useState<Landmark[] | null>(null);
   const [videoAspect, setVideoAspect] = useState<number>(4 / 3);
   const [phase, setPhase] = useState<
-    "idle" | "capturing" | "done" | "rejected"
+    "idle" | "capturing" | "done" | "rejected" | "error"
   >("idle");
   const [secondsLeft, setSecondsLeft] = useState(CALIBRATION_DURATION_SECS);
   const [liveCheck, setLiveCheck] = useState<CalibrationCheck | null>(null);
   const [okRatio, setOkRatio] = useState(0);
+  // UX-1: 실패 시 "무엇이 부족했는지" 안내용 — rejected 시 부족 항목, error 시 사유
+  const [weakChecks, setWeakChecks] = useState<(keyof CalibrationCheck)[]>([]);
   const collectorRef = useRef(new CalibrationCollector());
   const liveStabilityRef = useRef(new StabilityWindow());
 
@@ -76,6 +79,8 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
     if (secondsLeft <= 0) {
       const ratio = collectorRef.current.okRatio();
       if (ratio < MIN_OK_RATIO) {
+        // UX-1: 어떤 적합성 항목이 부족했는지 캡처해 안내
+        setWeakChecks(collectorRef.current.weakestChecks());
         setPhase("rejected");
         return;
       }
@@ -85,8 +90,10 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
         setPhase("done");
         onComplete(baseline);
       } catch (e) {
+        // UX-1: 조용히 idle 로 가지 않고 사유를 표시 + OPS-1 관측 리포트
         console.error(e);
-        setPhase("idle");
+        reportError(e, "react", { stack: e instanceof Error ? e.stack : undefined });
+        setPhase("error");
       }
       return;
     }
@@ -106,6 +113,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
     liveStabilityRef.current.reset();
     setSecondsLeft(CALIBRATION_DURATION_SECS);
     setOkRatio(0);
+    setWeakChecks([]);
     setPhase("idle");
   };
 
@@ -177,7 +185,40 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
           )}
         </div>
 
-        {phase === "rejected" ? (
+        {phase === "error" ? (
+          <>
+            <h2
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                letterSpacing: "-0.022em",
+                margin: 0,
+                marginBottom: 8,
+              }}
+            >
+              {t("calibration:error.title")}
+            </h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--b-fg-3)",
+                margin: 0,
+                marginBottom: 20,
+                lineHeight: 1.55,
+              }}
+            >
+              {t("calibration:error.body")}
+            </p>
+            <button
+              className="b-btn b-btn-primary"
+              onClick={retry}
+              style={{ width: "100%", justifyContent: "center", height: 44 }}
+            >
+              <Icon name="play" size={14} />
+              {t("calibration:retry")}
+            </button>
+          </>
+        ) : phase === "rejected" ? (
           <>
             <h2
               style={{
@@ -195,7 +236,7 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 fontSize: 13,
                 color: "var(--b-fg-3)",
                 margin: 0,
-                marginBottom: 20,
+                marginBottom: weakChecks.length > 0 ? 12 : 20,
                 lineHeight: 1.55,
               }}
             >
@@ -204,6 +245,31 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
                 pct: Math.round(okRatio * 100),
               })}
             </p>
+            {weakChecks.length > 0 && (
+              <div
+                style={{
+                  textAlign: "left",
+                  background: "var(--b-surface-2)",
+                  border: "1px solid var(--b-line)",
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  marginBottom: 20,
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--b-fg-2)", marginBottom: 8 }}>
+                  {t("calibration:rejected.fixTitle")}
+                </div>
+                {weakChecks.slice(0, 3).map((k) => (
+                  <div
+                    key={k}
+                    style={{ fontSize: 12.5, color: "var(--b-fg-2)", lineHeight: 1.5, display: "flex", gap: 6 }}
+                  >
+                    <span style={{ flexShrink: 0 }}>•</span>
+                    <span>{t(`calibration:checkHint.${k}`)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <button
               className="b-btn b-btn-primary"
               onClick={retry}

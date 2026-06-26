@@ -16,6 +16,9 @@ export interface CalibrationCheck {
   allOk: boolean;
 }
 
+// UX-1: 이 비율 미만으로 통과한 적합성 항목을 "부족했던 항목"으로 안내
+const MIN_OK_RATIO_FOR_HINT = 0.65;
+
 const DEG = Math.PI / 180;
 // 카메라 위치(정면/측면)에 무관한 절대 한도만 검증한다.
 const MAX_FACE_PITCH = 20 * DEG;
@@ -136,11 +139,22 @@ export function checkCalibrationFrame(
   return { bodyVisible, headNotTiltedDown, headUpright, noChinRest, stable, allOk };
 }
 
+// 적합성 5개 항목(allOk 제외)
+const CHECK_FIELDS: (keyof CalibrationCheck)[] = [
+  "bodyVisible",
+  "headNotTiltedDown",
+  "headUpright",
+  "noChinRest",
+  "stable",
+];
+
 export class CalibrationCollector {
   private frames: Landmarks[] = [];
   private faceFrames: FaceData[] = [];
   private okFrames = 0;
   private totalFrames = 0;
+  // UX-1: 항목별 통과 프레임 수 — 실패 시 "무엇이 부족했는지" 안내용
+  private checkPass: Record<string, number> = {};
   private stability = new StabilityWindow();
 
   pushPose(landmarks: Landmarks): void {
@@ -155,6 +169,9 @@ export class CalibrationCollector {
     const check = checkCalibrationFrame(frame, this.stability);
     this.totalFrames += 1;
     if (check.allOk) this.okFrames += 1;
+    for (const k of CHECK_FIELDS) {
+      if (check[k]) this.checkPass[k] = (this.checkPass[k] || 0) + 1;
+    }
   }
   push(landmarks: Landmarks): void {
     this.pushPose(landmarks);
@@ -166,11 +183,27 @@ export class CalibrationCollector {
     if (this.totalFrames === 0) return 0;
     return this.okFrames / this.totalFrames;
   }
+  /** 항목별 통과 비율 (0~1) */
+  checkPassRatios(): Record<keyof CalibrationCheck, number> {
+    const out = {} as Record<keyof CalibrationCheck, number>;
+    for (const k of CHECK_FIELDS) {
+      out[k] = this.totalFrames === 0 ? 0 : (this.checkPass[k] || 0) / this.totalFrames;
+    }
+    return out;
+  }
+  /** 통과율이 threshold 미만인 항목을 통과율 오름차순(가장 부족한 순)으로 반환 */
+  weakestChecks(threshold = MIN_OK_RATIO_FOR_HINT): (keyof CalibrationCheck)[] {
+    const ratios = this.checkPassRatios();
+    return CHECK_FIELDS
+      .filter((k) => ratios[k] < threshold)
+      .sort((a, b) => ratios[a] - ratios[b]);
+  }
   reset(): void {
     this.frames = [];
     this.faceFrames = [];
     this.okFrames = 0;
     this.totalFrames = 0;
+    this.checkPass = {};
     this.stability.reset();
   }
   build(): CalibrationBaseline {

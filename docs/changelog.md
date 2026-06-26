@@ -2,6 +2,15 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-4. 캘리브레이션 실패 안내 (UX-1) — 2026-06-26
+
+온보딩 첫 관문에서 캘리브레이션이 실패해도 이유를 알려주지 않던 문제 해소.
+
+- **build() 예외**: 기존 `catch→setPhase("idle")`(무음 시작화면 복귀) → 신규 **error 화면**(사유 + 다시 시도) + OPS-1 `reportError` 적재.
+- **적합 프레임 부족(rejected)**: `CalibrationCollector` 가 5개 적합성 항목별 통과율을 추적(`checkPassRatios`/`weakestChecks`) → 부족한 항목을 **구체적으로 안내**("상체가 잘 안 보였어요 — 카메라를 조금 멀리" 등 최대 3개).
+- i18n `calibration.checkHint.*` / `calibration.error.*` ko/en/ja.
+- 신규 단위테스트 [src/pose/calibration.test.ts](../src/pose/calibration.test.ts) 4건. (rejected/error 화면 자체는 카메라 필요로 헤드리스 미검증 — 로직·회귀는 검증)
+
 ## 0-3. 클라우드 동기화 복원력·가시화 (SYNC-1) — 2026-06-26
 
 동기화가 "조용히 실패"하던 문제 해소 — 사내망 등 네트워크 차단 시나리오 대응.
