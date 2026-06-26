@@ -7,6 +7,16 @@
 **BaroSit** — 데스크톱 자세 모니터링 앱 (Tauri 2 + React + MediaPipe)
 **현재 버전**: v0.2.29 (package.json·tauri.conf·Cargo 일치)
 **출시 준비 계획서**: [launch-readiness-plan.md](./launch-readiness-plan.md) ← 서비스 오픈 블로커/전략의 단일 출처
+**완성도 추적(라이브)**: [service-completeness.html](./service-completeness.html) ← 영역별 done/partial/todo 단일 추적 문서 (에이전트 인계용)
+
+**관측·측정 인프라 추가 (2026-06-26)** — 베타의 "사용자가 뭘 원하는지 모름"을 데이터로 전환:
+- ✅ **OPS-1** 인앱 피드백(admin_notifications) + 클라이언트 에러 자동 리포트(`client_errors` + RPC, 프로덕션 배포) — 어드민 "사용자 피드백"/"오류 리포트" 탭
+- ✅ **DATA-1** 로컬 `posture_events` 무음 유실 방지(파싱 손상 백업·부분복구, quota 보전, cap 5000→20000, 경고 배너)
+- ✅ **SYNC-1** 클라우드 동기화 복원력(상태 가시화·지수 백오프 재시도·offline·청크 증분영속화로 중복 insert 수정)
+- ✅ **UX-1** 캘리브레이션 실패 안내(build 예외 화면 + 부족한 적합성 항목 구체 안내)
+- ✅ **MEASURE** 익명 사용 분석(`usage_events` + RPC, 프로덕션 배포) — 활성화 퍼널/재방문, 어드민 "사용 분석" 탭. 옵트아웃 토글
+- ✅ **능동 피드백 넛지**(설치3일+·2세션+ 1회성) + privacy.md 익명 통계 명시
+- 신규 단위테스트 다수(eventLog/syncStatus/calibration/usageAnalytics/feedbackNudge). 상세는 [changelog.md §0~0-6](./changelog.md)
 
 **서비스 오픈 진행 (2026-06-04)**: 유료 SaaS 정식 오픈 목표 + 무료 베타를 출시 전략으로 토글 가능하게 준비 중.
 - 🟡 외부 의존: Toss Payments 가맹점 **심사 중**, Apple Developer Program **신청 완료**
@@ -23,9 +33,10 @@
 - ✅ **Google OAuth 인증** — Supabase + Custom Domain `auth.barosit.com`, consent screen 에 BaroSit 로고
 - ✅ macOS 코드 서명·공증 완료 (v0.3.6+ 배포 자동화 및 Gatekeeper 통과 확인)
 - 🟡 Windows 빌드 — release.yml 매트릭스로 빌드됨, 실 사용 검증은 미진행
-- 🟡 일부 UX 다듬기 + 영문화 미진행
-- 🟡 Kakao OAuth (Kakao Developers 검수 필요) (※ Resend 매직링크는 도입하지 않기로 최종 결정)
-- ❌ 데스크탑 앱에 OAuth 미연결 · 클라우드 동기화 (profiles/posture_events 테이블) 미구현
+- 🟡 일부 UX 다듬기 + 영문화 미진행 (※ i18n ko/en/ja 는 완료, 잔여는 미세 카피)
+- ✅ **Kakao OAuth 동작** (QA 실증: `kauth.kakao.com` 302) — 과거 "검수 필요" 표기는 stale
+- ✅ **데스크탑 deep-link OAuth(PKCE) + 클라우드 동기화** 구현됨(`src/auth/useAuth.ts`·`src/lib/syncService.ts`, profiles/posture_events/daily_scores/user_settings) — 과거 "미연결 ❌"는 stale (코드 기준 정정, DOC-1)
+- ℹ️ **대시보드 주의**: 사용자용 대시보드는 MonitorView "상세 분석 리포트"(`detailedReportOpen`, 누적시간·평균·개선율·시간대추이·12개월그리드·히트맵 포함). `src/views/DashboardView.tsx` 는 **미사용(죽은 코드)** — 정리 대상
 
 ### 🔴 출시 블로커 진행 상황
 
