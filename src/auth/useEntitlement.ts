@@ -9,12 +9,10 @@
 //   캐시(localStorage)는 오프라인 부팅 시 첫 깜빡임을 없애는 시드로만 쓴다.
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
-import { resolveEffectivePlan } from "../launchMode";
+import { resolveEffectivePlan, isBetaFree } from "../launchMode";
 
 const CACHE_KEY = "barosit:subscription_plan";
 const VERIFIED_AT_KEY = "barosit:plan_verified_at";
-// 오프라인으로 이 기간 이상 서버 검증을 못 하면 보수적으로 FREE 로 강등(권한 무한 잔존 방지).
-const STALE_MAX_MS = 14 * 24 * 60 * 60 * 1000;
 const REVERIFY_MS = 10 * 60 * 1000;
 
 function readCache(): "free" | "pro" {
@@ -32,8 +30,10 @@ export interface Entitlement {
 }
 
 export function useEntitlement(): Entitlement {
-  // 시드: 캐시값 (legit PRO 사용자가 검증 완료 전 차단되지 않도록 즉시 사용)
-  const [plan, setPlan] = useState<"free" | "pro">(readCache);
+  // 시드: 베타(체험) 모드면 PRO, 아니면 캐시값 (legit PRO 가 검증 완료 전 차단되지 않도록 즉시 사용)
+  const [plan, setPlan] = useState<"free" | "pro">(() =>
+    isBetaFree() ? "pro" : readCache(),
+  );
   const [verified, setVerified] = useState(false);
 
   useEffect(() => {
@@ -82,13 +82,21 @@ export function useEntitlement(): Entitlement {
         }
         apply(effective, true);
       } catch {
-        // 오프라인/조회 실패 → 마지막 검증 시각 기준 판정
+        // 오프라인/조회 실패(사내 방화벽·망분리·일시적 네트워크 단절).
+        // 1) 베타(무료체험) 모드면 서버와 무관하게 PRO — 체험은 Pro 와 동일 처리.
+        if (isBetaFree()) {
+          apply("pro", false);
+          return;
+        }
+        // 2) 유료 모드: 이 기기에서 과거 서버 검증이 1회라도 성공했다면(=정당히 PRO 였던
+        //    사용자) 재검증이 막혀도 강등하지 않는다 — 데스크톱 Pro 가 차단망·오프라인에서
+        //    끊기지 않게 한다(로그인 자체가 온라인을 요구하므로 정당한 Pro 는 at>0 보장).
+        //    온라인 복구 시 verify() 가 서버값으로 다시 정정(해지/환불은 재검증 때 강등).
+        //    검증 이력이 전혀 없으면(캐시를 신뢰할 수 없음) 보수적으로 FREE.
         try {
           const at = Number(localStorage.getItem(VERIFIED_AT_KEY) || 0);
-          if (!at || Date.now() - at > STALE_MAX_MS) {
-            apply("free", false); // 너무 오래 미검증 → 보수적 강등
-          }
-          // 그 외(최근 검증 이력 있음) → 캐시 시드 값 유지
+          if (!at) apply("free", false);
+          // at > 0 → 마지막 plan(시드/직전 검증값) 유지. 강등 없음.
         } catch {
           /* noop */
         }

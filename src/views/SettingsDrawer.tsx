@@ -1292,6 +1292,18 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               </div>
             );
           })()}
+          {(syncStatus.state === "offline" || syncStatus.state === "error") && (
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 11,
+                color: "var(--b-fg-3)",
+                lineHeight: 1.55,
+              }}
+            >
+              {t("sync.networkNote")}
+            </div>
+          )}
         </Section>
 
         <Section title={t("about.title")} last>

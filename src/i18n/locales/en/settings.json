@@ -180,7 +180,8 @@
       "synced": "Synced",
       "offline": "Offline — will sync when reconnected",
       "error": "Sync failed — retrying automatically"
-    }
+    },
+    "networkNote": "A corporate firewall, security policy, or network issue may be blocking the sync server. Core features like posture detection and alerts keep working, and syncing resumes automatically once the connection is restored."
   },
   "about": {
     "title": "About",
