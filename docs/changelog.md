@@ -2,6 +2,17 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-2. 로컬 자세기록 무음 유실 방지 (DATA-1) — 2026-06-26
+
+`posture_events`(localStorage)가 사용자도 모르게 사라지던 3경로 차단.
+
+- **파싱 손상**: `loadEvents()`가 `catch{return []}`로 전체 폐기 + 다음 append가 1건으로 덮어쓰던 문제 → 원본을 `posture_events_corrupt_backup`에 보존(최초 1회) + 정규식 **부분 복구** + 경고 발생. ([src/pose/eventLog.ts](../src/pose/eventLog.ts))
+- **용량(quota) 초과**: `setItem` 실패가 무처리였음 → try/catch 로 잡아 최근 절반 남기고 재시도(쓰기 성공 우선) + 경고.
+- **무경고 절단**: 상한 5000→20000(약 2주→2~3개월) 상향 + 절단 시 경고. `updateEventDuration`도 quota 안전화.
+- **사용자 가시화**: `posture-data-warning` CustomEvent → App 상단 ⚠️ 배너(닫기 가능) + OPS-1 `reportError`로 어드민 "오류 리포트" 적재.
+- 단위테스트 신규 [src/pose/eventLog.test.ts](../src/pose/eventLog.test.ts) 7건(복구·덮어쓰기방지·quota 폴백). 웹 미리보기에서 배너 표시·닫기·OPS-1 적재 E2E 확인.
+- ⚠️ 참고: 로컬 저장은 네트워크 무관(사내망 차단돼도 저장됨). 클라우드 동기화 실패 복원력은 SYNC-1 별도.
+
 ## 0-1. 클라이언트 에러/크래시 자동 리포트 (OPS-1 2/2) — 2026-06-26
 
 - 전역 `window.onerror` + `unhandledrejection` 핸들러 + React `ErrorBoundary`([App.tsx](../src/App.tsx)) 에서 예외를 **자동 수집**. 기존엔 `console.error` 만 하고 사라지던 것을 서버 적재로 전환.

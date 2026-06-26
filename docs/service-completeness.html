@@ -258,17 +258,16 @@
       <div class="item-top"><span class="title">localStorage 영속 + 백업/복원(JSON, API키 제외)</span></div>
       <div class="ref">src/dataBackup.ts</div>
     </div>
-    <div class="item" data-status="todo">
+    <div class="item" data-status="done">
       <div class="item-top"><span class="title">파싱 실패 무음 폐기 방지</span><span class="gapid">DATA-1</span></div>
-      <div class="detail"><code>loadEvents()</code> JSON 파싱 실패 시 <code>catch{return []}</code> → 전체 히스토리 무음 손실.</div>
-      <div class="ref">src/pose/eventLog.ts</div>
-      <div class="next"><b>다음 작업:</b> 원본 백업 키 보존 + 사용자 알림 + 부분 복구.</div>
+      <div class="detail"><code>loadEvents()</code> 파싱 실패 시 → 원본을 <code>posture_events_corrupt_backup</code>에 보존(최초 1회) + 정규식 <b>부분 복구</b> + 경고 이벤트 발생. append 가 손상분을 1건으로 덮어쓰지 않게 복구분 보존. App 상단 ⚠️ 배너 + OPS-1 리포트 연결. 단위테스트 7건.</div>
+      <div class="ref">src/pose/eventLog.ts · src/pose/eventLog.test.ts · src/App.tsx</div>
     </div>
-    <div class="item" data-status="todo">
-      <div class="item-top"><span class="title">이벤트 cap(5000) 무경고 절단</span><span class="gapid">DATA-1</span></div>
-      <div class="detail">초과 시 오래된 것부터 경고 없이 잘림 → 약 2주치만 보존, 월별 분석 불가.</div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">cap 절단 + 용량(quota) 보전</span><span class="gapid">DATA-1</span></div>
+      <div class="detail">상한 5000→20000(약 2주→2~3개월) 상향 + 절단 시 경고. <code>setItem</code> quota 초과를 try/catch 로 잡아 최근 절반 남기고 재시도(쓰기 성공 우선) + 경고. 사내망 등으로 미동기여도 로컬 쓰기 자체는 보전.</div>
       <div class="ref">src/pose/eventLog.ts</div>
-      <div class="next"><b>다음 작업:</b> 절단 전 클라우드 동기화 확인 → 미동기 보호, 또는 자동 export 유도.</div>
+      <div class="next"><b>후속(SYNC-1 연계):</b> 절단 전 클라우드 동기화 watermark 확인해 미동기분 우선 보호.</div>
     </div>
     <div class="item" data-status="todo">
       <div class="item-top"><span class="title">SQLite 이전 (대규모 이력)</span></div>

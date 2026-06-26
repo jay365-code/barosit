@@ -39,6 +39,7 @@ import { platform } from "./platform";
 import { supabase } from "./auth/supabase";
 import { pullProfileFromServer, pullSettingsFromServer } from "./lib/syncService";
 import { reportError } from "./lib/errorReporting";
+import { DATA_WARNING_EVENT, type DataWarningDetail } from "./pose/eventLog";
 
 const ONBOARDED_KEY = "onboarded_v1";
 
@@ -286,6 +287,8 @@ export default function App() {
   const [gracePeriodUntil, setGracePeriodUntil] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authLoaded, setAuthLoaded] = useState(false);
+  // DATA-1: 로컬 자세 기록 손상/용량/절단 경고 (조용히 유실되지 않게 사용자에게 표시)
+  const [dataWarning, setDataWarning] = useState<DataWarningDetail | null>(null);
 
   useEffect(() => {
     const onVis = () => {
@@ -295,6 +298,18 @@ export default function App() {
     return () => {
       document.removeEventListener("visibilitychange", onVis);
     };
+  }, []);
+
+  // DATA-1: eventLog 의 데이터 경고를 받아 배너 표시 + OPS-1 관측 리포트로 연결
+  useEffect(() => {
+    const onDataWarning = (e: Event) => {
+      const detail = (e as CustomEvent<DataWarningDetail>).detail;
+      if (!detail) return;
+      setDataWarning(detail);
+      reportError(new Error(`[posture_events] ${detail.kind}: ${detail.message}`), "window");
+    };
+    window.addEventListener(DATA_WARNING_EVENT, onDataWarning);
+    return () => window.removeEventListener(DATA_WARNING_EVENT, onDataWarning);
   }, []);
 
   useEffect(() => {
@@ -609,6 +624,7 @@ export default function App() {
   let paddingTopVal = 0;
   if (isGracePeriodActive) paddingTopVal += 40;
   if (isUpdateNoticeActive) paddingTopVal += 48;
+  if (dataWarning) paddingTopVal += 40;
 
   return (
     <ErrorBoundary>
@@ -652,6 +668,45 @@ export default function App() {
               }}
             >
               {t("app:gracePeriod.cta")}
+            </button>
+          </div>
+        )}
+
+        {/* DATA-1: 로컬 기록 손상/용량 경고 배너 (조용히 유실되지 않게) */}
+        {dataWarning && (
+          <div style={{
+            position: "fixed",
+            top: isGracePeriodActive ? 40 : 0,
+            left: 0,
+            right: 0,
+            minHeight: "40px",
+            zIndex: 9400,
+            background: "linear-gradient(90deg, #b45309 0%, #d97706 100%)",
+            padding: "6px 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "12px",
+            color: "#fff",
+            fontSize: "12px",
+            fontWeight: 600,
+          }}>
+            <span>⚠️ {dataWarning.message}</span>
+            <button
+              onClick={() => setDataWarning(null)}
+              style={{
+                background: "rgba(255,255,255,0.9)",
+                color: "#b45309",
+                border: "none",
+                borderRadius: "6px",
+                padding: "3px 10px",
+                fontSize: "11px",
+                fontWeight: 800,
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              {t("common:close", "닫기")}
             </button>
           </div>
         )}
