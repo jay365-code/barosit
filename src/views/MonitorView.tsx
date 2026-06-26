@@ -202,7 +202,15 @@ function AnimatedValue({ value }: { value: string }) {
         
         if (!isDigit) {
           return (
-            <span key={idx} style={{ display: "inline-block" }}>
+            <span
+              key={idx}
+              style={{
+                display: "inline-block",
+                height: "1.1em",
+                lineHeight: "1.1em",
+                textAlign: "center",
+              }}
+            >
               {char}
             </span>
           );
@@ -238,9 +246,8 @@ function AnimatedValue({ value }: { value: string }) {
                   key={num}
                   style={{
                     height: "1.1em",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    lineHeight: "1.1em",
+                    textAlign: "center",
                   }}
                 >
                   {num}
