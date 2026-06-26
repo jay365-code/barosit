@@ -468,11 +468,10 @@
       <div class="detail">설정 "정보" 섹션에 "피드백 보내기" → admin_notifications(event_type='feedback') 적재. 카테고리(버그/제안/기타)+앱버전·환경 payload, 비로그인 회신 이메일, 전송 실패 시 메일 폴백. 어드민은 **전용 "사용자 피드백" 탭**(실시간 알림과 분리)에서 카테고리 칩·연락처·답장 mailto·읽음/삭제·미확인 배지로 관리. ko/en/ja.</div>
       <div class="ref">src/lib/feedback.ts · src/components/FeedbackModal.tsx · src/views/SettingsDrawer.tsx · AdminDashboardView.tsx</div>
     </div>
-    <div class="item" data-status="partial">
+    <div class="item" data-status="done">
       <div class="item-top"><span class="title">크래시 리포트 + 에러 로깅</span><span class="gapid">OPS-1</span></div>
-      <div class="detail">전역 window.onerror/unhandledrejection + ErrorBoundary → report_client_error RPC → client_errors 테이블(fingerprint 집계). 옵트아웃 토글(설정·기본 ON), 세션 상한·중복제거. 어드민 "오류 리포트" 탭(해결/삭제·스택 펼침). <b>로컬 E2E 검증 완료</b>: migration up 적용→ window/promise 에러 RPC 200 적재 확인 + 동일 fingerprint 재호출 시 count 증가(2) 확인. 남은 건 프로덕션 배포뿐.</div>
+      <div class="detail">전역 window.onerror/unhandledrejection + ErrorBoundary → report_client_error RPC → client_errors 테이블(fingerprint 집계). 옵트아웃 토글(설정·기본 ON), 세션 상한·중복제거. 어드민 "오류 리포트" 탭(해결/삭제·스택 펼침). 로컬 E2E 검증(RPC 200 적재 + count 증가) + <b>프로덕션 배포 완료</b>(2026-06-26 <code>db push</code>, 원격 마이그레이션 20260626000000 적용 확인).</div>
       <div class="ref">src/lib/errorReporting.ts · src/main.tsx · src/App.tsx · AdminDashboardView.tsx · supabase/migrations/20260626000000_client_errors.sql</div>
-      <div class="next"><b>다음 작업(프로덕션 배포만):</b> <code>supabase db push</code> 로 client_errors 마이그레이션 원격 적용. 적용 후 done 전환.</div>
     </div>
     <div class="item" data-status="todo">
       <div class="item-top"><span class="title">익명 텔레메트리 (옵트인)</span></div>
