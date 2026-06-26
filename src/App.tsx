@@ -40,6 +40,7 @@ import { supabase } from "./auth/supabase";
 import { pullProfileFromServer, pullSettingsFromServer } from "./lib/syncService";
 import { reportError } from "./lib/errorReporting";
 import { DATA_WARNING_EVENT, type DataWarningDetail } from "./pose/eventLog";
+import { trackUsage } from "./lib/usageAnalytics";
 
 const ONBOARDED_KEY = "onboarded_v1";
 
@@ -298,6 +299,11 @@ export default function App() {
     return () => {
       document.removeEventListener("visibilitychange", onVis);
     };
+  }, []);
+
+  // 측정: 앱 실행(하루 1회) — 재방문/리텐션
+  useEffect(() => {
+    trackUsage("app_opened", { scope: "daily" });
   }, []);
 
   // DATA-1: eventLog 의 데이터 경고를 받아 배너 표시 + OPS-1 관측 리포트로 연결
@@ -586,6 +592,7 @@ export default function App() {
   const finishOnboarding = () => {
     localStorage.setItem(ONBOARDED_KEY, "1");
     setOnboardingOpen(false);
+    trackUsage("onboarding_completed", { scope: "once" });
   };
 
   if (currentHash === "#/admin") {

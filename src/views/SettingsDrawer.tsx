@@ -51,6 +51,7 @@ import {
 import type { PostureType } from "../pose/types";
 import { isPrivacyMode, setPrivacyMode } from "../privacyConfig";
 import { isErrorReportingEnabled, setErrorReportingEnabled } from "../lib/errorReporting";
+import { isUsageAnalyticsEnabled, setUsageAnalyticsEnabled } from "../lib/usageAnalytics";
 import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from "../lib/syncStatus";
 import {
   loadPerformanceProfile,
@@ -142,6 +143,11 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
   const toggleErrReport = (v: boolean) => {
     setErrReport(v);
     setErrorReportingEnabled(v);
+  };
+  const [usageAnalytics, setUsageAnalytics] = useState<boolean>(() => isUsageAnalyticsEnabled());
+  const toggleUsageAnalytics = (v: boolean) => {
+    setUsageAnalytics(v);
+    setUsageAnalyticsEnabled(v);
   };
   // SYNC-1: 클라우드 동기화 상태 표시(가시화)
   const [syncStatus, setSyncStatusState] = useState<SyncStatus>(() => getSyncStatus());
@@ -999,6 +1005,14 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               sub={t("privacy.errorReport.sub")}
               v={errReport}
               onChange={toggleErrReport}
+            />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <Row
+              label={t("privacy.usageAnalytics.label")}
+              sub={t("privacy.usageAnalytics.sub")}
+              v={usageAnalytics}
+              onChange={toggleUsageAnalytics}
             />
           </div>
         </Section>

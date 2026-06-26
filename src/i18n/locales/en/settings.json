@@ -127,6 +127,10 @@
     "errorReport": {
       "label": "Automatic error reports",
       "sub": "When the app crashes or errors, send anonymous diagnostics (error details, app version, environment) to help us fix it. No camera video or posture data is included."
+    },
+    "usageAnalytics": {
+      "label": "Anonymous usage stats",
+      "sub": "Anonymously measure where users get stuck to improve the product (e.g. calibration success/failure, return visits). No camera video, posture data, or personal info is included."
     }
   },
   "performance": {

@@ -21,6 +21,7 @@ import { Logo } from "../components/Logo";
 import { platform } from "../platform";
 import { PostureFigure } from "../components/PostureFigure";
 import { reportError } from "../lib/errorReporting";
+import { trackUsage } from "../lib/usageAnalytics";
 
 interface Props {
   onComplete: (baseline: CalibrationBaseline) => void;
@@ -80,8 +81,10 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
       const ratio = collectorRef.current.okRatio();
       if (ratio < MIN_OK_RATIO) {
         // UX-1: 어떤 적합성 항목이 부족했는지 캡처해 안내
-        setWeakChecks(collectorRef.current.weakestChecks());
+        const weak = collectorRef.current.weakestChecks();
+        setWeakChecks(weak);
         setPhase("rejected");
+        trackUsage("calibration_failed", { props: { reason: "rejected", weak } });
         return;
       }
       try {
@@ -89,11 +92,13 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
         saveBaseline(baseline);
         setPhase("done");
         onComplete(baseline);
+        trackUsage("calibration_succeeded");
       } catch (e) {
         // UX-1: 조용히 idle 로 가지 않고 사유를 표시 + OPS-1 관측 리포트
         console.error(e);
         reportError(e, "react", { stack: e instanceof Error ? e.stack : undefined });
         setPhase("error");
+        trackUsage("calibration_failed", { props: { reason: "build_error" } });
       }
       return;
     }

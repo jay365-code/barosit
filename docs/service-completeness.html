@@ -470,9 +470,11 @@
       <div class="detail">전역 window.onerror/unhandledrejection + ErrorBoundary → report_client_error RPC → client_errors 테이블(fingerprint 집계). 옵트아웃 토글(설정·기본 ON), 세션 상한·중복제거. 어드민 "오류 리포트" 탭(해결/삭제·스택 펼침). 로컬 E2E 검증(RPC 200 적재 + count 증가) + <b>프로덕션 배포 완료</b>(2026-06-26 <code>db push</code>, 원격 마이그레이션 20260626000000 적용 확인).</div>
       <div class="ref">src/lib/errorReporting.ts · src/main.tsx · src/App.tsx · AdminDashboardView.tsx · supabase/migrations/20260626000000_client_errors.sql</div>
     </div>
-    <div class="item" data-status="todo">
-      <div class="item-top"><span class="title">익명 텔레메트리 (옵트인)</span></div>
-      <div class="detail">사용 패턴 분석. privacyConfig 패턴 따라 기본 OFF.</div>
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">익명 사용 분석 (활성화 퍼널/재방문)</span><span class="gapid">MEASURE</span></div>
+      <div class="detail">"사용자가 뭘 원하는지 모름"을 데이터로 전환. usage_events 테이블 + track_usage RPC + 익명 install_id. 추적 이벤트: app_opened(일1회)·onboarding_completed·calibration_succeeded·calibration_failed(사유). 설정 옵트아웃 토글(베타 기본 ON, 익명·마일스톤만·영상/자세/PII 없음). 어드민 "사용 분석" 탭(퍼널·재방문·이벤트별 카운트). 로컬 E2E 검증(app_opened 적재+일일 dedup) + 단위테스트 6건. <b>프로덕션 db push 대기.</b></div>
+      <div class="ref">src/lib/usageAnalytics.ts · supabase/migrations/20260626120000_usage_events.sql · AdminDashboardView.tsx</div>
+      <div class="next"><b>다음 작업:</b> (1) <code>supabase db push</code> 프로덕션 적용. (2) 능동 피드백 넛지(타이밍 기반 FeedbackModal). (3) privacy.md 에 익명 사용통계 1줄 명시 검토.</div>
     </div>
   </section>
 

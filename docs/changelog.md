@@ -2,6 +2,19 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-5. 익명 사용 분석 — 활성화 퍼널/재방문 (MEASURE) — 2026-06-26
+
+"사용자가 뭘 원하는지 모르겠다"를 추측 대신 데이터로 전환하기 위한 측정 인프라.
+
+- **저장**: 신규 [usage_events](../supabase/migrations/20260626120000_usage_events.sql) 테이블 + `track_usage` RPC(anon/auth) + 익명 `install_id`(localStorage). 영상·자세데이터·PII 없음.
+- **추적 이벤트(coarse)**: `app_opened`(일1회·재방문), `onboarding_completed`(1회), `calibration_succeeded`, `calibration_failed`(사유: rejected/build_error). UX-1 phase 와 직접 연결.
+- **동의**: 설정 프라이버시 "익명 사용 통계" 옵트아웃 토글 — **베타라 기본 ON**(익명·마일스톤만). i18n ko/en/ja.
+- **어드민**: "사용 분석" 탭 — 전체/7일/30일 활성(고유 install), 온보딩→캘리브 성공 퍼널·전환율, 이벤트별 카운트.
+- [src/lib/usageAnalytics.ts](../src/lib/usageAnalytics.ts) — install_id·동의·dedup(once/daily/always). 단위테스트 6건.
+- 로컬 E2E 검증: app_opened 적재 + 재로드 시 일일 dedup(1건 유지) 확인.
+- ⚠️ 결정: 익명·마일스톤만이지만 클라우드 전송이므로, 강한 "온디바이스" 포지셔닝과 관련해 privacy.md 1줄 명시 검토 권장. 기본 ON↔옵트인 전환은 토글 한 곳.
+- ⚠️ 배포: 마이그레이션 프로덕션 `supabase db push` 대기.
+
 ## 0-4. 캘리브레이션 실패 안내 (UX-1) — 2026-06-26
 
 온보딩 첫 관문에서 캘리브레이션이 실패해도 이유를 알려주지 않던 문제 해소.

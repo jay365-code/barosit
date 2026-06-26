@@ -46,6 +46,18 @@ interface ClientErrorData {
   last_seen: string;
 }
 
+interface UsageEventData {
+  id: string;
+  install_id: string;
+  user_id: string | null;
+  event: string;
+  client: string | null;
+  app_version: string | null;
+  lang: string | null;
+  props: any;
+  created_at: string;
+}
+
 interface ToastItem {
   id: string;
   event_type: string;
@@ -111,7 +123,7 @@ interface Props {
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "feedback" | "errors" | "releases" | "stretches">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
@@ -137,6 +149,7 @@ export function AdminDashboardView({ onClose }: Props) {
   const [clientErrors, setClientErrors] = useState<ClientErrorData[]>([]);
   const [showResolvedErrors, setShowResolvedErrors] = useState(false);
   const [expandedError, setExpandedError] = useState<string | null>(null);
+  const [usageEvents, setUsageEvents] = useState<UsageEventData[]>([]);
 
   // 실시간 토스트 상태
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -200,6 +213,19 @@ export function AdminDashboardView({ onClose }: Props) {
         console.warn("Failed to fetch client_errors. table might not exist yet.", err);
       }
 
+      // 7-2. 사용 분석 이벤트 조회 (최근 2000건)
+      let usageData: UsageEventData[] = [];
+      try {
+        const { data } = await supabase
+          .from("usage_events")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(2000);
+        usageData = (data as UsageEventData[]) || [];
+      } catch (err) {
+        console.warn("Failed to fetch usage_events. table might not exist yet.", err);
+      }
+
       // 8. 릴리즈 정보 조회 (최신 정보 순 정렬)
       let relData: any[] = [];
       try {
@@ -217,6 +243,7 @@ export function AdminDashboardView({ onClose }: Props) {
       setComments(commentData || []);
       setNotifications(notifData || []);
       setClientErrors(errData);
+      setUsageEvents(usageData);
       setReleases(relData);
 
       // 현재 로그인한 어드민 사용자 프로필 로드
@@ -944,6 +971,7 @@ export function AdminDashboardView({ onClose }: Props) {
               { id: "alerts", label: "실시간 알림", icon: "bell" as const },
               { id: "feedback", label: "사용자 피드백", icon: "flag" as const },
               { id: "errors", label: "오류 리포트", icon: "info" as const },
+              { id: "usage", label: "사용 분석", icon: "target" as const },
               { id: "releases", label: "업데이트/공지 관리", icon: "sparkle" as const },
               { id: "stretches", label: "스트레칭 템플릿 제어", icon: "target" as const },
               { id: "system", label: "시스템 제어판", icon: "settings" as const },
@@ -1514,6 +1542,91 @@ export function AdminDashboardView({ onClose }: Props) {
                         });
                       })()}
                     </div>
+                  </div>
+                )}
+
+                {/* 5-2. 사용 분석 탭 */}
+                {activeTab === "usage" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    {(() => {
+                      const DAY = 86400000;
+                      const now = Date.now();
+                      const within = (ts: string, days: number) => now - new Date(ts).getTime() <= days * DAY;
+                      const installsIn = (days: number) =>
+                        new Set(usageEvents.filter(e => within(e.created_at, days)).map(e => e.install_id)).size;
+                      const installsForEvent = (ev: string, days = 3650) =>
+                        new Set(usageEvents.filter(e => e.event === ev && within(e.created_at, days)).map(e => e.install_id));
+                      // 활성화 퍼널 (install_id 기준 고유)
+                      const onboarded = installsForEvent("onboarding_completed");
+                      const calibOk = installsForEvent("calibration_succeeded");
+                      const calibFail = installsForEvent("calibration_failed");
+                      const totalInstalls = new Set(usageEvents.map(e => e.install_id)).size;
+                      const conv = onboarded.size > 0 ? Math.round((calibOk.size / onboarded.size) * 100) : 0;
+                      // 이벤트별 카운트
+                      const counts: Record<string, number> = {};
+                      for (const e of usageEvents) counts[e.event] = (counts[e.event] || 0) + 1;
+                      const eventRows = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+                      const Stat = ({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) => (
+                        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 18px" }}>
+                          <div style={{ fontSize: 11, opacity: 0.5 }}>{label}</div>
+                          <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", marginTop: 4 }}>{value}</div>
+                          {sub && <div style={{ fontSize: 11, opacity: 0.4, marginTop: 2 }}>{sub}</div>}
+                        </div>
+                      );
+
+                      if (usageEvents.length === 0) {
+                        return (
+                          <div style={{ textAlign: "center", padding: "60px 0", opacity: 0.4, fontSize: 13 }}>
+                            아직 수집된 사용 이벤트가 없습니다. (사용자가 앱을 켜면 익명 마일스톤이 쌓입니다)
+                          </div>
+                        );
+                      }
+                      return (
+                        <>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>활성화 퍼널 · 재방문</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+                            <Stat label="전체 설치(고유)" value={totalInstalls} />
+                            <Stat label="최근 7일 활성" value={installsIn(7)} sub="app_opened 고유 install" />
+                            <Stat label="최근 30일 활성" value={installsIn(30)} />
+                            <Stat label="온보딩 완료" value={onboarded.size} />
+                            <Stat label="캘리브레이션 성공" value={calibOk.size} sub={`온보딩→성공 ${conv}%`} />
+                            <Stat label="캘리브레이션 실패(고유)" value={calibFail.size} />
+                          </div>
+
+                          {/* 퍼널 막대 */}
+                          <div style={{ marginTop: 8 }}>
+                            {[
+                              { label: "온보딩 완료", n: onboarded.size },
+                              { label: "캘리브레이션 성공", n: calibOk.size },
+                            ].map(step => {
+                              const pct = totalInstalls > 0 ? Math.round((step.n / totalInstalls) * 100) : 0;
+                              return (
+                                <div key={step.label} style={{ marginBottom: 10 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#ccc", marginBottom: 4 }}>
+                                    <span>{step.label}</span><span>{step.n} ({pct}%)</span>
+                                  </div>
+                                  <div style={{ height: 8, borderRadius: 6, background: "rgba(255,255,255,0.06)" }}>
+                                    <div style={{ width: `${pct}%`, height: "100%", borderRadius: 6, background: "#5b8c7a" }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* 이벤트별 카운트 */}
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginTop: 8 }}>이벤트별 발생 수 (최근 2000건 내)</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {eventRows.map(([ev, n]) => (
+                              <div key={ev} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "8px 12px", background: "rgba(255,255,255,0.02)", borderRadius: 8 }}>
+                                <span style={{ color: "#ccc", fontFamily: "ui-monospace, monospace" }}>{ev}</span>
+                                <strong style={{ color: "#fff" }}>{n}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
 
