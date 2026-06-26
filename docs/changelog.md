@@ -2,6 +2,28 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-1. 클라이언트 에러/크래시 자동 리포트 (OPS-1 2/2) — 2026-06-26
+
+- 전역 `window.onerror` + `unhandledrejection` 핸들러 + React `ErrorBoundary`([App.tsx](../src/App.tsx)) 에서 예외를 **자동 수집**. 기존엔 `console.error` 만 하고 사라지던 것을 서버 적재로 전환.
+- 신규 테이블 [client_errors](../supabase/migrations/20260626000000_client_errors.sql) — 에러는 양이 많을 수 있어 **fingerprint(kind+메시지+top frame 해시)로 묶어 1행 + count 증가** 집계(피드 오염 방지). 적재는 `report_client_error()` RPC(anon/authenticated 실행 허용, SECURITY DEFINER), 조회/관리는 어드민 RLS.
+- [src/lib/errorReporting.ts](../src/lib/errorReporting.ts) — `initErrorReporting()`([main.tsx](../src/main.tsx) 부팅 시 1회, 전 진입점 공통) + `reportError()`. 세션 상한(25) + 동일 fingerprint 1회로 폭주 방지. 카메라/영상·자세 데이터는 전송 안 함.
+- **옵트아웃 토글** — 설정 프라이버시 섹션 "오류 자동 보고"(기본 ON), `error_reporting_enabled` localStorage. i18n `settings.privacy.errorReport.*` ko/en/ja.
+- 어드민 **"오류 리포트" 탭** — 미해결 카운트 배지, 종류별 색, ×발생횟수, route/버전/client/lang/plan 메타, 스택 펼침, 해결처리·삭제, 해결항목 표시 토글.
+- 검증: tsc 0 errors · 56 테스트 통과 · 웹 미리보기에서 window/promise 에러 2종 → `POST /rpc/report_client_error` 각각 호출 확인(로컬 DB 미적용이라 404, 핸들러는 안전하게 흡수).
+- ⚠️ **배포 잔여**: 마이그레이션 적용 필요 — 로컬 `supabase db reset`/`migration up`, 프로덕션 `supabase db push`.
+
+## 0. 인앱 피드백 채널 (OPS-1 1/2) — 2026-06-26
+
+- 설정 드로어 "정보" 섹션에 **"피드백 보내기"** 버튼 + 모달 신설.
+- 저장소는 **기존 `admin_notifications` 테이블 재사용** (`event_type='feedback'`, severity `info`). 신규 테이블/마이그레이션 없음 — 누구나 INSERT 가능한 RLS(mig 20260521000003)를 그대로 활용해 비로그인 사용자도 전송 가능.
+- 카테고리(버그/제안/기타) + 진단 payload(앱 버전·client·user_agent·route·plan·lang·user_id) 동봉. 카메라/영상 정보는 전송 안 함.
+- 전송 실패 시 `support@barosit.com` **메일 폴백** 안내.
+- 어드민은 **"실시간 알림(alerts)" 탭**에서 realtime 으로 확인 (종류 필터에 `feedback` 추가).
+- i18n ko/en/ja `settings.feedback.*`. 신규 파일 [src/lib/feedback.ts](../src/lib/feedback.ts), [src/components/FeedbackModal.tsx](../src/components/FeedbackModal.tsx).
+- 완성도 추적: [service-completeness.html](./service-completeness.html) OPS-1 피드백 항목 → 완료. (남은 OPS-1: 크래시/에러 자동 리포트)
+- **수정(같은 날)**: FeedbackModal 이 미정의 CSS 토큰(`--b-fg`/`--b-bg-2`)을 써서 light 테마에서 흰 글자+흰 배경으로 안 보이던 문제 → 실제 토큰(`--b-surface`/`--b-fg-1`/`--b-surface-2`)으로 교체. 양 테마 대비 정상 확인.
+- **개선(같은 날)**: 피드백을 "실시간 알림"에서 분리 — 어드민에 **"사용자 피드백" 전용 탭** 신설. 저장은 `admin_notifications`(event_type='feedback') 그대로 유지하되, 실시간 알림 탭/종류필터/모두읽음/미확인 배지에서 feedback 을 제외하고 전용 탭(카테고리 칩·연락처·답장 mailto·읽음/삭제·미확인 배지)으로 모아 봄. (사용자 요청: 운영 알림과 피드백 분리)
+
 ## 1. 자세 감지 정확도 개선
 
 ### 1-1. 턱 괴임 감지 버그 수정

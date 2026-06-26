@@ -123,7 +123,11 @@
       "label": "Silhouette mode",
       "sub": "Shows only the outline instead of video"
     },
-    "note": "Video never leaves this computer. Posture data is stored locally only."
+    "note": "Video never leaves this computer. Posture data is stored locally only.",
+    "errorReport": {
+      "label": "Automatic error reports",
+      "sub": "When the app crashes or errors, send anonymous diagnostics (error details, app version, environment) to help us fix it. No camera video or posture data is included."
+    }
   },
   "performance": {
     "title": "Performance mode",
@@ -169,5 +173,23 @@
     "checkUpdate": "Check for updates",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service"
+  },
+  "feedback": {
+    "open": "Send feedback",
+    "title": "Send feedback",
+    "desc": "Tell us about bugs, friction, or features you'd like. Your camera video is never sent — only your app version and environment info are included.",
+    "category": {
+      "bug": "🐞 Bug",
+      "idea": "💡 Idea",
+      "other": "💬 Other"
+    },
+    "placeholder": "What went wrong? The more detail you share, the faster we can fix it.",
+    "emailPlaceholder": "Email for a reply (optional)",
+    "send": "Send",
+    "sending": "Sending…",
+    "sent": "Thanks for the feedback — it came through!",
+    "cancel": "Cancel",
+    "error": "Failed to send.",
+    "mailFallback": "Send by email"
   }
 }

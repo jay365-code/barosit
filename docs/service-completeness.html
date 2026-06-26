@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaroSit 서비스 완성도 체크리스트</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --border:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6ea8fe;
+    --done:#3fb950; --partial:#d29922; --todo:#f85149; --verify:#a371f7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  header{padding:28px 24px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#141821,#0f1115)}
+  h1{margin:0 0 4px;font-size:24px}
+  .sub{color:var(--muted);font-size:13px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+  /* summary */
+  .summary{position:sticky;top:0;z-index:5;background:rgba(15,17,21,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border);padding:14px 24px;margin-bottom:8px}
+  .summary .inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .bar{flex:1;min-width:220px;height:12px;border-radius:8px;background:var(--panel2);overflow:hidden;display:flex}
+  .bar span{display:block;height:100%}
+  .bar .s-done{background:var(--done)} .bar .s-partial{background:var(--partial)}
+  .bar .s-verify{background:var(--verify)} .bar .s-todo{background:var(--todo)}
+  .pct{font-size:22px;font-weight:700;min-width:64px}
+  .counts{display:flex;gap:10px;flex-wrap:wrap;font-size:12px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);
+    background:var(--panel);cursor:pointer;user-select:none}
+  .chip.active{outline:2px solid var(--accent)}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .d-done{background:var(--done)} .d-partial{background:var(--partial)}
+  .d-todo{background:var(--todo)} .d-verify{background:var(--verify)}
+  /* guide */
+  .guide{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:16px 0}
+  .guide h2{margin:0 0 8px;font-size:15px}
+  .guide ul{margin:6px 0;padding-left:18px}
+  .guide code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}
+  /* sections */
+  section{margin-top:26px}
+  .sec-head{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px}
+  .sec-head h2{margin:0;font-size:18px}
+  .sec-prog{font-size:12px;color:var(--muted)}
+  .item{background:var(--panel);border:1px solid var(--border);border-left-width:4px;border-radius:10px;
+    padding:12px 14px;margin:8px 0}
+  .item-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+  .b-done{background:rgba(63,185,80,.15);color:#56d364;border:1px solid rgba(63,185,80,.4)}
+  .b-partial{background:rgba(210,153,34,.15);color:#e3b341;border:1px solid rgba(210,153,34,.4)}
+  .b-todo{background:rgba(248,81,73,.15);color:#ff7b72;border:1px solid rgba(248,81,73,.4)}
+  .b-verify{background:rgba(163,113,247,.15);color:#bc8cff;border:1px solid rgba(163,113,247,.4)}
+  .item.st-done{border-left-color:var(--done)} .item.st-partial{border-left-color:var(--partial)}
+  .item.st-todo{border-left-color:var(--todo)} .item.st-verify{border-left-color:var(--verify)}
+  .title{font-weight:600}
+  .gapid{font-size:11px;color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+  .detail{color:var(--muted);font-size:13.5px;margin-top:5px}
+  .next{font-size:13px;margin-top:6px;padding:7px 10px;background:var(--panel2);border-radius:8px}
+  .next b{color:#ffd; font-weight:600}
+  .ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
+  .hidden{display:none}
+  footer{color:var(--muted);font-size:12px;margin-top:40px;border-top:1px solid var(--border);padding-top:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>BaroSit 서비스 완성도 체크리스트</h1>
+  <div class="sub">전체 서비스 진행 상황 단일 추적 문서 · 최종 갱신 2026-06-26 · 기준 v0.3.8 ·
+  진실의 원천은 <b>코드</b> (문서는 stale 가능)</div>
+</header>
+
+<div class="summary">
+  <div class="inner">
+    <div class="pct" id="pct">–</div>
+    <div class="bar" id="bar"></div>
+    <div class="counts" id="counts"></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="guide">
+    <h2>📌 이 문서 사용법 (에이전트 인계 가이드)</h2>
+    <ul>
+      <li>각 항목의 상태는 <code>&lt;div class="item" data-status="..."&gt;</code> 의 <code>data-status</code> 속성으로 관리한다. 허용값: <code>done</code>(완료) · <code>partial</code>(부분) · <code>todo</code>(미구현) · <code>verify</code>(확인 필요).</li>
+      <li>배지·색·상단 진행률은 <code>data-status</code> 를 읽어 <b>JS가 자동 렌더</b>. 작업을 끝내면 <b>속성값 한 곳만</b> 바꾸면 된다 (예: <code>data-status="todo"</code> → <code>"done"</code>).</li>
+      <li>항목을 완료로 바꿀 때 <code>.next</code>(다음 작업) 블록은 지우거나 검증 메모로 갱신하고, <a href="changelog.md">changelog.md</a> · <a href="project-status.md">project-status.md</a> 도 동기화한다.</li>
+      <li>근거는 <span class="ref">파일:라인</span> 으로 표기. 코드와 불일치하면 코드를 신뢰하고 이 문서를 고친다.</li>
+      <li>상단 칩(완료/부분/미구현/확인필요)을 클릭하면 해당 상태만 필터링된다.</li>
+      <li>우선순위가 매겨진 갭은 <span class="gapid">ID</span> 배지로 표시 (OPS-1 등). 권장 착수 순서는 맨 아래 <a href="#priority">우선순위</a> 참고.</li>
+    </ul>
+  </div>
+
+  <!-- ============ 1. 자세 감지 엔진 ============ -->
+  <section>
+    <div class="sec-head"><h2>1. 자세 감지 엔진</h2><span class="sec-prog"></span></div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">MediaPipe 4모델 통합 (Pose·Face·Hand·Segmenter)</span></div>
+      <div class="detail">256×192 / 15FPS, 스무딩(7프레임 이동평균), visibility≥0.7 필터, 마스크 버퍼 재사용.</div>
+      <div class="ref">src/pose/detector.ts</div>
+    </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">자세 위반 6종 판정</span></div>
+      <div class="detail">거북목·턱괴임·어깨기울임·등구부정·모니터거리·어깨비대칭. 다신호 합산.</div>
+      <div class="ref">src/pose/analyzer.ts</div>
+    </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">머리 좌우 기울임(head_roll) 7번째 자세</span></div>
+      <div class="detail">roll/yaw 결합 감쇄 적용. (정식 6종 외 추가분 — 문서·UI 정합성은 DOC-1에서 정리)</div>
+      <div class="ref">src/pose/analyzer.ts · src/pose/types.ts</div>
+    </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">스트레칭 7종 감지 + false-positive 차단</span></div>
+      <div class="detail">기지개/목풀기/어깨/사이드/으쓱/목좌우/앞숙이기. hold·쿨다운·gap tolerance 조율.</div>
+      <div class="ref">src/pose/stretchDetector.ts</div>
+    </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">안정화 알고리즘 (EMA·히스테리시스·그레이스)</span></div>
+      <div class="detail">ViolationSmoother(α=0.15, 0.6/0.3, 3초 hold) + ViolationTracker + 2초 그레이스.</div>
+      <div class="ref">src/pose/violationSmoother.ts · violationTracker.ts</div>
+    </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">캘리브레이션 (5초+5체크) · 측면 카메라 · 부재 감지</span></div>
+      <div class="detail">65% 적합 프레임, 잘못된 알림 신고 시 sensitivity +0.1, 8초 미감지 자동 일시정지.</div>
+      <div class="ref">src/pose/calibration.ts · thresholds.ts</div>
+    </div>
+
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">캘리브레이션 실패 사용자 안내</span><span class="gapid">UX-1</span></div>
+      <div class="detail">실패를 <code>catch→setPhase("idle")</code> 로 처리 → 원인 안내 없이 시작 화면 복귀. 온보딩 첫 관문 이탈.</div>
+      <div class="ref">src/views/CalibrationView.tsx</div>
+      <div class="next"><b>다음 작업:</b> 5가지 적합성 체크 결과를 분류해 사용자 메시지 + "다시 시도" 노출.</div>
+    </div>
+
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">측면 카메라 face 미검출 시 각도 오판</span><span class="gapid">DET-1</span></div>
+      <div class="detail"><code>liveAngleFromFace</code> 가 face 없으면 "front" 기본값 → 측면 설정 시 스트레칭 오탐 가능.</div>
+      <div class="ref">src/pose/stretchDetector.ts</div>
+      <div class="next"><b>다음 작업:</b> face 미검출 시 직전 안정 각도 유지 또는 pose 기반 각도 추정.</div>
+    </div>
+
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">자세 종류 추가 (목 회전·시선 방향)</span><span class="gapid">DET-1</span></div>
+      <div class="detail">project-status.md 향후 항목. 흔한 위반 미감지.</div>
+      <div class="next"><b>다음 작업:</b> ROI 낮음 → OPS-1 피드백으로 빈발 확인 후 착수.</div>
+    </div>
+
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">배터리 모드 감지 → FPS 자동 조절</span><span class="gapid">DET-1</span></div>
+      <div class="detail">배터리 감지 코드 전무. 성능 프로필(Full/Eco)은 있으나 수동 선택 UI·자동 전환 없음.</div>
+      <div class="ref">src/hooks/useMonitoringEngine.ts · performanceConfig.ts</div>
+      <div class="next"><b>다음 작업:</b> <code>navigator.getBattery</code> 기반 Eco 자동 전환.</div>
+    </div>
+
+    <div class="item" data-status="verify">
+      <div class="item-top"><span class="title">MediaPipe 모델 CDN 로드 실패 재시도/타임아웃</span></div>
+      <div class="detail">GPU→CPU 폴백은 있으나 네트워크 끊김 시 무한 대기·재시도 정책 불명확. 첫 실행 20MB.</div>
+      <div class="ref">src/pose/detector.ts</div>
+      <div class="next"><b>다음 작업:</b> 로드 타임아웃 + 재시도 + 명확한 실패 메시지 확인/보강.</div>
+    </div>
+  </section>
+
+  <!-- ============ 2. 점수 / 동기부여 ============ -->
+  <section>
+    <div class="sec-head"><h2>2. 점수 · 동기부여</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">0–100 점수 시스템 (영속화·윈도우 동기화)</span></div>
+      <div class="detail">지속시간 가속 패널티, 연속 좋은자세 회복 가속, 빠른 회복 +2, visibilitychange 재로드.</div>
+      <div class="ref">src/hooks/usePostureScore.ts</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">스트레칭 보너스 점수화 + 토스트</span></div>
+      <div class="detail">raw 횟수 → 획득 점수 기반(기지개+5 등)으로 개편, UI/토스트 일치.</div>
+    </div>
+  </section>
+
+  <!-- ============ 3. UI / 모드 ============ -->
+  <section>
+    <div class="sec-head"><h2>3. UI · 모드 시스템</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">메인 ↔ 위젯 모드 (mutually exclusive)</span></div>
+      <div class="detail">X→위젯 자동전환, Dock→메인, 250ms 핸드오버 + 800ms 재시도, owner 단일화.</div>
+      <div class="ref">src/App.tsx · views/Widget.tsx · src-tauri/src/lib.rs</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">트레이(상태 이모지)·OS 네이티브 알림·단일 인스턴스·자동시작</span></div>
+      <div class="ref">src-tauri/src/tray.rs · lib.rs</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">실루엣 프라이버시 모드 · 디버그 패널</span></div>
+      <div class="ref">src/components/SilhouetteOverlay.tsx</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">에러 상태 UX (카메라 5종 분기 + 모델 로드 실패)</span></div>
+      <div class="detail">거부/점유/없음/해상도/Abort + "다시 시도".</div>
+    </div>
+  </section>
+
+  <!-- ============ 4. 장시간 사용성 ============ -->
+  <section>
+    <div class="sec-head"><h2>4. 장시간 사용성 (휴식·부하·변동성·적응형)</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">Phase 1~4 구현 (정기휴식·누적부하·변동성·적응형 민감도)</span></div>
+      <div class="detail">자세 점수와 분리된 별도 카테고리 알림. keepAwake + watchdog 자가복구 포함.</div>
+      <div class="ref">src/pose/breakTracker.ts · cumulativeLoadTracker.ts · variabilityTracker.ts · adaptiveSensitivity.ts</div>
+    </div>
+    <div class="item" data-status="verify">
+      <div class="item-top"><span class="title">4 Phase 실사용 QA 검증</span></div>
+      <div class="detail">자동 검증(타입체크·순수함수)은 통과. 실기 미리보기 발사·이벤트 적재·알림 4모드 호환 실검증 대기.</div>
+      <div class="ref">project-status.md §"QA 대기"</div>
+      <div class="next"><b>다음 작업:</b> 누적·변동성·적응형 미리보기 버튼 추가 후 실사용 검증.</div>
+    </div>
+  </section>
+
+  <!-- ============ 5. 대시보드 / 분석 ============ -->
+  <section>
+    <div class="sec-head"><h2>5. 대시보드 · 분석</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">일별 통계 + 당일 시간대별 막대 + 이번 주 합계</span></div>
+      <div class="ref">src/views/DashboardView.tsx · src/pose/eventLog.ts</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">주간/월간 트렌드 + 장기 시간대별 히트맵</span><span class="gapid">DASH-1</span></div>
+      <div class="detail">현재 today/week 두 뷰만. 전주 대비 비교·월 추이 없음.</div>
+      <div class="ref">src/views/DashboardView.tsx:26</div>
+      <div class="next"><b>다음 작업:</b> 월간 뷰 + 히트맵 컴포넌트, 범위 선택.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">동기부여 지표 (누적 위반시간·평균 길이·개선율)</span><span class="gapid">DASH-1</span></div>
+      <div class="detail">집계가 개수 중심(total/byType/byHour). "나아지고 있나" 피드백 부재.</div>
+      <div class="ref">src/pose/eventLog.ts</div>
+      <div class="next"><b>다음 작업:</b> eventLog 집계에 누적시간·평균·전일/전주 대비 추가.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">스트레칭 점수 대시보드 표시</span><span class="gapid">DASH-1</span></div>
+      <div class="detail">스트레칭 이벤트 저장 구조 부재로 기여도 조회 불가.</div>
+      <div class="next"><b>다음 작업:</b> 스트레칭 이벤트 적재(또는 PostureEvent kind 필드) → 카드 연동.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">인사이트·추천·목표 설정</span></div>
+      <div class="detail">그래프만 있고 해석/개인화 목표 없음.</div>
+    </div>
+  </section>
+
+  <!-- ============ 6. 데이터 저장 / 안정성 ============ -->
+  <section>
+    <div class="sec-head"><h2>6. 데이터 저장 · 안정성</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">localStorage 영속 + 백업/복원(JSON, API키 제외)</span></div>
+      <div class="ref">src/dataBackup.ts</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">파싱 실패 무음 폐기 방지</span><span class="gapid">DATA-1</span></div>
+      <div class="detail"><code>loadEvents()</code> JSON 파싱 실패 시 <code>catch{return []}</code> → 전체 히스토리 무음 손실.</div>
+      <div class="ref">src/pose/eventLog.ts</div>
+      <div class="next"><b>다음 작업:</b> 원본 백업 키 보존 + 사용자 알림 + 부분 복구.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">이벤트 cap(5000) 무경고 절단</span><span class="gapid">DATA-1</span></div>
+      <div class="detail">초과 시 오래된 것부터 경고 없이 잘림 → 약 2주치만 보존, 월별 분석 불가.</div>
+      <div class="ref">src/pose/eventLog.ts</div>
+      <div class="next"><b>다음 작업:</b> 절단 전 클라우드 동기화 확인 → 미동기 보호, 또는 자동 export 유도.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">SQLite 이전 (대규모 이력)</span></div>
+      <div class="detail">장기 분석·5000건 한계 제거. project-status.md 🟣 기술개선.</div>
+    </div>
+  </section>
+
+  <!-- ============ 7. 인증 ============ -->
+  <section>
+    <div class="sec-head"><h2>7. 인증 (Auth)</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">웹 Google OAuth (Custom Domain auth.barosit.com)</span></div>
+      <div class="ref">src/auth/useAuth.ts · supabase.ts</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">웹 Kakao OAuth</span></div>
+      <div class="detail">QA 실증: authorize?provider=kakao → 302 kauth.kakao.com. (문서 일부 "검수 필요" 표기는 stale)</div>
+      <div class="ref">QA AUTH-02</div>
+    </div>
+    <div class="item" data-status="verify">
+      <div class="item-top"><span class="title">웹 Apple OAuth</span></div>
+      <div class="detail">launch-readiness-plan.md "완성" 주장. 실 흐름 QA 근거 확인 필요.</div>
+      <div class="next"><b>다음 작업:</b> Apple 로그인 실 흐름 검증 후 done 전환.</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">데스크톱(Tauri) deep-link OAuth (PKCE + 방어로직)</span></div>
+      <div class="detail">PKCE, onOpenUrl, stale URL 가드, 5분 timeout, Windows loopback fallback. (project-status.md "미연결 ❌"는 stale → DOC-1)</div>
+      <div class="ref">src/auth/useAuth.ts:129-390</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">가입 시 profiles/settings/subscriptions 자동 생성</span></div>
+      <div class="ref">QA AUTH-05</div>
+    </div>
+  </section>
+
+  <!-- ============ 8. 클라우드 동기화 ============ -->
+  <section>
+    <div class="sec-head"><h2>8. 클라우드 동기화</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">동기화 엔진 기본 (events·scores·settings·profile)</span></div>
+      <div class="detail">5분 주기 백그라운드 + 소급 패키징(pack-and-sync). RLS + 변조방지 트리거.</div>
+      <div class="ref">src/lib/syncService.ts · supabase/migrations/</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">동기화 실패 가시화 + 재시도(backoff)</span><span class="gapid">SYNC-1</span></div>
+      <div class="detail">모든 sync 함수가 실패 시 console.error 후 return. 사용자 알림·재시도 없음.</div>
+      <div class="ref">src/lib/syncService.ts · src/hooks/useMonitoringEngine.ts:142</div>
+      <div class="next"><b>다음 작업:</b> last-synced UI + exponential backoff 래퍼.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">오프라인 큐 (IndexedDB)</span><span class="gapid">SYNC-1</span></div>
+      <div class="detail">auth-sync-plan.md가 약속한 onLine 감지 + 큐 flush 미구현.</div>
+      <div class="next"><b>다음 작업:</b> 실패 페이로드 큐잉 + online 이벤트 flush.</div>
+    </div>
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">충돌 해결 / FREE·PRO 차등</span><span class="gapid">SYNC-1</span></div>
+      <div class="detail">upsert Last-Write-Wins, updated_at 비교 없음 → 멀티 디바이스 덮어쓰기. 플랜 차등은 localStorage 캐시 신뢰.</div>
+      <div class="ref">src/lib/syncService.ts</div>
+      <div class="next"><b>다음 작업:</b> 서버 updated_at 비교 반영 + 플랜 캐시 재검증.</div>
+    </div>
+  </section>
+
+  <!-- ============ 9. 결제 / 구독 ============ -->
+  <section>
+    <div class="sec-head"><h2>9. 결제 · 구독 (Toss)</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">Edge Functions 5종 구현 + 프론트 결선</span></div>
+      <div class="detail">billing-issue·payment-cancel·subscription-manage·toss-webhook·charge-renewals. mock 제거, deno check 통과.</div>
+      <div class="ref">supabase/functions/</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">PCI: 자체 카드폼 제거 → 웹 호스티드 결제창 위임</span></div>
+      <div class="ref">src/views/ProfileView.tsx · PricingView.tsx</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">권한 부여 서버 신뢰 이전 (트리거 service_role)</span></div>
+      <div class="detail">일반/익명 plan_id·status 변경 차단. QA BILL-06 실증.</div>
+      <div class="ref">migration 20260521000010</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">런치 모드 토글 (베타 ↔ 유료)</span></div>
+      <div class="detail">하이브리드 플래그 + resolveEffectivePlan 중앙화 + AdminDashboard 즉시 전환.</div>
+      <div class="ref">src/launchMode.ts</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">🚫 결제 백엔드 배포 (유료 정식 블로커)</span></div>
+      <div class="detail">functions deploy + TOSS_SECRET_KEY + pg_cron/net + 웹훅 URL 등록 + live key 전환 + 실카드 E2E QA. Toss 가맹점 심사 ⏳.</div>
+      <div class="ref">supabase/functions/README.md · launch-readiness-plan.md §7</div>
+      <div class="next"><b>다음 작업:</b> 심사 완료 후 배포 5단계 실행. (베타는 무료 게이팅이라 비차단)</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">카드 "삭제" 시 구독 해지 처리</span><span class="gapid">PAY-1</span></div>
+      <div class="detail">현재 billing_key=null 만 설정, plan_id/status 유지 → PRO 유지. 전자상거래 관행 불일치.</div>
+      <div class="ref">src/views/ProfileView.tsx:342</div>
+      <div class="next"><b>다음 작업:</b> 카드 삭제 정책 확정 후 status=canceled 연계.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">웹훅 위조 방어 강제화</span><span class="gapid">PAY-1</span></div>
+      <div class="detail">TOSS_WEBHOOK_SECRET 설정 시에만 검증, 미설정 시 전부 수용.</div>
+      <div class="ref">supabase/functions/toss-webhook/index.ts:19</div>
+      <div class="next"><b>다음 작업:</b> 배포 시 시크릿 필수화 + (가능 시) IP 화이트리스트.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">환불 가능 판정 기준 UI/서버 통일</span><span class="gapid">PAY-1</span></div>
+      <div class="detail">UI=subscription.updated_at, 서버=billing_history.created_at → "환불 가능" 표시 후 서버 거부 가능.</div>
+      <div class="ref">ProfileView.tsx ↔ payment-cancel/index.ts</div>
+      <div class="next"><b>다음 작업:</b> 양쪽 billing_history.created_at 기준 통일.</div>
+    </div>
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">결제 멱등성 (이중청구 방지)</span><span class="gapid">PAY-1</span></div>
+      <div class="detail">첫결제/정기청구가 insert(upsert 아님) → 함수 부분실패 후 재시도 시 이중청구 이론적 가능.</div>
+      <div class="ref">billing-issue/index.ts:63,113 · charge-renewals/index.ts:98</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">현금영수증 · 빌링키 폐기 API · charge-renewals 청킹</span></div>
+      <div class="detail">cash_receipt_issued false 하드코딩, Toss 빌링키 DELETE 미연결, 만료자 LIMIT 없는 루프(타임아웃 위험).</div>
+      <div class="next"><b>다음 작업:</b> 출시 후 백로그.</div>
+    </div>
+  </section>
+
+  <!-- ============ 10. 배포 / 릴리스 ============ -->
+  <section>
+    <div class="sec-head"><h2>10. 배포 · 릴리스</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">자동 업데이트 (updater + minisign + CI)</span></div>
+      <div class="detail">v0.1.0→0.1.1 풀 사이클 검증. GitHub Releases + latest.json.</div>
+      <div class="ref">.github/workflows/release.yml · src/updater.ts</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">macOS 코드서명 + 공증 + 자동 공개</span></div>
+      <div class="detail">v0.3.6+ .app/.dmg 공증·스테이플, Gatekeeper 통과. draft 해제.</div>
+    </div>
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">Windows 빌드/배포</span></div>
+      <div class="detail">CI 매트릭스 빌드는 됨. 실기 검증(트레이/카메라/알림)·외장웹캠 호환 미진행.</div>
+      <div class="next"><b>다음 작업:</b> 실제 Windows 기기 설치·동작 검증.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">Windows 코드서명 (SmartScreen)</span></div>
+      <div class="detail">미설정 → 설치 경고. OV/EV 인증서 필요.</div>
+    </div>
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">Microsoft Store 제출</span></div>
+      <div class="detail">1차 거부(10.1.2.10: barosit:// 프로토콜 미선언). China 제외 완료. 재제출 대기.</div>
+      <div class="ref">docs/windows-distribution-plan.md</div>
+      <div class="next"><b>다음 작업:</b> MSIX 프로토콜 선언 후 재제출.</div>
+    </div>
+  </section>
+
+  <!-- ============ 11. 웹 / 마케팅 ============ -->
+  <section>
+    <div class="sec-head"><h2>11. 웹 버전 · 마케팅</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">웹 풀버전 빌드 + barosit.com 라이브(Cloudflare Pages)</span></div>
+      <div class="detail">IPC 추상화, 브라우저 Notification, 단일 페이지. main push 자동 배포.</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">SEO 정적 페이지 다국어 + hreflang + clean URL</span></div>
+      <div class="ref">최근 커밋 6f76e17 등</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">웹 LLM 코칭 (백엔드 프록시 필요)</span></div>
+      <div class="detail">데스크톱만 직접 API 호출. 웹은 비활성.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">데모 GIF/스크린샷 (랜딩 전환율)</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 12. i18n / 법무 ============ -->
+  <section>
+    <div class="sec-head"><h2>12. 국제화 · 법무</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">i18n ko/en/ja 전체 (하드코딩 없음)</span></div>
+      <div class="ref">src/i18n/locales/*</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">개인정보처리방침·이용약관 (사업자 실값) + 인앱 모달</span></div>
+      <div class="detail">주식회사 구비드/512-88-00059. react-markdown 단일 소스.</div>
+      <div class="ref">src/lib/legal.ts · docs/privacy.md · terms.md</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">약관 변호사 검토 (결제·구독·환불 조항)</span></div>
+      <div class="detail">전자상거래법 준수 최종 확인. 외부 의존.</div>
+    </div>
+  </section>
+
+  <!-- ============ 13. 운영 / 관측 ============ -->
+  <section>
+    <div class="sec-head"><h2>13. 운영 · 관측</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">관리자 대시보드 (사용자·Q&A·구독·알림·릴리스)</span></div>
+      <div class="ref">src/views/AdminDashboardView.tsx</div>
+    </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">인앱 피드백 채널</span><span class="gapid">OPS-1</span></div>
+      <div class="detail">설정 "정보" 섹션에 "피드백 보내기" → admin_notifications(event_type='feedback') 적재. 카테고리(버그/제안/기타)+앱버전·환경 payload, 비로그인 회신 이메일, 전송 실패 시 메일 폴백. 어드민은 **전용 "사용자 피드백" 탭**(실시간 알림과 분리)에서 카테고리 칩·연락처·답장 mailto·읽음/삭제·미확인 배지로 관리. ko/en/ja.</div>
+      <div class="ref">src/lib/feedback.ts · src/components/FeedbackModal.tsx · src/views/SettingsDrawer.tsx · AdminDashboardView.tsx</div>
+    </div>
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">크래시 리포트 + 에러 로깅</span><span class="gapid">OPS-1</span></div>
+      <div class="detail">전역 window.onerror/unhandledrejection + ErrorBoundary → report_client_error RPC → client_errors 테이블(fingerprint 집계). 옵트아웃 토글(설정·기본 ON), 세션 상한·중복제거. 어드민 "오류 리포트" 탭(해결/삭제·스택 펼침). <b>로컬 E2E 검증 완료</b>: migration up 적용→ window/promise 에러 RPC 200 적재 확인 + 동일 fingerprint 재호출 시 count 증가(2) 확인. 남은 건 프로덕션 배포뿐.</div>
+      <div class="ref">src/lib/errorReporting.ts · src/main.tsx · src/App.tsx · AdminDashboardView.tsx · supabase/migrations/20260626000000_client_errors.sql</div>
+      <div class="next"><b>다음 작업(프로덕션 배포만):</b> <code>supabase db push</code> 로 client_errors 마이그레이션 원격 적용. 적용 후 done 전환.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">익명 텔레메트리 (옵트인)</span></div>
+      <div class="detail">사용 패턴 분석. privacyConfig 패턴 따라 기본 OFF.</div>
+    </div>
+  </section>
+
+  <!-- ============ 14. 테스트 / QA / 문서 ============ -->
+  <section>
+    <div class="sec-head"><h2>14. 테스트 · QA · 문서 정합성</h2><span class="sec-prog"></span></div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">QA 체크리스트 자동 러너 (93항목, 0 Fail)</span></div>
+      <div class="ref">qa/checklist.json · runner.mjs</div>
+    </div>
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">자동화 단위/통합 테스트</span></div>
+      <div class="detail">vitest 단위(launchMode·userProfile)만. 결제·동기화 통합테스트 0.</div>
+      <div class="ref">src/launchMode.test.ts</div>
+      <div class="next"><b>다음 작업:</b> 동기화 오프라인/실패, 결제 경로 통합테스트.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">문서 stale 정정 (코드 기준 일치)</span><span class="gapid">DOC-1</span></div>
+      <div class="detail">project-status.md "데스크탑 OAuth 미연결 ❌"은 stale(실제 구현됨). project-status ↔ launch-readiness 상충.</div>
+      <div class="next"><b>다음 작업:</b> 인증/동기화 항목 상태를 코드 기준으로 일치.</div>
+    </div>
+  </section>
+
+  <!-- ============ 우선순위 ============ -->
+  <section id="priority">
+    <div class="sec-head"><h2>⭐ 권장 착수 순서</h2></div>
+    <div class="item" data-status="todo" data-noprog="1">
+      <div class="detail" style="color:var(--text)">
+        <b>1. OPS-1</b> 인앱 피드백 + 크래시/에러 리포트 — 이게 없으면 나머지 갭이 실제로 터지는지 알 수 없음. 관측을 먼저 깐다.<br>
+        <b>2. DATA-1</b> 로컬 데이터 무음 유실 방지 — 핵심 가치(자세 추적) 직결.<br>
+        <b>3. SYNC-1</b> 동기화 실패 가시화 + 재시도/오프라인 큐 — 멀티 디바이스 유실.<br>
+        <b>4. UX-1</b> 캘리브레이션 실패 안내 — 온보딩 이탈.<br>
+        <b>5. DASH-1</b> 대시보드 트렌드/누적시간 — 리텐션·동기부여.<br>
+        <b>6. PAY-1</b> 결제 정합성 (유료 전환 전, 베타엔 비노출).<br>
+        <b>7. DET-1</b> 자세 감지 한계 — ROI 낮음, 피드백 보고 착수.<br>
+        <b>8. DOC-1</b> 문서 정정.
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    관련 문서: <a href="project-status.md">project-status.md</a> ·
+    <a href="launch-readiness-plan.md">launch-readiness-plan.md</a> ·
+    <a href="changelog.md">changelog.md</a> ·
+    <a href="auth-sync-plan.md">auth-sync-plan.md</a><br>
+    이 문서는 상태 추적 단일 출처. 코드 변경 시 해당 항목의 <code>data-status</code> 를 갱신할 것.
+  </footer>
+</div>
+
+<script>
+(function(){
+  var LABEL={done:"완료",partial:"부분",todo:"미구현",verify:"확인필요"};
+  var items=[].slice.call(document.querySelectorAll('.item[data-status]'));
+  // render badge + left border class
+  items.forEach(function(it){
+    var s=it.getAttribute('data-status');
+    it.classList.add('st-'+s);
+    if(it.getAttribute('data-noprog')) return;
+    var top=it.querySelector('.item-top');
+    if(top){
+      var b=document.createElement('span');
+      b.className='badge b-'+s; b.textContent=LABEL[s]||s;
+      top.insertBefore(b, top.firstChild);
+    }
+  });
+  // counts (exclude noprog)
+  var prog=items.filter(function(it){return !it.getAttribute('data-noprog')});
+  var c={done:0,partial:0,todo:0,verify:0};
+  prog.forEach(function(it){c[it.getAttribute('data-status')]++});
+  var total=prog.length;
+  var pctVal=total? Math.round((c.done + c.partial*0.5)/total*100):0;
+  document.getElementById('pct').textContent=pctVal+'%';
+  var bar=document.getElementById('bar');
+  ['done','partial','verify','todo'].forEach(function(k){
+    var w=total? (c[k]/total*100):0;
+    var sp=document.createElement('span'); sp.className='s-'+k; sp.style.width=w+'%'; bar.appendChild(sp);
+  });
+  var counts=document.getElementById('counts');
+  [['done','d-done'],['partial','d-partial'],['verify','d-verify'],['todo','d-todo']].forEach(function(p){
+    var k=p[0];
+    var chip=document.createElement('span'); chip.className='chip'; chip.setAttribute('data-filter',k);
+    chip.innerHTML='<span class="dot '+p[1]+'"></span>'+LABEL[k]+' '+c[k];
+    counts.appendChild(chip);
+  });
+  // filter
+  var active=null;
+  counts.addEventListener('click',function(e){
+    var chip=e.target.closest('.chip'); if(!chip) return;
+    var f=chip.getAttribute('data-filter');
+    if(active===f){active=null;} else {active=f;}
+    [].forEach.call(counts.children,function(ch){ch.classList.toggle('active',ch.getAttribute('data-filter')===active)});
+    prog.forEach(function(it){
+      it.classList.toggle('hidden', active && it.getAttribute('data-status')!==active);
+    });
+    // section progress recompute visible
+    updateSecProg();
+  });
+  // per-section progress text
+  function updateSecProg(){
+    document.querySelectorAll('section').forEach(function(sec){
+      var span=sec.querySelector('.sec-prog'); if(!span) return;
+      var list=[].slice.call(sec.querySelectorAll('.item[data-status]')).filter(function(it){return !it.getAttribute('data-noprog')});
+      if(!list.length){span.textContent='';return;}
+      var d=list.filter(function(it){return it.getAttribute('data-status')==='done'}).length;
+      span.textContent=d+' / '+list.length+' 완료';
+    });
+  }
+  updateSecProg();
+})();
+</script>
+</body>
+</html>

@@ -27,6 +27,25 @@ interface AdminNotificationData {
   read_at: string | null;
 }
 
+interface ClientErrorData {
+  id: string;
+  fingerprint: string;
+  kind: string;
+  severity: string;
+  message: string;
+  stack: string | null;
+  route: string | null;
+  app_version: string | null;
+  client: string | null;
+  user_agent: string | null;
+  lang: string | null;
+  plan: string | null;
+  count: number;
+  resolved: boolean;
+  first_seen: string;
+  last_seen: string;
+}
+
 interface ToastItem {
   id: string;
   event_type: string;
@@ -92,7 +111,7 @@ interface Props {
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "releases" | "stretches">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "feedback" | "errors" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
@@ -115,13 +134,18 @@ export function AdminDashboardView({ onClose }: Props) {
   const [posts, setPosts] = useState<PostData[]>([]);
   const [comments, setComments] = useState<CommentData[]>([]);
   const [notifications, setNotifications] = useState<AdminNotificationData[]>([]);
-  
+  const [clientErrors, setClientErrors] = useState<ClientErrorData[]>([]);
+  const [showResolvedErrors, setShowResolvedErrors] = useState(false);
+  const [expandedError, setExpandedError] = useState<string | null>(null);
+
   // 실시간 토스트 상태
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   
   // 알림 필터 상태
   const [severityFilter, setSeverityFilter] = useState<"all" | "info" | "warning" | "critical">("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  // 피드백 카테고리 필터 (전체/버그/제안/기타)
+  const [feedbackCatFilter, setFeedbackCatFilter] = useState<"all" | "bug" | "idea" | "other">("all");
 
   // 시스템 관리 상태
   const [cleanLog, setCleanLog] = useState<string[]>([]);
@@ -163,6 +187,19 @@ export function AdminDashboardView({ onClose }: Props) {
       // 7. 실시간 어드민 알림 조회 (최신 100건 제한)
       const { data: notifData } = await supabase.from("admin_notifications").select("*").order("created_at", { ascending: false }).limit(100);
 
+      // 7-1. 클라이언트 에러 리포트 조회 (최신 last_seen 순, 최대 200건)
+      let errData: ClientErrorData[] = [];
+      try {
+        const { data } = await supabase
+          .from("client_errors")
+          .select("*")
+          .order("last_seen", { ascending: false })
+          .limit(200);
+        errData = (data as ClientErrorData[]) || [];
+      } catch (err) {
+        console.warn("Failed to fetch client_errors. table might not exist yet.", err);
+      }
+
       // 8. 릴리즈 정보 조회 (최신 정보 순 정렬)
       let relData: any[] = [];
       try {
@@ -179,6 +216,7 @@ export function AdminDashboardView({ onClose }: Props) {
       setPosts(postData || []);
       setComments(commentData || []);
       setNotifications(notifData || []);
+      setClientErrors(errData);
       setReleases(relData);
 
       // 현재 로그인한 어드민 사용자 프로필 로드
@@ -285,6 +323,32 @@ export function AdminDashboardView({ onClose }: Props) {
     };
   }, []);
 
+  // 클라이언트 에러: 해결됨 토글
+  const handleToggleErrorResolved = async (err: ClientErrorData) => {
+    try {
+      const next = !err.resolved;
+      const { error } = await supabase
+        .from("client_errors")
+        .update({ resolved: next })
+        .eq("id", err.id);
+      if (error) throw error;
+      setClientErrors(prev => prev.map(e => (e.id === err.id ? { ...e, resolved: next } : e)));
+    } catch (e: any) {
+      alert("에러 상태 변경 실패: " + e.message);
+    }
+  };
+
+  // 클라이언트 에러: 삭제
+  const handleDeleteError = async (id: string) => {
+    try {
+      const { error } = await supabase.from("client_errors").delete().eq("id", id);
+      if (error) throw error;
+      setClientErrors(prev => prev.filter(e => e.id !== id));
+    } catch (e: any) {
+      alert("에러 삭제 실패: " + e.message);
+    }
+  };
+
   // 알림 개별 읽음 처리 핸들러
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -303,8 +367,10 @@ export function AdminDashboardView({ onClose }: Props) {
   };
 
   // 알림 일괄 읽음 처리 핸들러
-  const handleMarkAllAsRead = async () => {
-    const unreadIds = notifications.filter(n => !n.read_at).map(n => n.id);
+  const handleMarkAllAsRead = async (predicate?: (n: AdminNotificationData) => boolean) => {
+    const unreadIds = notifications
+      .filter(n => !n.read_at && (predicate ? predicate(n) : true))
+      .map(n => n.id);
     if (unreadIds.length === 0) return;
     try {
       const { error } = await supabase
@@ -876,13 +942,23 @@ export function AdminDashboardView({ onClose }: Props) {
               { id: "users", label: "가입자 관리", icon: "shield" as const },
               { id: "qna", label: "Q&A 문의 제어", icon: "info" as const },
               { id: "alerts", label: "실시간 알림", icon: "bell" as const },
+              { id: "feedback", label: "사용자 피드백", icon: "flag" as const },
+              { id: "errors", label: "오류 리포트", icon: "info" as const },
               { id: "releases", label: "업데이트/공지 관리", icon: "sparkle" as const },
               { id: "stretches", label: "스트레칭 템플릿 제어", icon: "target" as const },
               { id: "system", label: "시스템 제어판", icon: "settings" as const },
             ].map(tab => {
               const isAlerts = tab.id === "alerts";
-              const unreadCount = notifications.filter(n => !n.read_at).length;
-              
+              const isErrors = tab.id === "errors";
+              const isFeedback = tab.id === "feedback";
+              const unreadCount = isErrors
+                ? clientErrors.filter(e => !e.resolved).length
+                : isFeedback
+                  ? notifications.filter(n => !n.read_at && n.event_type === "feedback").length
+                  : isAlerts
+                    ? notifications.filter(n => !n.read_at && n.event_type !== "feedback").length
+                    : notifications.filter(n => !n.read_at).length;
+
               return (
                 <button
                   key={tab.id}
@@ -924,7 +1000,7 @@ export function AdminDashboardView({ onClose }: Props) {
                     <Icon name={tab.icon} size={16} />
                     <span>{tab.label}</span>
                   </div>
-                  {isAlerts && unreadCount > 0 && (
+                  {(isAlerts || isErrors || isFeedback) && unreadCount > 0 && (
                     <span
                       style={{
                         background: "#c95c5c",
@@ -1054,10 +1130,10 @@ export function AdminDashboardView({ onClose }: Props) {
                         </div>
                       </div>
 
-                      {/* 모두 읽음 버튼 */}
+                      {/* 모두 읽음 버튼 (피드백 제외 — 피드백은 전용 탭) */}
                       <button
-                        onClick={handleMarkAllAsRead}
-                        disabled={notifications.filter(n => !n.read_at).length === 0}
+                        onClick={() => handleMarkAllAsRead(n => n.event_type !== "feedback")}
+                        disabled={notifications.filter(n => !n.read_at && n.event_type !== "feedback").length === 0}
                         style={{
                           background: "rgba(91, 140, 122, 0.15)",
                           color: "#5b8c7a",
@@ -1068,10 +1144,10 @@ export function AdminDashboardView({ onClose }: Props) {
                           fontWeight: 700,
                           cursor: "pointer",
                           transition: "all 0.2s",
-                          opacity: notifications.filter(n => !n.read_at).length === 0 ? 0.5 : 1,
+                          opacity: notifications.filter(n => !n.read_at && n.event_type !== "feedback").length === 0 ? 0.5 : 1,
                         }}
                         onMouseEnter={e => {
-                          if (notifications.filter(n => !n.read_at).length > 0) {
+                          if (notifications.filter(n => !n.read_at && n.event_type !== "feedback").length > 0) {
                             e.currentTarget.style.background = "#5b8c7a";
                             e.currentTarget.style.color = "#fff";
                           }
@@ -1089,6 +1165,7 @@ export function AdminDashboardView({ onClose }: Props) {
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: "50vh", overflowY: "auto", paddingRight: 6 }}>
                       {(() => {
                         const filtered = notifications.filter(n => {
+                          if (n.event_type === "feedback") return false; // 피드백은 전용 탭으로 분리
                           const matchesSev = severityFilter === "all" || n.severity === severityFilter;
                           const matchesType = typeFilter === "all" || n.event_type === typeFilter;
                           return matchesSev && matchesType;
@@ -1249,6 +1326,188 @@ export function AdminDashboardView({ onClose }: Props) {
                                 >
                                   <Icon name="trash" size={14} />
                                 </button>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* 5-0. 사용자 피드백 탭 */}
+                {activeTab === "feedback" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    {(() => {
+                      const items = notifications.filter(n => n.event_type === "feedback");
+                      const unread = items.filter(n => !n.read_at).length;
+                      const catMeta: Record<string, { label: string; color: string }> = {
+                        bug: { label: "🐞 버그", color: "#c95c5c" },
+                        idea: { label: "💡 제안", color: "#d9a752" },
+                        other: { label: "💬 기타", color: "#5b8c7a" },
+                      };
+                      const catOf = (n: AdminNotificationData) => (n.payload?.category as string) || "other";
+                      const counts = {
+                        bug: items.filter(n => catOf(n) === "bug").length,
+                        idea: items.filter(n => catOf(n) === "idea").length,
+                        other: items.filter(n => catOf(n) === "other").length,
+                      };
+                      const shown = feedbackCatFilter === "all" ? items : items.filter(n => catOf(n) === feedbackCatFilter);
+                      return (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>사용자 피드백</div>
+                              <div style={{ fontSize: 12, opacity: 0.5, marginTop: 4 }}>
+                                앱에서 사용자가 직접 보낸 피드백입니다. 미확인 {unread}건 · 전체 {items.length}건
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <select
+                                value={feedbackCatFilter}
+                                onChange={e => setFeedbackCatFilter(e.target.value as any)}
+                                style={{
+                                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                                  color: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: 12, cursor: "pointer",
+                                }}
+                              >
+                                <option value="all">전체 종류 ({items.length})</option>
+                                <option value="bug">🐞 버그 ({counts.bug})</option>
+                                <option value="idea">💡 제안 ({counts.idea})</option>
+                                <option value="other">💬 기타 ({counts.other})</option>
+                              </select>
+                              <button
+                                onClick={() => handleMarkAllAsRead(n => n.event_type === "feedback")}
+                                disabled={unread === 0}
+                                style={{
+                                  background: "rgba(91, 140, 122, 0.15)", color: "#5b8c7a",
+                                  border: "1px solid rgba(91, 140, 122, 0.3)", borderRadius: 8,
+                                  padding: "8px 16px", fontSize: 12, fontWeight: 700,
+                                  cursor: unread === 0 ? "default" : "pointer", opacity: unread === 0 ? 0.5 : 1,
+                                }}
+                              >
+                                ✓ 모두 읽음
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: "62vh", overflowY: "auto", paddingRight: 6 }}>
+                            {shown.length === 0 ? (
+                              <div style={{ textAlign: "center", padding: "60px 0", opacity: 0.4, fontSize: 13 }}>
+                                {items.length === 0 ? "아직 받은 피드백이 없습니다." : "이 종류의 피드백이 없습니다."}
+                              </div>
+                            ) : (
+                              shown.map(fb => {
+                                const cat = catMeta[fb.payload?.category as string] || { label: "💬 피드백", color: "#5b8c7a" };
+                                const isRead = !!fb.read_at;
+                                const email = fb.payload?.contact_email as string | undefined;
+                                return (
+                                  <div key={fb.id} style={{ border: `1px solid ${isRead ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.12)"}`, borderLeft: `3px solid ${cat.color}`, borderRadius: 12, padding: "14px 16px", background: isRead ? "rgba(255,255,255,0.01)" : "rgba(255,255,255,0.02)", opacity: isRead ? 0.6 : 1 }}>
+                                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                          <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 5, background: `${cat.color}22`, color: cat.color }}>{cat.label}</span>
+                                          {!isRead && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 5, background: "rgba(201,92,92,0.18)", color: "#ff7b72" }}>NEW</span>}
+                                          <span style={{ fontSize: 11, opacity: 0.4 }}>{new Date(fb.created_at).toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginTop: 8, lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{fb.message}</div>
+                                        <div style={{ fontSize: 11, opacity: 0.45, marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                                          {email && <span>✉ {email}</span>}
+                                          {fb.payload?.client && <span>{fb.payload.client}</span>}
+                                          {fb.payload?.app_version && <span>v{fb.payload.app_version}</span>}
+                                          {fb.payload?.lang && <span>{fb.payload.lang}</span>}
+                                          {fb.payload?.plan && <span>{fb.payload.plan}</span>}
+                                          {fb.payload?.route && <span>route: {fb.payload.route}</span>}
+                                        </div>
+                                      </div>
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+                                        {!isRead && (
+                                          <button onClick={() => handleMarkAsRead(fb.id)} style={{ background: "none", border: "none", color: "#5b8c7a", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>읽음 처리</button>
+                                        )}
+                                        {email && (
+                                          <a href={`mailto:${email}?subject=${encodeURIComponent("[BaroSit] 피드백 회신")}`} style={{ color: "#7eb09c", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>답장</a>
+                                        )}
+                                        <button onClick={() => handleDeleteNotification(fb.id)} title="삭제" style={{ background: "none", border: "none", color: "rgba(201,92,92,0.7)", cursor: "pointer", padding: 4 }}>
+                                          <Icon name="trash" size={14} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* 5-1. 오류 리포트 탭 */}
+                {activeTab === "errors" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>클라이언트 오류 리포트</div>
+                        <div style={{ fontSize: 12, opacity: 0.5, marginTop: 4 }}>
+                          앱에서 발생한 예외를 fingerprint 로 묶어 집계합니다 (같은 오류 = 1행 + 발생 횟수). 미해결 {clientErrors.filter(e => !e.resolved).length}건 · 전체 {clientErrors.length}건
+                        </div>
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#ccc", cursor: "pointer" }}>
+                        <input type="checkbox" checked={showResolvedErrors} onChange={e => setShowResolvedErrors(e.target.checked)} />
+                        해결된 항목도 표시
+                      </label>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: "62vh", overflowY: "auto", paddingRight: 6 }}>
+                      {(() => {
+                        const list = clientErrors.filter(e => showResolvedErrors || !e.resolved);
+                        if (list.length === 0) {
+                          return (
+                            <div style={{ textAlign: "center", padding: "60px 0", opacity: 0.4, fontSize: 13 }}>
+                              {clientErrors.length === 0 ? "수집된 오류 리포트가 없습니다. 👍" : "표시할 미해결 오류가 없습니다."}
+                            </div>
+                          );
+                        }
+                        const kindColor: Record<string, string> = { react: "#c95c5c", promise: "#d9a752", window: "#5b8c7a" };
+                        return list.map(err => {
+                          const accent = err.resolved ? "#666" : (kindColor[err.kind] || "#9aa3b2");
+                          const open = expandedError === err.id;
+                          return (
+                            <div key={err.id} style={{ border: `1px solid ${err.resolved ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.12)"}`, borderLeft: `3px solid ${accent}`, borderRadius: 12, padding: "14px 16px", background: err.resolved ? "rgba(255,255,255,0.01)" : "rgba(255,255,255,0.02)", opacity: err.resolved ? 0.6 : 1 }}>
+                              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5, background: `${accent}22`, color: accent, textTransform: "uppercase" }}>{err.kind}</span>
+                                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(201,92,92,0.15)", color: "#ff7b72" }}>×{err.count}</span>
+                                    {err.resolved && <span style={{ fontSize: 10, color: "#5b8c7a" }}>해결됨</span>}
+                                    <span style={{ fontSize: 11, opacity: 0.4 }}>{new Date(err.last_seen).toLocaleString()}</span>
+                                  </div>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", marginTop: 8, lineHeight: 1.45, wordBreak: "break-word" }}>{err.message}</div>
+                                  <div style={{ fontSize: 11, opacity: 0.45, marginTop: 6, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                                    {err.route && <span>route: {err.route}</span>}
+                                    {err.client && <span>{err.client}</span>}
+                                    {err.app_version && <span>v{err.app_version}</span>}
+                                    {err.lang && <span>{err.lang}</span>}
+                                    {err.plan && <span>{err.plan}</span>}
+                                  </div>
+                                  {err.stack && (
+                                    <button onClick={() => setExpandedError(open ? null : err.id)} style={{ marginTop: 8, background: "none", border: "none", color: "#5b8c7a", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>
+                                      {open ? "스택 접기 ▲" : "스택 보기 ▼"}
+                                    </button>
+                                  )}
+                                  {open && err.stack && (
+                                    <pre style={{ marginTop: 8, padding: 12, background: "rgba(0,0,0,0.35)", borderRadius: 8, fontSize: 11, lineHeight: 1.5, color: "#ccc", overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 240 }}>{err.stack}</pre>
+                                  )}
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+                                  <button onClick={() => handleToggleErrorResolved(err)} style={{ background: "none", border: "none", color: err.resolved ? "#d9a752" : "#5b8c7a", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                                    {err.resolved ? "되돌리기" : "해결 처리"}
+                                  </button>
+                                  <button onClick={() => handleDeleteError(err.id)} title="삭제" style={{ background: "none", border: "none", color: "rgba(201,92,92,0.7)", cursor: "pointer", padding: 4 }}>
+                                    <Icon name="trash" size={14} />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );

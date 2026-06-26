@@ -38,6 +38,7 @@ import {
 import { platform } from "./platform";
 import { supabase } from "./auth/supabase";
 import { pullProfileFromServer, pullSettingsFromServer } from "./lib/syncService";
+import { reportError } from "./lib/errorReporting";
 
 const ONBOARDED_KEY = "onboarded_v1";
 
@@ -57,6 +58,9 @@ class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[barosit] React render error", error, info);
+    reportError(error, "react", {
+      stack: error.stack || info.componentStack || undefined,
+    });
   }
 
   render() {

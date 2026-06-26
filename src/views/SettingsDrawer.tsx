@@ -50,6 +50,7 @@ import {
 } from "../pose/thresholds";
 import type { PostureType } from "../pose/types";
 import { isPrivacyMode, setPrivacyMode } from "../privacyConfig";
+import { isErrorReportingEnabled, setErrorReportingEnabled } from "../lib/errorReporting";
 import {
   loadPerformanceProfile,
   setPerformanceProfile,
@@ -66,6 +67,7 @@ import { platform } from "../platform";
 
 import type { UpdaterState } from "../updater";
 import type { LegalDocKind } from "../components/LegalDocument";
+import { FeedbackModal } from "../components/FeedbackModal";
 
 interface Props {
   onClose: () => void;
@@ -134,6 +136,12 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
   const [perfProfile, setPerfProfile] = useState<PerformanceProfile>(() =>
     loadPerformanceProfile(),
   );
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [errReport, setErrReport] = useState<boolean>(() => isErrorReportingEnabled());
+  const toggleErrReport = (v: boolean) => {
+    setErrReport(v);
+    setErrorReportingEnabled(v);
+  };
 
   const updateBreakConfig = (next: BreakConfig) => {
     setBreakConfigState(next);
@@ -981,6 +989,14 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               {t("privacy.note")}
             </div>
           </div>
+          <div style={{ marginTop: 12 }}>
+            <Row
+              label={t("privacy.errorReport.label")}
+              sub={t("privacy.errorReport.sub")}
+              v={errReport}
+              onChange={toggleErrReport}
+            />
+          </div>
         </Section>
 
         {/* 성능 모드 */}
@@ -1321,8 +1337,19 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
               {t("about.terms")}
             </button>
           </div>
+
+          <button
+            type="button"
+            className="b-btn b-btn-quiet"
+            onClick={() => setFeedbackOpen(true)}
+            style={{ marginTop: 14, fontSize: 12, width: "100%" }}
+          >
+            💬 {t("feedback.open")}
+          </button>
         </Section>
       </aside>
+
+      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
     </>
   );
 }
