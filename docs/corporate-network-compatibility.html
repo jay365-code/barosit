@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BaroSit 사내망(기업 보안 환경) 호환성 검토 보고서</title>
+<style>
+  :root {
+    --bg: #0f1214;
+    --bg-2: #15181a;
+    --bg-3: #1b1f22;
+    --fg-1: #e8edf0;
+    --fg-2: #b4bcc2;
+    --fg-3: #8a949b;
+    --fg-4: #5c656b;
+    --accent: #7eb09c;
+    --accent-2: #5b8c7a;
+    --warn: #e08866;
+    --crit: #f0726a;
+    --ok: #7eb09c;
+    --line: rgba(255,255,255,0.08);
+    --line-2: rgba(255,255,255,0.05);
+    --code-bg: #0b0e10;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg-1);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+      "Pretendard", "Noto Sans KR", Roboto, sans-serif;
+    line-height: 1.65;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 28px 120px; }
+
+  header.hero {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 28px;
+    margin-bottom: 36px;
+  }
+  header.hero h1 {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 10px;
+    background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.65) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  header.hero .sub { color: var(--fg-3); font-size: 14px; }
+  header.hero .meta {
+    margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px;
+  }
+  .chip {
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px;
+    padding: 4px 12px; color: var(--fg-2);
+  }
+  .chip.ok  { border-color: rgba(126,176,156,0.4); color: #7eb09c; }
+  .chip.warn{ border-color: rgba(224,136,102,0.4); color: #e08866; }
+  .chip.crit{ border-color: rgba(240,114,106,0.4); color: #f0726a; }
+
+  h2 {
+    font-size: 21px; font-weight: 800; letter-spacing: -0.01em;
+    margin: 52px 0 16px; padding-top: 12px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  h2 .num {
+    font-size: 13px; color: var(--accent); font-weight: 700;
+    border: 1px solid rgba(126,176,156,0.3); border-radius: 8px;
+    padding: 2px 8px; flex-shrink: 0;
+  }
+  h3 { font-size: 16.5px; font-weight: 700; margin: 32px 0 12px; color: var(--fg-1); }
+  h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; color: var(--accent); }
+  p { color: var(--fg-2); margin: 12px 0; }
+  a { color: var(--accent); }
+  strong { color: var(--fg-1); }
+  code {
+    background: var(--code-bg); border: 1px solid var(--line-2); border-radius: 5px;
+    padding: 1px 6px; font-size: 12.5px; color: #c8d6cf;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; overflow-x: auto; font-size: 12.5px; line-height: 1.55;
+    color: #c8d6cf; font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  pre code { background: none; border: none; padding: 0; }
+
+  /* TOC */
+  nav.toc {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px 24px; margin-bottom: 8px;
+  }
+  nav.toc h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-4); }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc li { margin: 5px 0; font-size: 13.5px; }
+  nav.toc a { color: var(--fg-2); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+
+  /* Cards */
+  .card {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 22px; margin: 16px 0;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } nav.toc ol { columns: 1; } }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--fg-3); font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; background: var(--bg-2); }
+  td { color: var(--fg-2); }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+  td code { font-size: 11.5px; }
+
+  /* status badges */
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .b-ok { background: rgba(126,176,156,0.15); color: var(--ok); }
+  .b-partial { background: rgba(224,136,102,0.15); color: var(--warn); }
+  .b-no { background: rgba(240,114,106,0.15); color: var(--crit); }
+  .b-na { background: rgba(255,255,255,0.06); color: var(--fg-4); }
+
+  .sev { display:inline-block; width: 54px; text-align:center; font-size: 11px; font-weight: 800; padding: 2px 0; border-radius: 6px; }
+  .sev-c { background: rgba(240,114,106,0.18); color: var(--crit); border: 1px solid rgba(240,114,106,0.3); }
+  .sev-h { background: rgba(224,136,102,0.18); color: var(--warn); border: 1px solid rgba(224,136,102,0.3); }
+  .sev-m { background: rgba(214,196,120,0.15); color: #d6c478; border: 1px solid rgba(214,196,120,0.25); }
+  .sev-l { background: rgba(126,176,156,0.12); color: var(--accent); border: 1px solid rgba(126,176,156,0.22); }
+
+  /* flow diagram */
+  .flow {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px; margin: 16px 0; font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px; color: var(--fg-2); overflow-x: auto; line-height: 1.7; white-space: pre;
+  }
+
+  .callout { background: rgba(126,176,156,0.06); border: 1px solid rgba(126,176,156,0.22); border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 14px; }
+  .callout.warn { background: rgba(224,136,102,0.07); border-color: rgba(224,136,102,0.28); }
+  .callout.crit { background: rgba(240,114,106,0.07); border-color: rgba(240,114,106,0.28); }
+  .callout .lbl { font-weight: 800; color: var(--accent); margin-right: 6px; }
+  .callout.warn .lbl { color: var(--warn); }
+  .callout.crit .lbl { color: var(--crit); }
+
+  ul.tight li, ol.tight li { margin: 6px 0; color: var(--fg-2); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+  .muted { color: var(--fg-4); font-size: 12.5px; }
+  .nowrap { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>BaroSit 사내망 호환성 검토 보고서</h1>
+  <div class="sub">기업 사내망의 보안 통제(방화벽·프록시·SSL 인스펙션·DNS 필터링·포트 차단·앱 화이트리스트)가 BaroSit 기능에 미치는 영향 전수 분석 및 대응 권고</div>
+  <div class="meta">
+    <span class="chip">작성 2026-06-26</span>
+    <span class="chip">대상 BaroSit Desktop (Tauri 2) / Web</span>
+    <span class="chip ok">로컬 동작: 자세 감지 코어</span>
+    <span class="chip crit">차단 시 치명: 로그인·동기화·결제</span>
+    <span class="chip warn">타겟 제외: 은행·공공 등 고보안/망분리</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h3>목차</h3>
+  <ol>
+    <li><a href="#s1">한눈에 보는 요약</a></li>
+    <li><a href="#s2">기업 사내망의 보안 통제 유형</a></li>
+    <li><a href="#s3">BaroSit 외부 의존성 인벤토리</a></li>
+    <li><a href="#s4">기능별 영향 분석</a></li>
+    <li><a href="#s5">차단 시나리오별 동작</a></li>
+    <li><a href="#s6">특수 통제별 위험 (SSL 인스펙션·WS·딥링크)</a></li>
+    <li><a href="#s7">IT 관리자용 허용(Allowlist) 목록</a></li>
+    <li><a href="#s8">제품 개선 권고</a></li>
+    <li><a href="#s9">사용자·영업용 안내 체크리스트</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================= -->
+<h2 id="s1"><span class="num">01</span> 한눈에 보는 요약</h2>
+
+<p>
+BaroSit의 <strong>핵심 가치인 "자세 감지·코칭"은 온디바이스(로컬) 추론</strong>이라 사내망에서도 동작합니다.
+단, 자세 감지 AI 모델(MediaPipe)을 <strong>최초 1회 CDN에서 내려받아야</strong> 하고,
+로그인·클라우드 동기화·구독 결제·자동 업데이트는 모두 <strong>외부 SaaS 도메인에 대한 HTTPS/WebSocket 연결이 필수</strong>입니다.
+보안이 철저한 사내망(아웃바운드 화이트리스트 정책, SSL 인스펙션, WebSocket 차단)에서는 아래 기능들이 깨질 수 있습니다.
+</p>
+
+<div class="grid-2">
+  <div class="card">
+    <h4 style="margin-top:0">✅ 사내망에서도 동작 (로컬)</h4>
+    <ul class="tight" style="margin:0;padding-left:18px;font-size:13.5px">
+      <li>자세·목/어깨/손 감지 추론 (온디바이스, 카메라 영상은 외부 전송 없음)</li>
+      <li>실시간 자세 경고·넛지·집중 모드 (로컬 로직)</li>
+      <li>로컬 통계/설정 (로그인 없이 사용 가능한 범위)</li>
+      <li class="muted">단, AI 모델 파일은 최초 1회 다운로드 필요(이후 캐시)</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4 style="margin-top:0">⚠️ 사내망 차단 시 실패</h4>
+    <ul class="tight" style="margin:0;padding-left:18px;font-size:13.5px">
+      <li><span class="sev sev-c">치명</span> 소셜 로그인 (Google/Kakao/Apple/Naver/Line OAuth)</li>
+      <li><span class="sev sev-c">치명</span> 클라우드 동기화·Realtime (Supabase, WebSocket)</li>
+      <li><span class="sev sev-c">치명</span> 구독 결제 (Toss Payments)</li>
+      <li><span class="sev sev-h">높음</span> 자세 AI 모델 최초 다운로드 (Google Storage/jsDelivr)</li>
+      <li><span class="sev sev-m">중간</span> 자동 업데이트 (GitHub Releases)</li>
+      <li><span class="sev sev-l">낮음</span> LLM 코칭 문구·문의 메일·웹폰트 (폴백 있음)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout crit">
+  <span class="lbl">전제 — 망 정책은 바뀌지 않는다</span>
+  현실적으로 <strong>고객사가 BaroSit 하나 때문에 방화벽·망 정책을 변경하지 않습니다.</strong> 따라서 "IT에 화이트리스트(§7)를 요청하라"는 것을 주(主)전략으로 삼아선 안 됩니다.
+  §7은 <em>IT가 협조 가능한 드문 경우의 참고 자료</em>일 뿐이고, 우리의 실제 대응은 아래 두 가지입니다.
+</div>
+
+<div class="callout">
+  <span class="lbl">핵심 전략</span>
+  <strong>① 원인 투명 안내</strong> — 막히면 "왜 안 되는지"를 사용자에게 명확히 설명해 막연한 이탈을 막는다(§8 R2).
+  <strong>② 제한적 서비스 연속성</strong> — <strong>이미 이용 권한이 있는 사용자(Pro·무료체험)는 네트워크가 막혀도 자세 감지·경고가 끊기지 않도록</strong> 오프라인 회복력을 보장한다(§8 R1·R3). 동기화·신규 결제는 잠시 포기하더라도 핵심 효용은 유지한다. <em>(자세 감지는 Pro 전용 정책 유지 — 비로그인/Free 에게 무료 개방하는 것이 아니라, 정당한 Pro 가 차단망에서 강등되지 않게 하는 것)</em>
+</div>
+
+<h3>적용 범위 — 환경별 3단계 대응</h3>
+<p>"망 변경 없이도 무엇을 제공할 수 있는가"를 기준으로, 고객 환경을 3단계로 나눠 대응합니다.</p>
+<table>
+  <thead><tr><th style="width:26%">환경</th><th style="width:18%">대응</th><th>제공 범위</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>① 일반(개인·재택·일반 사무망)</strong><br/><span class="muted">인터넷 가능, 카메라 허용</span></td>
+      <td><span class="badge b-ok">전체 제공</span></td>
+      <td>로그인·동기화·구독 포함 모든 기능 정상</td>
+    </tr>
+    <tr>
+      <td><strong>② 보안 이슈 사업장</strong><br/><span class="muted">외부망 일부/전면 차단, 단 카메라는 사용 가능</span></td>
+      <td><span class="badge b-partial">제한적 연속성</span></td>
+      <td><strong>이미 Pro·무료체험인 사용자는 오프라인/차단 환경에서도 자세 감지·경고가 끊기지 않음</strong>(강등 안 함). 신규 결제·클라우드 동기화·자동 업데이트만 보류되고, 원인은 사용자에게 안내. <span class="muted">(자세 감지는 Pro 전용 — 비로그인/Free 게스트에게 열리는 것은 아님)</span></td>
+    </tr>
+    <tr>
+      <td><strong>③ 고보안 / 망분리</strong><br/><span class="muted">완전 망분리 또는 웹캠 자체 금지</span></td>
+      <td><span class="badge b-no">타겟 제외</span></td>
+      <td>제품으로 풀 수 없음(카메라 금지 시 핵심 기능 불가). 엔터프라이즈 백로그로만 유지</td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout">
+  <span class="lbl">설계 원칙</span>
+  <strong>망 변경을 전제하지 않는다.</strong> ②번 "보안 이슈 사업장"이 핵심 공략 지점 — 망을 못 바꿔도 <strong>카메라만 되면 로컬 핵심 기능이 끊기지 않게</strong> 만들어, 막힌 환경에서도 제한적 서비스 연속성을 제공합니다. ③번(망분리·카메라 금지)만 현 단계 타겟에서 제외하며, 별도 제품 라인(오프라인 빌드·온프레미스 라이선스·보안성 심의)이 필요한 시장으로 남겨둡니다.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s2"><span class="num">02</span> 기업 사내망의 보안 통제 유형</h2>
+
+<p>일반적인 기업 사내망에서 외부 앱 통신에 영향을 주는 통제는 다음과 같습니다. 각 통제가 BaroSit에 미치는 영향을 본 보고서 전반에서 매핑합니다.</p>
+
+<table>
+  <thead><tr><th style="width:22%">통제 유형</th><th>설명</th><th style="width:30%">BaroSit 영향 지점</th></tr></thead>
+  <tbody>
+    <tr><td><strong>아웃바운드 방화벽<br/>(도메인/IP 화이트리스트)</strong></td><td>허용 목록에 없는 외부 목적지로의 연결을 모두 차단. 가장 강력하고 흔한 통제.</td><td>Supabase·Toss·OAuth·CDN 전부 차단되면 로그인·동기화·결제·모델 다운로드 불가</td></tr>
+    <tr><td><strong>포워드 프록시<br/>(인증 프록시)</strong></td><td>모든 HTTP(S)가 사내 프록시를 경유. 종종 ID/PW 또는 NTLM/Kerberos 인증 요구.</td><td>Tauri WebView/Rust(reqwest)가 OS 프록시·프록시 인증을 따라가지 못하면 연결 실패</td></tr>
+    <tr><td><strong>SSL/TLS 인스펙션<br/>(MITM, 사내 루트 CA)</strong></td><td>프록시가 TLS를 복호화·재암호화. 사내 루트 CA 인증서를 클라이언트가 신뢰해야 함.</td><td>인증서 핀닝/표준 신뢰스토어 미사용 시 핸드셰이크 실패. WebSocket·딥링크에 특히 취약</td></tr>
+    <tr><td><strong>DNS 필터링</strong></td><td>도메인 카테고리(클라우드·결제·소셜)별 DNS 응답 차단.</td><td>도메인 해석 실패 → 모든 외부 호출 실패</td></tr>
+    <tr><td><strong>포트 차단</strong></td><td>443 외 포트, 또는 비표준 프로토콜 차단. WebSocket(Upgrade) 별도 차단도 흔함.</td><td>Supabase Realtime(WSS), OAuth 루프백(127.0.0.1 임의 포트) 위험</td></tr>
+    <tr><td><strong>엔드포인트 통제<br/>(EDR·앱 화이트리스트)</strong></td><td>승인되지 않은 실행파일 설치/실행 차단, 카메라 접근 정책, 코드서명 검증.</td><td>미서명/미승인 앱 설치 차단, 카메라 권한 거부 시 감지 자체 불가</td></tr>
+    <tr><td><strong>커스텀 URI 스킴 차단</strong></td><td>브라우저가 <code>barosit://</code> 같은 커스텀 스킴 핸들러 호출을 정책으로 차단.</td><td>데스크톱 OAuth 콜백(딥링크) 복귀 실패 → 로그인 미완료</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="s3"><span class="num">03</span> BaroSit 외부 의존성 인벤토리</h2>
+
+<p>코드베이스에서 확인된 전체 아웃바운드 목적지입니다. "필수"는 해당 기능 사용 시 차단되면 안 되는 도메인, "선택"은 폴백이 있어 차단돼도 핵심 동작은 유지되는 도메인입니다.</p>
+
+<table>
+  <thead><tr><th>목적지(도메인)</th><th>용도</th><th>프로토콜·포트</th><th>구분</th><th>코드 위치</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>*.supabase.co</code><br/><span class="muted">kllcnllkcewnutxodwhx.supabase.co</span></td>
+      <td>인증·DB·RPC·Realtime</td>
+      <td>HTTPS 443 + <strong>WSS 443</strong></td>
+      <td><span class="badge b-no">필수</span></td>
+      <td><code>src/auth/supabase.ts</code></td>
+    </tr>
+    <tr>
+      <td><code>accounts.google.com</code><br/><code>kauth.kakao.com</code><br/><code>appleid.apple.com</code><br/><code>nid.naver.com</code> · <code>auth.line.me</code></td>
+      <td>소셜 로그인 OAuth (사용 provider 1개 이상 필요)</td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-no">필수</span></td>
+      <td><code>src/auth/useAuth.ts</code></td>
+    </tr>
+    <tr>
+      <td><code>barosit.com</code></td>
+      <td>데스크톱 OAuth 브리지(<code>/desktop-auth-redirect.html</code>), 마케팅·다운로드 안내</td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-no">필수(로그인)</span></td>
+      <td><code>src/auth/useAuth.ts:178</code></td>
+    </tr>
+    <tr>
+      <td><code>js.tosspayments.com</code><br/><code>api.tosspayments.com</code></td>
+      <td>구독 결제 SDK·결제창·빌링</td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-no">필수(결제)</span></td>
+      <td><code>src/views/PricingView.tsx</code></td>
+    </tr>
+    <tr>
+      <td><code>storage.googleapis.com</code><br/><span class="muted">(mediapipe-models)</span></td>
+      <td>자세/얼굴/손/세그멘테이션 AI 모델 <code>.task</code>/<code>.tflite</code></td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-partial">최초 필수</span></td>
+      <td><code>src/pose/detector.ts</code></td>
+    </tr>
+    <tr>
+      <td><code>cdn.jsdelivr.net</code></td>
+      <td>MediaPipe WASM 런타임, Pretendard 웹폰트</td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-partial">최초 필수</span></td>
+      <td><code>src/pose/detector.ts</code>, <code>index.html</code></td>
+    </tr>
+    <tr>
+      <td><code>github.com</code><br/><span class="muted">(releases)</span></td>
+      <td>자동 업데이트 체크/다운로드(<code>latest.json</code>)</td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-partial">선택</span></td>
+      <td><code>src-tauri/tauri.conf.json:90</code></td>
+    </tr>
+    <tr>
+      <td><code>api.anthropic.com</code></td>
+      <td>LLM 자세 코칭 문구 생성(선택 기능)</td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-partial">선택</span></td>
+      <td><code>src-tauri/src/llm.rs</code></td>
+    </tr>
+    <tr>
+      <td><code>api.resend.com</code></td>
+      <td>문의·결제 알림 메일 발송(서버 Edge Function)</td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-na">서버측</span></td>
+      <td><code>supabase/functions/_shared/email.ts</code></td>
+    </tr>
+    <tr>
+      <td><code>fonts.googleapis.com</code><br/><code>fonts.gstatic.com</code></td>
+      <td>웹폰트(JetBrains Mono 등)</td>
+      <td>HTTPS 443</td>
+      <td><span class="badge b-ok">선택</span></td>
+      <td><code>index.html</code></td>
+    </tr>
+    <tr>
+      <td><code>127.0.0.1</code> 루프백</td>
+      <td>Windows MSIX OAuth 딥링크 폴백(RFC 8252)</td>
+      <td>HTTP 임의 고포트</td>
+      <td><span class="badge b-partial">조건부</span></td>
+      <td><code>src/auth/useAuth.ts</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="muted">※ <code>api.resend.com</code>은 사용자 PC가 아니라 Supabase Edge Function(서버)에서 호출하므로 사내망 방화벽과 무관합니다 — 메일이 안 오면 서버 이슈이지 사내망 이슈가 아닙니다.</p>
+
+<!-- ============================================================= -->
+<h2 id="s4"><span class="num">04</span> 기능별 영향 분석</h2>
+
+<table>
+  <thead><tr><th style="width:24%">기능</th><th style="width:12%">네트워크 의존</th><th>차단 시 증상</th><th style="width:14%">심각도</th><th>폴백/회피</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>자세·목/어깨 감지</strong></td><td>로컬 추론<br/>(모델만 최초 다운로드)</td>
+      <td>모델 캐시가 있으면 정상. 최초 실행 시 CDN 차단되면 감지 시작 불가</td>
+      <td><span class="sev sev-h">높음</span></td>
+      <td>모델 앱 번들링(§8 R1) 시 완전 오프라인</td>
+    </tr>
+    <tr>
+      <td><strong>실시간 경고·넛지·집중모드</strong></td><td>로컬</td>
+      <td>영향 없음(감지가 동작하는 한)</td>
+      <td><span class="sev sev-l">없음</span></td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td><strong>소셜 로그인</strong></td><td>필수</td>
+      <td>OAuth provider/Supabase 차단 시 로그인 불가. 데스크톱은 브리지 페이지(barosit.com)·딥링크까지 모두 필요</td>
+      <td><span class="sev sev-c">치명</span></td>
+      <td>없음 — 로그인 자체가 외부 의존</td>
+    </tr>
+    <tr>
+      <td><strong>클라우드 동기화 / Realtime</strong></td><td>필수(WSS)</td>
+      <td>Supabase 또는 WebSocket 차단 시 동기화 멈춤·실시간 갱신 끊김</td>
+      <td><span class="sev sev-c">치명</span></td>
+      <td>로컬 데이터로 사용은 가능, 동기화만 보류</td>
+    </tr>
+    <tr>
+      <td><strong>구독 결제</strong></td><td>필수</td>
+      <td>Toss 도메인 차단 시 결제창 미로딩·결제 실패</td>
+      <td><span class="sev sev-c">치명</span></td>
+      <td>개인 망/모바일로 결제 후 사내망 사용 가능</td>
+    </tr>
+    <tr>
+      <td><strong>자동 업데이트</strong></td><td>선택</td>
+      <td>GitHub 차단 시 업데이트 체크 실패(앱 동작엔 영향 없음)</td>
+      <td><span class="sev sev-m">중간</span></td>
+      <td>IT 배포(MSI/사내 패키지) 또는 수동 설치</td>
+    </tr>
+    <tr>
+      <td><strong>LLM 코칭 문구</strong></td><td>선택</td>
+      <td>Anthropic 차단 시 AI 문구만 미생성</td>
+      <td><span class="sev sev-l">낮음</span></td>
+      <td>내장 기본 코칭 문구로 폴백</td>
+    </tr>
+    <tr>
+      <td><strong>문의·피드백</strong></td><td>필수(전송 시)</td>
+      <td>Supabase RPC 차단 시 제출 실패</td>
+      <td><span class="sev sev-m">중간</span></td>
+      <td>이메일 직접 문의 안내</td>
+    </tr>
+    <tr>
+      <td><strong>웹폰트·디자인</strong></td><td>선택</td>
+      <td>CDN 차단 시 시스템 폴백 폰트로 표시(미세한 외형 차이)</td>
+      <td><span class="sev sev-l">낮음</span></td>
+      <td>자동 폴백</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================================================= -->
+<h2 id="s5"><span class="num">05</span> 차단 시나리오별 동작</h2>
+
+<h3>시나리오 A — 전면 화이트리스트(허용 목록 외 전면 차단), BaroSit 미등록</h3>
+<div class="flow">[앱 실행]
+   ├─ 모델 다운로드 시도 → storage.googleapis.com / jsdelivr  ❌ 차단
+   │     → 캐시 있음: 자세 감지 정상 / 캐시 없음: 감지 시작 실패
+   ├─ 로그인 시도 → Supabase + OAuth provider           ❌ 차단 → 로그인 불가
+   ├─ 동기화/Realtime → *.supabase.co (WSS)             ❌ 차단 → 동기화 멈춤
+   └─ 결제 → tosspayments.com                           ❌ 차단 → 결제 불가
+[결과] 최초 실행이면 사실상 사용 불가 / 이미 모델 캐시·로그인된 상태면 "로컬 자세 감지"만 동작</div>
+
+<h3>시나리오 B — 주요 SaaS는 허용, 소셜·결제 카테고리만 차단</h3>
+<p>회사가 클라우드 스토리지·API는 허용하되 "소셜미디어"/"결제" 카테고리를 DNS로 차단하는 경우. 로그인이 막히면 BaroSit은 비로그인 로컬 모드로만 쓸 수 있습니다.</p>
+
+<h3>시나리오 C — 인증 프록시 + SSL 인스펙션</h3>
+<p>가장 까다로운 환경. 도메인은 허용돼도 (1) 프록시 인증을 통과하지 못하거나, (2) 사내 루트 CA를 클라이언트가 신뢰하지 않으면 TLS 핸드셰이크가 깨집니다. 특히 <strong>WebSocket(Realtime)</strong>과 <strong>Tauri Rust(reqwest) 호출(LLM·업데이터)</strong>은 OS 신뢰스토어/프록시 설정을 따라가지 못할 위험이 큽니다(§6).</p>
+
+<h3>시나리오 D — 권장 화이트리스트 적용(§7) </h3>
+<p>§7 목록을 443/WSS로 허용하면 모든 기능 정상 동작. 가장 깔끔한 해법이며 IT 부서에 §7 표를 그대로 전달하면 됩니다.</p>
+
+<!-- ============================================================= -->
+<h2 id="s6"><span class="num">06</span> 특수 통제별 위험 (SSL 인스펙션·WebSocket·딥링크)</h2>
+
+<div class="card">
+  <h4 style="margin-top:0">① WebSocket (Supabase Realtime)</h4>
+  <p style="margin:6px 0">동기화·실시간 알림은 <code>wss://*.supabase.co</code>로 연결합니다. 방화벽이 HTTP는 통과시켜도 <strong>WebSocket Upgrade를 별도로 차단</strong>하거나 SSL 인스펙션이 WS 프레임을 끊는 사례가 흔합니다. 이 경우 로그인·1회성 조회는 되는데 <em>실시간 갱신만 안 되는</em> 부분 장애로 나타납니다.</p>
+</div>
+
+<div class="card">
+  <h4 style="margin-top:0">② 커스텀 URI 스킴 딥링크 (<code>barosit://</code>)</h4>
+  <p style="margin:6px 0">데스크톱 OAuth는 외부 브라우저에서 인증 후 <code>barosit.com/desktop-auth-redirect.html</code> → <code>barosit://auth-callback</code>로 앱에 복귀합니다. 브라우저 정책이 커스텀 스킴 실행을 차단하면 <strong>로그인이 브라우저에서 멈춥니다.</strong> Windows는 루프백(<code>127.0.0.1</code> 고포트) 폴백이 있으나, 이 역시 로컬 포트 정책에 막힐 수 있습니다.</p>
+</div>
+
+<div class="card">
+  <h4 style="margin-top:0">③ SSL 인스펙션 & 사내 루트 CA</h4>
+  <p style="margin:6px 0">BaroSit은 <strong>인증서 핀닝을 쓰지 않으므로</strong>, OS 신뢰스토어에 사내 루트 CA가 설치돼 있으면 대부분의 HTTPS는 통과합니다. 다만 Tauri의 Rust 측 HTTP 클라이언트(업데이터·LLM)가 OS 신뢰스토어/프록시를 자동 반영하는지는 환경별 검증이 필요합니다(§8 R4).</p>
+</div>
+
+<div class="card">
+  <h4 style="margin-top:0">④ 카메라 접근 정책 (EDR/DLP)</h4>
+  <p style="margin:6px 0">사내 보안 솔루션이 카메라 접근을 차단/감사하면 자세 감지 자체가 동작하지 않습니다. <strong>BaroSit은 카메라 영상을 외부로 전송하지 않고 로컬에서만 추론</strong>하므로 이 점을 IT 부서에 명확히 안내하면 승인에 유리합니다(§9).</p>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s7"><span class="num">07</span> IT 관리자용 허용(Allowlist) 목록</h2>
+
+<div class="callout warn">
+  <span class="lbl">참고용 자료입니다</span>
+  앞서 밝혔듯 <strong>대부분의 고객사는 BaroSit 때문에 망 정책을 바꾸지 않습니다.</strong> 이 목록은 IT가 협조 가능한 드문 경우(소규모·유연한 사내망)에 한해 그대로 전달할 수 있는 참고 자료이며, 주 전략은 §8 R1·R2·R3의 <strong>제한적 서비스 연속성</strong>입니다.
+</div>
+<p>아래 목적지를 <strong>아웃바운드 TCP 443</strong>으로 허용하면 모든 기능이 정상 동작합니다. 최소 구성과 권장(전체) 구성으로 나눴습니다.</p>
+
+<h3>최소 구성 — 핵심 기능(로그인·동기화·감지)만</h3>
+<pre><code># HTTPS 443 + WebSocket(WSS) 443
+*.supabase.co              # 인증·DB·Realtime (WSS 포함, 필수)
+barosit.com               # 데스크톱 OAuth 브리지
+accounts.google.com       # (사용하는 소셜 로그인 provider만)
+kauth.kakao.com
+appleid.apple.com
+storage.googleapis.com    # 자세 AI 모델 (최초 1회)
+cdn.jsdelivr.net          # MediaPipe WASM 런타임 (최초 1회)</code></pre>
+
+<h3>권장 구성 — 결제·업데이트·부가기능 포함</h3>
+<pre><code>js.tosspayments.com       # 결제 SDK
+api.tosspayments.com      # 결제/빌링 API
+nid.naver.com             # Naver 로그인 (사용 시)
+auth.line.me              # Line 로그인 (사용 시)
+github.com                # 자동 업데이트 (objects.githubusercontent.com 포함)
+api.anthropic.com         # LLM 코칭 문구 (선택)
+fonts.googleapis.com      # 웹폰트 (선택)
+fonts.gstatic.com</code></pre>
+
+<div class="callout warn">
+  <span class="lbl">방화벽 운영 주의</span>
+  ① <code>*.supabase.co</code>는 <strong>WebSocket(WSS)을 함께 허용</strong>해야 실시간 동기화가 됩니다.
+  ② SSL 인스펙션을 쓰면 사내 루트 CA가 클라이언트 OS 신뢰스토어에 설치돼 있어야 합니다.
+  ③ 브라우저 정책에서 <code>barosit://</code> 커스텀 스킴 실행을 허용하거나, 루프백(127.0.0.1) 로컬 포트를 막지 않아야 데스크톱 로그인이 완료됩니다.
+  ④ Supabase/Toss/GitHub는 IP가 동적이므로 <strong>IP가 아닌 도메인(FQDN) 기반</strong>으로 허용하세요.
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s8"><span class="num">08</span> 제품 개선 권고</h2>
+
+<p>화이트리스트 협조가 어려운 기업 고객까지 확보하려면, 사내망 친화성을 높이는 다음 작업을 권고합니다.</p>
+
+<div class="card" style="border-color:rgba(126,176,156,0.45)">
+  <h4 style="margin-top:0"><span class="badge b-ok">✅ 완료</span> R1. 자세 AI 모델 앱 번들링(오프라인 우선)</h4>
+  <p style="margin:6px 0"><strong>구현 완료(커밋 <code>d97037f</code>, 2026-06-26).</strong> MediaPipe WASM·모델 4종을 CDN(<code>jsdelivr</code>·<code>storage.googleapis.com</code>) 런타임 다운로드에서 <strong>앱 동봉 정적 자산(<code>/mediapipe/...</code>)으로 전환</strong>. CDN 차단·오프라인 환경에서도 자세 감지 코어가 동작하고, 자리비움 복귀 시 재다운로드도 사라짐 — 사내망 도입의 가장 큰 진입장벽 제거.</p>
+  <ul class="tight" style="margin:6px 0;padding-left:18px;font-size:13px">
+    <li><code>scripts/vendor-mediapipe.mjs</code>: wasm은 <code>node_modules</code>에서 복사, 모델은 1회 다운로드 → <code>public/mediapipe/</code> (멱등). <code>predev</code>/<code>prebuild</code> 훅 자동 실행.</li>
+    <li><code>src/pose/detector.ts</code>: 로컬 경로 로딩, <strong>src 내 CDN 참조 0건</strong>. 번들 자산 약 54MB(빌드 시 dist 동봉, 레포는 <code>.gitignore</code> 제외).</li>
+    <li class="muted">잔여: 재빌드 후 실런타임(카메라+자리비움 복귀) 동작 확인.</li>
+  </ul>
+</div>
+
+<div class="card" style="border-color:rgba(126,176,156,0.35)">
+  <h4 style="margin-top:0"><span class="badge b-ok">✅ 일부 완료</span> R2. 차단 원인 자동 진단·안내 (사용자 자력 대응)</h4>
+  <p style="margin:6px 0"><strong>✅ 1차 구현:</strong> 동기화 상태가 <code>offline</code>/<code>error</code>일 때 설정의 클라우드 동기화 섹션에 원인 안내 문구를 노출 — "사내 방화벽·보안 정책이나 네트워크 문제로 동기화 서버에 연결하지 못할 수 있으며, 자세 감지·경고 등 핵심 기능은 계속 사용 가능하고 복구 시 자동 동기화"(ko/en/ja i18n). <code>src/views/SettingsDrawer.tsx</code>, <code>src/i18n/locales/*/settings.json</code> (<code>sync.networkNote</code>). <strong>잔여:</strong> 도메인별 능동 진단(probe)·로그인 실패 시 안내·게이트별 세분 메시지.</p>
+  <p style="margin:6px 0">보안 때문에 기능이 막힌 사용자가 "그냥 안 돼요"로 이탈하지 않게, <strong>막힌 원인을 솔직히 설명하고 "그래도 쓸 수 있는 것"으로 안내</strong>하는 것이 핵심입니다. 망 변경을 요구하는 게 아니라, 차단을 전제로 한 안내입니다.</p>
+  <h4 style="margin-top:14px">동작 방식</h4>
+  <ul class="tight" style="margin:6px 0;padding-left:18px;font-size:13.5px">
+    <li>로그인·동기화·모델 다운로드 실패를 감지하면, 핵심 도메인 도달 여부를 점검(Supabase / OAuth / Toss / 모델 CDN / WebSocket).</li>
+    <li>막연한 에러 대신 원인별 메시지 + 무엇이 영향받는지 안내: 예) <em>"회사 보안 정책이 실시간 동기화·로그인 연결을 차단하고 있어요. 클라우드 동기화와 구독은 사용할 수 없지만, <strong>자세 감지·자세 경고는 그대로 사용할 수 있습니다.</strong>"</em></li>
+    <li>WebSocket만 끊긴 경우("로그인은 됐는데 실시간 갱신 안 됨") 같은 부분 장애도 구분해 안내.</li>
+    <li>차단 시 1순위 행동은 <strong>"로그인 없이 자세 감지 계속하기"(게스트/오프라인 모드, R3)</strong> — 즉시 핵심 효용으로 연결.</li>
+    <li>(보조) IT 협조가 가능한 사용자를 위해 §7 허용 목록을 복사해 전달할 수 있는 옵션만 제공 — 강요하지 않음.</li>
+  </ul>
+  <p style="margin:6px 0" class="muted">효과: 망이 막혀도 사용자는 "왜 안 되는지 + 무엇은 되는지"를 알고 계속 사용 → 보안 이슈 사업장에서 이탈 방지, 지원 문의 감소.</p>
+</div>
+
+<div class="card" style="border-color:rgba(126,176,156,0.45)">
+  <h4 style="margin-top:0"><span class="badge b-ok">✅ 일부 완료</span> R3. 오프라인 Pro 회복력 = 제한적 서비스 연속성의 본체</h4>
+  <p style="margin:6px 0">"보안 이슈 사업장"(환경 ②) 공략의 핵심. <strong>정당한 Pro·무료체험 사용자가 차단망/오프라인에서 권한 확인이 안 돼도 자세 감지가 끊기지 않게</strong> 하는 것. 자세 감지는 <strong>Pro 전용 정책을 유지</strong>하되(비로그인/Free 게스트 개방 아님), 서버 재검증 실패를 강등 사유로 쓰지 않는다. <strong>R1(모델 번들)과 합쳐야 완성</strong> — 모델까지 로컬에 있어야 진짜 오프라인이 되므로.</p>
+  <h4 style="margin-top:14px">권한(Entitlement) 처리 — 결정 사항 (오프라인 회복력 = A안 범위)</h4>
+  <ul class="tight" style="margin:6px 0;padding-left:18px;font-size:13.5px">
+    <li><strong>✅ 구현:</strong> 오프라인/조회 실패 시 <strong>과거 서버 검증 이력이 있는 Pro 는 강등하지 않음</strong>(기존 14일 캡 제거). 로그인 자체가 온라인을 요구하므로 정당한 Pro 는 검증 이력 보장 → 차단망에서 무기한 유지. <code>src/auth/useEntitlement.ts</code></li>
+    <li><strong>✅ 구현:</strong> 무료체험(<code>beta_free</code>) 모드는 오프라인에서도 <strong>Pro 와 동일 처리.</strong></li>
+    <li><strong>✅ 유지:</strong> 검증 이력이 전혀 없으면(캐시 신뢰 불가) Free — 변조 방어. 온라인 복구 시 서버값으로 자동 정정(해지/환불 강등 정상 동작).</li>
+    <li>네트워크 필수인 것(신규 결제·클라우드 동기화·자동 업데이트)만 보류하고 그 이유를 안내(R2).</li>
+    <li class="muted">※ 당초 광범위 C안("코어를 전원 무료")은 자세 감지가 곧 Pro 유료상품이라 수익모델과 충돌 → 오프라인 회복력(A안 범위)으로 좁혀 채택.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4 style="margin-top:0"><span class="sev sev-m">P2</span> R4. 프록시 / 사내 루트 CA 대응</h4>
+  <p style="margin:6px 0">Tauri Rust 측 HTTP 클라이언트(업데이터·LLM)가 <strong>OS 프록시 설정과 시스템 신뢰스토어를 따르도록</strong> 검증/설정. 프록시 인증(NTLM/Kerberos) 환경 테스트.</p>
+</div>
+
+<div class="card">
+  <h4 style="margin-top:0"><span class="sev sev-l">P3</span> R5. 사내 배포·업데이트 채널</h4>
+  <p style="margin:6px 0">GitHub Releases 차단 기업을 위해 <strong>MSI/사일런트 배포 패키지</strong>와 사내 업데이트 서버(또는 자동 업데이트 비활성 옵션) 제공. MS Store 채널도 대안.</p>
+</div>
+
+<!-- ============================================================= -->
+<h2 id="s9"><span class="num">09</span> 사용자·영업용 안내 체크리스트</h2>
+
+<h3>사내망에서 "로그인/동기화가 안 돼요" 1차 점검</h3>
+<ol class="tight">
+  <li>같은 PC에서 <strong>개인 핫스팟/모바일 테더링</strong>으로 바꿔 로그인 시도 → 되면 사내망 차단이 원인.</li>
+  <li>브라우저에서 <code>https://kllcnllkcewnutxodwhx.supabase.co</code> 접속 확인 → 막히면 Supabase 차단.</li>
+  <li>로그인 시 브라우저가 열리고 멈추면 → 커스텀 스킴(<code>barosit://</code>) 차단 가능성.</li>
+  <li>로그인은 되는데 동기화만 멈추면 → <strong>WebSocket 차단</strong> 가능성.</li>
+  <li>차단이 확인되면 망 변경을 기다리지 말고 → <strong>"로그인 없이 자세 감지 계속하기"(오프라인 모드)로 사용</strong>. 동기화·구독만 보류될 뿐 핵심 기능은 유지됩니다.</li>
+  <li>(선택) IT 협조가 가능한 환경이면 §7 표를 전달해 허용 요청 — 필수 아님.</li>
+</ol>
+
+<h3>IT 부서 승인 요청용 핵심 메시지</h3>
+<ul class="tight">
+  <li><strong>카메라 영상은 외부로 전송되지 않습니다.</strong> 자세 분석은 100% 사용자 PC 내 온디바이스 추론입니다.</li>
+  <li>서버로 가는 데이터는 계정/설정/통계 동기화 등 <strong>비영상 메타데이터</strong>뿐입니다.</li>
+  <li>필요한 허용 목록은 <strong>§7</strong>이며, 모두 표준 HTTPS(443)/WSS입니다. 비표준 포트·프로토콜은 사용하지 않습니다.</li>
+  <li>완전 오프라인 사내 배포가 필요하면 모델 번들 빌드(R1) 제공이 가능합니다(로드맵).</li>
+</ul>
+
+<hr/>
+<p class="muted">
+본 보고서는 <code>2026-06-26</code> 기준 코드베이스 정적 분석으로 작성되었습니다. 도메인·심각도는 코드에서 확인된 의존성 기준이며, 실제 차단 여부는 각 기업의 보안 정책에 따라 달라집니다.
+근거 파일: <code>src/auth/supabase.ts</code>, <code>src/auth/useAuth.ts</code>, <code>src/pose/detector.ts</code>, <code>src/views/PricingView.tsx</code>, <code>src-tauri/tauri.conf.json</code>, <code>src-tauri/src/llm.rs</code>, <code>index.html</code>.
+</p>
+
+</div>
+</body>
+</html>

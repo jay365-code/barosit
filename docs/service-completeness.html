@@ -68,7 +68,7 @@
 <body>
 <header>
   <h1>BaroSit 서비스 완성도 체크리스트</h1>
-  <div class="sub">전체 서비스 진행 상황 단일 추적 문서 · 최종 갱신 2026-06-26 · 기준 v0.3.8 ·
+  <div class="sub">전체 서비스 진행 상황 단일 추적 문서 · 최종 갱신 2026-06-26 · 기준 v0.3.9 ·
   진실의 원천은 <b>코드</b> (문서는 stale 가능)</div>
 </header>
 
@@ -160,11 +160,10 @@
       <div class="next"><b>다음 작업:</b> <code>navigator.getBattery</code> 기반 Eco 자동 전환.</div>
     </div>
 
-    <div class="item" data-status="verify">
-      <div class="item-top"><span class="title">MediaPipe 모델 CDN 로드 실패 재시도/타임아웃</span></div>
-      <div class="detail">GPU→CPU 폴백은 있으나 네트워크 끊김 시 무한 대기·재시도 정책 불명확. 첫 실행 20MB.</div>
-      <div class="ref">src/pose/detector.ts</div>
-      <div class="next"><b>다음 작업:</b> 로드 타임아웃 + 재시도 + 명확한 실패 메시지 확인/보강.</div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">MediaPipe 모델 CDN 의존 제거 (로컬 번들) + init 타임아웃</span></div>
+      <div class="detail">CDN 런타임 다운로드를 앱 동봉 정적 자산으로 전환(§15 R1)해 네트워크 끊김 시 무한 대기를 원천 제거. 자리비움 복귀 시 모델 재로드에 20s 타임아웃 → 행을 에러로 전환해 재시도 배너로 복구. (커밋 d97037f)</div>
+      <div class="ref">scripts/vendor-mediapipe.mjs · src/pose/detector.ts · src/hooks/usePoseLoop.ts</div>
     </div>
   </section>
 
@@ -495,6 +494,42 @@
       <div class="item-top"><span class="title">문서 stale 정정 (코드 기준 일치)</span><span class="gapid">DOC-1</span></div>
       <div class="detail">project-status.md "데스크탑 OAuth 미연결 ❌"은 stale(실제 구현됨). project-status ↔ launch-readiness 상충.</div>
       <div class="next"><b>다음 작업:</b> 인증/동기화 항목 상태를 코드 기준으로 일치.</div>
+    </div>
+  </section>
+
+  <!-- ============ 15. 사내망 / 오프라인 호환성 ============ -->
+  <section>
+    <div class="sec-head"><h2>15. 사내망 · 오프라인 호환성</h2><span class="sec-prog"></span></div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">검토 보고서 — 기업 사내망 호환성 전수 분석</span></div>
+      <div class="detail">방화벽·프록시·SSL 인스펙션·DNS·포트·딥링크 통제별 영향 매핑, 외부 의존성 인벤토리, 환경 3단계 대응(일반/보안이슈 사업장/고보안·망분리 제외), 허용목록·권고. <b>전제: 고객사는 우리 때문에 망을 안 바꾼다 → 차단 전제 + 제한적 서비스 연속성</b>.</div>
+      <div class="ref">docs/corporate-network-compatibility.html</div>
+    </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">R1. 자세 AI 모델·WASM 로컬 번들 (오프라인 우선)</span></div>
+      <div class="detail">MediaPipe wasm+모델 4종을 CDN(jsdelivr·googleapis) 런타임 다운로드 → 앱 동봉 정적 자산(<code>/mediapipe/...</code>). vendor 스크립트가 predev/prebuild 훅으로 자동 동봉(wasm은 node_modules 복사, 모델 1회 다운로드, 멱등). <b>src 내 CDN 참조 0건</b>, ~54MB(빌드 동봉·.gitignore 제외). 차단망/오프라인에서 자세 감지 코어 동작. (커밋 d97037f)</div>
+      <div class="ref">scripts/vendor-mediapipe.mjs · src/pose/detector.ts</div>
+    </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">R3. 오프라인 Pro 권한 회복력 (차단망 강등 방지)</span></div>
+      <div class="detail">오프라인/조회 실패 시 <b>과거 서버 검증 이력이 있는 Pro 는 강등하지 않음</b>(기존 14일 캡 제거). 무료체험(beta_free)도 오프라인에서 Pro 동일 처리. 검증 이력이 전혀 없으면 Free 유지(변조 방어). 온라인 복구 시 서버값으로 자동 정정(해지·환불 강등 정상). <b>Pro 전용 게이팅 자체는 유지</b> — 비로그인/Free 개방 아님. tsc·전체 테스트 83/83 통과.</div>
+      <div class="ref">src/auth/useEntitlement.ts</div>
+    </div>
+
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">R2. 차단 원인 사용자 안내</span></div>
+      <div class="detail">동기화 상태가 <code>offline</code>/<code>error</code>일 때 설정 동기화 섹션에 원인 안내 노출 — "사내 방화벽·보안 정책이나 네트워크 문제일 수 있으며, 자세 감지·경고 등 핵심 기능은 계속 사용 가능하고 복구 시 자동 동기화"(i18n ko/en/ja <code>sync.networkNote</code>).</div>
+      <div class="ref">src/views/SettingsDrawer.tsx · src/i18n/locales/*/settings.json</div>
+      <div class="next"><b>다음 작업:</b> 도메인별 능동 진단(probe), 로그인 실패 시 안내, 게이트별 세분 메시지.</div>
+    </div>
+
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">고보안·망분리 시장 (엔터프라이즈 SKU)</span></div>
+      <div class="detail">은행·공공 등 완전 망분리/웹캠 금지 환경은 현 단계 <b>타겟 제외</b>. 별도 제품 라인(온프레미스 라이선스·보안성 심의)이 필요한 시장으로 백로그 유지.</div>
+      <div class="next"><b>다음 작업:</b> 수요 확인 시 별도 검토 — 현 단계 미착수.</div>
     </div>
   </section>
 

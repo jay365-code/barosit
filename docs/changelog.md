@@ -2,6 +2,15 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-7. 사내망·오프라인 호환성 (R2·R3) — 2026-06-26 · v0.3.10
+
+기업 사내망(방화벽·SSL 인스펙션·망분리)에서 BaroSit 기능 영향 검토 → "망은 못 바꾼다"를 전제로 한 제한적 서비스 연속성 대응. (R1 모델 로컬 번들은 v0.3.9 에 선반영됨)
+
+- **R3 오프라인 Pro 권한 회복력** [src/auth/useEntitlement.ts](../src/auth/useEntitlement.ts): 오프라인/조회 실패 시 **과거 서버 검증 이력이 있는 Pro 는 강등하지 않음**(기존 14일 캡 제거) — 사내 방화벽으로 Supabase 가 차단돼도 정당한 Pro 가 끊기지 않게. 무료체험(beta_free)도 오프라인에서 Pro 동일 처리. 검증 이력 전무면 Free 유지(변조 방어). 온라인 복구 시 서버값으로 정정(해지·환불 강등 정상). **Pro 전용 게이팅 자체는 유지**(비로그인/Free 개방 아님).
+- **R2 차단 원인 사용자 안내** [src/views/SettingsDrawer.tsx](../src/views/SettingsDrawer.tsx): 동기화 상태가 `offline`/`error` 일 때 원인 안내 노출(사내 방화벽/네트워크 + 핵심기능 유지 + 자동복구). i18n `settings:sync.networkNote` ko/en/ja.
+- **문서**: [corporate-network-compatibility.html](corporate-network-compatibility.html) 검토 보고서 신규, [service-completeness.html](service-completeness.html) §15 신설.
+- 검증: tsc 통과, 전체 테스트 83/83 통과. (런타임 UI 는 offline/error 상태 + 설정 드로어 조건이라 정적 검증)
+
 ## 0-6. 능동 피드백 넛지 + privacy.md 명시 — 2026-06-26
 
 수동 피드백 버튼(설정 깊숙이, 응답률 ~0)을 보완하는 능동 넛지 + 법무 문서 동기화.
