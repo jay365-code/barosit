@@ -48,15 +48,39 @@ export function useIdleSuspend(lastPresentAtRef: { current: number }): boolean {
     poll();
 
     // 깨어남(슬립/덮개 닫힘 복귀) / 창 포커스 = 작업 재개 → 즉시 해제.
-    const resume = () => setSuspended(false);
+    const resume = () => setSuspended((cur) => (cur ? false : cur));
     const unsubWake = subscribeWake(resume);
     window.addEventListener("focus", resume);
+
+    // [복귀 신뢰성] suspend 중엔 카메라/keepAwake 가 꺼져 4s OS-idle 폴링만으로는
+    // 복귀가 늦거나(웹뷰 타이머 throttle) systemIdleSecs 값이 기대대로 안 떨어져
+    // 영영 안 깨는 경우가 있었다("입력해도 카메라가 안 돌아옴"). 창이 포커스된 동안
+    // 들어오는 실제 DOM 입력을 직접 복귀 신호로 써 폴링 의존을 없앤다. resume 은
+    // suspend 상태에서만 setState 하므로(위 updater) 평상시엔 리렌더 비용 0.
+    const onVisible = () => {
+      if (!document.hidden) resume();
+    };
+    const inputEvents = [
+      "keydown",
+      "pointerdown",
+      "pointermove",
+      "wheel",
+      "touchstart",
+    ] as const;
+    for (const ev of inputEvents) {
+      window.addEventListener(ev, resume, { passive: true });
+    }
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       cancelled = true;
       window.clearInterval(id);
       unsubWake();
       window.removeEventListener("focus", resume);
+      for (const ev of inputEvents) {
+        window.removeEventListener(ev, resume);
+      }
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

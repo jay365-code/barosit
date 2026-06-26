@@ -13,6 +13,32 @@ import type { DetectionFrame } from "../pose/types";
 // 잠깐 멈췄다 재개하는 경우엔 이 grace 안에 들어와 reload 없이 즉시 복귀.
 const IDLE_DISPOSE_MS = 60_000;
 
+// 모델 init(WASM fileset + .task 다운로드) 상한. 자리비움으로 모델을 해제한 뒤
+// 복귀할 때 CDN 재요청이 막힌 망(사내 방화벽 등)에서 무한 행(hang) 걸리면 ready 가
+// 영영 false 로 남아 "카메라 ON·실루엣/측정 없음·에러도 없음" 으로 고착된다. 상한을
+// 두어 그 경우 throw → 아래 catch 가 에러+재시도 배너를 띄워 사용자가 복구하게 한다.
+const INIT_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = window.setTimeout(
+      // 메시지에 "load/network" 포함 → friendlyModelError 가 네트워크 안내로 매핑.
+      () => reject(new Error(`${label}: model load timed out (network)`)),
+      ms,
+    );
+    p.then(
+      (v) => {
+        window.clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(id);
+        reject(e);
+      },
+    );
+  });
+}
+
 export interface UsePoseLoopOptions {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   enabled: boolean;
@@ -85,7 +111,7 @@ export function usePoseLoop({
     (async () => {
       try {
         setError(null);
-        await initLandmarkers();
+        await withTimeout(initLandmarkers(), INIT_TIMEOUT_MS, "initLandmarkers");
         if (cancelled) return;
         setReady(true);
       } catch (e) {

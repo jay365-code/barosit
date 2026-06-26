@@ -12,22 +12,24 @@ import type {
   Landmarks,
 } from "./types";
 
-const WASM_URL =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm";
+// [로컬 번들] wasm·모델을 CDN 이 아닌 앱에 동봉한 정적 자산에서 로드한다. CDN
+// 의존을 없애 (1) 자리비움 복귀 시 모델 재다운로드가 사라져 즉시 감지 재개,
+// (2) 사내 방화벽/오프라인에서도 동작한다. 자산은 scripts/vendor-mediapipe.mjs 가
+// public/mediapipe/ 로 동봉(predev/prebuild 훅) → vite 가 dist 루트로 복사.
+// BASE_URL(기본 "/") 기준 절대경로라 dev(vite)·prod(tauri) 양쪽에서 동일 해석.
+const MP_BASE = `${import.meta.env.BASE_URL}mediapipe`;
 
-const POSE_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+const WASM_URL = `${MP_BASE}/wasm`;
 
-const FACE_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const POSE_MODEL_URL = `${MP_BASE}/models/pose_landmarker_lite.task`;
 
-const HAND_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+const FACE_MODEL_URL = `${MP_BASE}/models/face_landmarker.task`;
+
+const HAND_MODEL_URL = `${MP_BASE}/models/hand_landmarker.task`;
 
 // selfie_multiclass: 0=background, 1=hair, 2=body-skin, 3=face-skin, 4=clothes, 5=others.
 // 의자·소품을 사람으로 묶지 않도록 binary가 아닌 multiclass 사용.
-const SEG_MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite";
+const SEG_MODEL_URL = `${MP_BASE}/models/selfie_multiclass_256x256.tflite`;
 
 let poseLm: PoseLandmarker | null = null;
 let faceLm: FaceLandmarker | null = null;
