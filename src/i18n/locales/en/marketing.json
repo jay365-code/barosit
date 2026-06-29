@@ -225,7 +225,23 @@
     "newHere": "New here? ",
     "signup": "Sign up",
     "haveAccount": "Already have an account? ",
-    "signin": "Log in"
+    "signin": "Log in",
+    "appleContinue": "Continue with Apple",
+    "appleGoing": "Opening Apple…",
+    "orEmail": "or with email",
+    "emailPlaceholder": "Email",
+    "pwPlaceholder": "Password",
+    "pwPlaceholderNew": "Password (8+ characters)",
+    "emailPwTooShort": "Password must be at least 8 characters.",
+    "emailAlready": "This email is already registered. Please sign in.",
+    "emailGenericErr": "Something went wrong. Please try again.",
+    "signinSubmit": "Sign in",
+    "signinGoing": "Signing in…",
+    "signupSubmit": "Sign up with email",
+    "signupGoing": "Signing up…",
+    "forgotPw": "Forgot your password?",
+    "checkEmailTitle": "Check your inbox",
+    "checkEmailDesc": "We sent a confirmation link to {{email}}. Click it to finish signing up."
   },
   "downloadPage": {
     "macReq": "macOS 12.0 (Monterey) or later · Apple Silicon · Intel",
@@ -361,5 +377,29 @@
     "error": "An error occurred while loading the release notes. (Please make sure the 'releases' table exists in the database.)",
     "home": "Go home",
     "viewPrivacy": "View Privacy Policy"
+  },
+  "forgotPw": {
+    "title": "Reset password",
+    "desc": "Enter your email and we'll send you a reset link.",
+    "submit": "Send reset link",
+    "sending": "Sending…",
+    "sentTitle": "Email sent",
+    "sentDesc": "We sent a password reset link to {{email}}. Check your spam folder if you don't see it."
+  },
+  "resetPw": {
+    "verifying": "Verifying link…",
+    "invalidTitle": "Link expired",
+    "invalidDesc": "This reset link has expired or was already used. Please request a new one.",
+    "requestAgain": "Request a new link",
+    "doneTitle": "Password changed",
+    "doneDesc": "Please sign in with your new password.",
+    "goLogin": "Go to sign in",
+    "title": "Set a new password",
+    "desc": "Enter the new password you'd like to use.",
+    "newPw": "New password (8+ characters)",
+    "confirmPw": "Confirm new password",
+    "saving": "Saving…",
+    "submit": "Change password",
+    "mismatch": "Passwords don't match."
   }
 }

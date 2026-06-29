@@ -479,6 +479,66 @@ export function useAuth() {
     if (error) throw error;
   }, []);
 
+  // ─── 이메일/비밀번호 회원가입 ────────────────────────────────────────────
+  //
+  // 소셜(Google/Kakao/Apple)이 막히는 사내망·반Google 사용자를 위한 보편
+  // 탈출구. Supabase Auth 의 "Confirm email" 이 켜져 있으면 이 호출은 세션을
+  // *즉시 만들지 않고* 확인 메일을 보냅니다 (data.session === null,
+  // data.user.identities 가 빈 배열이면 *이미 가입된 이메일*). 확인 링크는
+  // emailRedirectTo(#/auth/callback)로 돌아와 App.tsx 브릿지가 세션을 확립.
+  // 확인이 꺼져 있으면 즉시 세션이 생기므로 dispatchAuthSync 로 전파.
+  const signUpWithPassword = useCallback(async (email: string, password: string) => {
+    if (!IS_AUTH_CONFIGURED) {
+      throw new Error(i18n.t("errors:auth.notConfigured"));
+    }
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: authRedirectUrl("/#/auth/callback"),
+      },
+    });
+    if (error) throw error;
+    // 이미 가입된 이메일을 다시 signUp 하면 Supabase 는 (이메일 enumeration
+    // 방어를 위해) error 없이 *빈 identities* 를 반환합니다. 이를 호출자에게
+    // 알려 "이미 가입된 이메일" 안내를 띄우게 함.
+    const alreadyRegistered =
+      !!data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
+    // 확인 메일 없이 즉시 세션이 생긴 경우(확인 토글 OFF) 전역 전파.
+    if (data.session) {
+      dispatchAuthSync(data.session);
+    }
+    return {
+      needsEmailConfirmation: !data.session && !alreadyRegistered,
+      alreadyRegistered,
+      session: data.session,
+    };
+  }, []);
+
+  // ─── 비밀번호 재설정 메일 발송 ───────────────────────────────────────────
+  //
+  // redirectTo(#/reset-password)로 복구 링크를 보냄. 사용자가 링크를 클릭하면
+  // type=recovery 세션이 확립되고, ResetPassword 페이지에서 updatePassword 호출.
+  // 이메일 enumeration 방어를 위해 미가입 이메일이어도 에러를 던지지 않음.
+  const resetPasswordForEmail = useCallback(async (email: string) => {
+    if (!IS_AUTH_CONFIGURED) {
+      throw new Error(i18n.t("errors:auth.notConfigured"));
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: authRedirectUrl("/#/reset-password"),
+    });
+    if (error) throw error;
+  }, []);
+
+  // ─── 비밀번호 변경 (복구 세션 또는 로그인 상태에서) ──────────────────────
+  const updatePassword = useCallback(async (newPassword: string) => {
+    if (!IS_AUTH_CONFIGURED) {
+      throw new Error(i18n.t("errors:auth.notConfigured"));
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+  }, []);
+
   const signInWithPassword = useCallback(async (email: string, password: string) => {
     if (!IS_AUTH_CONFIGURED) {
       throw new Error(i18n.t("errors:auth.notConfigured"));
@@ -530,6 +590,9 @@ export function useAuth() {
     signInWithNaver,
     signInWithLine,
     signInWithPassword,
+    signUpWithPassword,
+    resetPasswordForEmail,
+    updatePassword,
     signOut,
   };
 }

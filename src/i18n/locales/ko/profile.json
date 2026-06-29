@@ -172,5 +172,13 @@
     "refundSuccess": "즉시 환불 및 결제 취소가 완료되었습니다. 이용해 주셔서 감사합니다.",
     "refundError": "환불 처리 중 문제가 발생했습니다. 고객센터(support@barosit.com)로 문의주시면 신속히 확인하여 도와드리겠습니다.",
     "mockNotice": "현재 결제 연동은 통합 모의 테스트 상태입니다.\n결제 주기 전환은 고객센터(support@barosit.com)를 통해 수동으로 즉시 안전하게 처리해 드리고 있습니다. 메일 주시면 신속히 도와드리겠습니다!"
-  }
+  },
+  "appleLogin": "Apple 로그인",
+  "emailLogin": "이메일로 로그인",
+  "emailPlaceholder": "이메일",
+  "emailPwPlaceholder": "비밀번호",
+  "emailLoginGoing": "로그인 중…",
+  "emailLoginSubmit": "로그인",
+  "emailSignupLink": "이메일로 가입",
+  "emailForgotLink": "비밀번호 찾기"
 }

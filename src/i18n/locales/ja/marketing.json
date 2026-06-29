@@ -225,7 +225,23 @@
     "newHere": "はじめてですか？ ",
     "signup": "登録する",
     "haveAccount": "すでにアカウントをお持ちですか？ ",
-    "signin": "ログイン"
+    "signin": "ログイン",
+    "appleContinue": "Appleで続ける",
+    "appleGoing": "Appleに移動中…",
+    "orEmail": "またはメールで",
+    "emailPlaceholder": "メールアドレス",
+    "pwPlaceholder": "パスワード",
+    "pwPlaceholderNew": "パスワード（8文字以上）",
+    "emailPwTooShort": "パスワードは8文字以上で入力してください。",
+    "emailAlready": "このメールアドレスは既に登録されています。ログインしてください。",
+    "emailGenericErr": "処理に失敗しました。しばらくしてからもう一度お試しください。",
+    "signinSubmit": "ログイン",
+    "signinGoing": "ログイン中…",
+    "signupSubmit": "メールで新規登録",
+    "signupGoing": "登録中…",
+    "forgotPw": "パスワードをお忘れですか？",
+    "checkEmailTitle": "メールをご確認ください",
+    "checkEmailDesc": "{{email}} に確認メールを送信しました。メール内のリンクをクリックすると登録が完了します。"
   },
   "downloadPage": {
     "macReq": "macOS 12.0 (Monterey) 以降 · Apple Silicon · Intel",
@@ -361,5 +377,29 @@
     "error": "リリース履歴の読み込み中にエラーが発生しました。（データベースに'releases'テーブルが登録されているかご確認ください。）",
     "home": "ホームへ",
     "viewPrivacy": "プライバシーポリシーを見る"
+  },
+  "forgotPw": {
+    "title": "パスワードの再設定",
+    "desc": "登録したメールアドレスを入力すると、再設定リンクをお送りします。",
+    "submit": "再設定リンクを受け取る",
+    "sending": "送信中…",
+    "sentTitle": "メールを送信しました",
+    "sentDesc": "{{email}} にパスワード再設定リンクを送信しました。見当たらない場合は迷惑メールフォルダもご確認ください。"
+  },
+  "resetPw": {
+    "verifying": "リンクを確認中…",
+    "invalidTitle": "リンクの有効期限が切れています",
+    "invalidDesc": "再設定リンクの有効期限が切れたか、既に使用されています。もう一度リクエストしてください。",
+    "requestAgain": "再設定リンクを再取得",
+    "doneTitle": "パスワードを変更しました",
+    "doneDesc": "新しいパスワードでログインしてください。",
+    "goLogin": "ログインへ",
+    "title": "新しいパスワードの設定",
+    "desc": "新しく使用するパスワードを入力してください。",
+    "newPw": "新しいパスワード（8文字以上）",
+    "confirmPw": "新しいパスワード（確認）",
+    "saving": "変更中…",
+    "submit": "パスワードを変更",
+    "mismatch": "パスワードが一致しません。"
   }
 }

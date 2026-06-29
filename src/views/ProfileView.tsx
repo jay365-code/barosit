@@ -48,7 +48,9 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const {
     session,
     signInWithGoogle,
+    signInWithApple,
     signInWithKakao,
+    signInWithPassword,
     signOut,
   } = useAuth();
 
@@ -67,6 +69,37 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [gracePeriodUntil, setGracePeriodUntil] = useState<string | null>(null);
   const [cardFormOpen, setCardFormOpen] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
+  // 데스크톱 이메일 로그인 — 회원가입·비번찾기는 이메일 왕복이 필요해 웹으로 위임.
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [emailLoginValue, setEmailLoginValue] = useState("");
+  const [emailLoginPw, setEmailLoginPw] = useState("");
+  const [emailLoginBusy, setEmailLoginBusy] = useState(false);
+  const [emailLoginError, setEmailLoginError] = useState<string | null>(null);
+
+  // 외부 브라우저로 웹 페이지 열기 (Tauri webview 이탈 방지). 가입/비번찾기 위임용.
+  const openWeb = async (path: string) => {
+    const url = `https://barosit.com${path}`;
+    try {
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
+      await openUrl(url);
+    } catch {
+      try { window.open(url, "_blank"); } catch { /* 무시 */ }
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailLoginError(null);
+    setEmailLoginBusy(true);
+    try {
+      localStorage.setItem("barosit:auth_redirect", "#/app");
+      await signInWithPassword(emailLoginValue, emailLoginPw);
+      // 성공 시 useAuth 가 barosit:login-completed 발행 → onGoHome.
+    } catch (err: any) {
+      setEmailLoginError(err?.message || String(err));
+      setEmailLoginBusy(false);
+    }
+  };
 
   // 소셜 프로필 이미지 자동 표시 + 로딩 실패 시 이름 이니셜 fallback.
   // 사용자가 *직접 변경*하는 UI 는 없음 — 소셜 OAuth 가 제공한 정보를
@@ -536,6 +569,127 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                   {t("kakaoLogin")}
                 </button>
               </div>
+
+              {/* Apple — 서구·macOS 사용자용 네이티브 로그인 (deep-link OAuth) */}
+              <button
+                type="button"
+                className="b-btn"
+                onClick={async () => {
+                  setLoginLoading(true);
+                  try {
+                    localStorage.setItem("barosit:auth_redirect", "#/app");
+                    await signInWithApple();
+                  } catch (err: any) {
+                    alert(err.message || err);
+                  } finally {
+                    setLoginLoading(false);
+                  }
+                }}
+                disabled={loginLoading}
+                style={{
+                  justifyContent: "center",
+                  gap: "8px",
+                  background: "#000",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  height: "44px",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17.05 12.04c-.03-2.85 2.33-4.21 2.43-4.28-1.32-1.94-3.38-2.2-4.11-2.23-1.75-.18-3.41 1.03-4.3 1.03-.88 0-2.25-1.01-3.7-.98-1.9.03-3.66 1.1-4.64 2.8-1.98 3.43-.51 8.51 1.42 11.3.94 1.36 2.06 2.89 3.53 2.83 1.42-.06 1.95-.91 3.66-.91 1.71 0 2.19.91 3.69.88 1.52-.03 2.49-1.39 3.42-2.76 1.08-1.58 1.53-3.11 1.55-3.19-.03-.01-2.98-1.14-3.01-4.53zM14.28 4.16c.78-.95 1.31-2.27 1.16-3.58-1.13.05-2.49.75-3.3 1.7-.72.83-1.36 2.17-1.19 3.45 1.26.1 2.55-.64 3.33-1.57z" />
+                </svg>
+                {t("appleLogin")}
+              </button>
+
+              {/* 이메일 로그인 — 토글로 펼침. 가입·비번찾기는 웹으로 위임. */}
+              {!showEmailLogin ? (
+                <button
+                  type="button"
+                  onClick={() => setShowEmailLogin(true)}
+                  disabled={loginLoading}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid var(--b-line)",
+                    color: "var(--b-fg-2)",
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    height: "44px",
+                    borderRadius: "12px",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  {t("emailLogin")}
+                </button>
+              ) : (
+                <form onSubmit={handleEmailLogin} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    placeholder={t("emailPlaceholder")}
+                    value={emailLoginValue}
+                    onChange={(e) => setEmailLoginValue(e.target.value)}
+                    required
+                    style={{
+                      height: "42px", padding: "0 12px", borderRadius: "10px",
+                      border: "1px solid var(--b-line)", background: "var(--b-bg)",
+                      color: "var(--b-fg-1)", fontSize: "13px",
+                    }}
+                  />
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder={t("emailPwPlaceholder")}
+                    value={emailLoginPw}
+                    onChange={(e) => setEmailLoginPw(e.target.value)}
+                    required
+                    style={{
+                      height: "42px", padding: "0 12px", borderRadius: "10px",
+                      border: "1px solid var(--b-line)", background: "var(--b-bg)",
+                      color: "var(--b-fg-1)", fontSize: "13px",
+                    }}
+                  />
+                  {emailLoginError && (
+                    <div role="alert" style={{ color: "#e5534b", fontSize: "12px", lineHeight: 1.5 }}>
+                      {emailLoginError}
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={emailLoginBusy}
+                    className="b-btn"
+                    style={{
+                      justifyContent: "center", background: "var(--b-sig)", color: "#fff",
+                      border: "none", fontWeight: 700, fontSize: "13px", height: "44px",
+                      borderRadius: "12px", cursor: emailLoginBusy ? "wait" : "pointer",
+                    }}
+                  >
+                    {emailLoginBusy ? t("emailLoginGoing") : t("emailLoginSubmit")}
+                  </button>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginTop: "2px" }}>
+                    <button
+                      type="button"
+                      onClick={() => openWeb("/#/signup")}
+                      style={{ background: "none", border: "none", color: "var(--b-fg-3)", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                    >
+                      {t("emailSignupLink")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openWeb("/#/forgot-password")}
+                      style={{ background: "none", border: "none", color: "var(--b-fg-3)", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                    >
+                      {t("emailForgotLink")}
+                    </button>
+                  </div>
+                </form>
+              )}
 
               {/* 비로그인 유저가 소개/커뮤니티 홈으로 바로 이탈/이동할 수 있도록 편의 버튼 배치 */}
               <div style={{ marginTop: "16px", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "16px", width: "100%" }}>

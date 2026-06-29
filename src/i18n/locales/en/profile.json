@@ -172,5 +172,13 @@
     "refundSuccess": "Your immediate refund and payment cancellation are complete. Thank you for using BaroSit.",
     "refundError": "A problem occurred while processing the refund. Please contact support (support@barosit.com) and we'll check and help promptly.",
     "mockNotice": "Payment integration is currently in integrated mock-test mode.\nBilling-cycle changes are handled manually, immediately, and safely via support (support@barosit.com). Email us and we'll help promptly!"
-  }
+  },
+  "appleLogin": "Sign in with Apple",
+  "emailLogin": "Sign in with email",
+  "emailPlaceholder": "Email",
+  "emailPwPlaceholder": "Password",
+  "emailLoginGoing": "Signing in…",
+  "emailLoginSubmit": "Sign in",
+  "emailSignupLink": "Sign up by email",
+  "emailForgotLink": "Forgot password"
 }

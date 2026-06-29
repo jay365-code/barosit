@@ -41,7 +41,9 @@ export function navigateToLogin(e?: { preventDefault?: () => void }) {
   const isAuthRoute =
     cur.startsWith("#/login") ||
     cur.startsWith("#/signup") ||
-    cur.startsWith("#/auth/callback");
+    cur.startsWith("#/auth/callback") ||
+    cur.startsWith("#/forgot-password") ||
+    cur.startsWith("#/reset-password");
   if (isSafeRedirectHash(cur) && !isAuthRoute) {
     try {
       localStorage.setItem("barosit:auth_redirect", cur);
@@ -1119,6 +1121,312 @@ function AuthCallback() {
             >
               {t("auth.backToLogin")}
             </a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ───────── Forgot Password (비밀번호 찾기) ─────────
+
+function ForgotPassword() {
+  const { t } = useTranslation("marketing");
+  const { resetPasswordForEmail, configured } = useAuth();
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!configured) {
+      setError(t("auth.errSupabase"));
+      return;
+    }
+    setLoading(true);
+    try {
+      await resetPasswordForEmail(email);
+      // 이메일 enumeration 방어 — 가입 여부와 무관하게 동일 "보냈어요" 안내.
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("loginPage.emailGenericErr"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        background: "var(--b-bg)",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 420,
+          width: "100%",
+          padding: 32,
+          borderRadius: 16,
+          background: "var(--b-surface)",
+          border: "1px solid var(--b-line)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <Logo size={36} stroke="var(--b-sig)" />
+        </div>
+        {sent ? (
+          <div style={{ textAlign: "center" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.018em", marginBottom: 8 }}>
+              {t("forgotPw.sentTitle")}
+            </h2>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.6, marginBottom: 18 }}>
+              {t("forgotPw.sentDesc", { email })}
+            </p>
+            <a href="#/login" onClick={navigateToLogin} className="b-btn b-btn-primary" style={{ textDecoration: "none" }}>
+              {t("auth.backToLogin")}
+            </a>
+          </div>
+        ) : (
+          <>
+            <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6, textAlign: "center" }}>
+              {t("forgotPw.title")}
+            </h2>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.55, marginBottom: 22, textAlign: "center" }}>
+              {t("forgotPw.desc")}
+            </p>
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <input
+                type="email"
+                autoComplete="email"
+                placeholder={t("loginPage.emailPlaceholder")}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{
+                  height: 44,
+                  padding: "0 14px",
+                  borderRadius: 10,
+                  border: "1px solid var(--b-line)",
+                  background: "var(--b-bg)",
+                  color: "var(--b-fg-1)",
+                  fontSize: 14,
+                }}
+              />
+              {error && (
+                <div role="alert" style={{ color: "#dc2626", fontSize: 12, lineHeight: 1.5 }}>
+                  {error}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="b-btn b-btn-primary"
+                style={{
+                  height: 46,
+                  borderRadius: 24,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: loading ? "wait" : "pointer",
+                }}
+              >
+                {loading ? t("forgotPw.sending") : t("forgotPw.submit")}
+              </button>
+              <a
+                href="#/login"
+                onClick={navigateToLogin}
+                style={{ fontSize: 12, color: "var(--b-fg-3)", textAlign: "center", textDecoration: "none", marginTop: 4 }}
+              >
+                {t("auth.backToLogin")}
+              </a>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ───────── Reset Password (비밀번호 재설정 — 복구 링크 도착 페이지) ─────────
+
+function ResetPassword() {
+  const { t } = useTranslation("marketing");
+  const { updatePassword, configured } = useAuth();
+  // ready: 복구 세션 확립 후 새 비번 입력 가능 / invalid: 링크 만료·무효
+  const [phase, setPhase] = useState<"verifying" | "ready" | "invalid" | "done">("verifying");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 복구 링크는 PKCE code(또는 detectSessionInUrl 자동 교환)로 세션을 만든다.
+  // AuthCallback 과 동일하게 getSession → 없으면 code 수동 교환으로 회복.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!configured) {
+        if (!cancelled) setPhase("invalid");
+        return;
+      }
+      try {
+        const errorDesc = findAuthParam("error_description") ?? findAuthParam("error");
+        if (errorDesc) throw new Error(decodeURIComponent(errorDesc));
+        let { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          const code = findAuthParam("code");
+          if (code) {
+            const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exErr) throw exErr;
+            data = (await supabase.auth.getSession()).data;
+          }
+        }
+        if (cancelled) return;
+        setPhase(data.session ? "ready" : "invalid");
+      } catch {
+        if (!cancelled) setPhase("invalid");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [configured]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password.length < 8) {
+      setError(t("loginPage.emailPwTooShort"));
+      return;
+    }
+    if (password !== confirm) {
+      setError(t("resetPw.mismatch"));
+      return;
+    }
+    setLoading(true);
+    try {
+      await updatePassword(password);
+      setPhase("done");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("loginPage.emailGenericErr"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    height: 44,
+    padding: "0 14px",
+    borderRadius: 10,
+    border: "1px solid var(--b-line)",
+    background: "var(--b-bg)",
+    color: "var(--b-fg-1)",
+    fontSize: 14,
+  };
+
+  return (
+    <div
+      style={{
+        background: "var(--b-bg)",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 420,
+          width: "100%",
+          padding: 32,
+          borderRadius: 16,
+          background: "var(--b-surface)",
+          border: "1px solid var(--b-line)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <Logo size={36} stroke="var(--b-sig)" />
+        </div>
+
+        {phase === "verifying" && (
+          <p style={{ fontSize: 13, color: "var(--b-fg-3)", textAlign: "center", margin: 0 }}>
+            {t("resetPw.verifying")}
+          </p>
+        )}
+
+        {phase === "invalid" && (
+          <div style={{ textAlign: "center" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{t("resetPw.invalidTitle")}</h2>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.6, marginBottom: 18 }}>
+              {t("resetPw.invalidDesc")}
+            </p>
+            <a href="#/forgot-password" className="b-btn b-btn-primary" style={{ textDecoration: "none" }}>
+              {t("resetPw.requestAgain")}
+            </a>
+          </div>
+        )}
+
+        {phase === "done" && (
+          <div style={{ textAlign: "center" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{t("resetPw.doneTitle")}</h2>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.6, marginBottom: 18 }}>
+              {t("resetPw.doneDesc")}
+            </p>
+            <a href="#/login" onClick={navigateToLogin} className="b-btn b-btn-primary" style={{ textDecoration: "none" }}>
+              {t("resetPw.goLogin")}
+            </a>
+          </div>
+        )}
+
+        {phase === "ready" && (
+          <>
+            <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6, textAlign: "center" }}>
+              {t("resetPw.title")}
+            </h2>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.55, marginBottom: 22, textAlign: "center" }}>
+              {t("resetPw.desc")}
+            </p>
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder={t("resetPw.newPw")}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                style={inputStyle}
+              />
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder={t("resetPw.confirmPw")}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                minLength={8}
+                style={inputStyle}
+              />
+              {error && (
+                <div role="alert" style={{ color: "#dc2626", fontSize: 12, lineHeight: 1.5 }}>
+                  {error}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="b-btn b-btn-primary"
+                style={{ height: 46, borderRadius: 24, fontSize: 14, fontWeight: 600, cursor: loading ? "wait" : "pointer" }}
+              >
+                {loading ? t("resetPw.saving") : t("resetPw.submit")}
+              </button>
+            </form>
           </>
         )}
       </div>
@@ -3159,8 +3467,10 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
     i18n.language === "ko" ? pickSubSlogan() : t("landing.hero.sub");
   const {
     signInWithGoogle,
+    signInWithApple,
     signInWithKakao,
     signInWithPassword,
+    signUpWithPassword,
     configured,
     user,
     loading
@@ -3168,13 +3478,13 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
   const [oauthBusy, setOauthBusy] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
 
-  // Reviewer bypass states
-  const [logoClickCount, setLogoClickCount] = useState(0);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  // 이메일/비밀번호 폼 상태
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  // 회원가입 후 확인 메일 발송 안내 패널 표시
+  const [signupSent, setSignupSent] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -3192,7 +3502,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
     }
   }, [loading, user]);
 
-  const handleOAuth = async (provider: "google" | "kakao", signInFn: () => Promise<void>) => {
+  const handleOAuth = async (provider: "google" | "apple" | "kakao", signInFn: () => Promise<void>) => {
     setOauthError(null);
     if (!configured) {
       setOauthError(t("loginPage.errNotConnected"));
@@ -3205,45 +3515,47 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
       setOauthBusy(null);
       const provName = {
         google: "Google",
+        apple: "Apple",
         kakao: t("loginPage.providerKakao"),
       }[provider];
       setOauthError(e instanceof Error ? e.message : t("loginPage.errProviderFail", { provider: provName }));
     }
   };
 
-  const handleLogoClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setLogoClickCount((prev) => {
-      const next = prev + 1;
-      if (next >= 3) {
-        setShowEmailForm(true);
-        return 0;
-      }
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    if (logoClickCount === 0) return;
-    const t = setTimeout(() => {
-      setLogoClickCount(0);
-    }, 3000);
-    return () => clearTimeout(t);
-  }, [logoClickCount]);
-
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  // 이메일 폼 제출 — signup 모드면 회원가입(확인 메일), signin 모드면 로그인.
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailError(null);
+    if (mode === "signup" && password.length < 8) {
+      setEmailError(t("loginPage.emailPwTooShort"));
+      return;
+    }
     setEmailLoading(true);
     try {
-      await signInWithPassword(email, password);
+      if (mode === "signup") {
+        const res = await signUpWithPassword(email, password);
+        if (res.alreadyRegistered) {
+          setEmailError(t("loginPage.emailAlready"));
+          setEmailLoading(false);
+          return;
+        }
+        if (res.needsEmailConfirmation) {
+          setSignupSent(true);
+          setEmailLoading(false);
+          return;
+        }
+        // 확인 토글 OFF → 즉시 세션 생성, 위 user effect 가 redirect 처리.
+      } else {
+        await signInWithPassword(email, password);
+      }
     } catch (err) {
-      setEmailError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
+      setEmailError(err instanceof Error ? err.message : t("loginPage.emailGenericErr"));
       setEmailLoading(false);
     }
   };
 
   const handleGoogle = () => handleOAuth("google", signInWithGoogle);
+  const handleApple = () => handleOAuth("apple", signInWithApple);
   const handleKakao = () => handleOAuth("kakao", signInWithKakao);
 
   return (
@@ -3261,7 +3573,6 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
       >
         <a
           href="#/landing"
-          onClick={handleLogoClick}
           style={{
             display: "flex",
             alignItems: "center",
@@ -3419,6 +3730,57 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
               {oauthBusy === "google" ? t("loginPage.googleGoing") : t("loginPage.googleContinue")}
             </button>
 
+            {/* Apple */}
+            <button
+              type="button"
+              onClick={handleApple}
+              disabled={oauthBusy !== null}
+              className="b-btn"
+              style={{
+                height: 46,
+                borderRadius: 24,
+                border: "none",
+                background: "#000000",
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: 14,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                cursor: oauthBusy ? "wait" : "pointer",
+                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+                transform: oauthBusy === "apple" ? "scale(0.98)" : "none",
+                opacity: oauthBusy && oauthBusy !== "apple" ? 0.6 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!oauthBusy) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.25)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!oauthBusy) {
+                  e.currentTarget.style.transform = "none";
+                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
+                }
+              }}
+            >
+              <svg
+                aria-hidden
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="#ffffff"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ flexShrink: 0 }}
+              >
+                <path d="M17.05 12.04c-.03-2.85 2.33-4.21 2.43-4.28-1.32-1.94-3.38-2.2-4.11-2.23-1.75-.18-3.41 1.03-4.3 1.03-.88 0-2.25-1.01-3.7-.98-1.9.03-3.66 1.1-4.64 2.8-1.98 3.43-.51 8.51 1.42 11.3.94 1.36 2.06 2.89 3.53 2.83 1.42-.06 1.95-.91 3.66-.91 1.71 0 2.19.91 3.69.88 1.52-.03 2.49-1.39 3.42-2.76 1.08-1.58 1.53-3.11 1.55-3.19-.03-.01-2.98-1.14-3.01-4.53zM14.28 4.16c.78-.95 1.31-2.27 1.16-3.58-1.13.05-2.49.75-3.3 1.7-.72.83-1.36 2.17-1.19 3.45 1.26.1 2.55-.64 3.33-1.57z" />
+              </svg>
+              {oauthBusy === "apple" ? t("loginPage.appleGoing") : t("loginPage.appleContinue")}
+            </button>
+
             {/* Kakao */}
             <button
               type="button"
@@ -3491,57 +3853,73 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
             </div>
           )}
 
-          {showEmailForm && (
-            <form
-              onSubmit={handleEmailLogin}
+          {/* 구분선 — 또는 이메일로 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "2px 0 18px" }}>
+            <div style={{ flex: 1, height: 1, background: "var(--b-line)" }} />
+            <span style={{ fontSize: 11, color: "var(--b-fg-4)" }}>{t("loginPage.orEmail")}</span>
+            <div style={{ flex: 1, height: 1, background: "var(--b-line)" }} />
+          </div>
+
+          {signupSent ? (
+            <div
+              role="status"
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                marginBottom: 18,
-                padding: 16,
+                padding: 18,
                 background: "var(--b-surface)",
                 border: "1px solid var(--b-line)",
                 borderRadius: 12,
+                textAlign: "center",
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "var(--b-fg-1)" }}>
-                Sign in with Email (Reviewer Bypass)
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
+                {t("loginPage.checkEmailTitle")}
               </div>
+              <div style={{ fontSize: 12.5, color: "var(--b-fg-3)", lineHeight: 1.6 }}>
+                {t("loginPage.checkEmailDesc", { email })}
+              </div>
+            </div>
+          ) : (
+            <form
+              onSubmit={handleEmailSubmit}
+              style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}
+            >
               <input
                 type="email"
-                placeholder="Email"
+                autoComplete="email"
+                placeholder={t("loginPage.emailPlaceholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 style={{
-                  height: 38,
-                  padding: "0 12px",
-                  borderRadius: 6,
+                  height: 44,
+                  padding: "0 14px",
+                  borderRadius: 10,
                   border: "1px solid var(--b-line)",
                   background: "var(--b-bg)",
                   color: "var(--b-fg-1)",
-                  fontSize: 13,
+                  fontSize: 14,
                 }}
               />
               <input
                 type="password"
-                placeholder="Password"
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                placeholder={mode === "signup" ? t("loginPage.pwPlaceholderNew") : t("loginPage.pwPlaceholder")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={mode === "signup" ? 8 : undefined}
                 style={{
-                  height: 38,
-                  padding: "0 12px",
-                  borderRadius: 6,
+                  height: 44,
+                  padding: "0 14px",
+                  borderRadius: 10,
                   border: "1px solid var(--b-line)",
                   background: "var(--b-bg)",
                   color: "var(--b-fg-1)",
-                  fontSize: 13,
+                  fontSize: 14,
                 }}
               />
               {emailError && (
-                <div style={{ color: "#dc2626", fontSize: 12 }}>
+                <div role="alert" style={{ color: "#dc2626", fontSize: 12, lineHeight: 1.5 }}>
                   {emailError}
                 </div>
               )}
@@ -3550,9 +3928,9 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
                 disabled={emailLoading}
                 className="b-btn b-btn-primary"
                 style={{
-                  height: 38,
-                  borderRadius: 6,
-                  fontSize: 13,
+                  height: 46,
+                  borderRadius: 24,
+                  fontSize: 14,
                   fontWeight: 600,
                   display: "flex",
                   alignItems: "center",
@@ -3560,8 +3938,24 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
                   cursor: emailLoading ? "wait" : "pointer",
                 }}
               >
-                {emailLoading ? "Signing in..." : "Sign In"}
+                {emailLoading
+                  ? (mode === "signup" ? t("loginPage.signupGoing") : t("loginPage.signinGoing"))
+                  : (mode === "signup" ? t("loginPage.signupSubmit") : t("loginPage.signinSubmit"))}
               </button>
+              {mode === "signin" && (
+                <a
+                  href="#/forgot-password"
+                  style={{
+                    fontSize: 12,
+                    color: "var(--b-fg-3)",
+                    textAlign: "center",
+                    textDecoration: "none",
+                    marginTop: 4,
+                  }}
+                >
+                  {t("loginPage.forgotPw")}
+                </a>
+              )}
             </form>
           )}
 
@@ -5847,7 +6241,9 @@ export type MarketingRoute =
   | "community"
   | "changelog"
   | "science"
-  | "auth-callback";
+  | "auth-callback"
+  | "forgot-password"
+  | "reset-password";
 
 function detectOS(): "mac" | "win" {
   if (typeof window === "undefined" || !navigator) return "mac";
@@ -5962,6 +6358,8 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   if (h === "community" || h === "contact" || h === "support") return "community";
   if (h === "science" || h === "evidence") return "science";
   if (h === "auth/callback") return "auth-callback";
+  if (h === "forgot-password") return "forgot-password";
+  if (h === "reset-password") return "reset-password";
   return null;
 }
 
@@ -5995,6 +6393,10 @@ function routeBody(route: MarketingRoute) {
       return <SciencePage />;
     case "auth-callback":
       return <AuthCallback />;
+    case "forgot-password":
+      return <ForgotPassword />;
+    case "reset-password":
+      return <ResetPassword />;
   }
 }
 

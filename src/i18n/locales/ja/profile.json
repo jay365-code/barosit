@@ -172,5 +172,13 @@
     "refundSuccess": "即時返金および決済取消が完了しました。ご利用ありがとうございました。",
     "refundError": "返金処理中に問題が発生しました。サポート（support@barosit.com）へお問い合わせいただければ迅速に確認しお手伝いいたします。",
     "mockNotice": "現在、決済連携は統合モックテスト状態です。\n決済サイクルの切替はサポート（support@barosit.com）を通じて手動で即時かつ安全に対応しております。メールをいただければ迅速にお手伝いいたします！"
-  }
+  },
+  "appleLogin": "Appleでログイン",
+  "emailLogin": "メールでログイン",
+  "emailPlaceholder": "メールアドレス",
+  "emailPwPlaceholder": "パスワード",
+  "emailLoginGoing": "ログイン中…",
+  "emailLoginSubmit": "ログイン",
+  "emailSignupLink": "メールで登録",
+  "emailForgotLink": "パスワードを忘れた"
 }
