@@ -285,10 +285,30 @@
       <div class="detail">QA 실증: authorize?provider=kakao → 302 kauth.kakao.com. (문서 일부 "검수 필요" 표기는 stale)</div>
       <div class="ref">QA AUTH-02</div>
     </div>
-    <div class="item" data-status="verify">
+    <div class="item" data-status="partial">
       <div class="item-top"><span class="title">웹 Apple OAuth</span></div>
-      <div class="detail">launch-readiness-plan.md "완성" 주장. 실 흐름 QA 근거 확인 필요.</div>
-      <div class="next"><b>다음 작업:</b> Apple 로그인 실 흐름 검증 후 done 전환.</div>
+      <div class="detail"><b>전략 결정(2026-06-29):</b> 이메일/비번 일반 노출과 함께 서구·macOS 사용자용 Apple 로그인 정식 채택. 프론트(웹·데스크톱 버튼+타입) + Apple Developer(App ID <code>com.gubed.barosit</code>/Team <code>LHR4658746</code>, Services ID <code>com.gubed.barosit.web</code>, .p8 키, client secret JWT) + Supabase Apple Enable <b>전부 완료</b>. <b>실 Apple ID 로그인 E2E 성공(2026-06-29) = secret 토큰교환까지 검증.</b> 함정: 커스텀 도메인 <code>auth.barosit.com</code> 콜백이라 Apple Return URL 에 <code>https://auth.barosit.com/auth/v1/callback</code> 추가 필수였음.</div>
+      <div class="ref">src/auth/useAuth.ts (signInWithApple) · src/web/Marketing.tsx · src/views/ProfileView.tsx</div>
+      <div class="next"><b>남은 것:</b> ① 새 프론트 배포(버튼 라이브) ② <b>secret 6개월 만료 → 재생성 캘린더 알림</b> 필수.</div>
+    </div>
+    <div class="item" data-status="partial">
+      <div class="item-top"><span class="title">이메일/비밀번호 로그인 + 회원가입 + 비번 복구</span></div>
+      <div class="detail">기존 이메일 폼은 로고 3클릭 이스터에그(리뷰어 바이패스, 로그인 전용)였음 → <b>정식 회원가입·로그인·비밀번호 찾기 UI 로 승격</b>. <code>useAuth</code> 에 <code>signUpWithPassword</code>(이메일 확인 redirect)·<code>resetPasswordForEmail</code>·<code>updatePassword</code> 추가, 비번 재설정 페이지/라우트(<code>#/reset-password</code>) 신설, 이메일 확인 안내 UX. 소셜(Google/Kakao/Apple)이 막히는 사내망·반Google 사용자의 <b>보편 탈출구</b> 역할.</div>
+      <div class="ref">src/auth/useAuth.ts · src/web/Marketing.tsx (Login·ResetPassword)</div>
+      <div class="detail" style="margin-top:6px">✅ <b>이메일 인프라 검증 완료(2026-06-29):</b> 커스텀 SMTP(RESEND, 도메인 <code>send.barosit.com</code> Verified, AWS SES 도쿄) 연결 → 프로덕션 <code>/auth/v1/recover</code> 200 + <b>받은편지함(비스팸) 실도착 확인</b>. 이메일 확인(autoconfirm OFF=확인필수) 프로덕션 동작 확인. redirect allowlist <code>barosit.com/**</code> 등록됨. (초기 recover 500 → RESEND API 키 재발급으로 해결)</div>
+      <div class="next"><b>남은 것:</b> ① <b>새 프론트엔드 배포</b>(현재 working tree only — 배포돼야 메일 링크 클릭→가입완료·비번재설정 페이지 동작) ② Supabase 비번 최소길이 6→8(프론트와 정렬, 선택).</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">인증 이메일 다국어화 (ko/en/ja) — Send Email Hook</span></div>
+      <div class="detail">현재 확인·복구 메일은 Supabase 기본 <b>영어 단일 템플릿</b>. 메일은 서버가 발송하므로 브라우저 언어 설정을 모름 → 자동 다국어 안 됨. <b>결정(2026-06-29): C안(진짜 다국어)으로 간다.</b> 구조: 가입 시 <code>signUp options.data.lang</code> 으로 user_metadata 에 언어 저장 → Auth <b>Send Email Hook</b>(Edge Function)이 lang 읽어 RESEND API 로 해당 언어 메일 직접 발송(ko/en/ja 템플릿 3종).</div>
+      <div class="ref">Supabase Auth → Hooks (Send Email) · supabase/functions/ (신규) · src/auth/useAuth.ts (signUp lang)</div>
+      <div class="next"><b>다음 작업:</b> ① signUp 에 lang 저장(저비용, 선심기) ② Edge Function 훅 + ko/en/ja 템플릿 작성. 출시 비차단 — 별도 작업으로.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">LINE / Naver 로그인 (비네이티브 — 커스텀 통합)</span></div>
+      <div class="detail">일본 타겟이라 LINE 필요하나 <b>Supabase 가 LINE·Naver 를 네이티브 지원하지 않음</b>(대시보드 provider 목록에 없음 — 2026-06-29 확인). 코드의 <code>signInWithLine</code>/<code>signInWithNaver</code> 는 <code>"line"/"naver" as any</code> 캐스트로 <b>실제 동작 안 하는 aspirational 코드</b>. "버튼 추가"가 아니라 Edge Function 으로 OAuth 직접 처리 → admin API 세션 발급하는 <b>별도 커스텀 통합 과제</b>.</div>
+      <div class="ref">src/auth/useAuth.ts (signInWithLine/signInWithNaver — as any)</div>
+      <div class="next"><b>다음 작업:</b> 일본 전환율 본격화 단계에서 LINE 커스텀 통합 착수. 그 전까지 일본 사용자는 Google/Apple 로 수용. (Naver 는 Kakao 가 한국 커버하므로 생략 권장)</div>
     </div>
     <div class="item" data-status="done">
       <div class="item-top"><span class="title">데스크톱(Tauri) deep-link OAuth (PKCE + 방어로직)</span></div>
@@ -449,6 +469,12 @@
     <div class="item" data-status="todo">
       <div class="item-top"><span class="title">약관 변호사 검토 (결제·구독·환불 조항)</span></div>
       <div class="detail">전자상거래법 준수 최종 확인. 외부 의존.</div>
+    </div>
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">회원탈퇴 (계정·데이터 삭제) — 셀프서비스 미구현</span></div>
+      <div class="detail">현재 셀프 탈퇴 없음 — 프로필에 "문의로 요청 시 수동 처리" 안내만. 한국 B2C + 소셜(Google/Apple) 도입 감안 시 표준 필요. <b>설계 핵심:</b> 즉시 삭제 금지 → <b>유예기간(soft delete) 후 예약 파기</b>(pg_cron), <b>결제·거래 기록은 전자상거래법상 5년 법정보존</b>(분리·익명화)이라 "전부 삭제" 아님. 전 테이블 user_id 인벤토리 + Toss 빌링키 폐기 + 활성구독 환불정책 필요. 정책·설계 단일 문서 <a href="account-deletion-policy.html">account-deletion-policy.html</a> 작성 완료.</div>
+      <div class="ref">docs/account-deletion-policy.html · (구현 예정) supabase/functions/delete-account · src/views/ProfileView.tsx</div>
+      <div class="next"><b>다음 작업:</b> §6 정책(유예기간·복구허용·구독환불) 확정 → delete-account Edge Function + pg_cron 파기 + ProfileView 버튼. App Store 입점 시 필수(5.1.1 v).</div>
     </div>
   </section>
 

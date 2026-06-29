@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaroSit 회원탈퇴 정책 · 설계</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --border:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6ea8fe;
+    --del:#f85149; --keep:#d29922; --anon:#3fb950;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  header{padding:28px 24px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#141821,#0f1115)}
+  h1{margin:0 0 4px;font-size:24px}
+  .sub{color:var(--muted);font-size:13px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px 80px}
+  section{margin-top:30px}
+  h2{font-size:19px;border-bottom:1px solid var(--border);padding-bottom:6px}
+  h3{font-size:15px;margin:18px 0 6px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:10px 0}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px}
+  th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted)}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .t-del{background:rgba(248,81,73,.15);color:#ff7b72;border:1px solid rgba(248,81,73,.4)}
+  .t-keep{background:rgba(210,153,34,.15);color:#e3b341;border:1px solid rgba(210,153,34,.4)}
+  .t-anon{background:rgba(63,185,80,.15);color:#56d364;border:1px solid rgba(63,185,80,.4)}
+  .note{background:var(--panel2);border-left:3px solid var(--accent);padding:10px 14px;border-radius:6px;margin:10px 0;font-size:13.5px}
+  .warn{border-left-color:var(--keep)}
+  .step{display:flex;gap:12px;margin:10px 0}
+  .step .n{flex:0 0 28px;height:28px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .decide{background:rgba(110,168,254,.08);border:1px solid rgba(110,168,254,.3)}
+  ul{margin:6px 0;padding-left:20px} li{margin:3px 0}
+  footer{color:var(--muted);font-size:12px;margin-top:40px;border-top:1px solid var(--border);padding-top:14px}
+  .status{font-size:12px;color:var(--del);font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <h1>BaroSit 회원탈퇴 정책 · 설계</h1>
+  <div class="sub">계정·데이터 삭제(회원탈퇴) 요구사항·법적 제약·구현 설계 단일 문서 · 작성 2026-06-29 ·
+  상태 <span class="status">미구현(설계 단계)</span> · 추적 <a href="service-completeness.html">service-completeness.html</a> §12</div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <h2>1. 배경 · 원칙</h2>
+    <div class="card">
+      <p>현재 BaroSit은 <b>셀프서비스 회원탈퇴 기능이 없다</b>. 프로필에 "계정 삭제·데이터 내려받기는 <b>문의</b>로 요청 주시면 처리"라는 안내만 있고(<code>profile.json: noPasswordPre</code>), 실제 삭제는 관리자가 수동 처리한다. 한국 B2C + 소셜 로그인(Google·Apple) 도입을 감안하면 셀프 탈퇴는 표준이며 곧 갖춰야 한다.</p>
+      <h3>핵심 원칙</h3>
+      <ul>
+        <li><b>즉시 완전삭제(hard delete) 금지.</b> 실수·변심 복구, 무료체험 악용(탈퇴→재가입 반복) 방지, 법적 보존 의무 때문.</li>
+        <li><b>유예기간(soft delete) 후 파기.</b> 탈퇴 신청 → 접근 차단 + 유예 → 예약 작업으로 파기.</li>
+        <li><b>"전부 삭제" 아님 — 데이터 분류.</b> 개인정보·자세 데이터는 파기, <b>결제·거래 기록은 법정기간 보존</b>(분리·잠금).</li>
+        <li><b>탈퇴를 가입만큼 쉽게.</b> 다크패턴(숨김·고의적 난이도) 회피 — 규제 추세.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. ⚠️ 법적 보존 의무 (즉시 삭제 불가 데이터)</h2>
+    <p>개인정보보호법은 "목적 달성 시 지체없이 파기"지만, <b>타 법령의 보존의무가 우선</b>한다. BaroSit은 유료 결제를 하므로 탈퇴해도 아래는 법정기간 보존해야 한다.</p>
+    <table>
+      <tr><th>데이터</th><th>보존기간</th><th>근거</th></tr>
+      <tr><td>계약·청약철회 등에 관한 기록</td><td>5년</td><td>전자상거래법 시행령 §6</td></tr>
+      <tr><td>대금결제·재화 공급에 관한 기록</td><td>5년</td><td>전자상거래법 시행령 §6</td></tr>
+      <tr><td>소비자 불만·분쟁처리 기록</td><td>3년</td><td>전자상거래법 시행령 §6</td></tr>
+      <tr><td>세금계산서 등 거래증빙</td><td>5년</td><td>부가가치세법</td></tr>
+      <tr><td>접속기록(로그)</td><td>참고: 보안·분쟁 대비 보관 가능</td><td>정보통신망법 등</td></tr>
+    </table>
+    <div class="note warn">결론: 탈퇴 시 <b>결제·거래 기록은 파기하면 위법</b>. 해당 행(billing_history, user_subscriptions 등)은 법정기간까지 보존하되 가능한 한 <code>user_id</code>를 익명/가명화하고 다른 개인정보와 분리한다.</div>
+  </section>
+
+  <section>
+    <h2>3. 데이터 분류</h2>
+    <table>
+      <tr><th>분류</th><th>대상(예시)</th><th>탈퇴 시 처리</th></tr>
+      <tr><td><span class="tag t-del">삭제</span></td><td>auth.users / identities, profiles, user_settings, posture_events, scores, usage_events, client_errors, admin_notifications(본인 피드백)</td><td>유예 후 <b>하드 삭제</b></td></tr>
+      <tr><td><span class="tag t-keep">보존</span></td><td>billing_history, 결제·환불·세금 증빙</td><td><b>법정기간 보존</b> (분리·잠금)</td></tr>
+      <tr><td><span class="tag t-anon">익명화</span></td><td>보존 대상의 <code>user_id</code>·연락처 등 식별자</td><td>가명/익명 치환 후 보존</td></tr>
+    </table>
+    <div class="note">구현 전 <b>전 테이블 인벤토리</b> 필요: <code>user_id</code> FK를 가진 모든 테이블을 나열해 분류표에 매핑(누락 시 고아 데이터/개인정보 잔존). Toss <b>빌링키 폐기</b>도 외부 API 연계 필요.</div>
+  </section>
+
+  <section>
+    <h2>4. 흐름 설계 (soft delete + 유예 + 예약 파기)</h2>
+    <div class="step"><div class="n">1</div><div><b>탈퇴 신청</b> (ProfileView "회원탈퇴" → 강한 확인 + 비가역 경고 + 재인증 권장)<br>
+      → 계정 <code>pending_deletion</code> + <code>deletion_scheduled_at</code> 기록, 로그인/동기화/Pro 게이팅 차단, 활성 구독 자동갱신 해지.</div></div>
+    <div class="step"><div class="n">2</div><div><b>유예기간</b> (권장 30일) — 안내 메일 발송("N일 후 영구삭제, 그 전 재로그인 시 복구 가능").<br>
+      → 유예 중 재로그인 시 <b>탈퇴 취소</b> 가능(<code>pending_deletion</code> 해제).</div></div>
+    <div class="step"><div class="n">3</div><div><b>유예 경과 → 예약 파기</b> (pg_cron 일배치)<br>
+      → <span class="tag t-del">삭제</span> 데이터 하드 삭제 + auth 유저 삭제(service_role) + Toss 빌링키 폐기. <span class="tag t-keep">보존</span> 데이터는 <span class="tag t-anon">익명화</span> 후 잔존.</div></div>
+    <div class="note">인프라: 이미 <b>pg_cron</b>(charge-renewals 정기청구) 사용 중 → 동일 패턴으로 <b>예약 파기 작업</b> 추가 용이.</div>
+  </section>
+
+  <section>
+    <h2>5. 구현 계획</h2>
+    <div class="card">
+      <ul>
+        <li><b>Edge Function <code>delete-account</code></b> (service_role): 탈퇴 신청 처리(soft) + 본인확인. 별도 <b>purge 배치</b>(또는 pg_cron SQL 함수)가 유예 경과분을 실제 파기·익명화·빌링키 폐기.</li>
+        <li><b>DB</b>: <code>profiles</code>에 <code>deletion_requested_at</code>/<code>deletion_scheduled_at</code> 컬럼 + 차단 RLS. user_id FK 테이블 cascade/정리 정책.</li>
+        <li><b>프론트(ProfileView)</b>: "회원탈퇴" 버튼 + 확인 모달(데이터 영구삭제·구독·법정보존 안내) + 유예 중 "탈퇴 취소" UI. i18n ko/en/ja.</li>
+        <li><b>결제 연계</b>: 활성 구독자 탈퇴 시 환불/해지 정책 적용(기존 payment-cancel·subscription-manage 연계).</li>
+        <li><b>법무 문서</b>: privacy.md·terms에 회원탈퇴·보존기간 조항 반영.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>6. 결정 필요 정책 (구현 전 확정)</h2>
+    <div class="card decide">
+      <ul>
+        <li><b>유예기간</b>: 권장 <b>30일</b> (7 / 14 / 30 중). — <span class="status">미정</span></li>
+        <li><b>유예 중 복구 허용?</b>: 권장 <b>예</b>(재로그인 시 탈퇴취소). — <span class="status">미정</span></li>
+        <li><b>활성 구독자 탈퇴 시 환불</b>: 기존 환불정책 그대로 vs 잔여기간 자동환불. — <span class="status">미정</span></li>
+        <li><b>데이터 내려받기(export) 동시 제공?</b>: GDPR 이동권·관행. — <span class="status">미정</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. 컴플라이언스 체크</h2>
+    <table>
+      <tr><th>주체</th><th>요건</th><th>현황</th></tr>
+      <tr><td>한국 개인정보보호법</td><td>파기·삭제 요청권, 접근 가능한 탈퇴</td><td>수동(문의) — 셀프 필요</td></tr>
+      <tr><td>전자상거래법</td><td>거래기록 보존(상기 §2)</td><td>설계 반영 필요</td></tr>
+      <tr><td>GDPR (서구)</td><td>삭제권(제17조)·이동권</td><td>수동 — 자동화 권장</td></tr>
+      <tr><td>Apple App Store</td><td>계정 생성 앱 = 인앱 삭제 필수(5.1.1 v)</td><td>미입점이라 비적용, 입점 시 필수</td></tr>
+      <tr><td>Google Play</td><td>앱 내 + 웹 계정 삭제 제공</td><td>입점 시 필수</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    관련: <a href="service-completeness.html">service-completeness.html</a> · <a href="privacy.md">privacy.md</a> · <a href="changelog.md">changelog.md</a><br>
+    이 문서는 회원탈퇴 작업의 설계·인계 단일 출처. 구현 착수 시 §6 정책부터 확정하고, 완료분은 본 문서와 service-completeness 를 동기화할 것.
+  </footer>
+</div>
+</body>
+</html>

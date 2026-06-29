@@ -2,6 +2,17 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-8. 인증 확장 — Apple 로그인 + 이메일 회원가입·비번복구 — 2026-06-29 · v0.3.11
+
+소셜 전용(이메일은 리뷰어용)에서 → 이메일/비번 일반 노출 + 서구·macOS 용 Apple 로그인 정식 채택. 소셜이 막히는 사내망·반Google 사용자의 보편 탈출구 확보.
+
+- **Apple 로그인** [src/auth/useAuth.ts](../src/auth/useAuth.ts): `signInWithApple` 을 웹([Marketing.tsx](../src/web/Marketing.tsx)) + 데스크톱([ProfileView.tsx](../src/views/ProfileView.tsx)) UI 에 노출(`handleOAuth` 타입 확장). Apple Developer(App ID `com.gubed.barosit`/Team LHR4658746, Services ID `com.gubed.barosit.web`, .p8 키, client secret JWT) + Supabase Apple provider 설정 완료. **실 Apple ID 로그인 E2E 성공**(토큰교환 검증). 함정: 커스텀 도메인 `auth.barosit.com` 콜백이라 Apple Return URL 에 추가 필수. ⚠️ secret 6개월 만료 → 재생성 캘린더 필요.
+- **이메일 로그인/회원가입/비번복구**: 기존 로고 3클릭 이스터에그(리뷰어 바이패스)를 **정식 UI 로 승격**. `useAuth` 에 `signUpWithPassword`(이메일 확인 redirect·이미가입 감지)·`resetPasswordForEmail`·`updatePassword` 추가. 신규 라우트/페이지 `#/forgot-password`(ForgotPassword)·`#/reset-password`(ResetPassword) + routeFromHash/routeBody/isAuthRoute 배선. 데스크톱은 이메일 로그인(토글) + 가입·비번찾기 외부브라우저 위임.
+- **이메일 인프라**: 커스텀 SMTP(RESEND, 도메인 `send.barosit.com` Verified) 연결 → 프로덕션 `/auth/v1/recover` 200 + **받은편지함 실도착 검증**. 이메일 확인(autoconfirm off=확인필수) 프로덕션 동작 확인. redirect allowlist `barosit.com/**`.
+- **i18n** ko/en/ja: marketing.loginPage(+16)·forgotPw·resetPw, profile(+8).
+- **문서**: [service-completeness.html](service-completeness.html) §7 인증 갱신(Apple·이메일=partial→검증완료, LINE/Naver=비네이티브 todo, 인증메일 다국어 Send Email Hook=todo). **[account-deletion-policy.html](account-deletion-policy.html) 회원탈퇴 정책·설계 신규**(즉시삭제 금지→유예+예약파기, 전자상거래법 5년 보존 분리) + §12 법무 추적 항목.
+- 검증: tsc 통과, 전체 테스트 83/83 통과, 웹 미리보기에서 login/signup/forgot/reset 4화면 렌더 + 프로덕션 Apple authorize 302 + 메일 실발송 검증. 데스크톱 Apple/이메일 버튼은 실기 미검증(웹만).
+
 ## 0-7. 사내망·오프라인 호환성 (R2·R3) — 2026-06-26 · v0.3.10
 
 기업 사내망(방화벽·SSL 인스펙션·망분리)에서 BaroSit 기능 영향 검토 → "망은 못 바꾼다"를 전제로 한 제한적 서비스 연속성 대응. (R1 모델 로컬 번들은 v0.3.9 에 선반영됨)
