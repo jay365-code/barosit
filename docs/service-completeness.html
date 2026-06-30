@@ -453,9 +453,10 @@
       <div class="item-top"><span class="title">데모 GIF/스크린샷 (랜딩 전환율)</span></div>
     </div>
     <div class="item" data-status="done">
-      <div class="item-top"><span class="title">커뮤니티 게시판 UX (공지·답글 스레드·추천)</span><span class="gapid">CM-1</span></div>
-      <div class="detail">기존 Q&A 게시판에 — <b>📣 공지 카테고리</b>(글쓰기 운영자 전용: UI 숨김 + DB 트리거 <code>enforce_notice_admin_only</code> 로 비관리자 insert/update 차단, 읽기·댓글은 전체), <b>1단계 답글 스레드</b>(comments.parent_comment_id, 최상위에 매닮·들여쓰기), <b>유튜브식 댓글 액션바</b>(추천 likes + 답글 버튼) 추가. 모두 ko/en/ja. 프로덕션 배포.</div>
-      <div class="ref">src/web/Marketing.tsx · supabase/migrations/20260630020000(공지트리거)·050000(답글)·060000(추천)</div>
+      <div class="item-top"><span class="title">커뮤니티 게시판 UX (공지·답글 스레드·추천·유저별 좋아요)</span><span class="gapid">CM-1</span></div>
+      <div class="detail">기존 Q&amp;A 게시판에 — <b>📣 공지 카테고리</b>(글쓰기 운영자 전용: UI 숨김 + DB 트리거 <code>enforce_notice_admin_only</code> 로 비관리자 insert/update 차단, 읽기·댓글은 전체), <b>1단계 답글 스레드</b>(comments.parent_comment_id, 최상위에 매닮·들여쓰기·연결선·"답글 N개" 접기/펼치기·<b>인라인 답글 입력</b>), <b>유튜브식 아이콘 액션바</b>(👍 추천·💬 답글, 텍스트 라벨 제거) 추가.
+      <b>2026-06-30 고도화(이번 세션):</b> ① <b>유저별 좋아요</b> — 로그인 유저는 DB 조인 테이블(<code>post_likes</code>/<code>comment_likes</code>) + <code>toggle_*</code> RPC 로 다기기 동기화·1인1추천·정확한 토글, 게스트는 localStorage 하이브리드(카운트 컬럼 보존). ② <b>좋아요 취소</b>(decrement RPC). ③ 카드 통계 <b>👍·💬·👁 아이콘+숫자</b> + 따봉 클릭 추천(팝 애니메이션). ④ <b>작성자 활동 모달</b>(회원 이름 클릭→글·댓글 모아보기→스레드 이동+해당 댓글 스크롤·하이라이트). ⑤ <b>상대시간</b>(방금 전·N분 전). ⑥ <b>댓글 정렬</b>(작성순/인기순). ⑦ <b>본인 댓글 수정</b>. ⑧ <b>실시간 댓글</b>(comments realtime publication 구독; 로컬 스택 라이브 전달 미검증). ⑨ alert→토스트·모달 ESC·댓글수 카드 동기화·영어 복수형·글 목록 "더 보기" 페이지네이션. 모두 ko/en/ja. <b>프로덕션 배포(DB push + web).</b></div>
+      <div class="ref">src/web/Marketing.tsx · src/components/Icon.tsx · supabase/migrations/20260630020000(공지트리거)·050000(답글)·060000(추천)·080000(좋아요취소)·090000(유저별좋아요)·100000(실시간)</div>
     </div>
   </section>
 
@@ -512,6 +513,22 @@
       <div class="detail">공개 커뮤니티 게시판(posts/comments)에 글이 올라오면 <b>DB 웹훅(pg_net)→Edge Function <code>cm-agent-draft</code></b> 가 의도를 분류하고 답변 초안을 생성(Anthropic Sonnet 4.6, prompt caching, 지식베이스 번들). 운영자가 어드민 <b>"AI 응답 검수"</b> 탭에서 수정/<b>승인→Aria 명의 게시</b>/반려/<b>사람에게(에스컬레이션→admin_notifications 적재)</b>. 페르소나 = <b>Aria(아리아/アリア)</b>, 의도에 따라 <b>자세 코치 ↔ 커뮤니티 매니저</b> 자동 전환. 가드레일: 의도 분기(질문·제안 적극, 잡담 침묵)·신뢰도·위험플래그(환불·결제·개인정보·법적·의학)·근거 없으면 "확인 후 답변" 톤·이모지 금지. 실사 아바타(클릭 확대)+역할 배지+<code>**굵게**</code> 안전 렌더(HTML 이스케이프). <b>프로덕션+로컬 E2E 검증 완료(2026-06-30).</b></div>
       <div class="ref">supabase/functions/cm-agent-draft/{index,knowledge}.ts · supabase/migrations/20260630010000~040000 · src/views/AdminDashboardView.tsx · src/web/Marketing.tsx</div>
       <div class="next"><b>백로그:</b> ① 지식베이스 보강(docs/faq.md — 빈발 질문 사실 추가 → 신뢰도↑) ② Aria 후속답변(댓글 INSERT 웹훅+스레드 맥락) ③ 승인 버튼 문구 "운영자"→"자세 코치" 정리 ④ 실사 아바타 "공식 운영 계정" 안내 문구.</div>
+    </div>
+
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">커뮤니티 에이전트 로스터 — 프로덕트 매니저 우선 구현</span><span class="gapid">CM-2</span></div>
+      <div class="detail">Aria(커뮤니티 매니저↔자세 코치) 위에 커뮤니티를 "굴러가게" 할 에이전트 역할군. <b>설계 원칙</b>: 당분간 오케스트레이터 1개 + <b>역할 뱃지</b>(코치/매니저/프로덕트)로 노출하고 사람은 Aria 1명 유지(커뮤니티 성장 시 "팀"으로 분기). 백그라운드(모더레이터·애널리스트·큐레이터)는 발화 안 하니 처음부터 별도 잡으로.
+      <br><b>🗣️ 공개 발화:</b> 커뮤니티 매니저(Aria, ✅)·자세 코치(✅, 근거강화 여지)·<b>프로덕트 매니저(🆕 우선)</b>·챌린지 호스트(🆕, 게이미피케이션).
+      <br><b>🛡️ 백그라운드:</b> 모더레이터(스팸·욕설·PII 사전심사)·프로덕트 애널리스트(주간 인사이트 다이제스트)·지식 큐레이터(Aria 답변→faq.md 제안).
+      <br><b>▶ 우선 구현 = 프로덕트 매니저</b>: 💡기능 제안 카테고리 전담 — 제안 접수 → <b>중복 클러스터링</b> → "N명 요청·검토중/예정/완료" 상태 회신 → <b>공개 로드맵 유지</b>. 알림(답글·상태 변경)과 합치면 "제안 → 상태 알림 → 반영"의 참여 루프 완결. cm-agent-draft 에 PM 역할(intent=feature_request) + 클러스터링/로드맵 상태 스키마 추가.</div>
+      <div class="ref">supabase/functions/cm-agent-draft/* · ai_response_drafts · (신규) feature_requests/roadmap 상태 · src/views/AdminDashboardView.tsx</div>
+    </div>
+
+    <div class="item" data-status="todo">
+      <div class="item-top"><span class="title">커뮤니티 SEO 구조 리팩토링 (permalink + 엣지 SSR + 사이트맵)</span><span class="gapid">CM-3</span></div>
+      <div class="detail"><b>⚠️ 토대 블로커</b>: 현재 커뮤니티는 ① <b>해시 라우팅</b>(<code>#/community</code>) ② <b>개별 글에 URL 자체가 없음</b>(<code>setView("detail")</code>+<code>activePost</code> React 상태, permalink 부재) → <b>검색·소셜·AI 검색에 100% 안 보임</b>. 커뮤니티를 마케팅 엔진(롱테일 UGC 색인 + AEO 인용)으로 쓰려면 필수.
+      <br><b>아키텍처(엣지 SSR — UGC는 빌드타임 정적생성 불가):</b> (1) 글 영구 path URL <code>/community/p/&lt;id&gt;</code> + 클라 pathname 라우팅 + Cloudflare SPA fallback(<code>_redirects</code>) (2) <b>Cloudflare Pages Function 엣지 SSR</b>(<code>/community/*</code>): Supabase 조회 → <code>&lt;title&gt;</code>·meta·OG·본문 + <b>JSON-LD <code>QAPage</code>/<code>DiscussionForumPosting</code></b> 렌더 → SPA 하이드레이션(재빌드 없이 색인) (3) 동적 <code>/community-sitemap.xml</code>. <b>MVP=글 상세 SSR만</b>, 목록·사이트맵 2단계. → 글 하나가 검색 랭킹+소셜 공유 카드+AI 인용 동시 획득.</div>
+      <div class="ref">(신규) functions/community/[[path]].ts (Cloudflare Pages Function) · public/_redirects · src/web/Marketing.tsx 라우팅 · 상세 docs/마케팅전략.html §9</div>
     </div>
   </section>
 
