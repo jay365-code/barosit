@@ -425,7 +425,7 @@ function Avatar({
 // 커뮤니티 운영자 Aria 아바타. 실제 디자인 이미지를 쓰려면 ARIA_AVATAR_SRC 에 경로를
 // 넣으면 됨(예: "/aria.png" — public 에 두면 오프라인/사내망에서도 동작). 비어 있으면
 // 인라인 일러스트(밝은 톤·은은한 미소)로 폴백한다.
-const ARIA_AVATAR_SRC = "";
+const ARIA_AVATAR_SRC = "/aria.jpeg";
 function AriaAvatar({ size = 28 }: { size?: number }) {
   if (ARIA_AVATAR_SRC) {
     return (
