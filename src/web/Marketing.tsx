@@ -426,15 +426,17 @@ function Avatar({
 // 넣으면 됨(예: "/aria.png" — public 에 두면 오프라인/사내망에서도 동작). 비어 있으면
 // 인라인 일러스트(밝은 톤·은은한 미소)로 폴백한다.
 const ARIA_AVATAR_SRC = "/aria.jpeg";
-function AriaAvatar({ size = 28 }: { size?: number }) {
+function AriaAvatar({ size = 28, onClick }: { size?: number; onClick?: () => void }) {
+  const clickStyle = onClick ? { cursor: "zoom-in" as const } : {};
   if (ARIA_AVATAR_SRC) {
     return (
-      <img src={ARIA_AVATAR_SRC} alt="Aria" width={size} height={size}
-        style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+      <img src={ARIA_AVATAR_SRC} alt="Aria" width={size} height={size} onClick={onClick}
+        title={onClick ? "프로필 사진 크게 보기" : undefined}
+        style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0, ...clickStyle }} />
     );
   }
   return (
-    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true" style={{ borderRadius: "50%", flexShrink: 0 }}>
+    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true" onClick={onClick} style={{ borderRadius: "50%", flexShrink: 0, ...clickStyle }}>
       <circle cx="20" cy="20" r="20" fill="#EDEBFB" />
       <path d="M11 14 Q11 5 20 5 Q29 5 29 14 L29 21 Q29 30 20 30 Q11 30 11 21 Z" fill="#2B2150" />
       <circle cx="20" cy="20" r="7.5" fill="#F4D7C4" />
@@ -1904,6 +1906,9 @@ function Contact() {
   // Input Focus States
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  // 아바타(프로필) 확대 보기 라이트박스
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
   // 운영자(관리자) 여부 — 📣 공지 카테고리 글쓰기 권한 제어용
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -2320,6 +2325,25 @@ function Contact() {
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
       <TopNav active="community" />
+
+      {/* 프로필 사진 확대 라이트박스 (클릭 시 닫힘) */}
+      {zoomedImage && (
+        <div
+          onClick={() => setZoomedImage(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.82)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "zoom-out", padding: 24,
+          }}
+        >
+          <img
+            src={zoomedImage}
+            alt="프로필 확대"
+            style={{ maxWidth: "min(90vw, 480px)", maxHeight: "85vh", borderRadius: 16, objectFit: "contain", boxShadow: "0 12px 48px rgba(0,0,0,0.5)" }}
+          />
+        </div>
+      )}
       <div
         style={{
           maxWidth: 720,
@@ -3165,7 +3189,7 @@ function Contact() {
                       {/* Comment Header */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          {comment.is_agent && <AriaAvatar size={24} />}
+                          {comment.is_agent && <AriaAvatar size={24} onClick={ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />}
                           {comment.author_name}
                           {comment.is_agent ? (
                             <span style={{
