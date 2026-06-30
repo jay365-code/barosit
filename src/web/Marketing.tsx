@@ -457,6 +457,30 @@ function formatAgentContent(raw: string): string {
     .replace(/\n/g, "<br/>");
 }
 
+// 댓글을 1단계 스레드 순서로 정렬: 최상위 댓글 뒤에 그 답글들이 바로 오도록.
+// 부모가 목록에 없는 고아 답글은 사라지지 않게 끝에 최상위로 덧붙인다.
+function orderThread(list: any[]): any[] {
+  const tops = list.filter((c) => !c.parent_comment_id);
+  const byParent: Record<string, any[]> = {};
+  list.forEach((c) => {
+    if (c.parent_comment_id) (byParent[c.parent_comment_id] ||= []).push(c);
+  });
+  const out: any[] = [];
+  const seen = new Set<string>();
+  tops.forEach((t) => {
+    out.push(t);
+    seen.add(t.id);
+    (byParent[t.id] || []).forEach((r) => {
+      out.push(r);
+      seen.add(r.id);
+    });
+  });
+  list.forEach((c) => {
+    if (!seen.has(c.id)) out.push(c);
+  });
+  return out;
+}
+
 // ───────── Landing ─────────
 
 function Landing() {
@@ -1887,6 +1911,8 @@ function Contact() {
   const [commentAuthor, setCommentAuthor] = useState("");
   const [commentContent, setCommentContent] = useState("");
   const [commentPassword, setCommentPassword] = useState("");
+  // 답글 대상(1단계 스레드). parentId = 답글이 매달릴 최상위 댓글 id.
+  const [replyTo, setReplyTo] = useState<{ id: string; author: string; parentId: string } | null>(null);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   // Password Verification Modal
@@ -2146,6 +2172,7 @@ function Contact() {
           author_name: commentAuthor.trim(),
           password_hash: hashedPassword,
           user_id: user ? user.id : null,
+          parent_comment_id: replyTo?.parentId ?? null,
         },
       ]);
 
@@ -2154,6 +2181,7 @@ function Contact() {
       setCommentContent("");
       setCommentPassword("");
       if (!user) setCommentAuthor("");
+      setReplyTo(null);
       fetchComments(activePost.id);
     } catch (err) {
       console.error("Error creating comment:", err);
@@ -3169,17 +3197,19 @@ function Contact() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {comments.map((comment) => (
+                  {orderThread(comments).map((comment) => (
                     <div
                       key={comment.id}
                       style={{
                         padding: "16px 20px 16px 24px",
                         borderRadius: 14,
+                        // 답글(1단계)은 들여쓰기로 부모 아래에 매단다.
+                        marginLeft: comment.parent_comment_id ? 28 : 0,
                         // 운영자(Aria) 댓글은 브랜드 톤으로 강조해 "공식 답변"임을 드러낸다.
                         background: comment.is_agent ? "var(--b-sig-soft)" : "rgba(255, 255, 255, 0.5)",
                         border: comment.is_agent ? "1px solid var(--b-sig)" : "1px solid var(--b-line)",
-                        // Reddit Thread Line 데코레이션
-                        borderLeft: "3px solid var(--b-sig)",
+                        // Reddit Thread Line 데코레이션 (답글은 옅은 선)
+                        borderLeft: comment.parent_comment_id ? "3px solid var(--b-line)" : "3px solid var(--b-sig)",
                         display: "flex",
                         flexDirection: "column",
                         gap: 8,
@@ -3189,6 +3219,7 @@ function Contact() {
                       {/* Comment Header */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {comment.parent_comment_id && <span style={{ color: "var(--b-fg-3)", fontWeight: 400 }} aria-hidden="true">↳</span>}
                           {comment.is_agent && <AriaAvatar size={24} onClick={ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />}
                           {comment.author_name}
                           {comment.is_agent ? (
@@ -3224,6 +3255,15 @@ function Contact() {
                           )}
                         </span>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => setReplyTo({ id: comment.id, author: comment.author_name, parentId: comment.parent_comment_id || comment.id })}
+                            style={{ border: "none", background: "none", color: "var(--b-fg-3)", cursor: "pointer", fontSize: 11, fontWeight: 600, padding: 0 }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--b-sig)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
+                          >
+                            {t("community.reply")}
+                          </button>
                           <span style={{ fontSize: 11, color: "var(--b-fg-3)" }}>
                             {formatDate(comment.created_at)}
                           </span>
@@ -3276,6 +3316,15 @@ function Contact() {
                   marginTop: 8,
                 }}
               >
+                {/* 답글 대상 배너 */}
+                {replyTo && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", borderRadius: 10, background: "var(--b-sig-soft)", border: "1px solid var(--b-sig)", fontSize: 12, color: "var(--b-fg-2)" }}>
+                    <span>↳ {t("community.replyingTo", { name: replyTo.author })}</span>
+                    <button type="button" onClick={() => setReplyTo(null)} style={{ border: "none", background: "none", color: "var(--b-sig)", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: 0 }}>
+                      {t("community.cancelReply")}
+                    </button>
+                  </div>
+                )}
                 {/* Input Fields Row */}
                 <div style={{ display: "grid", gridTemplateColumns: user ? "1fr" : "1fr 1fr", gap: 12 }}>
                   <input
