@@ -95,6 +95,35 @@ export function tplRefunded(amount: number, full: boolean): { subject: string; h
   };
 }
 
+// 회원탈퇴 신청 접수 안내 (유예 시작)
+export function tplDeletionRequested(scheduledIso?: string | null): { subject: string; html: string } {
+  const when = scheduledIso ? new Date(scheduledIso).toLocaleDateString("ko-KR") : "약 30일 후";
+  return {
+    subject: "[BaroSit] 회원탈퇴가 접수되었습니다",
+    html: layout(
+      "회원탈퇴 신청이 접수되었습니다",
+      `<p>요청하신 회원탈퇴가 정상 접수되었습니다. <strong>${when}에 계정과 개인정보·자세 데이터가 영구 삭제</strong>됩니다.</p>
+       <p>그 전까지는 <strong>유예기간</strong>으로, 다시 로그인하신 뒤 "탈퇴 취소"를 누르시면 계정을 그대로 복구하실 수 있습니다.
+       이용 중이던 PRO 구독은 추가 청구 없이 자동갱신이 해지되었습니다.</p>
+       <p style="color:#64748b;font-size:13px">※ 전자상거래법에 따라 결제·거래 기록은 식별정보를 분리(익명화)한 뒤 법정 보존기간(5년) 동안 보관됩니다.</p>`,
+      { label: "BaroSit 다시 열기", url: BILLING_URL },
+    ),
+  };
+}
+
+// 회원탈퇴 취소(복구) 안내
+export function tplDeletionCanceled(): { subject: string; html: string } {
+  return {
+    subject: "[BaroSit] 회원탈퇴가 취소되었습니다",
+    html: layout(
+      "회원탈퇴가 취소되었습니다",
+      `<p>예약되어 있던 회원탈퇴가 <strong>취소</strong>되어 계정이 정상 상태로 복구되었습니다.
+       계정과 데이터는 그대로 유지됩니다.</p>
+       <p>다시 찾아주셔서 감사합니다. 계속 바른 자세를 함께 지켜드릴게요.</p>`,
+    ),
+  };
+}
+
 // 구독 해지(예약) 접수 안내
 export function tplCanceled(periodEndIso?: string | null): { subject: string; html: string } {
   const end = periodEndIso ? new Date(periodEndIso).toLocaleDateString("ko-KR") : "현재 결제 주기 만료일";

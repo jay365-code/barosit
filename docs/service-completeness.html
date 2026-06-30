@@ -470,11 +470,11 @@
       <div class="item-top"><span class="title">약관 변호사 검토 (결제·구독·환불 조항)</span></div>
       <div class="detail">전자상거래법 준수 최종 확인. 외부 의존.</div>
     </div>
-    <div class="item" data-status="todo">
-      <div class="item-top"><span class="title">회원탈퇴 (계정·데이터 삭제) — 셀프서비스 미구현</span></div>
-      <div class="detail">현재 셀프 탈퇴 없음 — 프로필에 "문의로 요청 시 수동 처리" 안내만. 한국 B2C + 소셜(Google/Apple) 도입 감안 시 표준 필요. <b>설계 핵심:</b> 즉시 삭제 금지 → <b>유예기간(soft delete) 후 예약 파기</b>(pg_cron), <b>결제·거래 기록은 전자상거래법상 5년 법정보존</b>(분리·익명화)이라 "전부 삭제" 아님. 전 테이블 user_id 인벤토리 + Toss 빌링키 폐기 + 활성구독 환불정책 필요. 정책·설계 단일 문서 <a href="account-deletion-policy.html">account-deletion-policy.html</a> 작성 완료.</div>
-      <div class="ref">docs/account-deletion-policy.html · (구현 예정) supabase/functions/delete-account · src/views/ProfileView.tsx</div>
-      <div class="next"><b>다음 작업:</b> §6 정책(유예기간·복구허용·구독환불) 확정 → delete-account Edge Function + pg_cron 파기 + ProfileView 버튼. App Store 입점 시 필수(5.1.1 v).</div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">회원탈퇴 (계정·데이터 삭제) — 셀프서비스 구현 완료</span></div>
+      <div class="detail">셀프 탈퇴 구현(2026-06-30). 정책 확정: <b>유예 30일 / 유예중 복구 허용 / 구독은 자동갱신만 해지(환불 없음) / export 제외</b>. soft delete 후 <b>pg_cron 예약 파기</b>(<code>purge_deleted_accounts()</code>), <b>결제·거래 기록은 전자상거래법 5년 법정보존</b> — billing_history FK CASCADE→SET NULL + <code>anon_user_hash</code> 가명화로 익명 보존. 빌링키는 user_subscriptions cascade 삭제로 폐기. 데스크톱·웹 ProfileView 모두 탈퇴 버튼 + 유예중 취소 배너.</div>
+      <div class="ref">supabase/migrations/20260630000000_account_deletion.sql · supabase/functions/delete-account · src/views/ProfileView.tsx · src/web/Marketing.tsx · docs/account-deletion-policy.html</div>
+      <div class="next"><b>운영 잔여:</b> pg_cron <code>daily-account-purge-job</code> 스케줄 1회 등록 + delete-account Edge Function 배포(supabase functions deploy). App Store 입점 시 필수(5.1.1 v) 충족.</div>
     </div>
   </section>
 

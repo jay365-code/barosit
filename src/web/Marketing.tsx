@@ -5132,21 +5132,27 @@ function AccountTab({
   // DB(profiles.name)를 진짜 소스로 우선 조회 — 로컬 캐시/메타데이터가 기기마다
   // 다를 수 있어, 동기화된 DB 이름이 있으면 그 값을 표시한다.
   const [dbName, setDbName] = useState<string>("");
+  const [deletionScheduledAt, setDeletionScheduledAt] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteAck, setDeleteAck] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   useEffect(() => {
     let alive = true;
     if (!user?.id) {
       setDbName("");
+      setDeletionScheduledAt(null);
       return;
     }
     (async () => {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("name")
+          .select("name, deletion_scheduled_at")
           .eq("id", user.id)
           .maybeSingle();
         if (alive && !error) {
           setDbName((data?.name as string | undefined)?.trim() || "");
+          setDeletionScheduledAt((data?.deletion_scheduled_at as string | undefined) ?? null);
         }
       } catch (e) {}
     })();
@@ -5154,6 +5160,45 @@ function AccountTab({
       alive = false;
     };
   }, [user?.id]);
+
+  // 회원탈퇴 신청(soft delete + 30일 유예) / 유예 중 취소(복구)
+  const requestDeletion = async () => {
+    if (!user || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { action: "request" },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "fail");
+      setDeletionScheduledAt(data.scheduled_at ?? null);
+      setDeleteConfirmOpen(false);
+      setDeleteAck(false);
+      const when = data.scheduled_at ? new Date(data.scheduled_at).toLocaleDateString(i18n.language) : "";
+      alert(t("deleteSuccess", { date: when }));
+    } catch (e) {
+      console.error("delete-account request failed:", e);
+      alert(t("deleteError"));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+  const cancelDeletion = async () => {
+    if (!user || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { action: "cancel" },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "fail");
+      setDeletionScheduledAt(null);
+      alert(t("deleteUndoSuccess"));
+    } catch (e) {
+      console.error("delete-account cancel failed:", e);
+      alert(t("deleteUndoError"));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
   const fullName =
     dbName ||
     customName ||
@@ -5269,6 +5314,88 @@ function AccountTab({
         </a>
         {t("web.noPasswordPost")}
       </div>
+
+      {/* 회원탈퇴 (계정·데이터 영구 삭제) — soft delete + 30일 유예 */}
+      {user && (
+        <div style={{ marginTop: 18 }}>
+          {deletionScheduledAt ? (
+            <div style={{
+              padding: 18, borderRadius: 14, background: "rgba(248,113,113,0.06)",
+              border: "1px solid rgba(248,113,113,0.3)", display: "flex", flexDirection: "column", gap: 10,
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#e0564f" }}>{t("deletePendingTitle")}</div>
+              <div style={{ fontSize: 13, color: "var(--b-fg-2)", lineHeight: 1.6 }}>
+                {t("deletePendingBody", { date: new Date(deletionScheduledAt).toLocaleDateString(i18n.language) })}
+              </div>
+              <button
+                type="button"
+                disabled={deleteBusy}
+                onClick={cancelDeletion}
+                style={{
+                  alignSelf: "flex-start", padding: "9px 18px", borderRadius: 10, border: "none",
+                  background: "var(--b-sig-deep, #5b8c7a)", color: "#fff", fontSize: 13, fontWeight: 700,
+                  cursor: deleteBusy ? "default" : "pointer", opacity: deleteBusy ? 0.6 : 1,
+                }}
+              >
+                {t("deletePendingCancel")}
+              </button>
+            </div>
+          ) : !deleteConfirmOpen ? (
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmOpen(true)}
+              style={{
+                padding: "9px 16px", borderRadius: 10, background: "transparent",
+                border: "1px solid rgba(248,113,113,0.3)", color: "#e0564f", fontSize: 13,
+                fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              {t("deleteAccount")}
+            </button>
+          ) : (
+            <div style={{
+              padding: 18, borderRadius: 14, background: "rgba(248,113,113,0.05)",
+              border: "1px solid rgba(248,113,113,0.25)", display: "flex", flexDirection: "column", gap: 12,
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#e0564f" }}>{t("deleteSectionTitle")}</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--b-fg-2)", lineHeight: 1.7 }}>
+                <li>{t("deleteWarn1")}</li>
+                <li>{t("deleteWarn2")}</li>
+                <li>{t("deleteWarn3")}</li>
+              </ul>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--b-fg-2)", cursor: "pointer" }}>
+                <input type="checkbox" checked={deleteAck} onChange={(e) => setDeleteAck(e.target.checked)} style={{ marginTop: 3 }} />
+                <span>{t("deleteAck")}</span>
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  disabled={!deleteAck || deleteBusy}
+                  onClick={requestDeletion}
+                  style={{
+                    padding: "9px 16px", borderRadius: 10, border: "none", background: "#e0564f",
+                    color: "#fff", fontSize: 13, fontWeight: 700,
+                    cursor: (!deleteAck || deleteBusy) ? "default" : "pointer",
+                    opacity: (!deleteAck || deleteBusy) ? 0.5 : 1,
+                  }}
+                >
+                  {deleteBusy ? t("deleteSubmitting") : t("deleteSubmit")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDeleteConfirmOpen(false); setDeleteAck(false); }}
+                  style={{
+                    padding: "9px 16px", borderRadius: 10, background: "transparent",
+                    border: "1px solid var(--b-line)", color: "var(--b-fg-2)", fontSize: 13, cursor: "pointer",
+                  }}
+                >
+                  {t("deleteCancel")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

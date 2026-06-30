@@ -56,6 +56,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
   const [profile, setProfile] = useState<UserProfile>(() => loadProfile());
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [deletionScheduledAt, setDeletionScheduledAt] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteAck, setDeleteAck] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [adminModelCalibrateOpen, setAdminModelCalibrateOpen] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -215,6 +219,14 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
             actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
           }
 
+          // 회원탈퇴 예약 상태 (유예 중이면 배너 + 취소 UI 노출)
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("deletion_scheduled_at")
+            .eq("id", session.user.id)
+            .maybeSingle();
+          setDeletionScheduledAt(prof?.deletion_scheduled_at ?? null);
+
           const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
 
           // [보안 위변조 감지] DB 플랜은 free인데 로컬 캐시가 pro인 경우
@@ -249,6 +261,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
           setSubPlan("free");
           setCardInfo(null);
           setGracePeriodUntil(null);
+          setDeletionScheduledAt(null);
         }
       } catch (err) {
         console.error("Failed to load user subscription:", err);
@@ -350,6 +363,51 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     } catch (err) {
       console.error("Resume failed:", err);
       alert(t("restoreError"));
+    }
+  };
+
+  // 회원탈퇴 신청 (soft delete + 30일 유예). 실제 파기는 purge 배치가 수행.
+  const handleRequestDeletion = async () => {
+    if (!session?.user || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { action: "request" },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "탈퇴 처리 실패");
+      }
+      setDeletionScheduledAt(data.scheduled_at ?? null);
+      setDeleteConfirmOpen(false);
+      setDeleteAck(false);
+      const when = data.scheduled_at ? new Date(data.scheduled_at).toLocaleDateString() : "";
+      alert(t("deleteSuccess", { date: when }));
+    } catch (err: any) {
+      console.error("Account deletion request failed:", err);
+      alert(t("deleteError"));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  // 유예 중 회원탈퇴 취소 (계정 복구)
+  const handleCancelDeletion = async () => {
+    if (!session?.user || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { action: "cancel" },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "탈퇴 취소 실패");
+      }
+      setDeletionScheduledAt(null);
+      alert(t("deleteUndoSuccess"));
+    } catch (err: any) {
+      console.error("Account deletion cancel failed:", err);
+      alert(t("deleteUndoError"));
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -1165,6 +1223,95 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                             onClick={() => setLogoutConfirmOpen(false)}
                           >
                             {t("common:cancel")}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 회원탈퇴 (계정·데이터 영구 삭제) — soft delete + 30일 유예 */}
+                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--b-line)" }}>
+                    {deletionScheduledAt ? (
+                      // 유예 중: 예약 안내 + 취소
+                      <div style={{
+                        display: "flex", flexDirection: "column", gap: "10px", padding: "14px",
+                        borderRadius: "12px", background: "rgba(248, 113, 113, 0.06)",
+                        border: "1px solid rgba(248, 113, 113, 0.3)"
+                      }}>
+                        <div style={{ fontSize: "13px", color: "#f87171", fontWeight: 700 }}>
+                          {t("deletePendingTitle")}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "var(--b-fg-2)", lineHeight: 1.6 }}>
+                          {t("deletePendingBody", { date: new Date(deletionScheduledAt).toLocaleDateString() })}
+                        </div>
+                        <button
+                          type="button"
+                          className="b-btn"
+                          disabled={deleteBusy}
+                          style={{
+                            background: "var(--b-sig, #5b8c7a)", color: "#fff", border: "none",
+                            fontSize: "12px", fontWeight: 700, height: "34px",
+                            cursor: deleteBusy ? "default" : "pointer", opacity: deleteBusy ? 0.6 : 1
+                          }}
+                          onClick={handleCancelDeletion}
+                        >
+                          {t("deletePendingCancel")}
+                        </button>
+                      </div>
+                    ) : !deleteConfirmOpen ? (
+                      <button
+                        type="button"
+                        className="b-btn b-btn-ghost"
+                        onClick={() => setDeleteConfirmOpen(true)}
+                        style={{ border: "1px solid rgba(248, 113, 113, 0.25)", color: "#f87171", fontSize: "12px" }}
+                      >
+                        {t("deleteAccount")}
+                      </button>
+                    ) : (
+                      <div style={{
+                        display: "flex", flexDirection: "column", gap: "12px", padding: "14px",
+                        borderRadius: "12px", background: "rgba(248, 113, 113, 0.05)",
+                        border: "1px solid rgba(248, 113, 113, 0.25)", animation: "fadeIn 0.2s ease-out"
+                      }}>
+                        <div style={{ fontSize: "13px", color: "#f87171", fontWeight: 700 }}>
+                          {t("deleteSectionTitle")}
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: "12px", color: "var(--b-fg-2)", lineHeight: 1.7 }}>
+                          <li>{t("deleteWarn1")}</li>
+                          <li>{t("deleteWarn2")}</li>
+                          <li>{t("deleteWarn3")}</li>
+                        </ul>
+                        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: "12px", color: "var(--b-fg-2)", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={deleteAck}
+                            onChange={(e) => setDeleteAck(e.target.checked)}
+                            style={{ marginTop: 2 }}
+                          />
+                          <span>{t("deleteAck")}</span>
+                        </label>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            type="button"
+                            className="b-btn"
+                            disabled={!deleteAck || deleteBusy}
+                            style={{
+                              background: "#f87171", color: "#fff", border: "none", fontSize: "12px",
+                              fontWeight: 700, height: "32px", flex: 1,
+                              cursor: (!deleteAck || deleteBusy) ? "default" : "pointer",
+                              opacity: (!deleteAck || deleteBusy) ? 0.5 : 1
+                            }}
+                            onClick={handleRequestDeletion}
+                          >
+                            {deleteBusy ? t("deleteSubmitting") : t("deleteSubmit")}
+                          </button>
+                          <button
+                            type="button"
+                            className="b-btn b-btn-ghost"
+                            style={{ border: "1px solid var(--b-line)", color: "var(--b-fg-2)", fontSize: "12px", height: "32px", flex: 1, cursor: "pointer" }}
+                            onClick={() => { setDeleteConfirmOpen(false); setDeleteAck(false); }}
+                          >
+                            {t("deleteCancel")}
                           </button>
                         </div>
                       </div>

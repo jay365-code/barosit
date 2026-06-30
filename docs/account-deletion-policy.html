@@ -44,8 +44,8 @@
 <body>
 <header>
   <h1>BaroSit 회원탈퇴 정책 · 설계</h1>
-  <div class="sub">계정·데이터 삭제(회원탈퇴) 요구사항·법적 제약·구현 설계 단일 문서 · 작성 2026-06-29 ·
-  상태 <span class="status">미구현(설계 단계)</span> · 추적 <a href="service-completeness.html">service-completeness.html</a> §12</div>
+  <div class="sub">계정·데이터 삭제(회원탈퇴) 요구사항·법적 제약·구현 설계 단일 문서 · 작성 2026-06-29 · 구현 2026-06-30 ·
+  상태 <span class="status" style="color:#3fb950">구현 완료</span> · 추적 <a href="service-completeness.html">service-completeness.html</a> §12</div>
 </header>
 
 <div class="wrap">
@@ -116,13 +116,15 @@
   <section>
     <h2>6. 결정 필요 정책 (구현 전 확정)</h2>
     <div class="card decide">
+      <p style="margin:0 0 8px"><b>확정 (2026-06-30)</b> — 모두 권장값 채택:</p>
       <ul>
-        <li><b>유예기간</b>: 권장 <b>30일</b> (7 / 14 / 30 중). — <span class="status">미정</span></li>
-        <li><b>유예 중 복구 허용?</b>: 권장 <b>예</b>(재로그인 시 탈퇴취소). — <span class="status">미정</span></li>
-        <li><b>활성 구독자 탈퇴 시 환불</b>: 기존 환불정책 그대로 vs 잔여기간 자동환불. — <span class="status">미정</span></li>
-        <li><b>데이터 내려받기(export) 동시 제공?</b>: GDPR 이동권·관행. — <span class="status">미정</span></li>
+        <li><b>유예기간</b>: <b>30일</b>. — <span class="status" style="color:#3fb950">확정</span></li>
+        <li><b>유예 중 복구 허용</b>: <b>예</b>(재로그인 후 "탈퇴 취소"). — <span class="status" style="color:#3fb950">확정</span></li>
+        <li><b>활성 구독자 탈퇴 시</b>: <b>자동갱신만 해지</b>(잔여기간 이용, 환불 없음 — 기존 §4의2 환불정책 유지). — <span class="status" style="color:#3fb950">확정</span></li>
+        <li><b>데이터 내려받기(export) 동시 제공</b>: <b>이번엔 제외</b>(후속 과제). — <span class="status" style="color:#3fb950">확정</span></li>
       </ul>
     </div>
+    <div class="note" style="border-left-color:#3fb950">구현 완료(2026-06-30): 마이그레이션 <code>20260630000000_account_deletion.sql</code>(profiles 탈퇴컬럼 + billing_history FK CASCADE→SET NULL·<code>anon_user_hash</code> 익명보존 + <code>purge_deleted_accounts()</code> pg_cron) · Edge Function <code>delete-account</code>(request/cancel) · ProfileView(데스크톱·웹) 탈퇴 UI + 유예중 취소 배너 · i18n ko/en/ja · privacy.md §4·§5 / terms.md §9의2. <b>운영 잔여</b>: pg_cron <code>daily-account-purge-job</code> 스케줄 1회 등록(§4) + Edge Function 배포.</div>
   </section>
 
   <section>
