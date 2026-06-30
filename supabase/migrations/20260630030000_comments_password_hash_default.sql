@@ -5,4 +5,6 @@
 -- 로그인 사용자도 관례상 빈 문자열('')을 넣으므로, 기본값 '' 로 맞추면 컬럼을 생략한 삽입도 통과한다.
 -- (게스트 댓글은 여전히 해시값을 명시적으로 넣으므로 영향 없음.)
 
+-- 로컬/재현 환경(마이그레이션으로만 구성)엔 password_hash 컬럼이 없을 수 있어 먼저 보장한다(드리프트 보정).
+ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE public.comments ALTER COLUMN password_hash SET DEFAULT '';
