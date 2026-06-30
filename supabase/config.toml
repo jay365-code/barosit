@@ -12,6 +12,10 @@ max_rows = 1000
 port = 54332
 shadow_port = 54333
 
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
 [studio]
 port = 54334
 
