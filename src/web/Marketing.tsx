@@ -422,15 +422,37 @@ function Avatar({
 }
 
 // 커뮤니티 운영자 Aria 전용 일러스트 아바타 (오프라인/사내망에서도 렌더되도록 인라인 SVG).
+// 커뮤니티 운영자 Aria 아바타. 실제 디자인 이미지를 쓰려면 ARIA_AVATAR_SRC 에 경로를
+// 넣으면 됨(예: "/aria.png" — public 에 두면 오프라인/사내망에서도 동작). 비어 있으면
+// 인라인 일러스트(밝은 톤·은은한 미소)로 폴백한다.
+const ARIA_AVATAR_SRC = "";
 function AriaAvatar({ size = 28 }: { size?: number }) {
+  if (ARIA_AVATAR_SRC) {
+    return (
+      <img src={ARIA_AVATAR_SRC} alt="Aria" width={size} height={size}
+        style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+    );
+  }
   return (
     <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true" style={{ borderRadius: "50%", flexShrink: 0 }}>
-      <rect width="40" height="40" fill="#AFA9EC" />
-      <circle cx="20" cy="16" r="8" fill="#3C3489" />
-      <path d="M9 40 Q9 27 20 27 Q31 27 31 40 Z" fill="#534AB7" />
-      <path d="M12 13 Q12 4 20 4 Q28 4 28 13 Q28 9 20 9 Q12 9 12 13 Z" fill="#26215C" />
+      <circle cx="20" cy="20" r="20" fill="#EDEBFB" />
+      <path d="M11 14 Q11 5 20 5 Q29 5 29 14 L29 21 Q29 30 20 30 Q11 30 11 21 Z" fill="#2B2150" />
+      <circle cx="20" cy="20" r="7.5" fill="#F4D7C4" />
+      <path d="M12.5 18 Q12.5 9.5 20 9.5 Q27.5 9.5 27.5 18 Q27.5 14 20 14 Q12.5 14 12.5 18 Z" fill="#2B2150" />
+      <path d="M16 40 Q16 31 20 31 Q24 31 24 40 Z" fill="#6E63C6" />
+      <path d="M17.6 21.4 Q20 23.2 22.4 21.4" stroke="#B07B5C" strokeWidth="1" fill="none" strokeLinecap="round" />
     </svg>
   );
+}
+
+// 운영자(Aria) 댓글 전용 안전 서식 변환: HTML 이스케이프 후 **굵게** 와 줄바꿈만 변환.
+// 사용자 입력이 아니라 운영자 검수를 거친 모델 출력이지만, 이스케이프를 먼저 해 XSS 를 원천 차단한다.
+function formatAgentContent(raw: string): string {
+  const esc = (raw || "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return esc
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br/>");
 }
 
 // ───────── Landing ─────────
@@ -3203,9 +3225,16 @@ function Contact() {
                         </div>
                       </div>
                       {/* Comment Content */}
-                      <p style={{ fontSize: 14, color: "var(--b-fg-1)", margin: 0, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                        {comment.content}
-                      </p>
+                      {comment.is_agent ? (
+                        <p
+                          style={{ fontSize: 14, color: "var(--b-fg-1)", margin: 0, lineHeight: 1.6 }}
+                          dangerouslySetInnerHTML={{ __html: formatAgentContent(comment.content) }}
+                        />
+                      ) : (
+                        <p style={{ fontSize: 14, color: "var(--b-fg-1)", margin: 0, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                          {comment.content}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

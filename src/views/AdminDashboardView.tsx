@@ -564,7 +564,7 @@ export function AdminDashboardView({ onClose }: Props) {
       // Aria 운영자 자격으로 댓글 게시 (user_id=null, is_agent=true → 클라이언트가 운영자 뱃지 렌더)
       const { data: inserted, error: insErr } = await supabase
         .from("comments")
-        .insert([{ post_id: draft.post_id, user_id: null, author_name: "Aria", is_agent: true, agent_role: draft.agent_role ?? "coach", content: body }])
+        .insert([{ post_id: draft.post_id, user_id: null, author_name: "Aria", is_agent: true, agent_role: draft.agent_role ?? "coach", content: body, password_hash: "" }])
         .select();
       if (insErr) throw insErr;
 
