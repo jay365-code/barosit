@@ -605,6 +605,26 @@ export function AdminDashboardView({ onClose }: Props) {
         })
         .eq("id", draft.id);
       if (error) throw error;
+
+      // 에스컬레이션 시 실시간 알림(admin_notifications)에 적재 → "실시간 알림" 탭에 노출
+      if (escalate) {
+        const srcPost = posts.find(p => p.id === draft.post_id);
+        const title = srcPost?.title || "(제목 없음)";
+        await supabase.from("admin_notifications").insert({
+          event_type: "community_escalation",
+          severity: draft.risk_flags?.length ? "critical" : "warning",
+          message: `커뮤니티 문의 사람 처리 필요: "${title}"${draft.risk_flags?.length ? ` · 위험(${draft.risk_flags.join(", ")})` : ""} — AI 자동응답 대신 담당자가 직접 답변하세요.`,
+          payload: {
+            post_id: draft.post_id,
+            draft_id: draft.id,
+            intent: draft.intent,
+            risk_flags: draft.risk_flags ?? [],
+            escalated_by: session?.user?.id ?? null,
+            escalated_at: new Date().toISOString(),
+          },
+        });
+      }
+
       const next = escalate ? "escalated" : "rejected";
       setDrafts(prev => prev.map(d => (d.id === draft.id ? { ...d, status: next as AiDraftData["status"] } : d)));
       setSelectedDraft(null);
