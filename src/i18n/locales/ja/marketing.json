@@ -295,6 +295,8 @@
     "emptyDesc": "いちばん最初の、温かく有益な話を始めてみましょう！",
     "member": "会員",
     "anon": "匿名",
+    "roleCoach": "姿勢コーチ",
+    "roleManager": "コミュニティマネージャー",
     "authorLabel": "投稿者:",
     "formCategory": "トピックを選択",
     "nickname": "ニックネーム",
@@ -339,6 +341,7 @@
       "challenge": "🔥 姿勢認証チャレンジ",
       "free": "📢 自由な議論",
       "qna": "❓ 質問/回答",
+      "notice": "📣 お知らせ",
       "fallback": "自由"
     },
     "corp": {
@@ -352,6 +355,7 @@
     "errFillAll": "すべての空欄をもれなく入力してください。",
     "errPwMin": "パスワードは4文字以上で入力してください。",
     "errCreatePost": "投稿の作成中にエラーが発生しました。",
+    "errNoticeAdminOnly": "📣 お知らせは運営者のみ投稿できます。",
     "alertFillAll": "すべての空欄を入力してください。",
     "alertCommentPwMin": "コメントのパスワードは4文字以上で入力してください。",
     "errCreateComment": "コメントの登録に失敗しました。",

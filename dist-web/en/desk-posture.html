@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Desk Posture App — Posture Reminders for Work-From-Home & Office | BaroSit</title>
+    <meta
+      name="description"
+      content="A desk posture app for anyone sitting all day, working from home or in the office. BaroSit detects your posture with your webcam and reminds you to move when you've been sitting too long in one position."
+    />
+    <link rel="canonical" href="https://barosit.com/en/desk-posture" />
+    <link rel="alternate" hreflang="ko" href="https://barosit.com/desk-posture" />
+    <link rel="alternate" hreflang="en" href="https://barosit.com/en/desk-posture" />
+    <link rel="alternate" hreflang="ja" href="https://barosit.com/ja/desk-posture" />
+    <link rel="alternate" hreflang="x-default" href="https://barosit.com/desk-posture" />
+    <meta name="theme-color" content="#fafaf7" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Desk Posture App — Posture Reminders for Work-From-Home & Office" />
+    <meta
+      property="og:description"
+      content="BaroSit detects your posture with your webcam and reminds you to move when you've been sitting too long in one position."
+    />
+    <meta property="og:url" content="https://barosit.com/en/desk-posture" />
+    <meta property="og:site_name" content="BaroSit" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://barosit.com/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://barosit.com/og-image.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "BaroSit",
+        "alternateName": ["BaroSit", "desk posture app", "posture reminder app"],
+        "operatingSystem": "Windows, macOS",
+        "applicationCategory": "HealthApplication",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "url": "https://barosit.com/",
+        "description": "A free app for people who sit all day — working from home or in the office. It detects your posture with your webcam and nudges you to move when you've stayed in one position too long."
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "My posture gets worse working from home — how do I manage it?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Working from home cuts out the commute and walks between meetings, so you tend to sit even longer. What matters is not staying in one position too long, and BaroSit helps by letting you know when you've held a position for a while so you can stand up or shift for a moment." }
+          },
+          {
+            "@type": "Question",
+            "name": "Will it get in the way while I'm working?",
+            "acceptedAnswer": { "@type": "Answer", "text": "BaroSit shows just your current score in a small on-screen mini-bar, and only nudges you gently when your posture has stayed off for a while. The desktop app keeps running in the background even when the window is closed." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is my privacy safe if I use it on a work computer?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Your webcam feed is analyzed only on your device and is never stored or sent anywhere. All posture analysis runs entirely on-device." }
+          }
+        ]
+      }
+    </script>
+    <style>
+      :root {
+        --bg: #fafaf7; --surface: #ffffff; --line: #e7e6df;
+        --fg-1: #1f2421; --fg-2: #4a514c; --fg-3: #6c7470;
+        --sig: #5f8d76; --sig-deep: #3f6b54; --sig-bg: #f1f4ef;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg-1);
+        font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        line-height: 1.7; font-size: 17px;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 56px 22px 96px; }
+      .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--sig); text-transform: uppercase; margin-bottom: 12px; }
+      h1 { font-size: 34px; line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 16px; font-weight: 800; }
+      .lead { font-size: 18px; color: var(--fg-2); margin: 0 0 8px; }
+      h2 { font-size: 23px; letter-spacing: -0.015em; margin: 44px 0 12px; font-weight: 700; }
+      p { margin: 0 0 16px; color: var(--fg-1); }
+      a { color: var(--sig-deep); }
+      ul { margin: 0 0 16px; padding-left: 20px; }
+      li { margin-bottom: 6px; }
+      .quote { font-size: 22px; font-weight: 700; color: var(--sig-deep); border-left: 4px solid var(--sig); padding: 6px 0 6px 18px; margin: 28px 0; letter-spacing: -0.01em; }
+      .cta { display: block; margin: 48px 0 36px; padding: 24px; background: var(--sig-bg); border: 1px solid var(--line); border-radius: 16px; }
+      .cta a.btn { display: inline-block; margin-top: 12px; padding: 11px 20px; background: var(--sig-deep); color: #fff; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px; }
+      .related { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 15px; }
+      .related a { display: inline-block; margin-right: 14px; }
+      .disclaimer { font-size: 12px; color: var(--fg-3); margin-top: 28px; }
+      footer { font-size: 13px; color: var(--fg-3); margin-top: 40px; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <div class="eyebrow">Desk Posture App · BaroSit</div>
+      <h1>For everyone who sits too long, at home or the office</h1>
+      <p class="lead">
+        The longer you sit, the easier it is to freeze into one position. BaroSit watches your
+        posture through your webcam and reminds you to move whenever you've held a position too long.
+      </p>
+
+      <h2>Sitting too long: the real problem isn't your "shape"</h2>
+      <p>
+        As work-from-home becomes the norm, the commute and the walks between meetings disappear —
+        and the hours spent glued to one spot grow. Most people fuss over "good posture," but what
+        the evidence really points to isn't the shape of your posture; it's
+        <strong>staying in one position for too long</strong>. Hold any posture long enough and the
+        load piles up on the same spots.
+      </p>
+      <p class="quote">If you can't sit less, start by changing it more often.</p>
+
+      <h2>How BaroSit helps desk workers</h2>
+      <ul>
+        <li>Real-time detection of <strong>7 posture types</strong> with your webcam — forward head, slouching and more</li>
+        <li>A <strong>gentle nudge</strong> when one position has lasted too long</li>
+        <li>An on-screen <strong>mini-bar</strong> shows just your current score — without interrupting your work</li>
+        <li>The desktop app keeps detecting in the <strong>background even when the window is closed</strong>, living in the system tray</li>
+        <li>Your webcam feed is <strong>processed on-device</strong> — nothing leaves the machine, even on a work PC</li>
+      </ul>
+
+      <div class="cta">
+        <strong>On a long sitting day, one nudge can change a habit.</strong>
+        <p style="margin: 8px 0 0; color: var(--fg-2); font-size: 15px">
+          Try it instantly on the web with no install, or download the Windows or macOS app and let it run in the background. It's free.
+        </p>
+        <a class="btn" href="https://barosit.com/">Start BaroSit for free</a>
+      </div>
+
+      <div class="related">
+        See also:
+        <a href="/en/turtle-neck-app">Posture reminder app</a>
+        <a href="/en/science">The science</a>
+      </div>
+
+      <p class="disclaimer">
+        This article is general health information, not medical advice. If pain persists, please consult a professional.
+      </p>
+      <footer>© BaroSit · <a href="https://barosit.com/">barosit.com</a></footer>
+    </main>
+  </body>
+</html>

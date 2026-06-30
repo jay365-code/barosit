@@ -295,6 +295,8 @@
     "emptyDesc": "가장 먼저 따뜻하고 유익한 첫 이야기를 시작해 보세요!",
     "member": "회원",
     "anon": "익명",
+    "roleCoach": "자세 코치",
+    "roleManager": "커뮤니티 매니저",
     "authorLabel": "작성자:",
     "formCategory": "주제 선택",
     "nickname": "닉네임",
@@ -339,6 +341,7 @@
       "challenge": "🔥 자세인증 챌린지",
       "free": "📢 자유 토론",
       "qna": "❓ 질문/답변",
+      "notice": "📣 공지",
       "fallback": "자유"
     },
     "corp": {
@@ -352,6 +355,7 @@
     "errFillAll": "모든 빈칸을 빠짐없이 채워주세요.",
     "errPwMin": "비밀번호는 최소 4자리 이상 입력해주세요.",
     "errCreatePost": "글 작성 도중 오류가 발생했습니다.",
+    "errNoticeAdminOnly": "📣 공지는 운영자만 작성할 수 있어요.",
     "alertFillAll": "모든 빈칸을 채워주세요.",
     "alertCommentPwMin": "댓글 비밀번호는 최소 4자리 이상 입력해주세요.",
     "errCreateComment": "댓글 등록에 실패했습니다.",

@@ -1,0 +1,1 @@
+update public.profiles set name = '리뷰어' where id = 'e65e49b5-6b0c-4f67-8afb-0566a27dc43e';

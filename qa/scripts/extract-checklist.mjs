@@ -47,7 +47,7 @@ const NOTES = {
 };
 
 const src = readFileSync(TSX, "utf-8");
-const start = src.indexOf("INITIAL_TEST_CASES");
+const start = src.indexOf("RAW_TEST_CASES");
 // `... TestCase[] = [` 의 실제 배열 시작([)을 잡는다 ("= [" 패턴 이후)
 const arrStart = src.indexOf("[", src.indexOf("= [", start));
 // 배열 끝: 줄머리의 `];` (문자열 안의 대괄호와 무관하게 안전)

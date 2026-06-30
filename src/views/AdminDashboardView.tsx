@@ -109,6 +109,30 @@ interface CommentData {
   created_at: string;
 }
 
+// 커뮤니티 운영자(Aria) AI 답변 초안 검수 레코드
+interface AiDraftData {
+  id: string;
+  source_type: "post" | "comment" | "feedback";
+  source_id: string | null;
+  post_id: string | null;
+  intent: string | null;
+  agent_role: "coach" | "manager" | null;
+  category: string | null;
+  should_respond: boolean;
+  reason: string | null;
+  language: string;
+  confidence: number | null;
+  risk_flags: string[];
+  citations: { title: string; url?: string }[];
+  draft_body: string;
+  edited_body: string | null;
+  status: "pending" | "approved" | "rejected" | "escalated";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  published_comment_id: string | null;
+  created_at: string;
+}
+
 interface ReleaseData {
   id: string;
   version: string;
@@ -123,7 +147,7 @@ interface Props {
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "ai_review" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
@@ -174,6 +198,12 @@ export function AdminDashboardView({ onClose }: Props) {
   // Q&A 특정 선택물 답변 상태
   const [selectedPost, setSelectedPost] = useState<PostData | null>(null);
   const [newCommentText, setNewCommentText] = useState("");
+
+  // AI 응답 검수(Aria) 상태
+  const [drafts, setDrafts] = useState<AiDraftData[]>([]);
+  const [selectedDraft, setSelectedDraft] = useState<AiDraftData | null>(null);
+  const [editingBody, setEditingBody] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   // 데이터 로드 함수
   const fetchAllData = async () => {
@@ -226,6 +256,19 @@ export function AdminDashboardView({ onClose }: Props) {
         console.warn("Failed to fetch usage_events. table might not exist yet.", err);
       }
 
+      // 7-3. AI 답변 초안(Aria) 조회 — pending 우선, 최신순
+      let draftData: AiDraftData[] = [];
+      try {
+        const { data } = await supabase
+          .from("ai_response_drafts")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(200);
+        draftData = (data as AiDraftData[]) || [];
+      } catch (err) {
+        console.warn("Failed to fetch ai_response_drafts. table might not exist yet.", err);
+      }
+
       // 8. 릴리즈 정보 조회 (최신 정보 순 정렬)
       let relData: any[] = [];
       try {
@@ -244,6 +287,7 @@ export function AdminDashboardView({ onClose }: Props) {
       setNotifications(notifData || []);
       setClientErrors(errData);
       setUsageEvents(usageData);
+      setDrafts(draftData);
       setReleases(relData);
 
       // 현재 로그인한 어드민 사용자 프로필 로드
@@ -504,6 +548,71 @@ export function AdminDashboardView({ onClose }: Props) {
       setNewCommentText("");
     } catch (err: any) {
       alert("답변 등록 실패: " + err.message);
+    }
+  };
+
+  // 4-1. AI 답변 초안(Aria) 검수 — 승인 시 Aria 이름으로 댓글 게시
+  const handleApproveDraft = async (draft: AiDraftData) => {
+    const body = (editingBody.trim() || draft.draft_body || "").trim();
+    if (!draft.post_id || !body) {
+      alert("게시할 본문이 비어있거나 대상 글이 없습니다.");
+      return;
+    }
+    setReviewBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      // Aria 운영자 자격으로 댓글 게시 (user_id=null, is_agent=true → 클라이언트가 운영자 뱃지 렌더)
+      const { data: inserted, error: insErr } = await supabase
+        .from("comments")
+        .insert([{ post_id: draft.post_id, user_id: null, author_name: "Aria", is_agent: true, agent_role: draft.agent_role ?? "coach", content: body }])
+        .select();
+      if (insErr) throw insErr;
+
+      const publishedId = inserted?.[0]?.id ?? null;
+      const { error: updErr } = await supabase
+        .from("ai_response_drafts")
+        .update({
+          status: "approved",
+          edited_body: body,
+          reviewed_by: session?.user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
+          published_comment_id: publishedId,
+        })
+        .eq("id", draft.id);
+      if (updErr) throw updErr;
+
+      setDrafts(prev => prev.map(d => (d.id === draft.id ? { ...d, status: "approved" } : d)));
+      if (inserted) setComments(prev => [...prev, ...inserted]);
+      setSelectedDraft(null);
+      setEditingBody("");
+    } catch (err: any) {
+      alert("승인/게시 실패: " + err.message);
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
+  const handleRejectDraft = async (draft: AiDraftData, escalate = false) => {
+    setReviewBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase
+        .from("ai_response_drafts")
+        .update({
+          status: escalate ? "escalated" : "rejected",
+          reviewed_by: session?.user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", draft.id);
+      if (error) throw error;
+      const next = escalate ? "escalated" : "rejected";
+      setDrafts(prev => prev.map(d => (d.id === draft.id ? { ...d, status: next as AiDraftData["status"] } : d)));
+      setSelectedDraft(null);
+      setEditingBody("");
+    } catch (err: any) {
+      alert("처리 실패: " + err.message);
+    } finally {
+      setReviewBusy(false);
     }
   };
 
@@ -967,7 +1076,8 @@ export function AdminDashboardView({ onClose }: Props) {
             {[
               { id: "dashboard", label: "실시간 대시보드", icon: "target" as const },
               { id: "users", label: "가입자 관리", icon: "shield" as const },
-              { id: "qna", label: "Q&A 문의 제어", icon: "info" as const },
+              { id: "qna", label: "커뮤니티 관리", icon: "info" as const },
+              { id: "ai_review", label: "AI 응답 검수", icon: "sparkle" as const },
               { id: "alerts", label: "실시간 알림", icon: "bell" as const },
               { id: "feedback", label: "사용자 피드백", icon: "flag" as const },
               { id: "errors", label: "오류 리포트", icon: "info" as const },
@@ -979,13 +1089,16 @@ export function AdminDashboardView({ onClose }: Props) {
               const isAlerts = tab.id === "alerts";
               const isErrors = tab.id === "errors";
               const isFeedback = tab.id === "feedback";
+              const isAiReview = tab.id === "ai_review";
               const unreadCount = isErrors
                 ? clientErrors.filter(e => !e.resolved).length
                 : isFeedback
                   ? notifications.filter(n => !n.read_at && n.event_type === "feedback").length
-                  : isAlerts
-                    ? notifications.filter(n => !n.read_at && n.event_type !== "feedback").length
-                    : notifications.filter(n => !n.read_at).length;
+                  : isAiReview
+                    ? drafts.filter(d => d.status === "pending").length
+                    : isAlerts
+                      ? notifications.filter(n => !n.read_at && n.event_type !== "feedback").length
+                      : notifications.filter(n => !n.read_at).length;
 
               return (
                 <button
@@ -1028,7 +1141,7 @@ export function AdminDashboardView({ onClose }: Props) {
                     <Icon name={tab.icon} size={16} />
                     <span>{tab.label}</span>
                   </div>
-                  {(isAlerts || isErrors || isFeedback) && unreadCount > 0 && (
+                  {(isAlerts || isErrors || isFeedback || isAiReview) && unreadCount > 0 && (
                     <span
                       style={{
                         background: "#c95c5c",
@@ -1916,7 +2029,7 @@ export function AdminDashboardView({ onClose }: Props) {
                   </div>
                 )}
 
-                {/* 3. Q&A 문의 제어 탭 */}
+                {/* 3. 커뮤니티 관리 탭 */}
                 {activeTab === "qna" && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 24, height: "60vh" }}>
                     {/* 질문 목록 */}
@@ -2064,6 +2177,151 @@ export function AdminDashboardView({ onClose }: Props) {
                       ) : (
                         <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", opacity: 0.3, fontSize: 13 }}>
                           좌측 목록에서 질문 게시글을 선택해 피드백 답변을 달아주세요.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3-2. AI 응답 검수(Aria) 탭 */}
+                {activeTab === "ai_review" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 24, height: "62vh" }}>
+                    {/* 초안 목록 */}
+                    <div style={{ borderRight: "1px solid rgba(255,255,255,0.08)", paddingRight: 16, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+                        Aria 답변 초안 ({drafts.filter(d => d.status === "pending").length} 검수 대기)
+                      </div>
+                      {drafts.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: 40, opacity: 0.4, fontSize: 13 }}>
+                          생성된 초안이 없습니다. (글이 올라오면 cm-agent-draft 함수가 채웁니다)
+                        </div>
+                      ) : (
+                        drafts.map(d => {
+                          const statusColor = d.status === "pending" ? "#e0a04d" : d.status === "approved" ? "#5b8c7a" : "#888";
+                          return (
+                            <div
+                              key={d.id}
+                              onClick={() => { setSelectedDraft(d); setEditingBody(d.edited_body || d.draft_body || ""); }}
+                              style={{
+                                background: selectedDraft?.id === d.id ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.01)",
+                                border: selectedDraft?.id === d.id ? "1px solid #5b8c7a" : "1px solid rgba(255,255,255,0.05)",
+                                borderRadius: 12, padding: 14, cursor: "pointer", display: "flex", flexDirection: "column", gap: 6,
+                                opacity: d.status === "pending" ? 1 : 0.55,
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, textTransform: "uppercase" }}>{d.status}</span>
+                                <span style={{ fontSize: 10, opacity: 0.5 }}>{(d.intent || "?")}{!d.should_respond ? " · 개입보류" : ""}</span>
+                              </div>
+                              <div style={{ fontSize: 12, opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                {d.draft_body || d.reason || "(본문 없음)"}
+                              </div>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {d.risk_flags?.map(f => (
+                                  <span key={f} style={{ fontSize: 9, fontWeight: 700, color: "#c95c5c", background: "rgba(201,92,92,0.12)", padding: "1px 5px", borderRadius: 4 }}>{f}</span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* 초안 상세 + 검수 */}
+                    <div style={{ overflowY: "auto", display: "flex", flexDirection: "column" }}>
+                      {selectedDraft ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                          {/* 원본 글 컨텍스트 */}
+                          {(() => {
+                            const src = posts.find(p => p.id === selectedDraft.post_id);
+                            return (
+                              <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, padding: 16 }}>
+                                <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6 }}>원본 글 {selectedDraft.category ? `· ${selectedDraft.category}` : ""}</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{src?.title || "(글을 찾을 수 없음)"}</div>
+                                <div style={{ fontSize: 12, opacity: 0.7, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{src?.content || ""}</div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* 판단 메타 */}
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11 }}>
+                            <span style={{ background: "rgba(255,255,255,0.06)", padding: "3px 8px", borderRadius: 6 }}>의도: {selectedDraft.intent || "?"}</span>
+                            <span style={{ background: "rgba(127,119,221,0.18)", color: "#b3aef0", padding: "3px 8px", borderRadius: 6, fontWeight: 700 }}>
+                              {selectedDraft.agent_role === "manager" ? "🗨️ 커뮤니티 매니저" : "🧘 자세 코치"}
+                            </span>
+                            <span style={{ background: "rgba(255,255,255,0.06)", padding: "3px 8px", borderRadius: 6 }}>언어: {selectedDraft.language}</span>
+                            <span style={{ background: "rgba(255,255,255,0.06)", padding: "3px 8px", borderRadius: 6 }}>신뢰도: {selectedDraft.confidence != null ? Math.round(selectedDraft.confidence * 100) + "%" : "?"}</span>
+                            <span style={{ background: selectedDraft.should_respond ? "rgba(91,140,122,0.2)" : "rgba(224,160,77,0.2)", color: selectedDraft.should_respond ? "#5b8c7a" : "#e0a04d", padding: "3px 8px", borderRadius: 6, fontWeight: 700 }}>
+                              {selectedDraft.should_respond ? "개입 권장" : "개입 보류"}
+                            </span>
+                          </div>
+
+                          {/* 사유 */}
+                          {selectedDraft.reason && (
+                            <div style={{ fontSize: 12, opacity: 0.75, lineHeight: 1.5, borderLeft: "2px solid #5b8c7a", paddingLeft: 10 }}>
+                              <strong>판단 사유:</strong> {selectedDraft.reason}
+                            </div>
+                          )}
+
+                          {/* 위험 플래그 경고 */}
+                          {selectedDraft.risk_flags?.length > 0 && (
+                            <div style={{ fontSize: 12, color: "#c95c5c", background: "rgba(201,92,92,0.1)", border: "1px solid rgba(201,92,92,0.3)", borderRadius: 8, padding: "8px 12px" }}>
+                              ⚠️ 위험 요소({selectedDraft.risk_flags.join(", ")}) — 사람이 직접 확인 후 처리하세요.
+                            </div>
+                          )}
+
+                          {/* 근거 출처 */}
+                          {selectedDraft.citations?.length > 0 && (
+                            <div style={{ fontSize: 11, opacity: 0.6 }}>
+                              근거: {selectedDraft.citations.map((c, i) => <span key={i}>{i > 0 ? ", " : ""}{c.url ? <a href={c.url} target="_blank" rel="noreferrer" style={{ color: "#5b8c7a" }}>{c.title}</a> : c.title}</span>)}
+                            </div>
+                          )}
+
+                          {/* 편집 가능한 답변 본문 */}
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Aria 답변 (수정 후 게시 가능)</div>
+                            <textarea
+                              value={editingBody}
+                              onChange={e => setEditingBody(e.target.value)}
+                              placeholder="초안이 비어있습니다. 직접 작성하거나 반려하세요."
+                              style={{ width: "100%", minHeight: 140, background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: 12, color: "#fff", fontSize: 13, lineHeight: 1.6, resize: "vertical", fontFamily: "inherit" }}
+                            />
+                          </div>
+
+                          {/* 검수 액션 */}
+                          {selectedDraft.status === "pending" ? (
+                            <div style={{ display: "flex", gap: 10 }}>
+                              <button
+                                onClick={() => handleApproveDraft(selectedDraft)}
+                                disabled={reviewBusy}
+                                style={{ flex: 1, background: "#5b8c7a", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 13, fontWeight: 700, cursor: reviewBusy ? "default" : "pointer", opacity: reviewBusy ? 0.6 : 1 }}
+                              >
+                                Aria 운영자로 승인 · 게시
+                              </button>
+                              <button
+                                onClick={() => handleRejectDraft(selectedDraft, true)}
+                                disabled={reviewBusy}
+                                style={{ background: "rgba(224,160,77,0.15)", color: "#e0a04d", border: "1px solid rgba(224,160,77,0.4)", borderRadius: 10, padding: "12px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                              >
+                                사람에게
+                              </button>
+                              <button
+                                onClick={() => handleRejectDraft(selectedDraft, false)}
+                                disabled={reviewBusy}
+                                style={{ background: "none", color: "#c95c5c", border: "1px solid rgba(201,92,92,0.4)", borderRadius: 10, padding: "12px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                              >
+                                반려
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 12, opacity: 0.6, textAlign: "center", padding: 10 }}>
+                              이미 처리됨: {selectedDraft.status}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", opacity: 0.3, fontSize: 13 }}>
+                          좌측에서 초안을 선택해 검수하세요.
                         </div>
                       )}
                     </div>

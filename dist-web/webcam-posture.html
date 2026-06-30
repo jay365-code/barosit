@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>웹캠 자세 감지 — 영상 전송 없는 온디바이스 자세 앱 | BaroSit</title>
+    <meta
+      name="description"
+      content="웹캠으로 자세를 감지하는 앱, 개인정보가 걱정된다면. BaroSit은 웹캠 영상을 기기 안에서만 분석하고 외부로 전송·저장하지 않는 온디바이스 자세 앱입니다."
+    />
+    <link rel="canonical" href="https://barosit.com/webcam-posture" />
+    <link rel="alternate" hreflang="ko" href="https://barosit.com/webcam-posture" />
+    <link rel="alternate" hreflang="en" href="https://barosit.com/en/webcam-posture" />
+    <link rel="alternate" hreflang="ja" href="https://barosit.com/ja/webcam-posture" />
+    <link rel="alternate" hreflang="x-default" href="https://barosit.com/webcam-posture" />
+    <meta name="theme-color" content="#fafaf7" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="웹캠 자세 감지 — 영상 전송 없는 온디바이스 자세 앱" />
+    <meta
+      property="og:description"
+      content="웹캠 영상을 기기 안에서만 분석하고 외부로 전송·저장하지 않는 온디바이스 자세 앱 BaroSit."
+    />
+    <meta property="og:url" content="https://barosit.com/webcam-posture" />
+    <meta property="og:site_name" content="BaroSit" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:image" content="https://barosit.com/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://barosit.com/og-image.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "BaroSit",
+        "alternateName": ["바로씻", "웹캠 자세 감지", "자세 교정 앱"],
+        "operatingSystem": "Windows, macOS",
+        "applicationCategory": "HealthApplication",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "KRW" },
+        "url": "https://barosit.com/",
+        "description": "웹캠 영상을 기기 안에서만 분석하는 온디바이스 방식으로 거북목 등 자세를 감지하고, 영상을 저장·전송하지 않는 무료 자세 앱입니다."
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "웹캠으로 자세를 감지하면 영상이 외부로 나가나요?",
+            "acceptedAnswer": { "@type": "Answer", "text": "아니요. BaroSit의 모든 자세 분석은 사용자의 기기 안에서만 처리됩니다. 웹캠 영상은 저장되지 않고 외부 서버로 전송되지도 않습니다." }
+          },
+          {
+            "@type": "Question",
+            "name": "웹캠 자세 감지는 어떤 원리인가요?",
+            "acceptedAnswer": { "@type": "Answer", "text": "온디바이스 AI가 웹캠 화면에서 머리·어깨 위치를 읽어 거북목, 어깨 기울임, 등 구부정 등 7종 자세를 실시간으로 추정합니다. 영상 자체를 보관하지 않고 자세 신호만 사용합니다." }
+          },
+          {
+            "@type": "Question",
+            "name": "인터넷 없이도 웹캠 자세 감지가 되나요?",
+            "acceptedAnswer": { "@type": "Answer", "text": "자세 분석은 온디바이스로 동작하므로 오프라인에서도 사용할 수 있습니다. 로그인·동기화 등 일부 기능에만 연결이 필요합니다." }
+          }
+        ]
+      }
+    </script>
+    <style>
+      :root {
+        --bg: #fafaf7; --surface: #ffffff; --line: #e7e6df;
+        --fg-1: #1f2421; --fg-2: #4a514c; --fg-3: #6c7470;
+        --sig: #5f8d76; --sig-deep: #3f6b54; --sig-bg: #f1f4ef;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg-1);
+        font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        line-height: 1.7; font-size: 17px;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 56px 22px 96px; }
+      .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--sig); text-transform: uppercase; margin-bottom: 12px; }
+      h1 { font-size: 34px; line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 16px; font-weight: 800; }
+      .lead { font-size: 18px; color: var(--fg-2); margin: 0 0 8px; }
+      h2 { font-size: 23px; letter-spacing: -0.015em; margin: 44px 0 12px; font-weight: 700; }
+      p { margin: 0 0 16px; color: var(--fg-1); }
+      a { color: var(--sig-deep); }
+      ul { margin: 0 0 16px; padding-left: 20px; }
+      li { margin-bottom: 6px; }
+      .quote { font-size: 22px; font-weight: 700; color: var(--sig-deep); border-left: 4px solid var(--sig); padding: 6px 0 6px 18px; margin: 28px 0; letter-spacing: -0.01em; }
+      .cta { display: block; margin: 48px 0 36px; padding: 24px; background: var(--sig-bg); border: 1px solid var(--line); border-radius: 16px; }
+      .cta a.btn { display: inline-block; margin-top: 12px; padding: 11px 20px; background: var(--sig-deep); color: #fff; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px; }
+      .related { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 15px; }
+      .related a { display: inline-block; margin-right: 14px; }
+      .disclaimer { font-size: 12px; color: var(--fg-3); margin-top: 28px; }
+      footer { font-size: 13px; color: var(--fg-3); margin-top: 40px; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <div class="eyebrow">웹캠 자세 감지 · BaroSit</div>
+      <h1>웹캠으로 자세를 감지하되, 영상은 나가지 않게</h1>
+      <p class="lead">
+        웹캠 자세 감지 앱에서 가장 큰 걱정은 ‘내 영상이 어디로 가나’입니다.
+        BaroSit은 모든 분석을 기기 안에서만 처리해, 영상이 저장·전송되지 않습니다.
+      </p>
+
+      <h2>웹캠 자세 감지, 어떻게 동작하나</h2>
+      <p>
+        온디바이스 AI가 웹캠 화면에서 <strong>머리와 어깨의 위치</strong>를 읽어 거북목,
+        어깨 기울임, 등 구부정 등 7종 자세를 실시간으로 추정합니다. 중요한 점은 <strong>영상
+        자체를 보관하지 않고 자세 신호만 사용</strong>한다는 것입니다.
+      </p>
+
+      <h2>‘온디바이스’가 왜 중요한가</h2>
+      <p>
+        많은 카메라 기반 서비스는 영상을 서버로 보내 분석합니다. BaroSit은 그 반대입니다.
+      </p>
+      <ul>
+        <li>웹캠 영상은 <strong>기기 밖으로 나가지 않음</strong> — 저장·전송 없음</li>
+        <li>자세 분석은 <strong>오프라인</strong>에서도 동작</li>
+        <li>거북목·어깨 기울임 등 <strong>7종 자세</strong> 실시간 감지</li>
+        <li>한 자세가 오래 이어지면 <strong>부드러운 알림</strong>으로 환기</li>
+      </ul>
+      <p class="quote">자세를 보는 것은 BaroSit, 영상을 보는 것은 아무도 아닙니다.</p>
+
+      <div class="cta">
+        <strong>개인정보 걱정 없이, 웹캠으로 자세부터 확인해 보세요.</strong>
+        <p style="margin: 8px 0 0; color: var(--fg-2); font-size: 15px">
+          설치 없이 웹에서 바로 체험하거나, Windows·macOS 앱으로 받을 수 있습니다. 무료입니다.
+        </p>
+        <a class="btn" href="https://barosit.com/">BaroSit 무료로 시작하기</a>
+      </div>
+
+      <div class="related">
+        함께 보기:
+        <a href="/turtle-neck-app">거북목 교정 앱</a>
+        <a href="/desk-posture">재택근무·사무직 자세</a>
+      </div>
+
+      <p class="disclaimer">
+        본 글은 일반 건강 정보이며 의학적 조언이 아닙니다. 통증이 지속된다면 전문가와 상담하세요.
+      </p>
+      <footer>© BaroSit · <a href="https://barosit.com/">barosit.com</a></footer>
+    </main>
+  </body>
+</html>

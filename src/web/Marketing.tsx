@@ -421,6 +421,18 @@ function Avatar({
   );
 }
 
+// 커뮤니티 운영자 Aria 전용 일러스트 아바타 (오프라인/사내망에서도 렌더되도록 인라인 SVG).
+function AriaAvatar({ size = 28 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true" style={{ borderRadius: "50%", flexShrink: 0 }}>
+      <rect width="40" height="40" fill="#AFA9EC" />
+      <circle cx="20" cy="16" r="8" fill="#3C3489" />
+      <path d="M9 40 Q9 27 20 27 Q31 27 31 40 Z" fill="#534AB7" />
+      <path d="M12 13 Q12 4 20 4 Q28 4 28 13 Q28 9 20 9 Q12 9 12 13 Z" fill="#26215C" />
+    </svg>
+  );
+}
+
 // ───────── Landing ─────────
 
 function Landing() {
@@ -1803,11 +1815,14 @@ function ChangelogPage() {
 
 // 카테고리는 DB의 category 컬럼에 저장되는 정규값(한국어+이모지)이므로 값은 유지하고
 // 표시 라벨만 번역한다. 새 글 작성 시에도 정규값으로 저장돼 기존 데이터와 정합성 유지.
+// 운영자(관리자) 전용 카테고리 — 글쓰기는 관리자만, 읽기/댓글은 전체 허용.
+const COMMUNITY_NOTICE_CATEGORY = "📣 공지";
 const COMMUNITY_CATEGORIES = [
   { value: "💡 기능 제안", key: "community.cat.feature" },
   { value: "🔥 자세인증 챌린지", key: "community.cat.challenge" },
   { value: "📢 자유 토론", key: "community.cat.free" },
   { value: "❓ 질문/답변", key: "community.cat.qna" },
+  { value: COMMUNITY_NOTICE_CATEGORY, key: "community.cat.notice" },
 ];
 const COMMUNITY_ALL_CATEGORY = "전체";
 
@@ -1866,6 +1881,24 @@ function Contact() {
 
   // Input Focus States
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // 운영자(관리자) 여부 — 📣 공지 카테고리 글쓰기 권한 제어용
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) { setIsAdmin(false); return; }
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!cancelled) setIsAdmin(!error && !!data?.is_admin);
+      } catch { if (!cancelled) setIsAdmin(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   // --- Auto-set profile display name for logged-in users ---
   useEffect(() => {
@@ -2013,6 +2046,12 @@ function Contact() {
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     const needsPassword = !user;
+
+    // 📣 공지는 운영자 전용 — 비관리자가 (UI 우회로라도) 공지로 작성 시도하면 차단
+    if (writeCategory === COMMUNITY_NOTICE_CATEGORY && !isAdmin) {
+      setErrorMsg(t("community.errNoticeAdminOnly"));
+      return;
+    }
 
     if (!writeTitle.trim() || !writeContent.trim() || !writeAuthor.trim() || (needsPassword && !writePassword.trim())) {
       setErrorMsg(t("community.errFillAll"));
@@ -2722,7 +2761,9 @@ function Contact() {
                 {t("community.formCategory")} <span style={{ color: "var(--b-sig)" }}>*</span>
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {COMMUNITY_CATEGORIES.map(({ value: cat, key }) => (
+                {COMMUNITY_CATEGORIES
+                  .filter(({ value }) => isAdmin || value !== COMMUNITY_NOTICE_CATEGORY)
+                  .map(({ value: cat, key }) => (
                   <button
                     key={cat}
                     type="button"
@@ -3088,8 +3129,9 @@ function Contact() {
                       style={{
                         padding: "16px 20px 16px 24px",
                         borderRadius: 14,
-                        background: "rgba(255, 255, 255, 0.5)",
-                        border: "1px solid var(--b-line)",
+                        // 운영자(Aria) 댓글은 브랜드 톤으로 강조해 "공식 답변"임을 드러낸다.
+                        background: comment.is_agent ? "var(--b-sig-soft)" : "rgba(255, 255, 255, 0.5)",
+                        border: comment.is_agent ? "1px solid var(--b-sig)" : "1px solid var(--b-line)",
                         // Reddit Thread Line 데코레이션
                         borderLeft: "3px solid var(--b-sig)",
                         display: "flex",
@@ -3101,8 +3143,21 @@ function Contact() {
                       {/* Comment Header */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {comment.is_agent && <AriaAvatar size={24} />}
                           {comment.author_name}
-                          {comment.user_id ? (
+                          {comment.is_agent ? (
+                            <span style={{
+                              fontSize: 9,
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              background: "var(--b-sig)",
+                              color: "#fff",
+                              fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                            }}>{t(comment.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}</span>
+                          ) : comment.user_id ? (
                             <span style={{
                               fontSize: 9,
                               padding: "1px 4px",
@@ -3126,22 +3181,25 @@ function Contact() {
                           <span style={{ fontSize: 11, color: "var(--b-fg-3)" }}>
                             {formatDate(comment.created_at)}
                           </span>
-                          <button
-                            onClick={() => handleCommentDeleteClick(comment)}
-                            style={{
-                              border: "none",
-                              background: "none",
-                              color: "var(--b-fg-3)",
-                              cursor: "pointer",
-                              padding: 2,
-                              display: "flex",
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
-                            title={t("community.commentDeleteTitle")}
-                          >
-                            <Icon name="x" size={13} />
-                          </button>
+                          {/* 운영자(Aria) 공식 답변은 일반 사용자가 삭제할 수 없다(어드민 대시보드에서만 관리). */}
+                          {!comment.is_agent && (
+                            <button
+                              onClick={() => handleCommentDeleteClick(comment)}
+                              style={{
+                                border: "none",
+                                background: "none",
+                                color: "var(--b-fg-3)",
+                                cursor: "pointer",
+                                padding: 2,
+                                display: "flex",
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
+                              title={t("community.commentDeleteTitle")}
+                            >
+                              <Icon name="x" size={13} />
+                            </button>
+                          )}
                         </div>
                       </div>
                       {/* Comment Content */}

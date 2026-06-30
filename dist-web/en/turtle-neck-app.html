@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Posture Reminder App — Detect Forward Head Posture in Real Time | BaroSit</title>
+    <meta
+      name="description"
+      content="Looking for a posture reminder app? BaroSit uses your webcam to detect forward head posture (tech neck) in real time and nudges you to move when you've held one position too long. Free."
+    />
+    <link rel="canonical" href="https://barosit.com/en/turtle-neck-app" />
+    <link rel="alternate" hreflang="ko" href="https://barosit.com/turtle-neck-app" />
+    <link rel="alternate" hreflang="en" href="https://barosit.com/en/turtle-neck-app" />
+    <link rel="alternate" hreflang="ja" href="https://barosit.com/ja/turtle-neck-app" />
+    <link rel="alternate" hreflang="x-default" href="https://barosit.com/turtle-neck-app" />
+    <meta name="theme-color" content="#fafaf7" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Posture Reminder App — Detect Forward Head Posture in Real Time" />
+    <meta
+      property="og:description"
+      content="BaroSit detects forward head posture with your webcam and gently nudges you to move when you've held it too long. Free."
+    />
+    <meta property="og:url" content="https://barosit.com/en/turtle-neck-app" />
+    <meta property="og:site_name" content="BaroSit" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://barosit.com/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://barosit.com/og-image.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "BaroSit",
+        "alternateName": ["BaroSit", "posture reminder app", "tech neck app"],
+        "operatingSystem": "Windows, macOS",
+        "applicationCategory": "HealthApplication",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "url": "https://barosit.com/",
+        "description": "A free posture app that uses your webcam to detect forward head posture, shoulder tilt and more in real time, then nudges you to move when you've held one position too long."
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How does a posture reminder app work?",
+            "acceptedAnswer": { "@type": "Answer", "text": "BaroSit analyzes your webcam feed entirely on your device to detect forward head posture in real time. When you've stayed in that position for a while, it sends a gentle nudge to remind you to shift and move." }
+          },
+          {
+            "@type": "Question",
+            "name": "Can an app actually fix forward head posture?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No app can force your posture to 'correct' itself. What matters is the habit of not staying in one position too long and moving often. BaroSit helps build that habit by letting you know when your head has been forward for a while." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is the posture reminder app free?",
+            "acceptedAnswer": { "@type": "Answer", "text": "BaroSit is currently in a free beta, so the core features are free to use. You can try it instantly in your browser with no install, or download the Windows or macOS app." }
+          }
+        ]
+      }
+    </script>
+    <style>
+      :root {
+        --bg: #fafaf7; --surface: #ffffff; --line: #e7e6df;
+        --fg-1: #1f2421; --fg-2: #4a514c; --fg-3: #6c7470;
+        --sig: #5f8d76; --sig-deep: #3f6b54; --sig-bg: #f1f4ef;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg-1);
+        font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        line-height: 1.7; font-size: 17px;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 56px 22px 96px; }
+      .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--sig); text-transform: uppercase; margin-bottom: 12px; }
+      h1 { font-size: 34px; line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 16px; font-weight: 800; }
+      .lead { font-size: 18px; color: var(--fg-2); margin: 0 0 8px; }
+      h2 { font-size: 23px; letter-spacing: -0.015em; margin: 44px 0 12px; font-weight: 700; }
+      p { margin: 0 0 16px; color: var(--fg-1); }
+      a { color: var(--sig-deep); }
+      ul { margin: 0 0 16px; padding-left: 20px; }
+      li { margin-bottom: 6px; }
+      .quote { font-size: 22px; font-weight: 700; color: var(--sig-deep); border-left: 4px solid var(--sig); padding: 6px 0 6px 18px; margin: 28px 0; letter-spacing: -0.01em; }
+      .cta { display: block; margin: 48px 0 36px; padding: 24px; background: var(--sig-bg); border: 1px solid var(--line); border-radius: 16px; }
+      .cta a.btn { display: inline-block; margin-top: 12px; padding: 11px 20px; background: var(--sig-deep); color: #fff; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px; }
+      .related { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 15px; }
+      .related a { display: inline-block; margin-right: 14px; }
+      .disclaimer { font-size: 12px; color: var(--fg-3); margin-top: 28px; }
+      footer { font-size: 13px; color: var(--fg-3); margin-top: 40px; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <div class="eyebrow">Posture Reminder App · BaroSit</div>
+      <h1>Looking for a posture reminder app?</h1>
+      <p class="lead">
+        A free app that detects forward head posture with your webcam and lets you know when
+        you've held it too long. Try it right in your browser — no install required.
+      </p>
+
+      <h2>Why a reminder beats "correction" for tech neck</h2>
+      <p>
+        Forward head posture — often called tech neck — is when your head drifts forward as you
+        stare at a screen for too long. Plenty of people search for ways to "fix" it, but the truth
+        is that no app or gadget can physically straighten your neck for you. What the latest
+        evidence points to is simple: <strong>it's not about holding one "perfect" position, but
+        about not staying in any single position too long and changing it often</strong>.
+      </p>
+      <p class="quote">The best posture is — your next one.</p>
+
+      <h2>How BaroSit detects tech neck</h2>
+      <p>
+        BaroSit analyzes your webcam feed <strong>entirely on your device</strong> (your video is
+        never stored or sent anywhere) to read how far your head has drifted forward, in real time.
+        When forward head posture lasts a while, a small on-screen nudge gives you a gentle reminder
+        to shift your position for a moment.
+      </p>
+      <ul>
+        <li>Real-time detection of <strong>7 posture types</strong> — forward head, chin-on-hand, shoulder tilt, slouching and more</li>
+        <li>No nagging — when you move well, you get <strong>encouragement and points</strong> instead</li>
+        <li>Video is <strong>processed on-device</strong> — nothing ever leaves your computer</li>
+        <li>The desktop app keeps detecting in the <strong>background</strong> even when the window is closed, with a mini widget</li>
+      </ul>
+
+      <div class="cta">
+        <strong>If tech neck is on your mind, it starts with simply noticing it.</strong>
+        <p style="margin: 8px 0 0; color: var(--fg-2); font-size: 15px">
+          Try it instantly on the web with no install, or download the Windows or macOS app to run it in the background. It's free.
+        </p>
+        <a class="btn" href="https://barosit.com/">Start BaroSit for free</a>
+      </div>
+
+      <div class="related">
+        See also:
+        <a href="/en/science">The science</a>
+        <a href="/en/blog/posture-myth">Is good posture a myth?</a>
+      </div>
+
+      <p class="disclaimer">
+        This article is general health information, not medical advice. If pain persists, please consult a professional.
+      </p>
+      <footer>© BaroSit · <a href="https://barosit.com/">barosit.com</a></footer>
+    </main>
+  </body>
+</html>
