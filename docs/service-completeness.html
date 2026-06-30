@@ -68,7 +68,7 @@
 <body>
 <header>
   <h1>BaroSit 서비스 완성도 체크리스트</h1>
-  <div class="sub">전체 서비스 진행 상황 단일 추적 문서 · 최종 갱신 2026-06-29 · 기준 v0.3.11 ·
+  <div class="sub">전체 서비스 진행 상황 단일 추적 문서 · 최종 갱신 2026-06-30 · 기준 v0.3.11 + 커뮤니티 에이전트 ·
   진실의 원천은 <b>코드</b> (문서는 stale 가능)</div>
 </header>
 
@@ -452,6 +452,11 @@
     <div class="item" data-status="todo">
       <div class="item-top"><span class="title">데모 GIF/스크린샷 (랜딩 전환율)</span></div>
     </div>
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">커뮤니티 게시판 UX (공지·답글 스레드·추천)</span><span class="gapid">CM-1</span></div>
+      <div class="detail">기존 Q&A 게시판에 — <b>📣 공지 카테고리</b>(글쓰기 운영자 전용: UI 숨김 + DB 트리거 <code>enforce_notice_admin_only</code> 로 비관리자 insert/update 차단, 읽기·댓글은 전체), <b>1단계 답글 스레드</b>(comments.parent_comment_id, 최상위에 매닮·들여쓰기), <b>유튜브식 댓글 액션바</b>(추천 likes + 답글 버튼) 추가. 모두 ko/en/ja. 프로덕션 배포.</div>
+      <div class="ref">src/web/Marketing.tsx · supabase/migrations/20260630020000(공지트리거)·050000(답글)·060000(추천)</div>
+    </div>
   </section>
 
   <!-- ============ 12. i18n / 법무 ============ -->
@@ -500,6 +505,13 @@
       <div class="detail">"사용자가 뭘 원하는지 모름"을 데이터로 전환. usage_events 테이블 + track_usage RPC + 익명 install_id. 추적 이벤트: app_opened(일1회)·onboarding_completed·calibration_succeeded·calibration_failed(사유). 설정 옵트아웃 토글(베타 기본 ON, 익명·마일스톤만·영상/자세/PII 없음). 어드민 "사용 분석" 탭(퍼널·재방문·이벤트별 카운트). 로컬 E2E + 단위테스트 6건. <b>프로덕션 db push 완료(2026-06-26).</b></div>
       <div class="ref">src/lib/usageAnalytics.ts · supabase/migrations/20260626120000_usage_events.sql · AdminDashboardView.tsx</div>
       <div class="detail" style="margin-top:6px">✅ <b>능동 피드백 넛지</b>(설치3일+·2세션+ 1회성, 비차단, src/lib/feedbackNudge.ts) + <b>privacy.md</b> 익명 진단·사용통계 항목 명시 완료(2026-06-26).</div>
+    </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">커뮤니티 운영자 AI 에이전트 "Aria" (초안→사람 승인)</span><span class="gapid">CM-1</span></div>
+      <div class="detail">공개 커뮤니티 게시판(posts/comments)에 글이 올라오면 <b>DB 웹훅(pg_net)→Edge Function <code>cm-agent-draft</code></b> 가 의도를 분류하고 답변 초안을 생성(Anthropic Sonnet 4.6, prompt caching, 지식베이스 번들). 운영자가 어드민 <b>"AI 응답 검수"</b> 탭에서 수정/<b>승인→Aria 명의 게시</b>/반려/<b>사람에게(에스컬레이션→admin_notifications 적재)</b>. 페르소나 = <b>Aria(아리아/アリア)</b>, 의도에 따라 <b>자세 코치 ↔ 커뮤니티 매니저</b> 자동 전환. 가드레일: 의도 분기(질문·제안 적극, 잡담 침묵)·신뢰도·위험플래그(환불·결제·개인정보·법적·의학)·근거 없으면 "확인 후 답변" 톤·이모지 금지. 실사 아바타(클릭 확대)+역할 배지+<code>**굵게**</code> 안전 렌더(HTML 이스케이프). <b>프로덕션+로컬 E2E 검증 완료(2026-06-30).</b></div>
+      <div class="ref">supabase/functions/cm-agent-draft/{index,knowledge}.ts · supabase/migrations/20260630010000~040000 · src/views/AdminDashboardView.tsx · src/web/Marketing.tsx</div>
+      <div class="next"><b>백로그:</b> ① 지식베이스 보강(docs/faq.md — 빈발 질문 사실 추가 → 신뢰도↑) ② Aria 후속답변(댓글 INSERT 웹훅+스레드 맥락) ③ 승인 버튼 문구 "운영자"→"자세 코치" 정리 ④ 실사 아바타 "공식 운영 계정" 안내 문구.</div>
     </div>
   </section>
 
@@ -570,7 +582,9 @@
         <b>3. SYNC-1</b> 동기화 실패 가시화 + 재시도/오프라인 큐 — ✅ (충돌해결 updated_at 비교는 partial 잔여)<br>
         <b>4. UX-1</b> 캘리브레이션 실패 안내 — ✅<br>
         <b>+ MEASURE</b> 익명 사용 분석(활성화 퍼널/재방문) + 능동 피드백 넛지 — ✅ 프로덕션 배포<br>
-        <b style="color:var(--accent)">↳ DASH-1</b> 재평가: 실제 대시보드("상세 분석 리포트")에 누적시간·평균·개선율·트렌드·히트맵이 <b>이미 구현</b>됨. 추가 구현 불필요 — 죽은 DashboardView.tsx 삭제 + 진짜 갭(스트레칭 점수 표시 등)만 추후.
+        <b style="color:var(--accent)">↳ DASH-1</b> 재평가: 실제 대시보드("상세 분석 리포트")에 누적시간·평균·개선율·트렌드·히트맵이 <b>이미 구현</b>됨. 추가 구현 불필요 — 죽은 DashboardView.tsx 삭제 + 진짜 갭(스트레칭 점수 표시 등)만 추후.<br><br>
+        <b style="color:var(--done)">✅ 완료 (2026-06-30 세션)</b><br>
+        <b>CM-1</b> 커뮤니티 운영자 AI 에이전트 <b>Aria</b>(초안→승인, 자세코치/매니저 자동전환, 가드레일) + 게시판 UX(📣공지·답글 스레드·추천) — ✅ 프로덕션+로컬 E2E. 백로그: 지식베이스 보강·Aria 후속답변·승인버튼 문구.
       </div>
     </div>
     <div class="item" data-status="todo" data-noprog="1">
