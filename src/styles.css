@@ -435,6 +435,14 @@ input:focus {
   to   { opacity: 1; }
 }
 
+/* 추천(따봉) 클릭 시 팝 인터랙션 */
+@keyframes b-like-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.35); }
+  70%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
 /* Tauri 투명 윈도우 배경 투명화 강제 */
 html.is-tauri-transparent,
 html.is-tauri-transparent body,

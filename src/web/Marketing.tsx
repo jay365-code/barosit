@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -455,30 +455,6 @@ function formatAgentContent(raw: string): string {
   return esc
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\n/g, "<br/>");
-}
-
-// 댓글을 1단계 스레드 순서로 정렬: 최상위 댓글 뒤에 그 답글들이 바로 오도록.
-// 부모가 목록에 없는 고아 답글은 사라지지 않게 끝에 최상위로 덧붙인다.
-function orderThread(list: any[]): any[] {
-  const tops = list.filter((c) => !c.parent_comment_id);
-  const byParent: Record<string, any[]> = {};
-  list.forEach((c) => {
-    if (c.parent_comment_id) (byParent[c.parent_comment_id] ||= []).push(c);
-  });
-  const out: any[] = [];
-  const seen = new Set<string>();
-  tops.forEach((t) => {
-    out.push(t);
-    seen.add(t.id);
-    (byParent[t.id] || []).forEach((r) => {
-      out.push(r);
-      seen.add(r.id);
-    });
-  });
-  list.forEach((c) => {
-    if (!seen.has(c.id)) out.push(c);
-  });
-  return out;
 }
 
 // ───────── Landing ─────────
@@ -1897,6 +1873,10 @@ function Contact() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "likes">("recent");
   const [activeCategory, setActiveCategory] = useState<string>(COMMUNITY_ALL_CATEGORY);
+  // 글 목록 페이지네이션("더 보기")
+  const POSTS_PAGE = 20;
+  const [postsLimit, setPostsLimit] = useState(POSTS_PAGE);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
 
   // Post Form States
   const [writeTitle, setWriteTitle] = useState("");
@@ -1914,6 +1894,32 @@ function Contact() {
   // 답글 대상(1단계 스레드). parentId = 답글이 매달릴 최상위 댓글 id.
   const [replyTo, setReplyTo] = useState<{ id: string; author: string; parentId: string } | null>(null);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  // 댓글 정렬: 작성순(recent) / 인기순(top, 추천 많은 순)
+  const [commentSort, setCommentSort] = useState<"recent" | "top">("recent");
+  // 본인(회원) 댓글 인라인 수정
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  // 펼쳐진 답글 스레드(최상위 댓글 id 집합). 기본은 접힘 — 유튜브식 "답글 N개" 토글.
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const toggleThread = (topId: string) =>
+    setExpandedThreads((prev) => {
+      const next = new Set(prev);
+      next.has(topId) ? next.delete(topId) : next.add(topId);
+      return next;
+    });
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 답글 클릭 → 대상 지정 + 인라인 입력창으로 스크롤·포커스(유튜브식: 그 댓글 바로 아래에서 입력)
+  const startReply = (comment: any) => {
+    const parentId = comment.parent_comment_id || comment.id;
+    setReplyTo({ id: comment.id, author: comment.author_name, parentId });
+    setExpandedThreads((prev) => new Set(prev).add(parentId)); // 답글 작성 중엔 스레드 펼침 유지
+    requestAnimationFrame(() => {
+      commentInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      commentInputRef.current?.focus({ preventScroll: true });
+    });
+  };
 
   // Password Verification Modal
   const [passwordModal, setPasswordModal] = useState<{
@@ -1935,6 +1941,33 @@ function Contact() {
   // 아바타(프로필) 확대 보기 라이트박스
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
+  // 작성자 활동 모달: 회원 이름 클릭 → 그 회원의 글/댓글 모아보기 → 클릭 시 해당 스레드 이동
+  const [authorModal, setAuthorModal] = useState<{ userId: string; name: string } | null>(null);
+  const [authorPosts, setAuthorPosts] = useState<any[]>([]);
+  const [authorComments, setAuthorComments] = useState<any[]>([]);
+  const [authorLoading, setAuthorLoading] = useState(false);
+
+  // 특정 댓글로 점프(스크롤+하이라이트) — 모달의 댓글 클릭 시 사용
+  const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
+  const pendingHighlightRef = useRef<string | null>(null);
+
+  // 경량 토스트(alert 대체) — 하단 중앙, 3초 후 자동 사라짐.
+  const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const showToast = (msg: string, type: "error" | "success" = "error") => {
+    setToast({ msg, type });
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 3000);
+  };
+
+  // 로그인 유저가 추천한 글/댓글 id 집합(DB 조인 테이블에서 로드). 게스트는 localStorage 사용.
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
+  const isPostLiked = (post: any) =>
+    user ? likedPostIds.has(post.id) : !!localStorage.getItem(`barosit_liked_${post.id}`);
+  const isCommentLiked = (comment: any) =>
+    user ? likedCommentIds.has(comment.id) : !!localStorage.getItem(`barosit_liked_comment_${comment.id}`);
+
   // 운영자(관리자) 여부 — 📣 공지 카테고리 글쓰기 권한 제어용
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -1952,6 +1985,46 @@ function Contact() {
     })();
     return () => { cancelled = true; };
   }, [user]);
+
+  // 실시간 댓글: 활성 글의 comments 변경(INSERT/UPDATE/DELETE) 구독 → 갱신. 글 변경/언마운트 시 정리.
+  useEffect(() => {
+    if (!activePost?.id) return;
+    const postId = activePost.id;
+    const channel = supabase
+      .channel(`comments-${postId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "comments", filter: `post_id=eq.${postId}` },
+        () => { fetchComments(postId); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePost?.id]);
+
+  // 모달/라이트박스 ESC 닫기(접근성)
+  useEffect(() => {
+    if (!authorModal && !zoomedImage) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setAuthorModal(null); setZoomedImage(null); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [authorModal, zoomedImage]);
+
+  // 댓글 로드 후 점프 대상이 있으면 스크롤+하이라이트(2초). 답글이면 부모 스레드는 이미 펼쳐둔 상태.
+  useEffect(() => {
+    const id = pendingHighlightRef.current;
+    if (!id || comments.length === 0) return;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`comment-${id}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightCommentId(id);
+      pendingHighlightRef.current = null;
+      window.setTimeout(() => setHighlightCommentId(null), 2000);
+    });
+  }, [comments]);
 
   // --- Auto-set profile display name for logged-in users ---
   useEffect(() => {
@@ -1989,7 +2062,7 @@ function Contact() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      let query = supabase.from("posts").select("*");
+      let query = supabase.from("posts").select("*, comments(count)");
 
       if (searchQuery.trim()) {
         query = query.or(
@@ -2007,9 +2080,29 @@ function Contact() {
         query = query.order("created_at", { ascending: false });
       }
 
+      query = query.limit(postsLimit);
+
       const { data, error } = await query;
       if (error) throw error;
-      setPosts(data || []);
+      // Supabase embeds the aggregate as comments: [{ count }] — flatten to a plain number.
+      const rows = (data || []).map((p: any) => ({
+        ...p,
+        comment_count: Array.isArray(p.comments) ? (p.comments[0]?.count ?? 0) : 0,
+      }));
+      setPosts(rows);
+      setHasMorePosts(rows.length === postsLimit); // 정확히 limit만큼이면 더 있을 수 있음
+
+      // 로그인 유저: 이 목록 중 내가 추천한 글 id 로드(다기기 동기화·정확한 토글 상태)
+      if (user && rows.length) {
+        const { data: likes } = await supabase
+          .from("post_likes")
+          .select("post_id")
+          .eq("user_id", user.id)
+          .in("post_id", rows.map((p: any) => p.id));
+        setLikedPostIds(new Set((likes || []).map((r: any) => r.post_id)));
+      } else if (!user) {
+        setLikedPostIds(new Set());
+      }
     } catch (err: any) {
       console.error("Error fetching posts:", err);
       setErrorMsg(t("community.errFetch"));
@@ -2027,7 +2120,19 @@ function Contact() {
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      setComments(data || []);
+      const rows = data || [];
+      setComments(rows);
+      // 로그인 유저: 이 글의 댓글 중 내가 추천한 것 로드
+      if (user && rows.length) {
+        const { data: likes } = await supabase
+          .from("comment_likes")
+          .select("comment_id")
+          .eq("user_id", user.id)
+          .in("comment_id", rows.map((c: any) => c.id));
+        setLikedCommentIds(new Set((likes || []).map((r: any) => r.comment_id)));
+      } else {
+        setLikedCommentIds(new Set());
+      }
     } catch (err) {
       console.error("Error fetching comments:", err);
     } finally {
@@ -2038,7 +2143,37 @@ function Contact() {
   // --- Effects ---
   useEffect(() => {
     fetchPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, activeCategory, postsLimit]);
+
+  // 필터(정렬·카테고리·검색)가 바뀌면 첫 페이지로 리셋
+  useEffect(() => {
+    setPostsLimit(POSTS_PAGE);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy, activeCategory]);
+
+  // 인증(user)이 데이터 로드보다 늦게 복원되는 경우(새로고침 등) liked 집합을 다시 채운다.
+  // deps는 [user]만 — 추천 토글로 posts/comments가 바뀔 때 재실행되지 않게(낙관적 업데이트 보존).
+  useEffect(() => {
+    if (!user) { setLikedPostIds(new Set()); setLikedCommentIds(new Set()); return; }
+    let cancelled = false;
+    (async () => {
+      if (posts.length) {
+        const { data } = await supabase
+          .from("post_likes").select("post_id").eq("user_id", user.id)
+          .in("post_id", posts.map((p) => p.id));
+        if (!cancelled) setLikedPostIds(new Set((data || []).map((r: any) => r.post_id)));
+      }
+      if (comments.length) {
+        const { data } = await supabase
+          .from("comment_likes").select("comment_id").eq("user_id", user.id)
+          .in("comment_id", comments.map((c) => c.id));
+        if (!cancelled) setLikedCommentIds(new Set((data || []).map((r: any) => r.comment_id)));
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -2070,29 +2205,110 @@ function Contact() {
     }
   };
 
+  // 회원 이름 클릭 → 그 회원의 글/댓글 로드해 모달 표시. 게스트(user_id 없음)는 호출 안 됨.
+  const openAuthorProfile = async (userId: string, name: string) => {
+    setAuthorModal({ userId, name });
+    setAuthorPosts([]);
+    setAuthorComments([]);
+    setAuthorLoading(true);
+    try {
+      const [postsRes, commentsRes] = await Promise.all([
+        supabase.from("posts").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+        // 댓글이 달린 원글(posts)을 함께 가져와 클릭 시 해당 스레드로 이동
+        supabase.from("comments").select("*, posts(*)").eq("user_id", userId).order("created_at", { ascending: false }),
+      ]);
+      if (postsRes.error) throw postsRes.error;
+      if (commentsRes.error) throw commentsRes.error;
+      setAuthorPosts(postsRes.data || []);
+      setAuthorComments(commentsRes.data || []);
+    } catch (err) {
+      console.error("Error loading author profile:", err);
+    } finally {
+      setAuthorLoading(false);
+    }
+  };
+
+  // 모달의 글 클릭 → 모달 닫고 해당 스레드(글 상세)로 이동
+  const goToThreadFromModal = (post: any) => {
+    if (!post) return;
+    setAuthorModal(null);
+    handleSelectPost(post);
+  };
+
+  // 모달의 댓글 클릭 → 원글로 이동 + 그 댓글로 스크롤·하이라이트. 답글이면 부모 스레드를 미리 펼친다.
+  const goToCommentFromModal = (comment: any) => {
+    const post = comment.posts;
+    if (!post) return;
+    setAuthorModal(null);
+    if (comment.parent_comment_id) {
+      setExpandedThreads((prev) => new Set(prev).add(comment.parent_comment_id));
+    }
+    pendingHighlightRef.current = comment.id;
+    handleSelectPost(post);
+  };
+
+  // 회원 이름을 클릭 가능한 버튼으로(폰트·색은 주변 상속). 게스트/운영자(Aria)는 일반 텍스트.
+  const renderAuthorName = (name: string, userId: string | null | undefined, isAgent?: boolean) => {
+    if (!userId || isAgent) return <>{name}</>;
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); openAuthorProfile(userId, name); }}
+        style={{ border: "none", background: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer" }}
+        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+        title={t("community.viewAuthorPosts", { name })}
+      >
+        {name}
+      </button>
+    );
+  };
+
   const handleLikePost = async (e: React.MouseEvent, post: any) => {
     e.stopPropagation();
-    const likeKey = `barosit_liked_${post.id}`;
-    if (localStorage.getItem(likeKey)) {
-      alert(t("community.alertAlreadyLiked"));
+    const wasLiked = isPostLiked(post);
+    const delta = wasLiked ? -1 : 1; // 토글: 이미 눌렀으면 취소(-1), 아니면 추천(+1)
+
+    // 카운트 낙관적 업데이트(목록·상세 동기)
+    const setCount = (likes: number) => {
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, likes } : p)));
+      if (activePost && activePost.id === post.id) {
+        setActivePost((prev: any) => ({ ...prev, likes }));
+      }
+    };
+    const optimistic = Math.max((post.likes || 0) + delta, 0);
+    setCount(optimistic);
+
+    if (user) {
+      // 로그인: DB 조인 테이블 토글(다기기 동기화·1인1추천). 서버가 정확한 수치·상태 반환.
+      setLikedPostIds((prev) => { const n = new Set(prev); wasLiked ? n.delete(post.id) : n.add(post.id); return n; });
+      try {
+        const { data, error } = await supabase.rpc("toggle_post_like", { p_id: post.id });
+        if (error) throw error;
+        if (data) {
+          setCount(data.likes);
+          setLikedPostIds((prev) => { const n = new Set(prev); data.liked ? n.add(post.id) : n.delete(post.id); return n; });
+        }
+      } catch (err) {
+        console.error("Error toggling post like:", err);
+        setCount(post.likes || 0); // 롤백
+        setLikedPostIds((prev) => { const n = new Set(prev); wasLiked ? n.add(post.id) : n.delete(post.id); return n; });
+      }
       return;
     }
 
+    // 게스트: localStorage + 단순 증감 RPC(유저별 추적 불가, MVP)
+    const likeKey = `barosit_liked_${post.id}`;
+    if (wasLiked) localStorage.removeItem(likeKey);
+    else localStorage.setItem(likeKey, "true");
     try {
-      // SECURITY DEFINER RPC — posts UPDATE RLS(소유자 전용) 우회하여 타인 글 좋아요도 증가
-      const { error } = await supabase.rpc("increment_post_likes", { p_id: post.id });
+      const { error } = await supabase.rpc(wasLiked ? "decrement_post_likes" : "increment_post_likes", { p_id: post.id });
       if (error) throw error;
-
-      localStorage.setItem(likeKey, "true");
-      // Update states
-      setPosts((prev) =>
-        prev.map((p) => (p.id === post.id ? { ...p, likes: p.likes + 1 } : p))
-      );
-      if (activePost && activePost.id === post.id) {
-        setActivePost((prev: any) => ({ ...prev, likes: prev.likes + 1 }));
-      }
     } catch (err) {
-      console.error("Error liking post:", err);
+      console.error("Error toggling post like:", err);
+      if (wasLiked) localStorage.setItem(likeKey, "true");
+      else localStorage.removeItem(likeKey);
+      setCount(post.likes || 0);
     }
   };
 
@@ -2149,18 +2365,43 @@ function Contact() {
   };
 
   const handleLikeComment = async (comment: any) => {
-    const likeKey = `barosit_liked_comment_${comment.id}`;
-    if (localStorage.getItem(likeKey)) {
-      alert(t("community.alertAlreadyLiked"));
+    const wasLiked = isCommentLiked(comment);
+    const delta = wasLiked ? -1 : 1; // 토글: 이미 추천했으면 취소(-1)
+
+    const setCount = (likes: number) =>
+      setComments((prev) => prev.map((c) => (c.id === comment.id ? { ...c, likes } : c)));
+    setCount(Math.max((comment.likes || 0) + delta, 0)); // 낙관적
+
+    if (user) {
+      // 로그인: DB 조인 테이블 토글
+      setLikedCommentIds((prev) => { const n = new Set(prev); wasLiked ? n.delete(comment.id) : n.add(comment.id); return n; });
+      try {
+        const { data, error } = await supabase.rpc("toggle_comment_like", { p_id: comment.id });
+        if (error) throw error;
+        if (data) {
+          setCount(data.likes);
+          setLikedCommentIds((prev) => { const n = new Set(prev); data.liked ? n.add(comment.id) : n.delete(comment.id); return n; });
+        }
+      } catch (err) {
+        console.error("Error toggling comment like:", err);
+        setCount(comment.likes || 0);
+        setLikedCommentIds((prev) => { const n = new Set(prev); wasLiked ? n.add(comment.id) : n.delete(comment.id); return n; });
+      }
       return;
     }
+
+    // 게스트: localStorage + 단순 증감 RPC
+    const likeKey = `barosit_liked_comment_${comment.id}`;
+    if (wasLiked) localStorage.removeItem(likeKey);
+    else localStorage.setItem(likeKey, "true");
     try {
-      const { error } = await supabase.rpc("increment_comment_likes", { p_id: comment.id });
+      const { error } = await supabase.rpc(wasLiked ? "decrement_comment_likes" : "increment_comment_likes", { p_id: comment.id });
       if (error) throw error;
-      localStorage.setItem(likeKey, "true");
-      setComments((prev) => prev.map((c) => (c.id === comment.id ? { ...c, likes: (c.likes || 0) + 1 } : c)));
     } catch (err) {
-      console.error("Error liking comment:", err);
+      console.error("Error toggling comment like:", err);
+      if (wasLiked) localStorage.setItem(likeKey, "true");
+      else localStorage.removeItem(likeKey);
+      setCount(comment.likes || 0);
     }
   };
 
@@ -2170,11 +2411,11 @@ function Contact() {
 
     const needsPassword = !user;
     if (!commentAuthor.trim() || !commentContent.trim() || (needsPassword && !commentPassword.trim())) {
-      alert(t("community.alertFillAll"));
+      showToast(t("community.alertFillAll"));
       return;
     }
     if (needsPassword && commentPassword.length < 4) {
-      alert(t("community.alertCommentPwMin"));
+      showToast(t("community.alertCommentPwMin"));
       return;
     }
 
@@ -2198,12 +2439,44 @@ function Contact() {
       setCommentPassword("");
       if (!user) setCommentAuthor("");
       setReplyTo(null);
+      // 목록 카드의 댓글 수 즉시 반영
+      setPosts((prev) => prev.map((p) => (p.id === activePost.id ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p)));
       fetchComments(activePost.id);
     } catch (err) {
       console.error("Error creating comment:", err);
-      alert(t("community.errCreateComment"));
+      showToast(t("community.errCreateComment"));
     } finally {
       setCommentSubmitting(false);
+    }
+  };
+
+  // --- 본인(회원) 댓글 인라인 수정 ---
+  const startEditComment = (comment: any) => {
+    setEditingCommentId(comment.id);
+    setEditingContent(comment.content);
+  };
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingContent("");
+  };
+  const saveEditComment = async (comment: any) => {
+    const next = editingContent.trim();
+    if (!next) { showToast(t("community.alertFillAll")); return; }
+    if (next === comment.content) { cancelEditComment(); return; }
+    setEditSubmitting(true);
+    try {
+      // RLS: 본인(user_id=auth.uid()) 댓글만 UPDATE 허용
+      const { data, error } = await supabase
+        .from("comments").update({ content: next }).eq("id", comment.id).eq("user_id", user!.id).select();
+      if (error) throw error;
+      if (!data || data.length === 0) { showToast(t("community.errNoPermComment")); return; }
+      setComments((prev) => prev.map((c) => (c.id === comment.id ? { ...c, content: next } : c)));
+      cancelEditComment();
+    } catch (err) {
+      console.error("Error editing comment:", err);
+      showToast(t("community.errServerDelete"));
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -2242,7 +2515,7 @@ function Contact() {
         if (error) throw error;
 
         if (!data || data.length === 0) {
-          alert(t("community.errNoPermPost"));
+          showToast(t("community.errNoPermPost"));
           return;
         }
 
@@ -2260,17 +2533,18 @@ function Contact() {
         if (error) throw error;
 
         if (!data || data.length === 0) {
-          alert(t("community.errNoPermComment"));
+          showToast(t("community.errNoPermComment"));
           return;
         }
 
         if (activePost) {
+          setPosts((prev) => prev.map((p) => (p.id === activePost.id ? { ...p, comment_count: Math.max((p.comment_count || 0) - 1, 0) } : p)));
           fetchComments(activePost.id);
         }
       }
     } catch (err) {
       console.error("Error executing direct delete:", err);
-      alert(t("community.errServerDelete"));
+      showToast(t("community.errServerDelete"));
     }
   };
 
@@ -2343,6 +2617,7 @@ function Contact() {
         // Success
         closeDeleteModal();
         if (activePost) {
+          setPosts((prev) => prev.map((p) => (p.id === activePost.id ? { ...p, comment_count: Math.max((p.comment_count || 0) - 1, 0) } : p)));
           fetchComments(activePost.id);
         }
       }
@@ -2366,6 +2641,285 @@ function Contact() {
     return `${y}.${m}.${d} ${h}:${min}`;
   };
 
+  // 유튜브식 상대 시간: 방금 전 / N분·시간·일 전, 7일 넘으면 절대 날짜.
+  const formatRelativeTime = (isoString: string) => {
+    if (!isoString) return "";
+    const diffSec = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+    if (diffSec < 60) return t("community.timeJustNow");
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return t("community.timeMinAgo", { count: diffMin });
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return t("community.timeHourAgo", { count: diffHour });
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffDay < 7) return t("community.timeDayAgo", { count: diffDay });
+    return formatDate(isoString);
+  };
+
+  // 댓글/답글 단일 박스 (최상위·답글 공용). 들여쓰기는 바깥 컨테이너가 담당한다.
+  const renderCommentNode = (comment: any) => (
+    <div
+      key={comment.id}
+      id={`comment-${comment.id}`}
+      style={{
+        padding: "16px 20px",
+        borderRadius: 14,
+        background: comment.is_agent ? "var(--b-sig-soft)" : "rgba(255, 255, 255, 0.5)",
+        border: comment.is_agent ? "1px solid var(--b-sig)" : "1px solid var(--b-line)",
+        borderLeft: comment.is_agent ? "3px solid var(--b-sig)" : "1px solid var(--b-line)",
+        // 점프 하이라이트: 시그니처 링 + 살짝 강조, 2초 후 해제
+        boxShadow: highlightCommentId === comment.id ? "0 0 0 2px var(--b-sig)" : "none",
+        transition: "box-shadow 0.4s ease",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        position: "relative",
+      }}
+    >
+      {/* Comment Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {comment.is_agent && <AriaAvatar size={24} onClick={ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />}
+          {renderAuthorName(comment.author_name, comment.user_id, comment.is_agent)}
+          {comment.is_agent ? (
+            <span style={{
+              fontSize: 9,
+              padding: "1px 6px",
+              borderRadius: 4,
+              background: "var(--b-sig)",
+              color: "#fff",
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+            }}>{t(comment.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}</span>
+          ) : comment.user_id ? (
+            <span style={{
+              fontSize: 9,
+              padding: "1px 4px",
+              borderRadius: 3,
+              background: "rgba(16, 185, 129, 0.1)",
+              color: "#10b981",
+              fontWeight: 700,
+            }}>{t("community.member")}</span>
+          ) : (
+            <span style={{
+              fontSize: 9,
+              padding: "1px 4px",
+              borderRadius: 3,
+              background: "rgba(107, 114, 128, 0.1)",
+              color: "#6b7280",
+              fontWeight: 600,
+            }}>{t("community.anon")}</span>
+          )}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 11, color: "var(--b-fg-3)" }} title={formatDate(comment.created_at)}>
+            {formatRelativeTime(comment.created_at)}
+          </span>
+          {/* 본인(회원) 댓글만 수정 가능. 게스트·운영자(Aria) 제외. */}
+          {user && comment.user_id === user.id && !comment.is_agent && editingCommentId !== comment.id && (
+            <button
+              onClick={() => startEditComment(comment)}
+              style={{ border: "none", background: "none", color: "var(--b-fg-3)", cursor: "pointer", padding: 2, display: "flex" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--b-sig)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
+              title={t("community.commentEditTitle")}
+            >
+              <Icon name="edit" size={13} />
+            </button>
+          )}
+          {/* 운영자(Aria) 공식 답변은 일반 사용자가 삭제할 수 없다(어드민 대시보드에서만 관리). */}
+          {!comment.is_agent && (
+            <button
+              onClick={() => handleCommentDeleteClick(comment)}
+              style={{
+                border: "none",
+                background: "none",
+                color: "var(--b-fg-3)",
+                cursor: "pointer",
+                padding: 2,
+                display: "flex",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
+              title={t("community.commentDeleteTitle")}
+            >
+              <Icon name="x" size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Comment Content (수정 모드면 인라인 편집) */}
+      {editingCommentId === comment.id ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <textarea
+            value={editingContent}
+            onChange={(e) => setEditingContent(e.target.value)}
+            disabled={editSubmitting}
+            rows={2}
+            autoFocus
+            style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--b-sig)", background: "rgba(255,255,255,0.9)", fontSize: 14, outline: "none", resize: "none", lineHeight: 1.5, fontFamily: "inherit" }}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" disabled={editSubmitting} onClick={() => saveEditComment(comment)} className="b-btn b-btn-primary" style={{ padding: "6px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              {editSubmitting ? t("community.commentSubmitting") : t("community.commentEditSave")}
+            </button>
+            <button type="button" onClick={cancelEditComment} style={{ padding: "6px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1px solid var(--b-line)", background: "none", color: "var(--b-fg-2)" }}>
+              {t("community.cancelReply")}
+            </button>
+          </div>
+        </div>
+      ) : comment.is_agent ? (
+        <p
+          style={{ fontSize: 14, color: "var(--b-fg-1)", margin: 0, lineHeight: 1.6 }}
+          dangerouslySetInnerHTML={{ __html: formatAgentContent(comment.content) }}
+        />
+      ) : (
+        <p style={{ fontSize: 14, color: "var(--b-fg-1)", margin: 0, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+          {comment.content}
+        </p>
+      )}
+      {/* 유튜브식 액션바: 추천 + 답글 (수정 중엔 숨김) */}
+      {editingCommentId !== comment.id && (
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+        {(() => {
+          const cLiked = isCommentLiked(comment);
+          return (
+            <button
+              type="button"
+              onClick={() => handleLikeComment(comment)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, border: "none", background: cLiked ? "var(--b-sig-soft)" : "none", color: cLiked ? "var(--b-sig)" : "var(--b-fg-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = cLiked ? "var(--b-sig-soft)" : "var(--b-line)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = cLiked ? "var(--b-sig-soft)" : "none")}
+              title={cLiked ? t("community.likeToggleOff") : t("community.likeToggleOn")}
+            >
+              <Icon name="thumb-up" size={15} stroke={2} style={{ animation: cLiked ? "b-like-pop 0.3s ease" : undefined }} />
+              <span>{comment.likes || 0}</span>
+            </button>
+          );
+        })()}
+        {/* 답글은 1단계만 — 답글(parent_comment_id 있음)엔 답글 버튼을 숨겨 같은 계위에 달리는 혼동을 막는다 */}
+        {!comment.parent_comment_id && (
+          <button
+            type="button"
+            onClick={() => startReply(comment)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, border: "none", background: "none", color: "var(--b-fg-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--b-line)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+            title={t("community.reply")}
+          >
+            <Icon name="message" size={14} />
+          </button>
+        )}
+      </div>
+      )}
+    </div>
+  );
+
+  // 댓글/답글 입력 폼 (하단 새 댓글 + 인라인 답글 공용). inline=true면 답글 모드 스타일.
+  const renderCommentForm = (inline = false) => (
+    <form
+      onSubmit={handleCreateComment}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        borderTop: inline ? "none" : "1px solid var(--b-line)",
+        paddingTop: inline ? 0 : 20,
+        marginTop: inline ? 0 : 8,
+      }}
+    >
+      {/* 답글 대상 배너 */}
+      {replyTo && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", borderRadius: 10, background: "var(--b-sig-soft)", border: "1px solid var(--b-sig)", fontSize: 12, color: "var(--b-fg-2)" }}>
+          <span>↳ {t("community.replyingTo", { name: replyTo.author })}</span>
+          <button type="button" onClick={() => setReplyTo(null)} style={{ border: "none", background: "none", color: "var(--b-sig)", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: 0 }}>
+            {t("community.cancelReply")}
+          </button>
+        </div>
+      )}
+      {/* Input Fields Row */}
+      <div style={{ display: "grid", gridTemplateColumns: user ? "1fr" : "1fr 1fr", gap: 12 }}>
+        <input
+          type="text"
+          required
+          placeholder={t("community.nickname")}
+          value={commentAuthor}
+          onChange={(e) => setCommentAuthor(e.target.value)}
+          disabled={commentSubmitting}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 8,
+            border: "1px solid var(--b-line)",
+            background: "rgba(255, 255, 255, 0.8)",
+            fontSize: 13,
+            outline: "none",
+          }}
+        />
+        {!user && (
+          <input
+            type="password"
+            required
+            placeholder={t("community.commentPasswordPlaceholder")}
+            value={commentPassword}
+            onChange={(e) => setCommentPassword(e.target.value)}
+            disabled={commentSubmitting}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--b-line)",
+              background: "rgba(255, 255, 255, 0.8)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        )}
+      </div>
+
+      {/* Content and Submit Row */}
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+        <textarea
+          ref={commentInputRef}
+          required
+          rows={2}
+          placeholder={replyTo ? t("community.replyPlaceholder", { name: replyTo.author }) : user ? t("community.commentPlaceholderMember") : t("community.commentPlaceholderGuest")}
+          value={commentContent}
+          onChange={(e) => setCommentContent(e.target.value)}
+          disabled={commentSubmitting}
+          style={{
+            flex: 1,
+            padding: "10px 14px",
+            borderRadius: 8,
+            border: "1px solid var(--b-line)",
+            background: "rgba(255, 255, 255, 0.8)",
+            fontSize: 13,
+            outline: "none",
+            resize: "none",
+            lineHeight: 1.4,
+          }}
+        />
+        <button
+          type="submit"
+          disabled={commentSubmitting}
+          className="b-btn b-btn-primary"
+          style={{
+            height: 42,
+            padding: "0 20px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: commentSubmitting ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {commentSubmitting ? t("community.commentSubmitting") : inline ? t("community.reply") : t("community.commentSubmit")}
+        </button>
+      </div>
+    </form>
+  );
+
   return (
     <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
       <TopNav active="community" />
@@ -2388,6 +2942,132 @@ function Contact() {
           />
         </div>
       )}
+
+      {/* 경량 토스트 — alert 대체 */}
+      {toast && (
+        <div
+          onClick={() => setToast(null)}
+          style={{
+            position: "fixed", left: "50%", bottom: 32, transform: "translateX(-50%)",
+            zIndex: 10000, maxWidth: "90vw",
+            padding: "12px 20px", borderRadius: 12,
+            background: toast.type === "success" ? "var(--b-sig)" : "#dc2626",
+            color: "#fff", fontSize: 13, fontWeight: 600,
+            boxShadow: "0 8px 28px rgba(0,0,0,0.22)", cursor: "pointer",
+            display: "inline-flex", alignItems: "center", gap: 8,
+            animation: "b-fade-in 0.2s ease",
+          }}
+        >
+          <Icon name={toast.type === "success" ? "check" : "info"} size={16} />
+          {toast.msg}
+        </div>
+      )}
+
+      {/* 작성자 활동 모달 — 회원 이름 클릭 시 그 회원의 글/댓글 모아보기 */}
+      {authorModal && (
+        <div
+          onClick={() => setAuthorModal(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.35)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 24, animation: "fadeIn 0.2s ease",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 520, maxHeight: "82vh",
+              background: "#ffffff", borderRadius: 18,
+              border: "1px solid var(--b-line)", boxShadow: "0 10px 40px rgba(0,0,0,0.14)",
+              display: "flex", flexDirection: "column", overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: "1px solid var(--b-line)" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "var(--b-fg-1)" }}>
+                {t("community.authorActivityTitle", { name: authorModal.name })}
+              </span>
+              <button
+                type="button"
+                autoFocus
+                aria-label={t("community.cancelReply")}
+                onClick={() => setAuthorModal(null)}
+                style={{ border: "none", background: "none", color: "var(--b-fg-3)", cursor: "pointer", padding: 4, display: "flex" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--b-fg-1)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
+              >
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "16px 22px 22px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+              {authorLoading ? (
+                <div style={{ fontSize: 13, color: "var(--b-fg-3)", padding: "20px 0", textAlign: "center" }}>
+                  {t("community.authorLoading")}
+                </div>
+              ) : authorPosts.length === 0 && authorComments.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--b-fg-3)", padding: "20px 0", textAlign: "center" }}>
+                  {t("community.authorEmpty")}
+                </div>
+              ) : (
+                <>
+                  {/* 작성 글 */}
+                  {authorPosts.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--b-fg-3)", letterSpacing: "0.04em" }}>
+                        {t("community.authorPostsHeading", { count: authorPosts.length })}
+                      </div>
+                      {authorPosts.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => goToThreadFromModal(p)}
+                          style={{ textAlign: "left", border: "1px solid var(--b-line)", background: "rgba(255,255,255,0.6)", borderRadius: 12, padding: "10px 14px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 4, transition: "all 0.15s" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--b-sig)"; e.currentTarget.style.background = "var(--b-sig-soft)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--b-line)"; e.currentTarget.style.background = "rgba(255,255,255,0.6)"; }}
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 5, background: "var(--b-line)", color: "var(--b-fg-2)" }}>{categoryLabel(p.category)}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--b-fg-1)" }}>{p.title}</span>
+                          </span>
+                          <span style={{ fontSize: 11, color: "var(--b-fg-3)" }} title={formatDate(p.created_at)}>{formatRelativeTime(p.created_at)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* 작성 댓글 */}
+                  {authorComments.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--b-fg-3)", letterSpacing: "0.04em" }}>
+                        {t("community.authorCommentsHeading", { count: authorComments.length })}
+                      </div>
+                      {authorComments.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          disabled={!c.posts}
+                          onClick={() => goToCommentFromModal(c)}
+                          style={{ textAlign: "left", border: "1px solid var(--b-line)", background: "rgba(255,255,255,0.6)", borderRadius: 12, padding: "10px 14px", cursor: c.posts ? "pointer" : "default", display: "flex", flexDirection: "column", gap: 4, transition: "all 0.15s", opacity: c.posts ? 1 : 0.6 }}
+                          onMouseEnter={(e) => { if (c.posts) { e.currentTarget.style.borderColor = "var(--b-sig)"; e.currentTarget.style.background = "var(--b-sig-soft)"; } }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--b-line)"; e.currentTarget.style.background = "rgba(255,255,255,0.6)"; }}
+                        >
+                          <span style={{ fontSize: 13, color: "var(--b-fg-1)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c.content}</span>
+                          <span style={{ fontSize: 11, color: "var(--b-fg-3)" }}>
+                            {c.posts ? t("community.onPost", { title: c.posts.title }) : ""} · {formatRelativeTime(c.created_at)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         style={{
           maxWidth: 720,
@@ -2636,7 +3316,7 @@ function Contact() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {posts.map((post) => {
-                  const isLiked = localStorage.getItem(`barosit_liked_${post.id}`);
+                  const isLiked = isPostLiked(post);
                   return (
                     <div
                       key={post.id}
@@ -2667,41 +3347,6 @@ function Contact() {
                         e.currentTarget.style.boxShadow = "0 4px 24px 0 rgba(0, 0, 0, 0.03)";
                       }}
                     >
-                      {/* Product Hunt Style Side Upvote */}
-                      <div
-                        onClick={(e) => handleLikePost(e, post)}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: 48,
-                          height: 58,
-                          borderRadius: 12,
-                          border: isLiked ? "1px solid var(--b-sig)" : "1px solid var(--b-line)",
-                          background: isLiked ? "var(--b-sig-soft)" : "rgba(255, 255, 255, 0.8)",
-                          color: isLiked ? "var(--b-sig)" : "var(--b-fg-2)",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                          flexShrink: 0,
-                        }}
-                        onMouseEnter={(e) => {
-                          e.stopPropagation();
-                          e.currentTarget.style.borderColor = "var(--b-sig)";
-                          e.currentTarget.style.background = "var(--b-sig-soft)";
-                          e.currentTarget.style.color = "var(--b-sig)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.stopPropagation();
-                          e.currentTarget.style.borderColor = isLiked ? "var(--b-sig)" : "var(--b-line)";
-                          e.currentTarget.style.background = isLiked ? "var(--b-sig-soft)" : "rgba(255, 255, 255, 0.8)";
-                          e.currentTarget.style.color = isLiked ? "var(--b-sig)" : "var(--b-fg-2)";
-                        }}
-                      >
-                        <Icon name="chev-u" size={16} stroke={2.4} style={{ marginBottom: 2 }} />
-                        <span style={{ fontSize: 13, fontWeight: 700 }}>{post.likes}</span>
-                      </div>
-
                       {/* Content Area */}
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                         {/* Header & Meta */}
@@ -2735,13 +3380,42 @@ function Contact() {
                             style={{
                               display: "flex",
                               alignItems: "center",
-                              gap: 4,
+                              gap: 12,
                               fontSize: 12,
                               color: "var(--b-fg-3)",
                               flexShrink: 0,
                             }}
                           >
-                            <Icon name="eye" size={13} /> {post.views}
+                            <span
+                              onClick={(e) => handleLikePost(e, post)}
+                              title={isLiked ? t("community.likeToggleOff") : t("community.likeToggleOn")}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "3px 8px",
+                                borderRadius: 999,
+                                cursor: "pointer",
+                                fontWeight: isLiked ? 700 : 400,
+                                background: isLiked ? "var(--b-sig-soft)" : "transparent",
+                                color: isLiked ? "var(--b-sig)" : "var(--b-fg-3)",
+                                transition: "all 0.15s",
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isLiked) e.currentTarget.style.background = "var(--b-line)";
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isLiked) e.currentTarget.style.background = "transparent";
+                              }}
+                            >
+                              <Icon name="thumb-up" size={13} stroke={2} style={{ animation: isLiked ? "b-like-pop 0.3s ease" : undefined }} /> {post.likes || 0}
+                            </span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              <Icon name="message" size={13} /> {post.comment_count || 0}
+                            </span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              <Icon name="eye" size={13} /> {post.views}
+                            </span>
                           </div>
                         </div>
 
@@ -2776,7 +3450,7 @@ function Contact() {
                           }}
                         >
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            {t("community.authorLabel")} <strong style={{ color: "var(--b-fg-2)" }}>{post.author_name}</strong>
+                            {t("community.authorLabel")} <strong style={{ color: "var(--b-fg-2)" }}>{renderAuthorName(post.author_name, post.user_id)}</strong>
                             {post.user_id ? (
                               <span style={{
                                 fontSize: 10,
@@ -2797,12 +3471,29 @@ function Contact() {
                               }}>🌱 {t("community.anon")}</span>
                             )}
                           </span>
-                          <span>{formatDate(post.created_at)}</span>
+                          <span title={formatDate(post.created_at)}>{formatRelativeTime(post.created_at)}</span>
                         </div>
                       </div>
                     </div>
                   );
                 })}
+                {/* 더 보기 — 정확히 한 페이지만큼 왔으면 더 있을 수 있음 */}
+                {hasMorePosts && (
+                  <button
+                    type="button"
+                    onClick={() => setPostsLimit((l) => l + POSTS_PAGE)}
+                    disabled={loading}
+                    style={{
+                      alignSelf: "center", marginTop: 4, padding: "10px 24px", borderRadius: 999,
+                      border: "1px solid var(--b-line)", background: "rgba(255,255,255,0.7)",
+                      color: "var(--b-fg-2)", fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--b-sig)"; e.currentTarget.style.color = "var(--b-sig)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--b-line)"; e.currentTarget.style.color = "var(--b-fg-2)"; }}
+                  >
+                    {t("community.loadMore")}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -3126,34 +3817,40 @@ function Contact() {
               >
                 <div style={{ display: "flex", gap: 10 }}>
                   {/* Like Button */}
-                  <button
-                    onClick={(e) => handleLikePost(e, activePost)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "8px 16px",
-                      borderRadius: 12,
-                      border: "1px solid var(--b-line)",
-                      background: "rgba(255, 255, 255, 0.7)",
-                      color: "var(--b-fg-2)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--b-sig)";
-                      e.currentTarget.style.color = "var(--b-sig)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "var(--b-line)";
-                      e.currentTarget.style.color = "var(--b-fg-2)";
-                    }}
-                  >
-                    <Icon name="chev-u" size={13} stroke={2.4} />
-                    <span>{t("community.likeCount", { count: activePost.likes })}</span>
-                  </button>
+                  {(() => {
+                    const pLiked = isPostLiked(activePost);
+                    return (
+                      <button
+                        onClick={(e) => handleLikePost(e, activePost)}
+                        title={pLiked ? t("community.likeToggleOff") : t("community.likeToggleOn")}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "8px 16px",
+                          borderRadius: 12,
+                          border: pLiked ? "1px solid var(--b-sig)" : "1px solid var(--b-line)",
+                          background: pLiked ? "var(--b-sig-soft)" : "rgba(255, 255, 255, 0.7)",
+                          color: pLiked ? "var(--b-sig)" : "var(--b-fg-2)",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = "var(--b-sig)";
+                          e.currentTarget.style.color = "var(--b-sig)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = pLiked ? "var(--b-sig)" : "var(--b-line)";
+                          e.currentTarget.style.color = pLiked ? "var(--b-sig)" : "var(--b-fg-2)";
+                        }}
+                      >
+                        <Icon name="thumb-up" size={14} stroke={2} style={{ animation: pLiked ? "b-like-pop 0.3s ease" : undefined }} />
+                        <span>{activePost.likes || 0}</span>
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {/* Delete Trigger */}
@@ -3200,9 +3897,33 @@ function Contact() {
                 gap: 24,
               }}
             >
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--b-fg-1)", margin: 0 }}>
-                {t("community.commentsHeading", { count: comments.length })}
-              </h3>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--b-fg-1)", margin: 0 }}>
+                  {t("community.commentsHeading", { count: comments.length })}
+                </h3>
+                {/* 정렬 토글: 작성순 / 인기순 */}
+                {comments.some((c) => !c.parent_comment_id) && (
+                  <div style={{ display: "inline-flex", gap: 2, padding: 2, borderRadius: 999, background: "var(--b-line)" }}>
+                    {(["recent", "top"] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setCommentSort(s)}
+                        style={{
+                          border: "none", borderRadius: 999, padding: "5px 12px", cursor: "pointer",
+                          fontSize: 12, fontWeight: 700,
+                          background: commentSort === s ? "#fff" : "transparent",
+                          color: commentSort === s ? "var(--b-sig)" : "var(--b-fg-3)",
+                          boxShadow: commentSort === s ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {t(s === "recent" ? "community.sortRecent" : "community.sortTop")}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Comments List */}
               {commentsLoading ? (
@@ -3212,227 +3933,77 @@ function Contact() {
                   {t("community.commentsEmpty")}
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {orderThread(comments).map((comment) => (
-                    <div
-                      key={comment.id}
-                      style={{
-                        padding: "16px 20px 16px 24px",
-                        borderRadius: 14,
-                        // 답글(1단계)은 들여쓰기로 부모 아래에 매단다.
-                        marginLeft: comment.parent_comment_id ? 28 : 0,
-                        // 운영자(Aria) 댓글은 브랜드 톤으로 강조해 "공식 답변"임을 드러낸다.
-                        background: comment.is_agent ? "var(--b-sig-soft)" : "rgba(255, 255, 255, 0.5)",
-                        border: comment.is_agent ? "1px solid var(--b-sig)" : "1px solid var(--b-line)",
-                        // Reddit Thread Line 데코레이션 (답글은 옅은 선)
-                        borderLeft: comment.parent_comment_id ? "3px solid var(--b-line)" : "3px solid var(--b-sig)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                        position: "relative",
-                      }}
-                    >
-                      {/* Comment Header */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          {comment.parent_comment_id && <span style={{ color: "var(--b-fg-3)", fontWeight: 400 }} aria-hidden="true">↳</span>}
-                          {comment.is_agent && <AriaAvatar size={24} onClick={ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />}
-                          {comment.author_name}
-                          {comment.is_agent ? (
-                            <span style={{
-                              fontSize: 9,
-                              padding: "1px 6px",
-                              borderRadius: 4,
-                              background: "var(--b-sig)",
-                              color: "#fff",
-                              fontWeight: 700,
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  {comments
+                    .filter((c) => !c.parent_comment_id)
+                    .sort((a, b) =>
+                      commentSort === "top"
+                        ? (b.likes || 0) - (a.likes || 0) || new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                        : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                    )
+                    .map((top) => {
+                    const replies = comments
+                      .filter((c) => c.parent_comment_id === top.id)
+                      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                    const replyingHere = replyTo?.parentId === top.id;
+                    // 기본은 접힘. 토글로 펼치거나, 이 스레드에 답글 작성 중이면 펼친다.
+                    const expanded = expandedThreads.has(top.id) || replyingHere;
+                    return (
+                      <div key={top.id} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {renderCommentNode(top)}
+                        {/* 유튜브식 "답글 N개" 토글 — 답글이 있을 때만 */}
+                        {replies.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleThread(top.id)}
+                            style={{
+                              alignSelf: "flex-start",
+                              marginLeft: 18,
                               display: "inline-flex",
                               alignItems: "center",
-                              gap: 3,
-                            }}>{t(comment.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}</span>
-                          ) : comment.user_id ? (
-                            <span style={{
-                              fontSize: 9,
-                              padding: "1px 4px",
-                              borderRadius: 3,
-                              background: "rgba(16, 185, 129, 0.1)",
-                              color: "#10b981",
+                              gap: 6,
+                              padding: "4px 10px",
+                              borderRadius: 999,
+                              border: "none",
+                              background: "none",
+                              color: "var(--b-sig)",
+                              fontSize: 13,
                               fontWeight: 700,
-                            }}>{t("community.member")}</span>
-                          ) : (
-                            <span style={{
-                              fontSize: 9,
-                              padding: "1px 4px",
-                              borderRadius: 3,
-                              background: "rgba(107, 114, 128, 0.1)",
-                              color: "#6b7280",
-                              fontWeight: 600,
-                            }}>{t("community.anon")}</span>
-                          )}
-                        </span>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ fontSize: 11, color: "var(--b-fg-3)" }}>
-                            {formatDate(comment.created_at)}
-                          </span>
-                          {/* 운영자(Aria) 공식 답변은 일반 사용자가 삭제할 수 없다(어드민 대시보드에서만 관리). */}
-                          {!comment.is_agent && (
-                            <button
-                              onClick={() => handleCommentDeleteClick(comment)}
-                              style={{
-                                border: "none",
-                                background: "none",
-                                color: "var(--b-fg-3)",
-                                cursor: "pointer",
-                                padding: 2,
-                                display: "flex",
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
-                              title={t("community.commentDeleteTitle")}
-                            >
-                              <Icon name="x" size={13} />
-                            </button>
-                          )}
-                        </div>
+                              cursor: "pointer",
+                              transition: "background 0.15s",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--b-sig-soft)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                          >
+                            <Icon name={expanded ? "chev-u" : "chev-d"} size={15} stroke={2.4} />
+                            {expanded ? t("community.hideReplies") : t("community.viewReplies", { count: replies.length })}
+                          </button>
+                        )}
+                        {/* 답글 그룹: 연속된 쓰레드 연결선 + 들여쓰기 (펼쳤을 때만) */}
+                        {expanded && (replies.length > 0 || replyingHere) && (
+                          <div
+                            style={{
+                              marginLeft: 18,
+                              paddingLeft: 20,
+                              borderLeft: "2px solid var(--b-line)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 12,
+                            }}
+                          >
+                            {replies.map((r) => renderCommentNode(r))}
+                            {/* 답글 입력창은 해당 스레드 바로 아래(들여쓰기 안)에 인라인으로 */}
+                            {replyingHere && renderCommentForm(true)}
+                          </div>
+                        )}
                       </div>
-                      {/* Comment Content */}
-                      {comment.is_agent ? (
-                        <p
-                          style={{ fontSize: 14, color: "var(--b-fg-1)", margin: 0, lineHeight: 1.6 }}
-                          dangerouslySetInnerHTML={{ __html: formatAgentContent(comment.content) }}
-                        />
-                      ) : (
-                        <p style={{ fontSize: 14, color: "var(--b-fg-1)", margin: 0, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                          {comment.content}
-                        </p>
-                      )}
-                      {/* 유튜브식 액션바: 추천 + 답글 */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                        <button
-                          type="button"
-                          onClick={() => handleLikeComment(comment)}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, border: "none", background: "none", color: "var(--b-fg-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--b-line)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                        >
-                          <Icon name="chev-u" size={14} stroke={2.4} />
-                          <span>{t("community.likeCount", { count: comment.likes || 0 })}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReplyTo({ id: comment.id, author: comment.author_name, parentId: comment.parent_comment_id || comment.id })}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, border: "none", background: "none", color: "var(--b-fg-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--b-line)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                        >
-                          <span>{t("community.reply")}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Comment Write Form */}
-              <form
-                onSubmit={handleCreateComment}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                  borderTop: "1px solid var(--b-line)",
-                  paddingTop: 20,
-                  marginTop: 8,
-                }}
-              >
-                {/* 답글 대상 배너 */}
-                {replyTo && (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", borderRadius: 10, background: "var(--b-sig-soft)", border: "1px solid var(--b-sig)", fontSize: 12, color: "var(--b-fg-2)" }}>
-                    <span>↳ {t("community.replyingTo", { name: replyTo.author })}</span>
-                    <button type="button" onClick={() => setReplyTo(null)} style={{ border: "none", background: "none", color: "var(--b-sig)", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: 0 }}>
-                      {t("community.cancelReply")}
-                    </button>
-                  </div>
-                )}
-                {/* Input Fields Row */}
-                <div style={{ display: "grid", gridTemplateColumns: user ? "1fr" : "1fr 1fr", gap: 12 }}>
-                  <input
-                    type="text"
-                    required
-                    placeholder={t("community.nickname")}
-                    value={commentAuthor}
-                    onChange={(e) => setCommentAuthor(e.target.value)}
-                    disabled={commentSubmitting}
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: 8,
-                      border: "1px solid var(--b-line)",
-                      background: "rgba(255, 255, 255, 0.8)",
-                      fontSize: 13,
-                      outline: "none",
-                    }}
-                  />
-                  {!user && (
-                    <input
-                      type="password"
-                      required
-                      placeholder={t("community.commentPasswordPlaceholder")}
-                      value={commentPassword}
-                      onChange={(e) => setCommentPassword(e.target.value)}
-                      disabled={commentSubmitting}
-                      style={{
-                        padding: "10px 14px",
-                        borderRadius: 8,
-                        border: "1px solid var(--b-line)",
-                        background: "rgba(255, 255, 255, 0.8)",
-                        fontSize: 13,
-                        outline: "none",
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Content and Submit Row */}
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-                  <textarea
-                    required
-                    rows={2}
-                    placeholder={user ? t("community.commentPlaceholderMember") : t("community.commentPlaceholderGuest")}
-                    value={commentContent}
-                    onChange={(e) => setCommentContent(e.target.value)}
-                    disabled={commentSubmitting}
-                    style={{
-                      flex: 1,
-                      padding: "10px 14px",
-                      borderRadius: 8,
-                      border: "1px solid var(--b-line)",
-                      background: "rgba(255, 255, 255, 0.8)",
-                      fontSize: 13,
-                      outline: "none",
-                      resize: "none",
-                      lineHeight: 1.4,
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={commentSubmitting}
-                    className="b-btn b-btn-primary"
-                    style={{
-                      height: 42,
-                      padding: "0 20px",
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: commentSubmitting ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {commentSubmitting ? t("community.commentSubmitting") : t("community.commentSubmit")}
-                  </button>
-                </div>
-              </form>
+              {/* 새 댓글 작성: 답글 모드가 아닐 때만 하단 폼(답글은 해당 스레드 아래 인라인) */}
+              {!replyTo && renderCommentForm(false)}
             </div>
           </div>
         )}

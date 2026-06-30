@@ -35,6 +35,9 @@ export type IconName =
   | "pill"
   | "pill-off"
   | "copy"
+  | "message"
+  | "thumb-up"
+  | "edit"
   | "logo";
 
 interface Props {
@@ -167,6 +170,26 @@ export function Icon({ name, size = 18, stroke = 1.8, style, title }: Props) {
       return (
         <svg {...common}>
           <polyline points="18 15 12 9 6 15" />
+        </svg>
+      );
+    case "message":
+      return (
+        <svg {...common}>
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+        </svg>
+      );
+    case "thumb-up":
+      return (
+        <svg {...common}>
+          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z" />
+          <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+        </svg>
+      );
+    case "edit":
+      return (
+        <svg {...common}>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z" />
         </svg>
       );
     case "sparkle":
