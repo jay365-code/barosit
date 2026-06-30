@@ -2148,6 +2148,22 @@ function Contact() {
     }
   };
 
+  const handleLikeComment = async (comment: any) => {
+    const likeKey = `barosit_liked_comment_${comment.id}`;
+    if (localStorage.getItem(likeKey)) {
+      alert(t("community.alertAlreadyLiked"));
+      return;
+    }
+    try {
+      const { error } = await supabase.rpc("increment_comment_likes", { p_id: comment.id });
+      if (error) throw error;
+      localStorage.setItem(likeKey, "true");
+      setComments((prev) => prev.map((c) => (c.id === comment.id ? { ...c, likes: (c.likes || 0) + 1 } : c)));
+    } catch (err) {
+      console.error("Error liking comment:", err);
+    }
+  };
+
   const handleCreateComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activePost) return;
@@ -3255,15 +3271,6 @@ function Contact() {
                           )}
                         </span>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <button
-                            type="button"
-                            onClick={() => setReplyTo({ id: comment.id, author: comment.author_name, parentId: comment.parent_comment_id || comment.id })}
-                            style={{ border: "none", background: "none", color: "var(--b-fg-3)", cursor: "pointer", fontSize: 11, fontWeight: 600, padding: 0 }}
-                            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--b-sig)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--b-fg-3)")}
-                          >
-                            {t("community.reply")}
-                          </button>
                           <span style={{ fontSize: 11, color: "var(--b-fg-3)" }}>
                             {formatDate(comment.created_at)}
                           </span>
@@ -3299,6 +3306,28 @@ function Contact() {
                           {comment.content}
                         </p>
                       )}
+                      {/* 유튜브식 액션바: 추천 + 답글 */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleLikeComment(comment)}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, border: "none", background: "none", color: "var(--b-fg-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--b-line)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                        >
+                          <Icon name="chev-u" size={14} stroke={2.4} />
+                          <span>{t("community.likeCount", { count: comment.likes || 0 })}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReplyTo({ id: comment.id, author: comment.author_name, parentId: comment.parent_comment_id || comment.id })}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, border: "none", background: "none", color: "var(--b-fg-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--b-line)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                        >
+                          <span>{t("community.reply")}</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
