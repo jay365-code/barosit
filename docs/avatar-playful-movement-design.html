@@ -213,9 +213,21 @@ webm/mp4 클립  ──  저장 · SNS 공유</div>
       <li><b>아트 에셋 = 진짜 비용:</b> 코드보다 <b>캐릭터 디자인·리깅</b>이 큰 작업. 방향(귀여운 동물? 마스코트?)·종수 결정 필요.</li>
       <li><b>단일 카메라 mocap 한계:</b> 빠른 춤·회전·팔 교차·뒤돌기에서 튀거나 추적 상실. <b>정면·잔잔한 동작</b>이 최선. 스무딩 필수.</li>
       <li><b>전신 조건부:</b> 반쯤 앉아 다리 가리면 하체 불안정 → "완전히 물러났을 때만 전신 모드".</li>
-      <li><b>배터리:</b> 렌더링 추가 → 메모리 상시 이슈. <b>opt-in · 경량 · 유휴 시 정지</b>.</li>
+      <li><b>배터리/성능:</b> 부하의 원천은 <b>감지가 아니라 아바타 렌더링</b>. 상세는 아래 성능 프로파일 참고. <b>opt-in · 경량 · 유휴 시 정지</b> 원칙.</li>
       <li><b>초점 이탈:</b> 정식 기능이 아니라 <b>재미/공유 훅</b>으로. 자세 코치 정체성이 주(主), 아바타는 종(從).</li>
     </ol>
+  </div>
+
+  <h3>성능 프로파일 — 부하는 감지가 아니라 렌더링</h3>
+  <div class="panel accent">
+    <p class="lead">"blendshape(52 표정)를 켜면 메모리/CPU가 확 늘지 않나?" → <b>아니다.</b> 비용 구조를 분리해 본다.</p>
+    <table>
+      <tr><th>항목</th><th>추가 비용</th><th>이유</th></tr>
+      <tr><td>얼굴 468점 추론</td><td class="ref">이미 발생 중</td><td>지금도 pitch/yaw/roll 뽑으려 FaceLandmarker가 매 프레임 추론 — 비싼 부분은 이미 돌고 있음</td></tr>
+      <tr><td><b>blendshape 52 출력 ON</b></td><td><span class="tag t-have">미미 (~수 %)</span></td><td>기존 추론 위에 붙는 작은 출력. init 때 소형 서브모델 1개 + 프레임당 float 52개 → 메모리 무시 수준. 2배로 뛰지 않음</td></tr>
+      <tr><td><b>아바타 렌더링</b></td><td><span class="tag t-hold">진짜 부하</span></td><td>리트리버 3D 리그·morph target·canvas 드로우 — 실제 CPU/GPU·배터리를 좌우하는 지점</td></tr>
+    </table>
+    <div class="callout"><b>결론:</b> blendshape는 사실상 공짜에 가깝다. 관리 대상은 <b>렌더링 파이프라인</b> — <code>opt-in</code> 토글, 경량 렌더(2D 우선), <b>유휴/일시정지 시 렌더 정지</b>, 프레임레이트 캡으로 배터리 방어. (메모리의 배터리 최적화 방침과 정합)</div>
   </div>
 </section>
 
