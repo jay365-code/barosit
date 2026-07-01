@@ -3191,11 +3191,11 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
         {view === "list" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             
-            {/* Category Pills — 줄바꿈 허용(카테고리 늘어도 잘리지 않게) */}
+            {/* Category Pills — 데스크톱은 한 줄에 다 들어가게 촘촘히, 좁으면 줄바꿈 */}
             <div
               style={{
                 display: "flex",
-                gap: 8,
+                gap: 6,
                 flexWrap: "wrap",
                 paddingBottom: 4,
               }}
@@ -3208,7 +3208,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
                   style={{
-                    padding: "8px 16px",
+                    padding: "8px 12px",
                     borderRadius: 20,
                     border: "1px solid",
                     borderColor: activeCategory === cat ? "var(--b-sig)" : "var(--b-line)",
