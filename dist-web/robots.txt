@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://barosit.com/sitemap.xml
+Sitemap: https://barosit.com/community-sitemap.xml

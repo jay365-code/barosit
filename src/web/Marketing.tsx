@@ -131,7 +131,7 @@ function TopNav({ active }: { active?: string }) {
     { key: "features", label: t("nav.features"), hash: "#/landing" },
     ...(betaFree ? [] : [{ key: "pricing", label: t("nav.pricing"), hash: "#/pricing" }]),
     { key: "download", label: t("nav.download"), hash: "#/download" },
-    { key: "community", label: t("nav.community"), hash: "#/community" },
+    { key: "community", label: t("nav.community"), hash: "/community" },
   ];
   if (isAdmin) {
     items.push({ key: "admin", label: "관리자", hash: "#/admin" });
@@ -309,7 +309,7 @@ function Footer() {
           <a href="#/terms" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.terms")}
           </a>
-          <a href="#/community" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
+          <a href="/community" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.community")}
           </a>
           <LanguageSelect variant="inline" />
@@ -1635,7 +1635,7 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
             {t("legal.viewOther", { title: t(LEGAL_TITLE_KEY[otherKind]) })}
           </a>
           <a
-            href="#/community"
+            href="/community"
             className="b-btn b-btn-quiet"
             style={{ textDecoration: "none" }}
           >
@@ -2233,11 +2233,11 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     window.history.pushState({}, "", communityPostHref(post.id));
     handleSelectPost(post);
   };
-  // 상세 닫기 → 리스트. permalink pathname 을 canonical 리스트 URL(/#/community)로 되돌린다
-  // (리로드해도 해시 라우팅이 community 로 복원).
+  // 상세 닫기 → 리스트. permalink pathname 을 clean 리스트 URL(/community)로 되돌린다
+  // (리로드해도 pathname 라우팅이 community 목록으로 복원).
   const closeDetail = () => {
     if (window.location.pathname.startsWith("/community/p/")) {
-      window.history.pushState({}, "", "/#/community");
+      window.history.pushState({}, "", "/community");
     }
     if (typeof document !== "undefined") document.title = "BaroSit 커뮤니티";
     setView("list");

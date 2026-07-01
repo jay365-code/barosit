@@ -50,6 +50,9 @@ const communityPostMatch =
     ? window.location.pathname.match(/^\/community\/p\/([^/]+)\/?$/)
     : null;
 const initialCommunityPostId = communityPostMatch ? decodeURIComponent(communityPostMatch[1]) : null;
+// 목록 clean URL(/community). 글 상세와 함께 커뮤니티를 해시 없는 path 로 크롤 가능하게.
+const isCommunityListPath =
+  IS_WEB && typeof window !== "undefined" && /^\/community\/?$/.test(window.location.pathname);
 
 
 function MarketingHost({ initial, initialPostId }: { initial: MarketingRoute; initialPostId?: string | null }) {
@@ -66,16 +69,17 @@ function MarketingHost({ initial, initialPostId }: { initial: MarketingRoute; in
   return <Marketing route={route} initialPostId={initialPostId} />;
 }
 
-// 웹에선 #/app 이나 #/qa 외에는 marketing route 우선. hash 비어 있으면 landing 강제.
-// 단, /community/p/<id> pathname 진입은 해시가 비어도 community 로 강제.
+// 웹 라우트 결정. 우선순위: 앱/QA 제외 → 명시적 해시 라우트(community 아님)가
+// pathname community 보다 우선(/community#/pricing → pricing) → /community(/p/<id>) pathname →
+// 해시 #/community → 웹 기본 landing.
 const rawMarketingRoute = routeFromHash(window.location.hash);
-const marketingRoute: MarketingRoute | null = (!IS_WEB || isWebAppRoute || isQaRoute)
-  ? null
-  : initialCommunityPostId
-    ? "community"
-    : IS_WEB && !rawMarketingRoute
-      ? "landing"
-      : rawMarketingRoute;
+const marketingRoute: MarketingRoute | null = (() => {
+  if (!IS_WEB || isWebAppRoute || isQaRoute) return null;
+  if (rawMarketingRoute && rawMarketingRoute !== "community") return rawMarketingRoute;
+  if (initialCommunityPostId || isCommunityListPath) return "community";
+  if (rawMarketingRoute) return rawMarketingRoute;
+  return "landing";
+})();
 
 // HMR 안전 — 같은 컨테이너에 createRoot가 두 번 불리면 React가 경고함.
 // 모듈 스코프에 캐시해 두고 두 번째부터는 root.render만.

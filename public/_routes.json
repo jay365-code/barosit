@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "include": ["/community/p/*"],
+  "include": ["/community", "/community/p/*", "/community-sitemap.xml"],
   "exclude": []
 }
