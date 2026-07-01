@@ -1,9 +1,16 @@
 # 커뮤니티 로드맵 / 할일 (이어받기용)
 
 > **이 문서가 커뮤니티 작업의 단일 TODO 출처.** 대화창의 작업 트래커는 세션 전용이라 안 넘어감 → 여기서 픽업.
-> 최종 갱신 2026-07-01. 관련 상세: [service-completeness.html](service-completeness.html) CM-1~3 · [마케팅전략.html](마케팅전략.html) §7~9.
+> 최종 갱신 2026-07-01. 관련 상세: [service-completeness.html](service-completeness.html) CM-1~4 · [마케팅전략.html](마케팅전략.html) §7~9.
 
 ---
+
+## ✅ 2026-07-01 완료·배포됨 (커뮤니티 SEO → 블로그 → 다국어)
+- **커뮤니티 SEO 리팩토링(#18/CM-3)** — permalink `/community/p/<id>` + 목록 clean `/community`(해시 제거) + Cloudflare 엣지 SSR(글별 JSON-LD·noscript·hreflang) + 동적 사이트맵. 웹 URL 해시 정합 가드. prod 검증.
+- **블로그 콘텐츠 채널(CM-4)** — `📝 블로그` 카테고리(운영자 전용) + 아리아(is_agent·coach) 작성 글 2편(자세 통념·모니터 높이). 시드 마이그레이션(트리거 우회). 정적 /blog → 커뮤니티 301.
+- **블로그 완전 다국어(B-정석) + 공유 댓글** — 블로그 글 ko/en/ja 별도 글+translation_group_id. SSR hreflang·og:locale·inLanguage. 목록 dedup·언어 스위처. 3언어 댓글 스레드 공유(thread_id+comment_count 트리거). prod 검증.
+- 상세: [changelog.md](changelog.md) §0-11~13 · [service-completeness.html](service-completeness.html) CM-3·CM-4 · [마케팅전략.html](마케팅전략.html) §9.
+- **운영 잔여**: GSC·네이버에 community-sitemap.xml 제출 · 게스트 password_hash 익명노출 차단(별개 기존 보안) · 신규 블로그 글 en/ja 번역 시드.
 
 ## ✅ 오늘(2026-06-30) 완료·배포됨
 - **유저별 좋아요(하이브리드)** — 로그인=DB 조인테이블(post_likes/comment_likes)+toggle RPC, 게스트=localStorage. 좋아요 취소.

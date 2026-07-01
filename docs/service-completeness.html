@@ -530,6 +530,13 @@
       <br><b>prod curl 검증:</b> /community(CollectionPage)·글 상세(QAPage)·사이트맵(200/3URL)·미존재글 404·정적 SEO 페이지 무회귀 전부 OK. <b>남은 운영:</b> GSC+네이버 사이트맵 제출·수집요청 · (별개 기존 보안) 게스트 <code>password_hash</code> 익명 노출 차단 · (후속) 글별 동적 OG 이미지.</div>
       <div class="ref">functions/community/p/[id].ts · functions/community/index.ts · functions/community-sitemap.xml.ts · functions/_shared/ssr.ts · public/_redirects · public/_routes.json · src/main.tsx · src/web/Marketing.tsx · 상세 docs/마케팅전략.html §9 · docs/community-roadmap.md #18</div>
     </div>
+
+    <div class="item" data-status="done">
+      <div class="item-top"><span class="title">커뮤니티 블로그 콘텐츠 채널 + 다국어화(hreflang·공유 댓글)</span><span class="gapid">CM-4</span></div>
+      <div class="detail"><b>✅ 배포+프로덕션 검증 완료(2026-07-01).</b> CM-3 SEO 토대 위에 블로그를 마케팅 콘텐츠 엔진으로 구축. <b>(1) 운영자 콘텐츠 채널</b>: 공지(운영 알림)와 분리한 <code>📝 블로그</code> 카테고리(운영자 전용 = 클라 폼 게이팅 + 서버 RLS 트리거). 글은 <b>운영자 AI 아리아</b> 작성(<code>author_name='Aria'·is_agent·agent_role='coach'</code>) — 앱 폼/anon 은 is_agent 삽입 불가라 <b>시드 마이그레이션</b>(<code>session_replication_role=replica</code> 트리거 우회, 고정 UUID)으로 게시. 글 목록/상세 is_agent 뱃지(아바타+역할). 콘텐츠 2편(자세 통념·모니터 높이). <b>(2) 완전 다국어(B-정석)</b>: 블로그 글을 ko/en/ja <b>별도 글(고유 URL)</b>로 두고 <code>posts.translation_group_id</code>로 묶어 <b>hreflang·og:locale·JSON-LD inLanguage·언어별 title</b>(SSR) 로 언어권별 색인. 목록은 <code>dedupeByGroup</code>으로 UI언어 버전 1카드, 상세엔 언어 스위처. <b>(3) 공유 댓글</b>: 3개 언어 버전이 <code>comments.thread_id</code>로 한 스레드 공유(BEFORE INSERT 트리거 강제) + <code>sync_thread_comment_count</code> 트리거가 그룹 전체 <code>posts.comment_count</code> 동기화(목록 카운트). UGC(질문/자유토론)는 group=null → 다국어 강제 안 함.
+      <br><b>prod curl 검증:</b> EN/JA 글 <code>&lt;html lang&gt;</code>·og:locale(en_US/ja_JP)·inLanguage·hreflang(ko/en/ja/x-default) · 목록 dedup(?lang) · en/ja 정적→커뮤니티 301 · 사이트맵 xhtml:link 전부 OK. 로컬 wrangler+docker 로 공유 댓글(KO↔EN)·트리거 카운트 검증. <b>운영 남은 것:</b> 신규 블로그 글은 ko 원본+en/ja 번역을 같은 그룹으로 시드(마이그레이션).</div>
+      <div class="ref">migrations 20260701000000~060000 · src/web/Marketing.tsx(dedupeByGroup·thread·언어스위처) · functions/community/p/[id].ts·index.ts·community-sitemap.xml.ts · public/_redirects · docs/community-roadmap.md</div>
+    </div>
   </section>
 
   <!-- ============ 14. 테스트 / QA / 문서 ============ -->

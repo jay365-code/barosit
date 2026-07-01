@@ -2,6 +2,33 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-13. 블로그 다국어화(B-정석) + 공유 댓글 — 2026-07-01
+
+블로그를 마케팅 콘텐츠 엔진으로 굳히며 "영어 UI에 한국어 글" 불일치 해소. 블로그 글을 ko/en/ja **별도 글(고유 URL)**로 두고 번역그룹으로 묶어 언어권별 SEO(hreflang) 확보. 3개 언어 버전은 **하나의 댓글 스레드를 공유**(작은 커뮤니티 참여 분절 방지).
+
+- **스키마** [migrations 030000·040000]: `posts` +`language`·`translation_group_id`·`comment_count`(그룹 공유 카운트). `comments` +`thread_id`(= `COALESCE(글.translation_group_id, 글.id)`). **BEFORE INSERT 트리거**가 thread_id 서버 강제, **AFTER INSERT/DELETE 트리거 `sync_thread_comment_count`**(SECURITY DEFINER)가 그룹 전체 `posts.comment_count` 동기화 → 목록 카드 카운트가 embed·클라매핑 없이 정확. UGC(질문/자유토론)는 group=null → dedup·다국어 강제 안 함.
+- **콘텐츠** [migrations 050000·060000]: posture-myth·monitor-height 각각 ko/en/ja(총 6글, en/ja는 정적 재활용/신규 번역), `translation_group_id`=KO anchor, Aria/coach.
+- **클라**(Marketing.tsx): 목록 `dedupeByGroup`(UI언어 버전 1카드), `comment_count` 컬럼, fetchComments/realtime/insert 를 **thread 공유키**로, 상세 **언어 스위처**(형제 글 링크), 언어별 `document.title`.
+- **SSR**(functions): 상세 `<html lang>`·title 접미사·og:locale·JSON-LD `inLanguage`·**hreflang 대체링크**(형제 조회). 목록 `?lang` 언어화. 사이트맵 `xhtml:link` hreflang. `_redirects`: en/ja 정적 → 커뮤니티 EN/JA 301.
+- 검증: 로컬 wrangler+docker(트리거·SSR·dedup·언어스위처·공유댓글 KO↔EN·301) + 프로덕션 curl(hreflang·og:locale·inLanguage·301) OK, 콘솔에러 0. ⚠️ 로컬 RLS 드리프트(게스트 comments insert 정책 없음)로 로컬 댓글 테스트는 docker psql.
+
+## 0-12. 커뮤니티 블로그 카테고리 + 아리아 블로그 글 — 2026-07-01
+
+공지(운영 알림)와 분리한 **운영자 콘텐츠 채널** 신설(유익한 자세 정보 = 검색·홍보 무대).
+
+- **`📝 블로그` 카테고리** [migration 20260701000000]: 운영자 전용(클라 폼 게이팅 `ADMIN_ONLY_CATEGORIES` + 서버 RLS 트리거 `enforce_notice_admin_only` 확장). 읽기 전체 공개. i18n ko/en/ja. 카테고리 pill 줄바꿈(공지 잘림 수정).
+- **아리아 작성 글** [migrations 010000·020000]: 기존 정적 `/blog/posture-myth` 커뮤니티 이전 + "모니터 높이 세팅" 신규. `author_name='Aria'·is_agent·agent_role='coach'`. **앱 폼/anon 은 is_agent 삽입 불가(RLS)라 시드 마이그레이션**(`session_replication_role=replica` 트리거 우회). 글 목록/상세 **is_agent 뱃지**(AriaAvatar+역할) 렌더 추가. 정적 `/blog/posture-myth`(+en/ja) → 커뮤니티 301.
+
+## 0-11. 커뮤니티 SEO 리팩토링 — permalink + 엣지 SSR + 사이트맵 (CM-3/#18) — 2026-07-01
+
+커뮤니티가 해시 라우팅+글 permalink 부재로 검색·소셜·AI에 0 노출이던 **토대 블로커** 해소.
+
+- **permalink**: 글 `/community/p/<id>` + 목록 clean URL `/community`(해시 제거). `public/_redirects` SPA fallback, `_routes.json` 함수 범위 한정.
+- **엣지 SSR** [functions/community/p/[id].ts·index.ts]: Cloudflare Pages Function이 Supabase 조회 → HTMLRewriter로 title·meta·OG·canonical override + 글별 JSON-LD(공지·블로그=BlogPosting, 질문=QAPage, 그외=DiscussionForumPosting) + `<noscript>` 본문 주입 → SPA 하이드레이션(재빌드 없이 색인). UGC 이스케이프.
+- **동적 사이트맵** [functions/community-sitemap.xml.ts] + robots.txt 등록. 빌드 시 `functions/`→`dist-web/functions/` 복사(copy-functions.mjs).
+- **웹 URL 해시 정리**: `/community#/landing`·`#/admin` 혼합 URL·맨 `#`·App모드 back 잔류·어드민 닫기=이전페이지 라우팅 정합 가드(main.tsx, 웹 전용). 실시간 댓글 원격 검증(비파괴 핸드셰이크).
+- 검증: 로컬 wrangler + 프로덕션 curl(SSR·사이트맵·404·정적페이지 무회귀) 통과.
+
 ## 0-10. 고정자세 방지 개편 — 30-1 움직임 목표·강제모드·상시타이머·중복정리 — 2026-07-01 · v0.9.1
 
 "올바른 자세 유지"(나쁜 자세 알림)는 잘 동작하나 "한 자세 오래 유지 방지"가 미흡 → 근거 재조사 후 휴식/변동성 넛지 개편. 근거: "고정자세 후 1초만 바꾸면 됨" 지침은 없음; 30분마다 + **최소 ~1분 dose**(1분 chair stands≈2분 걷기, 20-8-2, 혈당 30분/5분).
