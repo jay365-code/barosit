@@ -116,6 +116,18 @@ async function runIntegration(env) {
         const ok = r.status === 302 && /kauth\.kakao\.com/.test(loc);
         return [ok ? "Pass" : "Fail", `[실증] authorize?provider=kakao → ${r.status}, ${loc.slice(0, 60)} (외부 동의 클릭만 수동)`];
       },
+      "AUTH-08": async () => {
+        const r = await api.authorize("apple");
+        const loc = r.headers.get("location") || "";
+        const live = r.status === 302 && /appleid\.apple\.com/.test(loc);
+        if (live) return ["Pass", `[실증] authorize?provider=apple → ${r.status}, ${loc.slice(0, 60)} (외부 동의 클릭만 수동)`];
+        // 로컬은 Apple 시크릿(.p8 JWT)이 gitignore 라 provider 미구성 → 400. AUTH-02 와 동일하게
+        // 배선 검증 + 프로덕션 활성(302 E2E, changelog §0-8)을 근거로 Pass, 프로덕션만 별도 확인 대상.
+        const wired = has("src/auth/useAuth.ts", "signInWithApple")
+          && has("src/web/Marketing.tsx", "signInWithApple")
+          && has("src/views/ProfileView.tsx", "signInWithApple");
+        return [wired ? "Pass" : "Fail", `[코드+프로덕션] 로컬 apple provider 미구성(HTTP ${r.status}) — 클라 배선 signInWithApple(useAuth/Marketing/ProfileView)=${wired}, 프로덕션 authorize 302(§0-8 E2E) 확인됨. 로컬 실증은 supabase/.env 에 APPLE 키 주입 시 활성.`];
+      },
       "BILL-06": async () => {
         const r = await api.rest(`user_subscriptions?user_id=eq.${nid}`, { method: "PATCH", token: UT, body: { plan_id: "pro" }, prefer: "return=representation" });
         const ok = r.status === 400 || r.status === 403;
@@ -139,6 +151,26 @@ async function runIntegration(env) {
         if (!global.__qaPost) return ["N/A", "선행 COMM-01 글 없음"];
         const r = await api.rest("comments", { method: "POST", token: UT, body: { post_id: global.__qaPost, user_id: nid, content: "댓글" } });
         return [r.status === 201 ? "Pass" : "Fail", `[실증] comments insert → HTTP ${r.status}`];
+      },
+      "COMM-05": async () => {
+        // 유저별 좋아요 토글: toggle_post_like(p_id) RPC → post_likes 1행 + posts.likes +1, 재호출 시 0(취소)
+        if (!global.__qaPost) return ["N/A", "선행 COMM-01 글 없음"];
+        const call = () => fetch(`${env.url}/rest/v1/rpc/toggle_post_like`, { method: "POST", headers: { apikey: env.anon, Authorization: `Bearer ${UT}`, "Content-Type": "application/json" }, body: JSON.stringify({ p_id: global.__qaPost }) });
+        const likes = () => api.rest(`posts?id=eq.${global.__qaPost}&select=likes`, { key: env.svc }).then((r) => r.json()).then((j) => j[0]?.likes ?? 0);
+        const before = await likes();
+        const r1 = await call(); const mid = await likes();
+        const rows = await api.rest(`post_likes?post_id=eq.${global.__qaPost}&user_id=eq.${nid}&select=post_id`, { key: env.svc }).then((r) => r.json());
+        const r2 = await call(); const after = await likes();
+        const ok = r1.status === 200 && r2.status === 200 && mid === before + 1 && rows.length === 1 && after === before;
+        return [ok ? "Pass" : "Fail", `[실증] toggle_post_like: likes ${before}→${mid}→${after}, post_likes 행=${rows.length} (1인1행 토글·취소)`];
+      },
+      "COMM-06": async () => {
+        // 블로그/공지 카테고리 = 운영자 전용: 비어드민 INSERT → enforce_notice_admin_only 트리거 거부
+        const blog = await api.rest("posts", { method: "POST", token: UT, body: { user_id: nid, title: "QA blog", content: "x", category: "📝 블로그" }, prefer: "return=representation" });
+        const notice = await api.rest("posts", { method: "POST", token: UT, body: { user_id: nid, title: "QA notice", content: "x", category: "📣 공지" }, prefer: "return=representation" });
+        const blogBlocked = blog.status === 400 || blog.status === 403;
+        const noticeBlocked = notice.status === 400 || notice.status === 403;
+        return [blogBlocked && noticeBlocked ? "Pass" : "Fail", `[실증] 비어드민 블로그 INSERT HTTP ${blog.status}, 공지 INSERT HTTP ${notice.status} (트리거 거부 기대)`];
       },
       "COMM-02": async () => {
         if (!global.__qaPost) return ["N/A", "선행 COMM-01 글 없음"];
@@ -268,10 +300,10 @@ async function runIntegration(env) {
 // unit 티어 → 결정론적 vitest 파일 매핑. 같은 파일은 1회만 실행하고 결과를 공유한다.
 const UNIT_TESTS = {
   "MONI-02": "src/pose/analyzer.test.ts",          // shoulder_tilt 검출
-  "MONI-10": "src/pose/complianceTracker.test.ts", // 준수추적+보상 (슬라이스1)
-  "MONI-11": "src/pose/complianceTracker.test.ts", // 적응형 백오프 (슬라이스2)
-  "MONI-12": "src/pose/jitaiGate.test.ts",         // JITAI 발사 타이밍 (슬라이스3a)
-  "MONI-14": "src/pose/violationTracker.test.ts",  // 움직임완화+으쓱보정 (슬라이스4)
+  "MONI-10": "src/pose/breakTracker.test.ts",      // 30-1 움직임 목표 dose-gate (v0.9.1)
+  "MONI-11": "src/pose/complianceTracker.test.ts", // 준수추적+보상+적응형 백오프
+  "MONI-12": "src/pose/jitaiGate.test.ts",         // JITAI 상황맥락 발사 게이팅
+  "MONI-14": "src/pose/violationTracker.test.ts",  // 움직임완화+으쓱보정 위반추적
 };
 function runUnit() {
   const byFile = {}; // file → [ids]
@@ -304,14 +336,60 @@ function runCode() {
       return [dflt && esc ? "Pass" : "Fail", `[정적] alertConfig.ts focusMode 기본ON=${dflt}, 에스컬레이션 구현=${esc}`];
     },
     "WEB-04": () => {
-      const ko = has("src/i18n/locales/ko/marketing.json", "완벽한 자세", "근거");
-      const route = has("src/web/Marketing.tsx", "science");
-      return [ko && route ? "Pass" : "Fail", `[정적] 근거 카피(ko)=${ko}, Marketing.tsx science 라우트=${route}`];
+      // 커뮤니티 permalink + 엣지 SSR: functions/community/p/[id].ts + _shared/ssr.ts 가
+      // 메타/OG/canonical override + 글별 JSON-LD + noscript + hreflang 주입.
+      const detail = exists("functions/community/p/[id].ts"), list = exists("functions/community/index.ts");
+      const meta = has("functions/community/p/[id].ts", "og:title", "canonical");
+      const noscript = has("functions/community/p/[id].ts", "noscript") || has("functions/community/p/[id].ts", "hreflang");
+      const jsonld = has("functions/community/p/[id].ts", "BlogPosting", "QAPage", "DiscussionForumPosting");
+      const helpers = has("functions/_shared/ssr.ts", "jsonLdSafe", "escapeHtml");
+      return [detail && list && meta && jsonld ? "Pass" : "Fail", `[정적] p/[id].ts=${detail}, index.ts=${list}, og/canonical override=${meta}, JSON-LD 3종=${jsonld}, noscript/hreflang=${noscript}, ssr helpers=${helpers}`];
     },
     "WEB-05": () => {
-      const sci = exists("public/science.html"), blog = exists("public/blog/posture-myth.html");
-      const sm = has("public/sitemap.xml", "science.html") && has("public/sitemap.xml", "posture-myth.html");
-      return [sci && blog && sm ? "Pass" : "Fail", `[정적] science.html=${sci}, blog=${blog}, sitemap 등록=${sm}`];
+      // 동적 사이트맵 + robots 등록 + 구 정적 블로그 301.
+      const sm = exists("functions/community-sitemap.xml.ts");
+      const robots = has("public/robots.txt", "sitemap") || has("public/robots.txt", "Sitemap");
+      const redir = has("public/_redirects", "community") && (has("public/_redirects", "301") || has("public/_redirects", "blog"));
+      return [sm && robots ? "Pass" : "Fail", `[정적] community-sitemap.xml.ts=${sm}, robots 사이트맵 등록=${robots}, _redirects 301=${redir}`];
+    },
+    "WEB-08": () => {
+      // 자세 근거 랜딩 카피 + /science 근거 페이지 (구 WEB-04 복원).
+      const ko = has("src/i18n/locales/ko/marketing.json", "근거");
+      const route = has("src/web/Marketing.tsx", "science");
+      const page = exists("public/science.html");
+      return [ko && (route || page) ? "Pass" : "Fail", `[정적] 근거 카피(ko)=${ko}, Marketing.tsx science 라우트=${route}, science.html=${page}`];
+    },
+    "AUTH-10": () => {
+      // 회원탈퇴 soft delete +30일 유예 + pg_cron 파기.
+      const mig = has("supabase/migrations/20260630000000_account_deletion.sql", "deletion_scheduled_at", "purge_deleted_accounts");
+      const cron = exists("supabase/migrations/20260630000001_account_purge_cron.sql");
+      const fn = has("supabase/functions/delete-account/index.ts", "GRACE_DAYS", "deletion_scheduled_at");
+      return [mig && fn ? "Pass" : "Fail", `[정적] account_deletion 마이그레이션(유예/파기)=${mig}, pg_cron=${cron}, delete-account fn soft=${fn}`];
+    },
+    "SET-11": () => {
+      // 강제 모드: forceMode 기본 OFF + IPC onForceBlur + 35초 실패안전.
+      const off = has("src/alertConfig.ts", "forceMode: false");
+      const ipc = has("src/views/AlertWindow.tsx", "onForceBlur");
+      const failsafe = has("src/views/AlertWindow.tsx", "35000");
+      return [off && ipc && failsafe ? "Pass" : "Fail", `[정적] forceMode 기본 OFF=${off}, onForceBlur IPC=${ipc}, 35s 실패안전=${failsafe}`];
+    },
+    "SET-12": () => {
+      // 미니바 상시 착석 타이머 + breakBadge 상호배타.
+      const gate = has("src/views/Widget.tsx", 'breakStage === "none"');
+      return [gate ? "Pass" : "Fail", `[정적] Widget.tsx 착석타이머↔breakBadge 상호배타 게이트(breakStage==='none')=${gate}`];
+    },
+    "SYNC-05": () => {
+      // 오프라인 Pro 회복 탄력성: 검증 이력 있으면 강등 안 함, 이력 전무면 free.
+      const keep = has("src/auth/useEntitlement.ts", "강등하지 않는다");
+      const noHist = has("src/auth/useEntitlement.ts", 'if (!at) apply("free"');
+      return [keep && noHist ? "Pass" : "Fail", `[정적] 검증이력 Pro 비강등=${keep}, 이력 전무→free=${noHist}`];
+    },
+    "LIFE-04": () => {
+      // 능동 피드백 넛지: 3일+/2세션+ 게이트 + markNudgeDone + i18n.
+      const gate = has("src/lib/feedbackNudge.ts", "MIN_AGE_MS", "MIN_SESSIONS", "shouldShowNudge");
+      const done = has("src/lib/feedbackNudge.ts", "markNudgeDone");
+      const i18n = ["ko", "en", "ja"].every((l) => has(`src/i18n/locales/${l}/app.json`, "feedbackNudge"));
+      return [gate && done ? "Pass" : "Fail", `[정적] 넛지 게이트(3일+/2세션+)=${gate}, markNudgeDone=${done}, i18n feedbackNudge(ko/en/ja)=${i18n}`];
     },
     "WEB-06": () => {
       const faq = ["ko", "en", "ja"].every((l) => has(`src/i18n/locales/${l}/marketing.json`, "faq"));

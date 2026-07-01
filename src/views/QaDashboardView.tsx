@@ -97,6 +97,37 @@ const RAW_TEST_CASES: RawTestCase[] = [
     platforms: ["Web", "Mac", "Windows"]
   },
 
+  {
+    id: "AUTH-08",
+    category: "Auth",
+    title: "Apple 로그인 (웹/데스크톱)",
+    method: "로그인 화면에서 'Apple로 계속하기' 버튼을 클릭하여 Apple OAuth 공급자로의 리다이렉트/팝업이 활성화되는지 수행합니다. (Services ID com.gubed.barosit.web, 커스텀 도메인 auth.barosit.com 콜백)",
+    expected: "Apple ID 동의 페이지(appleid.apple.com)로 정상 리다이렉트되고, 토큰 교환 후 세션이 수립되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac"]
+  },
+  {
+    id: "AUTH-09",
+    category: "Auth",
+    title: "이메일 회원가입 + 비밀번호 재설정 플로우",
+    method: "로그인 페이지에서 이메일/비밀번호 회원가입(signUpWithPassword) 및 '비밀번호를 잊으셨나요?' → #/forgot-password → 재설정 메일 → #/reset-password(updatePassword) 4개 화면의 라우팅·폼 렌더를 검증합니다.",
+    expected: "회원가입 시 이메일 확인 안내(이미 가입 감지 포함)가 뜨고, forgot/reset 라우트가 정상 렌더되며 재설정 링크(type=recovery) 세션에서 새 비밀번호가 반영되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "AUTH-10",
+    category: "Auth",
+    title: "회원탈퇴 (soft delete + 30일 유예 + 예약 파기)",
+    method: "프로필 → '회원탈퇴' 실행 시 delete-account Edge Function 이 즉시 물리삭제가 아니라 profiles.deletion_requested_at/deletion_scheduled_at(+30일) 기록 + 구독 자동갱신 해지로 처리하고, 유예 경과분은 purge_deleted_accounts()(pg_cron 일배치)가 파기하는 구조를 검증합니다.",
+    expected: "탈퇴 신청 시 30일 유예(복구 가능)로 soft delete 되고 환불 없이 자동갱신만 해지되며, billing_history 는 전자상거래법 5년 익명 보존, 유예 경과분만 pg_cron 이 실제 파기해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+
   // 2. 인터랙티브 결제 및 플랜 관리 (Billing)
   // ※ 구 BILL-01(자동포커스 카드폼)/BILL-02(Luhn 검증)/BILL-03(BIN 그라디언트 테마)은
   //   'PCI 자체 카드폼 제거'(commit 2173c55) 정책으로 삭제됨 — 카드 입력은 Toss 호스티드 UI에 위임.
@@ -455,6 +486,58 @@ const RAW_TEST_CASES: RawTestCase[] = [
     platforms: ["Web", "Mac", "Windows"]
   },
 
+  {
+    id: "MONI-10",
+    category: "Monitoring",
+    title: "30-1 움직임 목표 (dose-gated 완료 판정)",
+    method: "breakTracker 로직: 휴식/변동성 알림 단계(30/50/120분) 발사 후, 순간 스트레치 1회가 아니라 누적 움직임(기립/휴식/자리비움/stretch/movingNow) ~60초(movementGoalSecs)를 채워야 secsSeated 리셋+보상되는지 단위 테스트(breakTracker.test.ts)로 검증합니다.",
+    expected: "누적 움직임이 목표(기본 60초)에 도달해야 착석 타이머가 리셋되고, 순간 움직임만으로는 리셋되지 않아야 합니다(회피/오탐 방지). 휴식↔변동성 상호 쿨다운(변동성이 휴식에 양보)도 유지되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+
+  {
+    id: "MONI-11",
+    category: "Monitoring",
+    title: "넛지 준수 추적 + 보상 롤백 + 적응형 백오프",
+    method: "complianceTracker 로직: 알림 후 사용자가 자세를 교정하면 준수(compliance)로 인정·보상하고, 반복 위반/무시 시 민감도를 적응적으로 백오프(조정)하는지 단위 테스트(complianceTracker.test.ts)로 검증합니다.",
+    expected: "준수 시 보상·기록되고, 미준수/반복 위반 시 적응형 백오프로 알림 빈도가 조정되어 알림 피로를 줄여야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "MONI-12",
+    category: "Monitoring",
+    title: "JITAI 상황 맥락 발사 게이팅",
+    method: "jitaiGate 로직: Just-In-Time Adaptive Intervention 게이트가 상황 맥락(최근 발사 간격/사용자 상태)에 따라 넛지 발사 타이밍을 허용/억제하는지 단위 테스트(jitaiGate.test.ts)로 검증합니다.",
+    expected: "부적절한 순간(직후 반복/집중 구간)에는 발사를 게이팅하고, 적절한 맥락에서만 넛지가 발사되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "MONI-13",
+    category: "Monitoring",
+    title: "집중 모드 에스컬레이션 (focusMode 기본 ON · 비잠금)",
+    method: "alertConfig 의 집중모드(focusMode, 기본 ON)에서 휴식 알림을 무시하면 더 단호한(비잠금) 에스컬레이션 프롬프트로 승격되는지 정적 검증합니다.",
+    expected: "focusMode 기본값이 true 이고, 알림 무시 시 비잠금 에스컬레이션 로직이 구현되어 있어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "MONI-14",
+    category: "Monitoring",
+    title: "움직임 완화 + 으쓱(shrug) 보정 위반 추적",
+    method: "violationTracker 로직: 자세 위반 추적 시 짧은 움직임은 완화(관용)하고 어깨 으쓱(shrug) 등 오탐 유발 동작을 보정하는지 단위 테스트(violationTracker.test.ts)로 검증합니다.",
+    expected: "순간 움직임은 위반으로 오탐하지 않고 완화하며, 으쓱 등 보정이 적용되어 잘못된 경보가 억제되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+
   // 4. 설정 및 사용자 환경 (Settings) — SettingsDrawer 실연동. 모니터링 동작·알림·표시 구성.
   {
     id: "SET-01",
@@ -557,6 +640,27 @@ const RAW_TEST_CASES: RawTestCase[] = [
     platforms: ["Web", "Mac", "Windows"]
   },
 
+  {
+    id: "SET-11",
+    category: "Settings",
+    title: "강제 모드 (넛지 무시 시 click-through 블러, 옵트인)",
+    method: "설정에서 강제 모드(AlertModes.forceMode, 기본 OFF) 토글 및 미리보기를 확인합니다. 휴식·변동성 넛지를 60초 무시하면 화면에 click-through 반투명 블러(데스크톱=풀스크린 AlertWindow 비잠금 / 웹=AlertOverlay)가 뜨고, 움직이면 즉시·안 움직여도 30초 자동해제, 5분 쿨다운, UI 35초 실패안전으로 해제되는 배선(IPC emit/onForceBlur)을 검증합니다.",
+    expected: "forceMode 기본 OFF, 옵트인 시에만 동작. 클릭이 통과(click-through)되어 작업을 막지 않고, 움직임/30초 자동해제/5분 쿨다운/35초 실패안전이 모두 배선되어 있어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+  {
+    id: "SET-12",
+    category: "Settings",
+    title: "미니바 상시 착석 타이머 (경과 표시 + 근접 톤 상승)",
+    method: "미니바 위젯(Widget.tsx)에서 앉은 지 1분+부터 경과 시간이 상시 표시되고, 30분 알림 근접 시 색 톤이 상승(회→황→주황)하며, 움직임 진행률 배지(breakBadge)와 상호배타로 렌더되는지 검증합니다.",
+    expected: "1분 경과부터 착석 타이머가 상시 노출되어 30분 알림 전 갭을 해소하고, 30분 근접 시 톤이 상승하며 breakBadge 와 동시 표시되지 않아야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Mac", "Windows"]
+  },
+
   // 5. 오프라인 회복 탄력성 및 싱크 로직 (Offline & Sync)
   {
     id: "SYNC-01",
@@ -594,6 +698,17 @@ const RAW_TEST_CASES: RawTestCase[] = [
     title: "Idle 기반 50개 청크 분할 백그라운드 벌크 업로드",
     method: "미동기 누적 자세 로그를 강제로 100건 이상 채워둔 후 연결 복구 흐름을 유발하여 전송 패키지 구조를 분석합니다.",
     expected: "한꺼번에 다수의 데이터를 쏘아 렌더링 프레임 드랍이나 렉을 유발하지 않도록, requestIdleCallback API를 기반으로 유휴 프레임 타임라인에 맞추어 50개 단위 청크(Chunk)로 나뉘어 스무스하게 분할 업로드되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
+  },
+
+  {
+    id: "SYNC-05",
+    category: "Offline",
+    title: "오프라인 Pro 권한 회복 탄력성 (R3 · 사내망 비강등)",
+    method: "useEntitlement 로직: 오프라인/조회 실패 시 과거 서버 검증 이력이 있는 Pro(무료체험 beta_free 포함)는 강등하지 않고 마지막 plan 을 유지하며, 검증 이력이 전무하면 Free 로 유지(변조 방어)하는지, 온라인 복구 시 verify() 가 서버값으로 정정(해지·환불 강등)하는지 검증합니다.",
+    expected: "사내 방화벽/오프라인으로 Supabase 가 차단돼도 정당한 Pro 는 끊기지 않고, 검증 이력 없는 로컬 캐시 Pro 는 Free 로 강등되며, Pro 전용 게이팅 자체(비로그인/Free 개방 아님)는 유지되어야 합니다.",
     status: "Untested",
     actualResult: "",
     platforms: ["Web", "Mac", "Windows"]
@@ -641,6 +756,37 @@ const RAW_TEST_CASES: RawTestCase[] = [
     platforms: ["Web"]
   },
 
+  {
+    id: "COMM-05",
+    category: "Q&A",
+    title: "유저별 좋아요 토글 (다기기 DB 동기화 · 1인1추천)",
+    method: "로그인 유저가 게시글/댓글 좋아요 시 toggle_post_like/toggle_comment_like SECURITY DEFINER RPC 로 post_likes/comment_likes 조인 테이블에 1인1행이 생기고(취소 시 삭제), posts.likes/comments.likes 카운트 컬럼이 증감하는지 검증합니다. (게스트는 localStorage 하이브리드)",
+    expected: "추천→취소→새로고침에도 상태가 유지되고(다기기 동기화), 중복 추천이 막히며, 카운트 컬럼이 정확히 증감(취소 시 감소)해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "COMM-06",
+    category: "Q&A",
+    title: "블로그 카테고리 운영자 전용 게이팅 (공지+블로그)",
+    method: "비어드민/anon 계정으로 '📝 블로그'(및 공지) 카테고리 글 INSERT 를 시도합니다. 클라 폼 게이팅(ADMIN_ONLY_CATEGORIES)과 서버 RLS 트리거(enforce_notice_admin_only)가 모두 차단하는지, 읽기는 전체 공개인지 검증합니다.",
+    expected: "비어드민의 블로그/공지 작성은 폼에서 숨겨지고 서버 트리거로도 거부되며(BEFORE INSERT), 읽기(목록/상세)는 누구나 가능해야 합니다. i18n ko/en/ja 카테고리명 노출.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "COMM-07",
+    category: "Q&A",
+    title: "블로그 다국어 공유 댓글 스레드 (translation_group + thread_id)",
+    method: "블로그 글을 ko/en/ja 별도 글(고유 URL)로 두고 translation_group_id 로 묶은 뒤, 어느 언어 버전에 댓글을 달아도 thread_id(=COALESCE(translation_group_id, id))로 하나의 스레드를 공유하는지, sync_thread_comment_count 트리거가 그룹 전체 posts.comment_count 를 동기화하는지 검증합니다. (UGC=group null → 다국어 강제 안 함)",
+    expected: "thread_id 가 BEFORE INSERT 트리거로 서버 강제되고, 3개 언어 버전이 하나의 댓글 스레드를 공유하며, 목록 카드 comment_count 가 embed 없이 그룹 공유 카운트로 정확해야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+
   // 7. 웹 마케팅 사이트 (Web) — 가격/법적문서/다운로드 등 데스크톱 앱 외 웹 전용 페이지.
   {
     id: "WEB-01",
@@ -668,6 +814,58 @@ const RAW_TEST_CASES: RawTestCase[] = [
     title: "다운로드 페이지 (mac/win)",
     method: "웹 다운로드 페이지(#/download/mac, #/download/win)에 진입합니다.",
     expected: "버전·시스템 요구사항·설치 안내가 표시되고, 다운로드 버튼이 GitHub 릴리스 자산으로 정상 연결되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+
+  {
+    id: "WEB-04",
+    category: "Web",
+    title: "커뮤니티 permalink + 엣지 SSR 메타/JSON-LD",
+    method: "커뮤니티 글 permalink(/community/p/<id>)와 목록 clean URL(/community) 요청 시, Cloudflare Pages Function(functions/community/p/[id].ts·index.ts)이 Supabase 조회 → HTMLRewriter 로 title·meta·OG·canonical override + 글별 JSON-LD(공지·블로그=BlogPosting / 질문=QAPage / 그외=DiscussionForumPosting) + <noscript> 본문을 주입하는지, 다국어 hreflang 대체링크가 나오는지 검증합니다.",
+    expected: "SPA 재빌드 없이 글별 메타/OG/canonical/JSON-LD 와 noscript 본문이 SSR 로 주입되어 검색·소셜·AI 색인이 되고, UGC 는 이스케이프되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "WEB-05",
+    category: "Web",
+    title: "동적 사이트맵 + robots 등록",
+    method: "functions/community-sitemap.xml.ts 가 커뮤니티 글 URL(+ 다국어 xhtml:link hreflang)을 동적으로 생성하고 robots.txt 에 사이트맵이 등록되어 있는지, en/ja 정적 블로그 경로가 커뮤니티 EN/JA 로 301 리다이렉트(_redirects)되는지 검증합니다.",
+    expected: "사이트맵이 동적으로 렌더되고 robots.txt 에 등록되며, 구 정적 블로그 URL 은 301 로 커뮤니티 permalink 에 이관되어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+
+  {
+    id: "WEB-06",
+    category: "Web",
+    title: "FAQ 다국어 + FAQPage JSON-LD (SEO)",
+    method: "랜딩/가격 페이지의 FAQ 섹션이 ko/en/ja 다국어로 제공되고, index.html 에 FAQPage 구조화 데이터(JSON-LD)가 포함되어 검색 리치결과에 노출되는지 정적 검증합니다.",
+    expected: "faq 키가 3개 언어 로케일에 존재하고, index.html 에 schema.org FAQPage JSON-LD 가 삽입되어 있어야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "WEB-07",
+    category: "Web",
+    title: "베타 무료(sub_beta) 요금제 분기 표기",
+    method: "가격/구독 UI 가 베타 무료체험(isBetaFree) 상태를 sub_beta 카피로 분기 표기하고, 해당 i18n 키가 ko/en/ja 에 존재하는지 정적 검증합니다.",
+    expected: "isBetaFree 일 때 sub_beta 안내로 분기되고, sub_beta i18n 키가 3개 언어에 갖춰져야 합니다.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web"]
+  },
+  {
+    id: "WEB-08",
+    category: "Web",
+    title: "자세 근거 랜딩 카피 + /science 근거 페이지",
+    method: "랜딩의 '근거' 재포지셔닝 카피(ko)와 정적 근거 페이지(public/science.html) 및 Marketing.tsx 의 science 라우트가 존재하는지 정적 검증합니다. (임상주장 인용규칙 준수)",
+    expected: "근거 카피와 science 라우트/페이지가 존재해 '움직임 코치' 포지셔닝의 과학 근거 자산이 노출되어야 합니다.",
     status: "Untested",
     actualResult: "",
     platforms: ["Web"]
@@ -805,6 +1003,17 @@ const RAW_TEST_CASES: RawTestCase[] = [
     status: "Untested",
     actualResult: "",
     platforms: ["Mac", "Windows"]
+  },
+
+  {
+    id: "LIFE-04",
+    category: "Lifecycle",
+    title: "능동 피드백 넛지 (정착 사용자 1회 · 저우선 양보)",
+    method: "feedbackNudge 로직: 정착 사용자(설치 3일+ · 2세션+)에게 상단 배너로 1회만 의견을 요청하고, [의견 보내기]/[다음에] 둘 다 markNudgeDone 으로 재노출을 차단하며, 캘리브레이션·온보딩 중이거나 중요 배너(유예·업데이트·데이터경고)가 뜨면 양보하고 노출을 8초 지연하는지 검증합니다.",
+    expected: "조건 충족 시 1회만 노출되고 이후 재노출되지 않으며, 중요 배너/온보딩 중에는 양보하고 8초 지연 후 표시되어야 합니다. i18n ko/en/ja.",
+    status: "Untested",
+    actualResult: "",
+    platforms: ["Web", "Mac", "Windows"]
   },
 
   // 10. 데스크톱 네이티브 동작 (Desktop / Tauri) — 구 MONI-07 및 ADMN-10~13에서 재분류. Web 미해당.
