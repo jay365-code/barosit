@@ -1841,7 +1841,12 @@ function ChangelogPage() {
 // 표시 라벨만 번역한다. 새 글 작성 시에도 정규값으로 저장돼 기존 데이터와 정합성 유지.
 // 운영자(관리자) 전용 카테고리 — 글쓰기는 관리자만, 읽기/댓글은 전체 허용.
 const COMMUNITY_NOTICE_CATEGORY = "📣 공지";
+// 운영자(BaroSit) 콘텐츠 채널 — 유익한 자세 정보. SSR 에서 BlogPosting(Article)로 색인.
+const COMMUNITY_BLOG_CATEGORY = "📝 블로그";
+// 운영자만 작성 가능한 카테고리(클라 게이팅 + 서버 RLS 트리거로 이중 차단).
+const ADMIN_ONLY_CATEGORIES = [COMMUNITY_NOTICE_CATEGORY, COMMUNITY_BLOG_CATEGORY];
 const COMMUNITY_CATEGORIES = [
+  { value: COMMUNITY_BLOG_CATEGORY, key: "community.cat.blog" },
   { value: "💡 기능 제안", key: "community.cat.feature" },
   { value: "🔥 자세인증 챌린지", key: "community.cat.challenge" },
   { value: "📢 자유 토론", key: "community.cat.free" },
@@ -2376,8 +2381,8 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     e.preventDefault();
     const needsPassword = !user;
 
-    // 📣 공지는 운영자 전용 — 비관리자가 (UI 우회로라도) 공지로 작성 시도하면 차단
-    if (writeCategory === COMMUNITY_NOTICE_CATEGORY && !isAdmin) {
+    // 📣 공지·📝 블로그는 운영자 전용 — 비관리자가 (UI 우회로라도) 작성 시도하면 차단
+    if (ADMIN_ONLY_CATEGORIES.includes(writeCategory) && !isAdmin) {
       setErrorMsg(t("community.errNoticeAdminOnly"));
       return;
     }
@@ -3616,7 +3621,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {COMMUNITY_CATEGORIES
-                  .filter(({ value }) => isAdmin || value !== COMMUNITY_NOTICE_CATEGORY)
+                  .filter(({ value }) => isAdmin || !ADMIN_ONLY_CATEGORIES.includes(value))
                   .map(({ value: cat, key }) => (
                   <button
                     key={cat}

@@ -17,7 +17,10 @@ const FALLBACK_SUPABASE_ANON_KEY =
 
 const SITE = "https://barosit.com";
 const NOTICE_CATEGORY = "📣 공지";
+const BLOG_CATEGORY = "📝 블로그";
 const QNA_CATEGORY = "❓ 질문/답변";
+// 운영자 콘텐츠(공지·블로그)는 BlogPosting(Article)로 색인.
+const EDITORIAL_CATEGORIES = [NOTICE_CATEGORY, BLOG_CATEGORY];
 
 interface Post {
   id: string;
@@ -69,7 +72,7 @@ function jsonLdSafe(obj: unknown): string {
 }
 
 function isNotice(p: Post): boolean {
-  return p.category === NOTICE_CATEGORY;
+  return p.category !== null && EDITORIAL_CATEGORIES.includes(p.category);
 }
 
 // 글 → JSON-LD 객체. 공지=BlogPosting, 질문=QAPage, 그 외 UGC=DiscussionForumPosting.
