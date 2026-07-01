@@ -2,6 +2,17 @@
 
 세션 동안 진행된 주요 변경의 시간순 정리. 코드 아키텍처 진화와 결정의 맥락.
 
+## 0-10. 고정자세 방지 개편 — 30-1 움직임 목표·강제모드·상시타이머·중복정리 — 2026-07-01 · v0.9.1
+
+"올바른 자세 유지"(나쁜 자세 알림)는 잘 동작하나 "한 자세 오래 유지 방지"가 미흡 → 근거 재조사 후 휴식/변동성 넛지 개편. 근거: "고정자세 후 1초만 바꾸면 됨" 지침은 없음; 30분마다 + **최소 ~1분 dose**(1분 chair stands≈2분 걷기, 20-8-2, 혈당 30분/5분).
+
+- **30-1 움직임 목표(dose-gated 완료)** [breakTracker.ts](../src/pose/breakTracker.ts): 알림 단계(30/50/120분) 발사 후 **누적 움직임 60초**(기립/휴식/자리비움/stretch/movingNow)를 채워야 `secsSeated` 리셋+보상. 순간 스트레치 즉시해제 제거(회피/오탐 방지). 순간 break 보상 억제(변동성만 즉시 보상). breakTracker.test.ts 6개.
+- **강제 모드(옵트인, 기본 OFF)** [AlertModes.forceMode](../src/alertConfig.ts): 휴식·변동성 넛지 60초 무시 시 화면 **click-through 반투명 블러**(데스크톱=풀스크린 AlertWindow 비잠금, 웹=AlertOverlay). 움직이면 즉시/안 움직여도 30초 자동해제·5분 쿨다운·UI 35초 실패안전. 신규 IPC `emit/onForceBlur`. 설정 미리보기 버튼.
+- **미니바 상시 착석 타이머** [Widget.tsx](../src/views/Widget.tsx): 앉은 지 1분+부터 경과 상시 표시(30분 알림 전 갭 해소), 30분 근접 톤 상승(회→황→주황). breakBadge(움직임 진행률)와 상호배타.
+- **휴식↔변동성 중복 정리**: micro 휴식(제자리 스트레칭)과 변동성(제자리 바꾸기)이 행동·타이밍 중복 + compliance 덮어쓰기 → **행동 분리**(휴식=일어나 30초 / 변동성=앉은 채 살짝) + **상호 쿨다운**(변동성이 휴식에 양보: pending 또는 최근 5분내 발사면 억제).
+- **변동성 카피 정정**: "잘 유지 중이에요"(칭찬 역효과)→"한 자세로 오래 계셨어요" + 근거 문구 임상 수치 완화. ko/en/ja.
+- 두 모니터링 루프([MonitorView](../src/views/MonitorView.tsx)·[useMonitoringEngine](../src/hooks/useMonitoringEngine.ts)) 배선. 검증: tsc 통과, **89/89 테스트**, 로케일 JSON 유효. **배포**: main 푸시 + `v0.9.1` 태그 → release.yml 데스크톱 서명 빌드. (웹 dist-web 미반영 — 별도) 상세 설계 [posture-nudge-design.md](posture-nudge-design.md).
+
 ## 0-9. 커뮤니티 게시판 UX 고도화 + 유저별 좋아요 — 2026-06-30
 
 게시판/Aria(CM-1) 위에 유튜브식 커뮤니티 인터랙션을 얹고, 좋아요를 "진짜 서비스" 수준(유저별 DB)으로 승격.

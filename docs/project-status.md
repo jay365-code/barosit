@@ -5,9 +5,12 @@
 ## 빠른 요약
 
 **BaroSit** — 데스크톱 자세 모니터링 앱 (Tauri 2 + React + MediaPipe)
-**현재 버전**: v0.2.29 (package.json·tauri.conf·Cargo 일치)
+**현재 버전**: v0.9.1 (package.json·tauri.conf·Cargo 일치) — 데스크톱 릴리스 태그(release.yml)
 **출시 준비 계획서**: [launch-readiness-plan.md](./launch-readiness-plan.md) ← 서비스 오픈 블로커/전략의 단일 출처
 **완성도 추적(라이브)**: [service-completeness.html](./service-completeness.html) ← 영역별 done/partial/todo 단일 추적 문서 (에이전트 인계용)
+
+**고정자세 방지 개편 (2026-07-01, v0.9.1)** — "한 자세 오래 유지 방지"가 미흡하다는 진단 → 근거 재조사 후 휴식/변동성 넛지 개편:
+- ✅ **30-1 움직임 목표**(알림 후 1분 누적 움직임 채워야 착석시계 리셋+보상) · **강제 모드**(옵트인, 넛지 60초 무시 시 화면 블러 에스컬레이션·비잠금) · **미니바 상시 착석 타이머** · **휴식↔변동성 중복 정리**(행동 분리+상호 쿨다운) · 변동성 카피 정정. 상세 [changelog.md §0-10](./changelog.md) · 설계 [posture-nudge-design.md](./posture-nudge-design.md). 데스크톱 배포됨(v0.9.1 태그), 웹 dist-web 미반영.
 
 **관측·측정 인프라 추가 (2026-06-26)** — 베타의 "사용자가 뭘 원하는지 모름"을 데이터로 전환:
 - ✅ **OPS-1** 인앱 피드백(admin_notifications) + 클라이언트 에러 자동 리포트(`client_errors` + RPC, 프로덕션 배포) — 어드민 "사용자 피드백"/"오류 리포트" 탭
