@@ -14,7 +14,7 @@
     "predev:web": "node scripts/vendor-mediapipe.mjs",
     "dev:web": "VITE_PLATFORM=web vite --port 1430 --strictPort",
     "prebuild:web": "node scripts/vendor-mediapipe.mjs",
-    "build:web": "tsc && VITE_PLATFORM=web vite build --outDir dist-web",
+    "build:web": "tsc && VITE_PLATFORM=web vite build --outDir dist-web && node scripts/copy-functions.mjs",
     "preview:web": "vite preview --outDir dist-web --port 1430 --strictPort",
     "test": "vitest run",
     "qa": "node qa/runner.mjs",

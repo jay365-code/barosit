@@ -1,0 +1,3 @@
+# SPA 폴백 — 정적 자산·Pages Function(/community/p/*) 이후에 평가됨.
+# JS 없이 임의 경로로 진입해도 SPA 셸을 200 으로 서빙.
+/*    /index.html   200

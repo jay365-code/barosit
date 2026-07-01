@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.wrangler
 *.local
 
 # QA 실행 산출물 (체크리스트/플레이북/러너는 커밋, 결과는 제외)

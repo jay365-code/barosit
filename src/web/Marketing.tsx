@@ -1850,7 +1850,7 @@ const COMMUNITY_CATEGORIES = [
 ];
 const COMMUNITY_ALL_CATEGORY = "전체";
 
-function Contact() {
+function Contact({ initialPostId }: { initialPostId?: string | null }) {
   const { user } = useAuth();
   const { t } = useTranslation("marketing");
 
@@ -2186,6 +2186,10 @@ function Contact() {
     setActivePost(post);
     setView("detail");
     fetchComments(post.id);
+    // permalink 진입/공유 시 클라 title 도 SSR 과 일치시킨다(#18 SEO).
+    if (typeof document !== "undefined" && post?.title) {
+      document.title = `${post.title} — BaroSit 커뮤니티`;
+    }
 
     // Increment Views with sessionStorage check (1 view per session)
     const viewKey = `barosit_viewed_${post.id}`;
@@ -2204,6 +2208,59 @@ function Contact() {
       }
     }
   };
+
+  // permalink(/community/p/<id>) deep-link / back-forward 로 특정 글을 직접 조회해 연다.
+  // 리스트 페이지네이션에 없어도 열리도록 id 로 단건 조회.
+  const openPostById = async (postId: string) => {
+    try {
+      const { data } = await supabase
+        .from("posts")
+        .select("*, comments(count)")
+        .eq("id", postId)
+        .maybeSingle();
+      if (data) {
+        handleSelectPost({ ...data, comment_count: data.comments?.[0]?.count ?? 0 });
+      }
+    } catch (err) {
+      console.error("Error opening post by id:", err);
+    }
+  };
+
+  // 글 permalink(#18 SEO). 리스트/제목 클릭 시 pathname 을 permalink 로 pushState 해
+  // 공유·크롤 가능한 URL 로 만든 뒤 상세를 연다(리로드 없음).
+  const communityPostHref = (id: string) => `/community/p/${id}`;
+  const openPost = (post: any) => {
+    window.history.pushState({}, "", communityPostHref(post.id));
+    handleSelectPost(post);
+  };
+  // 상세 닫기 → 리스트. permalink pathname 을 canonical 리스트 URL(/#/community)로 되돌린다
+  // (리로드해도 해시 라우팅이 community 로 복원).
+  const closeDetail = () => {
+    if (window.location.pathname.startsWith("/community/p/")) {
+      window.history.pushState({}, "", "/#/community");
+    }
+    if (typeof document !== "undefined") document.title = "BaroSit 커뮤니티";
+    setView("list");
+    setActivePost(null);
+  };
+
+  // 최초 진입이 permalink(/community/p/<id>) 면 해당 글 자동 오픈(#18 SEO).
+  useEffect(() => {
+    if (initialPostId) openPostById(initialPostId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPostId]);
+
+  // 브라우저 back/forward → pathname 재해석. permalink 면 글 열기, 아니면 리스트로.
+  useEffect(() => {
+    const onPop = () => {
+      const m = window.location.pathname.match(/^\/community\/p\/([^/]+)\/?$/);
+      if (m) openPostById(decodeURIComponent(m[1]));
+      else { setView("list"); setActivePost(null); }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 회원 이름 클릭 → 그 회원의 글/댓글 로드해 모달 표시. 게스트(user_id 없음)는 호출 안 됨.
   const openAuthorProfile = async (userId: string, name: string) => {
@@ -3320,7 +3377,7 @@ function Contact() {
                   return (
                     <div
                       key={post.id}
-                      onClick={() => handleSelectPost(post)}
+                      onClick={() => openPost(post)}
                       style={{
                         padding: "20px 24px",
                         borderRadius: 18,
@@ -3364,17 +3421,29 @@ function Contact() {
                             >
                               {categoryLabel(post.category)}
                             </span>
-                            <h3
-                              style={{
-                                fontSize: 17,
-                                fontWeight: 700,
-                                color: "var(--b-fg-1)",
-                                margin: 0,
-                                lineHeight: 1.4,
+                            <a
+                              href={communityPostHref(post.id)}
+                              onClick={(e) => {
+                                // cmd/ctrl/미들클릭은 새 탭 — 기본동작 보존.
+                                if (e.metaKey || e.ctrlKey || e.button === 1) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openPost(post);
                               }}
+                              style={{ textDecoration: "none", color: "inherit" }}
                             >
-                              {post.title}
-                            </h3>
+                              <h3
+                                style={{
+                                  fontSize: 17,
+                                  fontWeight: 700,
+                                  color: "var(--b-fg-1)",
+                                  margin: 0,
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {post.title}
+                              </h3>
+                            </a>
                           </div>
                           <div
                             style={{
@@ -3738,10 +3807,7 @@ function Contact() {
           <div style={{ display: "flex", flexDirection: "column", gap: 24, animation: "fadeIn 0.3s ease" }}>
             {/* Back Button */}
             <button
-              onClick={() => {
-                setView("list");
-                setActivePost(null);
-              }}
+              onClick={closeDetail}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -7250,7 +7316,7 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   return null;
 }
 
-function routeBody(route: MarketingRoute) {
+function routeBody(route: MarketingRoute, initialPostId?: string | null) {
   switch (route) {
     case "landing":
       return <Landing />;
@@ -7275,7 +7341,7 @@ function routeBody(route: MarketingRoute) {
     case "changelog":
       return <ChangelogPage />;
     case "community":
-      return <Contact />;
+      return <Contact initialPostId={initialPostId} />;
     case "science":
       return <SciencePage />;
     case "auth-callback":
@@ -7302,7 +7368,7 @@ export function handleContactClick() {
   }
 }
 
-export function Marketing({ route }: { route: MarketingRoute }) {
+export function Marketing({ route, initialPostId }: { route: MarketingRoute; initialPostId?: string | null }) {
   const { t } = useTranslation("marketing");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -7346,7 +7412,7 @@ export function Marketing({ route }: { route: MarketingRoute }) {
       className="b-force-light"
       style={{ minHeight: "100vh", background: "var(--b-bg)", color: "var(--b-fg-1)" }}
     >
-      {routeBody(route)}
+      {routeBody(route, initialPostId)}
 
       {toastMessage && (
         <>

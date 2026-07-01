@@ -43,8 +43,16 @@ const isAlert = !IS_WEB && window.location.hash === "#alert";
 const isWebAppRoute = IS_WEB && (window.location.hash === "#/app" || window.location.hash === "#/admin");
 const isQaRoute = window.location.hash === "#/qa" || window.location.hash === "#/qa-checklist";
 
+// 커뮤니티 글 permalink(SEO #18): /community/p/<id> pathname 라우팅. 해시 라우팅과 공존 —
+// 이 pathname 으로 진입하면 커뮤니티 라우트를 강제하고 해당 글을 자동으로 연다.
+const communityPostMatch =
+  IS_WEB && typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/community\/p\/([^/]+)\/?$/)
+    : null;
+const initialCommunityPostId = communityPostMatch ? decodeURIComponent(communityPostMatch[1]) : null;
 
-function MarketingHost({ initial }: { initial: MarketingRoute }) {
+
+function MarketingHost({ initial, initialPostId }: { initial: MarketingRoute; initialPostId?: string | null }) {
   const [route, setRoute] = useState<MarketingRoute>(initial);
   useEffect(() => {
     const handler = () => {
@@ -55,16 +63,19 @@ function MarketingHost({ initial }: { initial: MarketingRoute }) {
     window.addEventListener("hashchange", handler);
     return () => window.removeEventListener("hashchange", handler);
   }, []);
-  return <Marketing route={route} />;
+  return <Marketing route={route} initialPostId={initialPostId} />;
 }
 
 // 웹에선 #/app 이나 #/qa 외에는 marketing route 우선. hash 비어 있으면 landing 강제.
+// 단, /community/p/<id> pathname 진입은 해시가 비어도 community 로 강제.
 const rawMarketingRoute = routeFromHash(window.location.hash);
 const marketingRoute: MarketingRoute | null = (!IS_WEB || isWebAppRoute || isQaRoute)
   ? null
-  : IS_WEB && !rawMarketingRoute
-    ? "landing"
-    : rawMarketingRoute;
+  : initialCommunityPostId
+    ? "community"
+    : IS_WEB && !rawMarketingRoute
+      ? "landing"
+      : rawMarketingRoute;
 
 // HMR 안전 — 같은 컨테이너에 createRoot가 두 번 불리면 React가 경고함.
 // 모듈 스코프에 캐시해 두고 두 번째부터는 root.render만.
@@ -121,7 +132,7 @@ if (isWidget) {
 } else if (marketingRoute) {
   root.render(
     <React.StrictMode>
-      <MarketingHost initial={marketingRoute} />
+      <MarketingHost initial={marketingRoute} initialPostId={initialCommunityPostId} />
     </React.StrictMode>,
   );
 } else {

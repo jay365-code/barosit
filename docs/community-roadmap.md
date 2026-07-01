@@ -23,10 +23,10 @@
 
 ### 🥇 다음 작업 — 둘 중 택1로 시작
 - [ ] **#19 ⭐ 프로덕트 매니저 에이전트 (참여 루프)** — 💡기능 제안 전담: 접수→중복 클러스터링→"N명 요청·검토중/예정/완료" 상태 회신→공개 로드맵. cm-agent-draft에 PM 역할(intent=feature_request)+로드맵 상태 스키마(feature_requests/votes/status). 상세: service-completeness **CM-2**.
-- [ ] **#18 ⚠️ 커뮤니티 SEO 구조 리팩토링 (마케팅 토대)** — 현재 해시 라우팅+글 permalink 부재로 검색·소셜·AI에 0 노출. ① 글 path URL `/community/p/<id>`+pathname 라우팅+Cloudflare SPA fallback ② **Cloudflare Pages Function 엣지 SSR**(Supabase 조회→meta·OG·본문·JSON-LD QAPage→SPA 하이드레이션; UGC라 빌드타임 정적생성 불가) ③ 동적 사이트맵. MVP=글 상세 SSR만. 상세: service-completeness **CM-3** · 마케팅전략 **§9**.
-  - **연계 미결정**: **📣 공지를 블로그 포맷 + SSR 첫 타겟으로** (운영자전용·저volume·고가치라 SEO 첫 적용 이상적). 방식 (A) 보드 내 공지만 블로그 렌더+우선 SSR / (B) 정식 블로그로 승격+기존 `/blog` 통합. **추천=(A) 시작**. 부가: 마크다운+이미지, JSON-LD는 공지=Article·UGC=QAPage, 댓글 유지. → **사용자 결정 대기.**
+- [~] **#18 ⚠️ 커뮤니티 SEO 구조 리팩토링 (마케팅 토대)** — **Phase 1(MVP) 구현+로컬검증 완료(2026-07-01), 배포 대기.** 결정=**A안(공지=블로그, `📣 공지`→BlogPosting; UGC→DiscussionForumPosting/QAPage)**. 구현: ① permalink `/community/p/<id>`(pathname 라우팅, 해시 라우팅과 공존)+`public/_redirects` SPA fallback ② **Cloudflare Pages Function 엣지 SSR**(`functions/community/p/[id].ts`: REST 단건조회→HTMLRewriter로 title/meta/OG/canonical override+정적 JSON-LD 제거+글별 JSON-LD·noscript 주입+404·이스케이프) ③ `public/_routes.json`로 함수 범위 한정. 클라: 리스트 제목 real `<a href>`+pushState, 뒤로/popstate/document.title 동기화. 빌드: `scripts/copy-functions.mjs`가 `functions/`→`dist-web/functions/` 복사. **로컬 wrangler 검증 OK**(SSR meta·QAPage JSON-LD·noscript·404·이스케이프·SPA 하이드레이션·back/forward, 콘솔에러 0). **남은 것**: 배포 후 프로덕션 `curl`로 함수 실감지 재확인(리스크1) · 공지/DiscussionForumPosting 분기는 실데이터 없어 미검증(공지 첫 게시 시 활성) · **Phase 2=동적 사이트맵+목록 SSR**. 상세: service-completeness **CM-3** · 마케팅전략 **§9** · 계획 `~/.claude/plans/humming-petting-kettle.md`.
 
 > 💡 베타 어필이 목적이면 외부 유입 입구(검색·공유)가 먼저라 **#18(특히 공지=블로그)부터** 권장. 참여 루프 우선이면 #19.
+> ⚠️ **배포 모델(중요)**: HEAD의 dist-web 번들에도 로컬 URL(127.0.0.1:54331)이 있으나 prod는 정상 → **Cloudflare가 리포에서 rebuild**(`.env.local` gitignore라 없음→supabase.ts prod 하드코딩 폴백). 즉 루트 `functions/`+`public/` 자동 반영. 커밋용 dist-web은 `.env.local` 치우고 빌드해 prod-url로 만듦(Case A/B 양쪽 안전).
 
 ### 🥈 그다음
 - [ ] **#11 알림 시스템** — 내 글/댓글에 답글·추천 시 인앱 벨/뱃지→이메일. 유저 알림 인프라 신규(admin_notifications·RESEND 패턴). #19와 합치면 "제안→상태 알림→반영" 루프 완결.
