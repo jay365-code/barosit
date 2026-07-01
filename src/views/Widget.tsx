@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { LogicalPosition, PhysicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
@@ -75,6 +75,7 @@ function formatDuration(secs: number): string {
 export function Widget() {
   const { t } = useTranslation(["widget", "posture", "coaching"]);
   const contentRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<WidgetState>({
     status: "good",
     score: 100,
@@ -192,17 +193,46 @@ export function Widget() {
     };
   }, []);
 
-  // 호버 또는 위반 발사로 일시 확장 시 같은 크기로 리사이즈
+  // 호버 또는 위반 발사로 일시 확장 시 리사이즈
   const expandedOpen = hover || !!alertExpand;
-  useEffect(() => {
-    const win = getCurrentWindow();
-    const compact = new LogicalSize(250, 54);
-    const expanded = new LogicalSize(340, 380);
-    win.setSize(expandedOpen ? expanded : compact).catch(() => undefined);
-  }, [expandedOpen]);
   const [showMinibar, setShowMinibar] = useState<boolean>(() =>
     isMinibarVisible(),
   );
+
+  // 위젯 창 폭을 pill 실제 콘텐츠 폭에 맞춰 가변 처리.
+  // 상태문구·뱃지·타이머·일시정지·로고버튼 조합 + 다국어(ko/en/ja)로 pill 폭이
+  // 유동적이라, 고정 340px 이면 오른쪽 로고 버튼이 잘렸다. pill 을 측정해 창 폭을
+  // 콘텐츠에 맞춘다. 높이는 확장 여부(패널 노출)로만 결정.
+  const expandedOpenRef = useRef(expandedOpen);
+  expandedOpenRef.current = expandedOpen;
+  const lastSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+  const applyWindowSize = useCallback(() => {
+    const open = expandedOpenRef.current;
+    const pillW = pillRef.current?.getBoundingClientRect().width ?? 0;
+    // content wrapper padding(8*2) + 안전 여유 2px
+    const needed = Math.ceil(pillW) + 16 + 2;
+    const width = Math.min(Math.max(needed, open ? 340 : 250), 480);
+    const height = open ? 380 : 54;
+    if (lastSizeRef.current.w === width && lastSizeRef.current.h === height)
+      return;
+    lastSizeRef.current = { w: width, h: height };
+    getCurrentWindow()
+      .setSize(new LogicalSize(width, height))
+      .catch(() => undefined);
+  }, []);
+  // 확장/축소 전환 시 재적용
+  useEffect(() => {
+    applyWindowSize();
+  }, [expandedOpen, applyWindowSize]);
+  // pill 콘텐츠 폭 변화(상태문구·뱃지·로고버튼 토글·언어 변경) 자동 추적
+  useEffect(() => {
+    const el = pillRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => applyWindowSize());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [applyWindowSize, showMinibar]);
+
   const [appMode, setAppMode] = useState<string>(() =>
     localStorage.getItem("app_mode") === "widget" ? "widget" : "main",
   );
@@ -511,6 +541,7 @@ export function Widget() {
           {/* 미니바 알약 — 직접 hex로 라이트 톤 고정. CSS 변수 영향 없음 → OS 다크모드/검은 배경에서도 항상 흰 알약 */}
           {showMinibar && (
             <div
+              ref={pillRef}
               data-tauri-drag-region
               onPointerDown={startDrag}
               className={`b-minibar-pill ${scoreJumped ? "b-pill-glow" : ""}`}
