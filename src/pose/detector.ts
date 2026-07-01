@@ -113,7 +113,12 @@ async function createWithFallback<T>(
 }
 
 export async function initLandmarkers(): Promise<void> {
-  if (poseLm && faceLm && handLm) return;
+  // segLm 을 가드에 포함한다. Why: 세그멘터 생성이 한 번 실패해 segLm=null 이 된
+  // 상태에서(양 delegate 실패) pose/face/hand 만 살아있으면, 이전 `poseLm && faceLm
+  // && handLm` 가드가 dispose 없이 재호출된 init(예: grace 내 일시정지→재개)에서
+  // early return 해 세그멘터를 영영 재생성하지 않았다 → 실루엣만 영구 정지. segLm 을
+  // 포함하면 널일 때 항상 아래 재생성 경로로 떨어진다(pose/face/hand 는 개별 가드로 중복 생성 안 됨).
+  if (poseLm && faceLm && handLm && segLm) return;
   const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
 
   if (!poseLm) {
@@ -362,4 +367,9 @@ export function disposeLandmarker(): void {
   reusableMaskBuf = null;
   lastFace = null;
   lastHands = [];
+  // 모델 재구축 때마다 delegate 협상을 처음부터 다시 한다. Why: 한 번 GPU 생성이
+  // 실패하면 activeDelegate 가 CPU 로 내려가 이후 전 세션이 CPU 로 고착됐다. 일시적
+  // WebGL 컨텍스트 고갈(reload 누적)로 실패한 경우, 다음 rebuild 에서 GPU 를 다시
+  // 시도해 복귀할 수 있게 한다(실패하면 createWithFallback 이 다시 CPU 로 폴백).
+  activeDelegate = "GPU";
 }

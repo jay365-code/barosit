@@ -19,6 +19,13 @@ const IDLE_DISPOSE_MS = 60_000;
 // 두어 그 경우 throw → 아래 catch 가 에러+재시도 배너를 띄워 사용자가 복구하게 한다.
 const INIT_TIMEOUT_MS = 20_000;
 
+// [세그멘터 워치독] pose 는 계속 잡히는데(사람 있음) 실루엣 mask 만 이 시간 이상
+// 끊기면 세그멘터가 런타임에 죽은 것(GPU 컨텍스트 소실 등)으로 보고 모델을 재구축한다.
+// 실루엣이 마지막 프레임에 얼어붙고 dot 만 따로 노는 증상의 원인-무관 자가복구.
+// 실제 임계는 seg 실행 간격(intervalMs*segmentEveryN)의 8배와 이 값 중 큰 쪽 —
+// segmentEveryN 이 크게 설정돼도 정상 mask 간격을 stall 로 오탐하지 않게 한다.
+const MASK_STALL_MS = 4_000;
+
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const id = window.setTimeout(
@@ -205,10 +212,16 @@ export function usePoseLoop({
   useEffect(() => {
     if (!ready || !enabled) return;
     const intervalMs = Math.round(1000 / fps);
+    // seg 실행 간격의 8배(=8회 연속 누락)와 MASK_STALL_MS 중 큰 쪽을 stall 임계로.
+    const segIntervalMs = intervalMs * Math.max(1, segmentEveryN);
+    const maskStallMs = Math.max(MASK_STALL_MS, segIntervalMs * 8);
     let cancelled = false;
     let timer: number | null = null;
     let tickCount = 0;
     let lastTs = 0;
+    // 워치독 기준 시각 — 마지막으로 mask 를 받은 때. 루프 시작 시각으로 초기화해
+    // 첫 mask 도착 전 오발동을 막는다.
+    let lastMaskTs = performance.now();
 
     const tick = () => {
       if (cancelled) return;
@@ -235,6 +248,31 @@ export function usePoseLoop({
         hands,
       });
       callbackRef.current?.(frame);
+
+      // [세그멘터 워치독] pose 는 잡히는데 mask 만 maskStallMs 이상 끊기면 세그멘터
+      // 재구축으로 자가복구. pose=null(자리비움) 이나 refresh 중(전 모델 null → pose 도
+      // null)에는 발동하지 않는다. segment 틱에서만 stall 판정(스킵 틱은 원래 mask=null).
+      const now = performance.now();
+      if (frame.mask) {
+        lastMaskTs = now;
+      } else if (
+        segment &&
+        frame.pose &&
+        now - lastMaskTs > maskStallMs &&
+        !refreshingRef.current
+      ) {
+        console.warn(
+          `segmenter stalled ${Math.round(now - lastMaskTs)}ms with pose present — rebuilding models`,
+        );
+        lastMaskTs = now; // 재트리거 방지 — 다음 발동까지 stall 창을 다시 채워야 함
+        refreshingRef.current = true;
+        refreshLandmarkers()
+          .catch((e) => console.warn("segmenter watchdog refresh failed:", e))
+          .finally(() => {
+            refreshingRef.current = false;
+          });
+      }
+
       const elapsed = performance.now() - start;
       const wait = Math.max(0, intervalMs - elapsed);
       timer = window.setTimeout(tick, wait);
