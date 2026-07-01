@@ -127,8 +127,9 @@ export function useMonitoringEngine(opts: {
   onStatusChange?: (s: PostureStatus) => void;
 }): MonitoringEngineState {
   // 엔진이 비활성이면 카메라도 안 잡음 — 다른 윈도우와 충돌 방지
+  // Pause(일시정지) 중에도 카메라 OFF → 스트림·OS 카메라 표시등까지 꺼진다.
   const { videoRef, ready: cameraReady, error: cameraError } = useCamera(
-    opts.enabled,
+    opts.enabled && !opts.paused,
   );
   const [baseline, setBaseline] = useState<CalibrationBaseline | null>(() =>
     loadBaseline(),

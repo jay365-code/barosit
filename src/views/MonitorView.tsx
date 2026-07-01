@@ -650,8 +650,9 @@ export function MonitorView({
   }, [idleSuspended]);
 
   // suspend 중엔 카메라 OFF → cameracaptured 어서션 해제로 시스템 슬립/화면보호기 허용.
+  // 수동 Pause 시에도 카메라 OFF → 감지뿐 아니라 스트림·OS 카메라 표시등까지 꺼진다.
   const { videoRef, ready: cameraReady, error: cameraError } = useCamera(
-    cameraActive && !idleSuspended,
+    cameraActive && !idleSuspended && !paused,
   );
 
   // useMemoryReloadGuard 가 reload 직전 발행하는 이벤트를 받아 현재 video +
