@@ -37,6 +37,30 @@ if (typeof window !== "undefined") {
 const IS_WEB =
   (import.meta.env.VITE_PLATFORM as string | undefined) === "web" ||
   (typeof window !== "undefined" && !(window as any).__TAURI_INTERNALS__ && !(window as any).__TAURI__);
+
+// 라우팅 규칙(#18): 커뮤니티만 clean path(/community, /community/p/<id>), 그 외는 전부 해시(pathname "/").
+// 따라서 pathname 이 /community* 인데 해시가 붙은 혼합 URL(/community#/admin, /community#/landing 등)은
+// 해시 라우트가 우선이므로 pathname 을 / 로 정리한다. App 모드(#/app·#/admin·#/qa) 직접 진입도 여기서 커버.
+if (
+  IS_WEB &&
+  typeof window !== "undefined" &&
+  window.location.hash &&
+  /^\/community(\/p\/[^/]+)?\/?$/.test(window.location.pathname)
+) {
+  window.history.replaceState({}, "", "/" + window.location.hash);
+}
+
+// 레거시 네비게이션(location.hash = "" 로 홈 이동, 예: 어드민 닫기)이 URL 에 남기는
+// 맨 '#'(예: /# )을 제거해 깔끔한 / 로 정리한다. 웹 전용(데스크톱은 URL 미노출).
+if (
+  IS_WEB &&
+  typeof window !== "undefined" &&
+  window.location.hash === "" &&
+  window.location.href.endsWith("#")
+) {
+  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+}
+
 const isWidget = !IS_WEB && window.location.hash === "#widget";
 const isAlert = !IS_WEB && window.location.hash === "#alert";
 // 웹은 마케팅 페이지가 기본 진입점. 모니터링 앱은 #/app 으로 명시 진입.
@@ -55,16 +79,48 @@ const isCommunityListPath =
   IS_WEB && typeof window !== "undefined" && /^\/community\/?$/.test(window.location.pathname);
 
 
+const COMMUNITY_PATH_RE = /^\/community(\/p\/[^/]+)?\/?$/;
+
 function MarketingHost({ initial, initialPostId }: { initial: MarketingRoute; initialPostId?: string | null }) {
   const [route, setRoute] = useState<MarketingRoute>(initial);
   useEffect(() => {
-    const handler = () => {
-      const next = routeFromHash(window.location.hash);
-      if (next) setRoute(next);
-      else window.location.reload();
+    // 커뮤니티만 clean path(/community). 그 외는 기존 해시 라우팅 유지.
+    // /community 에서 해시 내비(#/landing 등)로 이동하면 pathname 에 /community 가 남아
+    // /community#/landing 처럼 섞이므로, 해시 라우트로 전환될 때 pathname 을 루트로 정리해
+    // 기존 해시 URL(/#/landing) 형태로 맞춘다(리로드 없음). community 자체는 건드리지 않음.
+    const normalize = (r: MarketingRoute | null) => {
+      if (r && r !== "community" && window.location.hash && window.location.pathname !== "/") {
+        window.history.replaceState({}, "", "/" + window.location.hash);
+      }
     };
-    window.addEventListener("hashchange", handler);
-    return () => window.removeEventListener("hashchange", handler);
+    normalize(initial);
+    // hashchange/popstate 공통 재평가. back/forward 로 /community↔해시라우트를 오갈 때
+    // pathname 이 함께 바뀌면 hashchange 가 안 뜨고 popstate 만 오므로 둘 다 구독한다.
+    const apply = () => {
+      const raw = routeFromHash(window.location.hash);
+      if (raw) {
+        setRoute(raw);
+        normalize(raw);
+        return;
+      }
+      // 해시가 비었고 커뮤니티 pathname → 커뮤니티로 전환(리로드 없음).
+      if (!window.location.hash && COMMUNITY_PATH_RE.test(window.location.pathname)) {
+        setRoute("community");
+        return;
+      }
+      // 그 외 알 수 없는 해시(#/app·#/qa·#/admin 등) → App/QA 로 전환.
+      // pathname 이 /community* 로 남아 있으면 정리 후 리로드(/community#/admin → /#/admin).
+      if (window.location.pathname !== "/") {
+        window.history.replaceState({}, "", "/" + window.location.hash);
+      }
+      window.location.reload();
+    };
+    window.addEventListener("hashchange", apply);
+    window.addEventListener("popstate", apply);
+    return () => {
+      window.removeEventListener("hashchange", apply);
+      window.removeEventListener("popstate", apply);
+    };
   }, []);
   return <Marketing route={route} initialPostId={initialPostId} />;
 }
@@ -80,6 +136,27 @@ const marketingRoute: MarketingRoute | null = (() => {
   if (rawMarketingRoute) return rawMarketingRoute;
   return "landing";
 })();
+
+// back/forward·bfcache 로 상위 모드(App 셸 #/app·#/admin·#/qa ↔ 마케팅/커뮤니티)가
+// URL 과 어긋나면 리로드로 맞춘다. 상위 모드는 로드 시점에 갈리고 전환엔 reload 가 필요한데,
+// pathname 이 바뀌는 back(예: /#/admin → /community)은 hashchange 가 아니라 popstate 만
+// 발화해 기존 hashchange reload 로는 못 잡는다. (예: 어드민 화면이 /community URL 에 잔류)
+if (IS_WEB && typeof window !== "undefined" && !isWidget && !isAlert) {
+  const renderedApp = !marketingRoute && !isQaRoute; // 이 문서가 App 셸로 렌더됐는가
+  const renderedQa = isQaRoute;
+  const reconcile = () => {
+    const h = window.location.hash;
+    const wantQa = h === "#/qa" || h === "#/qa-checklist";
+    const wantApp = h === "#/app" || h === "#/admin";
+    if (wantQa !== renderedQa || wantApp !== renderedApp) {
+      window.location.reload();
+    }
+  };
+  window.addEventListener("popstate", reconcile);
+  window.addEventListener("pageshow", (e) => {
+    if ((e as PageTransitionEvent).persisted) reconcile();
+  });
+}
 
 // HMR 안전 — 같은 컨테이너에 createRoot가 두 번 불리면 React가 경고함.
 // 모듈 스코프에 캐시해 두고 두 번째부터는 root.render만.

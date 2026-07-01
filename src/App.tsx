@@ -13,6 +13,7 @@ import { UserCalibrationView } from "./views/UserCalibrationView";
 import { AlertOverlay } from "./components/AlertOverlay";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { useUpdater } from "./updater";
+import { IS_WEB } from "./platform";
 import { useMemoryReloadGuard } from "./hooks/useMemoryReloadGuard";
 import { loadSnapshot, clearSnapshot } from "./lib/viewportSnapshot";
 import {
@@ -621,7 +622,14 @@ export default function App() {
     }
     return (
       <ErrorBoundary>
-        <AdminDashboardView onClose={() => { window.location.hash = ""; }} />
+        <AdminDashboardView
+          onClose={() => {
+            // 웹: 어드민을 연 이전 페이지(가격 등)로 복귀(돌아갈 곳 없으면 홈).
+            // 데스크톱(Tauri): 기존처럼 홈으로(해시 클리어) — 웹 라우팅 정합 로직 대상 아님.
+            if (IS_WEB && window.history.length > 1) window.history.back();
+            else window.location.hash = "";
+          }}
+        />
       </ErrorBoundary>
     );
   }

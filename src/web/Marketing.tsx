@@ -2244,9 +2244,12 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     setActivePost(null);
   };
 
-  // 최초 진입이 permalink(/community/p/<id>) 면 해당 글 자동 오픈(#18 SEO).
+  // 최초 진입/마운트 시 permalink(/community/p/<id>) 면 해당 글 자동 오픈(#18 SEO).
+  // back/forward 로 다른 라우트에서 커뮤니티로 돌아와 재마운트될 때도 현재 pathname 기준으로 연다.
   useEffect(() => {
-    if (initialPostId) openPostById(initialPostId);
+    const m = window.location.pathname.match(/^\/community\/p\/([^/]+)\/?$/);
+    const pid = initialPostId || (m ? decodeURIComponent(m[1]) : null);
+    if (pid) openPostById(pid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPostId]);
 
@@ -3424,10 +3427,11 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                             <a
                               href={communityPostHref(post.id)}
                               onClick={(e) => {
-                                // cmd/ctrl/미들클릭은 새 탭 — 기본동작 보존.
+                                // 카드 div onClick 으로 버블링 방지(항상). cmd/ctrl/미들클릭은
+                                // 새 탭 열기 기본동작을 살리되, 현재 탭 이동은 막는다.
+                                e.stopPropagation();
                                 if (e.metaKey || e.ctrlKey || e.button === 1) return;
                                 e.preventDefault();
-                                e.stopPropagation();
                                 openPost(post);
                               }}
                               style={{ textDecoration: "none", color: "inherit" }}
