@@ -1197,6 +1197,28 @@ const VERIFY_META: Record<string, { tier: VerifyTier; note: string }> = {
   "BILL-C10": { tier: "code", note: "ls supabase/migrations/20260521000012_*.sql 20260521000013_*.sql; 후자에 'last_dunning_at' 및 ALTER ... TYPE TEXT 포함." },
   "BILL-U01": { tier: "unit", note: "npx vitest run — pricing/entitlement/launchMode/analyzer 전부 pass." },
   "BILL-U02": { tier: "unit", note: "cd supabase/functions && deno task test (deno test --allow-env _shared/crypto.test.ts _shared/email.test.ts)." },
+  // 2026-07-01 추가(신규 13) — 최근 기능 커버리지.
+  "AUTH-08": { tier: "integration", note: "authorize?provider=apple → HTTP302 + appleid.apple.com 이면 Pass. 로컬은 Apple 시크릿(.p8)이 gitignore 라 provider 미구성(400)이 정상 — 이 경우 클라 배선(signInWithApple: useAuth.ts:452·Marketing·ProfileView) + 프로덕션 302 E2E(§0-8)로 Pass. ⚠️ secret 6개월 회전." },
+  "AUTH-09": { tier: "runtime", note: "#/forgot-password·#/reset-password 라우트 렌더 + 로그인 페이지 회원가입 폼이면 Pass. signUpWithPassword/resetPasswordForEmail/updatePassword 배선. 실 메일은 프로덕션(RESEND)." },
+  "AUTH-10": { tier: "code", note: "migration 20260630000000(deletion_scheduled_at +30d, purge_deleted_accounts) + 20260630000001 pg_cron + delete-account fn soft(자동갱신 해지, 환불 없음). billing_history 5년 익명보존. 즉시 물리삭제 아니면 Pass." },
+  "MONI-10": { tier: "unit", note: "npx vitest run src/pose/breakTracker.test.ts. movementGoalSecs=60 dose-gate — 누적 움직임 60초 채워야 리셋, 순간 스트레치로는 리셋 안 됨. 6개 케이스." },
+  "SET-11": { tier: "code", note: "alertConfig.ts forceMode 기본 false(옵트인) + IPC onForceBlur + 30초 자동해제·5분 쿨다운·35초 실패안전·click-through. 데스크톱=AlertWindow/웹=AlertOverlay." },
+  "SET-12": { tier: "code", note: "Widget.tsx 착석 1분+ 경과 상시표시 + 30분 근접 톤 상승(회→황→주황) + breakBadge 상호배타(breakStage==='none' 게이트). 데스크톱 위젯 전용." },
+  "SYNC-05": { tier: "code", note: "useEntitlement.ts — 검증 이력 있는 Pro 는 오프라인/조회실패 시 마지막 plan 유지(강등 없음), 이력 전무면 free(변조 방어), 온라인 복구 시 verify() 서버값 정정. 14일 캡 제거. Pro 게이팅은 유지." },
+  "COMM-05": { tier: "integration", note: "toggle_post_like(p_id) SECURITY DEFINER RPC(migration 20260630090000) → post_likes 1인1행 insert/삭제 + posts.likes 증감. 게스트 localStorage 하이브리드." },
+  "COMM-06": { tier: "integration", note: "비어드민 JWT 로 category=📝 블로그(또는 📣 공지) INSERT → enforce_notice_admin_only 트리거(migration 20260701000000) 거부(BEFORE INSERT). 읽기 공개. 클라 게이팅 ADMIN_ONLY_CATEGORIES." },
+  "COMM-07": { tier: "integration", note: "migration 20260701030000/040000 — posts +language·translation_group_id·comment_count, comments +thread_id. BEFORE INSERT 트리거가 thread_id=COALESCE(translation_group_id,id) 서버 강제, AFTER 트리거가 그룹 전체 comment_count 동기화. UGC(group=null)는 다국어 강제 안 함." },
+  "WEB-04": { tier: "code", note: "functions/community/p/[id].ts·index.ts + _shared/ssr.ts — Supabase 조회 → HTMLRewriter 로 og/canonical override + JSON-LD(BlogPosting/QAPage/DiscussionForumPosting) + noscript + hreflang. copy-functions.mjs 로 dist-web 복사. UGC 이스케이프." },
+  "WEB-05": { tier: "code", note: "functions/community-sitemap.xml.ts(동적 URL + xhtml:link hreflang) + robots.txt 사이트맵 등록 + _redirects en/ja 정적 블로그 → 커뮤니티 301." },
+  "LIFE-04": { tier: "code", note: "feedbackNudge.ts — shouldShowNudge(설치 3일+·2세션+·미완료), markNudgeDone(재노출 차단). 저우선 양보(캘리브레이션/온보딩/중요배너)·8초 지연은 호출부. i18n app.feedbackNudge.* ko/en/ja." },
+  // 2026-07-01 복원(7) — 기능·테스트는 살아있는데 체크리스트 트림 때 누락됐던 회귀.
+  "MONI-11": { tier: "unit", note: "npx vitest run src/pose/complianceTracker.test.ts. 넛지 준수 추적 + 보상 롤백 + 반복 위반 시 적응형 백오프." },
+  "MONI-12": { tier: "unit", note: "npx vitest run src/pose/jitaiGate.test.ts. JITAI 게이트가 상황 맥락(최근 발사 간격/상태)에 따라 넛지 발사 허용/억제." },
+  "MONI-13": { tier: "code", note: "alertConfig.ts focusMode 기본 true(집중모드) + 알림 무시 시 비잠금 에스컬레이션 구현." },
+  "MONI-14": { tier: "unit", note: "npx vitest run src/pose/violationTracker.test.ts. 순간 움직임 위반 완화 + 어깨 으쓱(shrug) 보정으로 오탐 억제." },
+  "WEB-06": { tier: "code", note: "FAQ i18n(ko/en/ja marketing.json) + index.html 에 FAQPage JSON-LD 삽입(SEO 리치결과)." },
+  "WEB-07": { tier: "code", note: "Marketing.tsx isBetaFree 시 sub_beta 카피 분기 + sub_beta i18n 키(ko/en/ja)." },
+  "WEB-08": { tier: "code", note: "자세 근거 랜딩 카피(ko marketing.json 근거) + public/science.html 근거 페이지 + Marketing.tsx science 라우트. 임상주장 인용규칙 준수." },
 };
 
 // raw 항목에 검증 티어 주입. 맵에 없으면(신규 미등록) manual 로 안전 폴백.
