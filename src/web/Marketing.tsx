@@ -3526,8 +3526,18 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                           }}
                         >
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            {t("community.authorLabel")} <strong style={{ color: "var(--b-fg-2)" }}>{renderAuthorName(post.author_name, post.user_id)}</strong>
-                            {post.user_id ? (
+                            {post.is_agent && <AriaAvatar size={20} />}
+                            {t("community.authorLabel")} <strong style={{ color: "var(--b-fg-2)" }}>{renderAuthorName(post.author_name, post.user_id, post.is_agent)}</strong>
+                            {post.is_agent ? (
+                              <span style={{
+                                fontSize: 10,
+                                padding: "1px 5px",
+                                borderRadius: 4,
+                                background: "var(--b-sig)",
+                                color: "#fff",
+                                fontWeight: 700,
+                              }}>{t(post.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}</span>
+                            ) : post.user_id ? (
                               <span style={{
                                 fontSize: 10,
                                 padding: "1px 5px",
@@ -3863,6 +3873,19 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                   {categoryLabel(activePost.category)}
                 </span>
               </div>
+
+              {/* 운영자(Aria) 작성 글 바이라인 */}
+              {activePost.is_agent && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22 }}>
+                  <AriaAvatar size={28} onClick={ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {renderAuthorName(activePost.author_name, activePost.user_id, activePost.is_agent)}
+                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "var(--b-sig)", color: "#fff", fontWeight: 700 }}>
+                      {t(activePost.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}
+                    </span>
+                  </span>
+                </div>
+              )}
 
               {/* Content text */}
               <p
