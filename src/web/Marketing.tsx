@@ -1855,9 +1855,40 @@ const COMMUNITY_CATEGORIES = [
 ];
 const COMMUNITY_ALL_CATEGORY = "전체";
 
+// 글 상세 <title> 접미사(언어별). 콘텐츠 언어(post.language) 기준.
+const POST_TITLE_SUFFIX: Record<string, string> = {
+  ko: "BaroSit 커뮤니티",
+  en: "BaroSit Community",
+  ja: "BaroSit コミュニティ",
+};
+
+// 번역그룹(다국어 블로그)의 여러 언어 행을 목록에서 1개로 접는다.
+// 선택 우선순위: 현재 UI언어 == post.language > anchor(id===group, 보통 KO 원본) > 첫 행.
+// translation_group_id 없는 UGC 는 전부 그대로 통과. 그룹은 첫 등장 위치(정렬 순서)에 1회 노출.
+function dedupeByGroup(rows: any[], lang: string): any[] {
+  const score = (p: any) =>
+    p.language === lang ? 2 : p.id === p.translation_group_id ? 1 : 0;
+  const chosen = new Map<string, any>();
+  for (const r of rows) {
+    if (!r.translation_group_id) continue;
+    const cur = chosen.get(r.translation_group_id);
+    if (!cur || score(r) > score(cur)) chosen.set(r.translation_group_id, r);
+  }
+  const emitted = new Set<string>();
+  const out: any[] = [];
+  for (const r of rows) {
+    if (!r.translation_group_id) { out.push(r); continue; }
+    if (emitted.has(r.translation_group_id)) continue;
+    emitted.add(r.translation_group_id);
+    out.push(chosen.get(r.translation_group_id));
+  }
+  return out;
+}
+
 function Contact({ initialPostId }: { initialPostId?: string | null }) {
   const { user } = useAuth();
-  const { t } = useTranslation("marketing");
+  const { t, i18n } = useTranslation("marketing");
+  const uiLang = (i18n.language || "ko").split("-")[0];
 
   // 저장된 카테고리 정규값 → 표시 라벨
   const categoryLabel = (value: string | null | undefined): string => {
@@ -1871,6 +1902,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"list" | "write" | "detail">("list");
   const [activePost, setActivePost] = useState<any | null>(null);
+  const [postSiblings, setPostSiblings] = useState<any[]>([]); // 다국어 형제 글(언어 스위처용)
   const [comments, setComments] = useState<any[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
 
@@ -1991,21 +2023,37 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     return () => { cancelled = true; };
   }, [user]);
 
-  // 실시간 댓글: 활성 글의 comments 변경(INSERT/UPDATE/DELETE) 구독 → 갱신. 글 변경/언마운트 시 정리.
+  // 실시간 댓글: 공유 스레드(thread_id) 변경 구독 → 갱신. 다국어 글은 스레드를 공유하므로
+  // 어느 언어 버전에서 댓글이 달려도 열려있는 형제 글이 함께 갱신된다. 글 변경/언마운트 시 정리.
   useEffect(() => {
     if (!activePost?.id) return;
-    const postId = activePost.id;
+    const threadId = activePost.translation_group_id ?? activePost.id;
     const channel = supabase
-      .channel(`comments-${postId}`)
+      .channel(`comments-${threadId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "comments", filter: `post_id=eq.${postId}` },
-        () => { fetchComments(postId); }
+        { event: "*", schema: "public", table: "comments", filter: `thread_id=eq.${threadId}` },
+        () => { fetchComments(threadId); }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePost?.id]);
+  }, [activePost?.id, activePost?.translation_group_id]);
+
+  // 다국어 형제 글(언어 스위처용): 번역그룹이 있으면 형제 언어/id 로드. UGC 는 없음.
+  useEffect(() => {
+    const group = activePost?.translation_group_id;
+    if (!group) { setPostSiblings([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("posts")
+        .select("id,language")
+        .eq("translation_group_id", group);
+      if (!cancelled) setPostSiblings(data || []);
+    })();
+    return () => { cancelled = true; };
+  }, [activePost?.translation_group_id]);
 
   // 모달/라이트박스 ESC 닫기(접근성)
   useEffect(() => {
@@ -2067,7 +2115,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     setLoading(true);
     setErrorMsg(null);
     try {
-      let query = supabase.from("posts").select("*, comments(count)");
+      let query = supabase.from("posts").select("*");
 
       if (searchQuery.trim()) {
         query = query.or(
@@ -2089,13 +2137,12 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
 
       const { data, error } = await query;
       if (error) throw error;
-      // Supabase embeds the aggregate as comments: [{ count }] — flatten to a plain number.
-      const rows = (data || []).map((p: any) => ({
-        ...p,
-        comment_count: Array.isArray(p.comments) ? (p.comments[0]?.count ?? 0) : 0,
-      }));
+      const rawRows = data || []; // comment_count 는 이제 posts 컬럼(트리거 동기화)
+      // 다국어 블로그: 번역그룹을 UI언어 버전 1개로 접어 표시. UGC 는 그대로.
+      const rows = dedupeByGroup(rawRows, uiLang);
       setPosts(rows);
-      setHasMorePosts(rows.length === postsLimit); // 정확히 limit만큼이면 더 있을 수 있음
+      // "더 보기" 판단은 dedup 전 raw 행수 기준(그룹 접힘으로 표시 카드가 줄어도 페이지 판단 유지).
+      setHasMorePosts(rawRows.length === postsLimit);
 
       // 로그인 유저: 이 목록 중 내가 추천한 글 id 로드(다기기 동기화·정확한 토글 상태)
       if (user && rows.length) {
@@ -2116,13 +2163,14 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     }
   };
 
-  const fetchComments = async (postId: string) => {
+  // 공유 스레드(thread_id) 기준으로 댓글 조회 — 다국어 글이 하나의 스레드를 공유.
+  const fetchComments = async (threadId: string) => {
     setCommentsLoading(true);
     try {
       const { data, error } = await supabase
         .from("comments")
         .select("*")
-        .eq("post_id", postId)
+        .eq("thread_id", threadId)
         .order("created_at", { ascending: true });
       if (error) throw error;
       const rows = data || [];
@@ -2149,7 +2197,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
   useEffect(() => {
     fetchPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortBy, activeCategory, postsLimit]);
+  }, [sortBy, activeCategory, postsLimit, uiLang]); // uiLang: 언어 변경 시 dedup 재적용
 
   // 필터(정렬·카테고리·검색)가 바뀌면 첫 페이지로 리셋
   useEffect(() => {
@@ -2190,10 +2238,10 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
   const handleSelectPost = async (post: any) => {
     setActivePost(post);
     setView("detail");
-    fetchComments(post.id);
-    // permalink 진입/공유 시 클라 title 도 SSR 과 일치시킨다(#18 SEO).
+    fetchComments(post.translation_group_id ?? post.id); // 공유 스레드
+    // permalink 진입/공유 시 클라 title 도 SSR 과 일치(언어별 접미사).
     if (typeof document !== "undefined" && post?.title) {
-      document.title = `${post.title} — BaroSit 커뮤니티`;
+      document.title = `${post.title} — ${POST_TITLE_SUFFIX[post.language] ?? POST_TITLE_SUFFIX.ko}`;
     }
 
     // Increment Views with sessionStorage check (1 view per session)
@@ -2220,11 +2268,11 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     try {
       const { data } = await supabase
         .from("posts")
-        .select("*, comments(count)")
+        .select("*")
         .eq("id", postId)
         .maybeSingle();
       if (data) {
-        handleSelectPost({ ...data, comment_count: data.comments?.[0]?.count ?? 0 });
+        handleSelectPost(data); // comment_count 는 posts 컬럼(트리거 동기화)
       }
     } catch (err) {
       console.error("Error opening post by id:", err);
@@ -2244,7 +2292,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     if (window.location.pathname.startsWith("/community/p/")) {
       window.history.pushState({}, "", "/community");
     }
-    if (typeof document !== "undefined") document.title = "BaroSit 커뮤니티";
+    if (typeof document !== "undefined") document.title = POST_TITLE_SUFFIX[uiLang] ?? POST_TITLE_SUFFIX.ko;
     setView("list");
     setActivePost(null);
   };
@@ -2506,7 +2554,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
       setReplyTo(null);
       // 목록 카드의 댓글 수 즉시 반영
       setPosts((prev) => prev.map((p) => (p.id === activePost.id ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p)));
-      fetchComments(activePost.id);
+      fetchComments(activePost.translation_group_id ?? activePost.id);
     } catch (err) {
       console.error("Error creating comment:", err);
       showToast(t("community.errCreateComment"));
@@ -2604,7 +2652,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
 
         if (activePost) {
           setPosts((prev) => prev.map((p) => (p.id === activePost.id ? { ...p, comment_count: Math.max((p.comment_count || 0) - 1, 0) } : p)));
-          fetchComments(activePost.id);
+          fetchComments(activePost.translation_group_id ?? activePost.id);
         }
       }
     } catch (err) {
@@ -2683,7 +2731,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
         closeDeleteModal();
         if (activePost) {
           setPosts((prev) => prev.map((p) => (p.id === activePost.id ? { ...p, comment_count: Math.max((p.comment_count || 0) - 1, 0) } : p)));
-          fetchComments(activePost.id);
+          fetchComments(activePost.translation_group_id ?? activePost.id);
         }
       }
     } catch (err) {
@@ -3845,6 +3893,37 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
               <Icon name="chev-l" size={16} />
               <span>{t("community.detailBack")}</span>
             </button>
+
+            {/* 다국어 언어 스위처 — 번역 형제 글이 있을 때만(블로그). 현재 언어 하이라이트. */}
+            {postSiblings.length > 1 && (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: -8 }}>
+                <span style={{ fontSize: 13 }} aria-hidden>🌐</span>
+                {(["ko", "en", "ja"] as const).map((lg) => {
+                  const sib = postSiblings.find((s) => s.language === lg);
+                  if (!sib) return null;
+                  const active = activePost.language === lg;
+                  const label = { ko: "한국어", en: "English", ja: "日本語" }[lg];
+                  return (
+                    <button
+                      key={lg}
+                      disabled={active}
+                      onClick={active ? undefined : () => {
+                        window.history.pushState({}, "", `/community/p/${sib.id}`);
+                        openPostById(sib.id);
+                      }}
+                      style={{
+                        fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 14,
+                        border: "1px solid",
+                        borderColor: active ? "var(--b-sig)" : "var(--b-line)",
+                        background: active ? "var(--b-sig)" : "transparent",
+                        color: active ? "#fff" : "var(--b-fg-2)",
+                        cursor: active ? "default" : "pointer",
+                      }}
+                    >{label}</button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Post Main Body Card */}
             <div

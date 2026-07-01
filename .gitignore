@@ -53,3 +53,4 @@ windows/dist/
 # MediaPipe 로컬 번들 자산 — scripts/vendor-mediapipe.mjs 가 predev/prebuild 에서
 # node_modules 복사 + 1회 다운로드로 재생성(~54MB). git 에는 안 올림.
 public/mediapipe/
+.dev.vars

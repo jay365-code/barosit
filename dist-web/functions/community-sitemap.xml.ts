@@ -6,12 +6,14 @@ import { Env, SITE, supabaseCreds, escapeXml } from "./_shared/ssr";
 interface Row {
   id: string;
   created_at: string;
+  language: string | null;
+  translation_group_id: string | null;
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env } = context;
   const { base, key } = supabaseCreds(env);
-  const url = `${base}/rest/v1/posts?select=id,created_at&order=created_at.desc&limit=5000`;
+  const url = `${base}/rest/v1/posts?select=id,created_at,language,translation_group_id&order=created_at.desc&limit=5000`;
 
   let rows: Row[] = [];
   try {
@@ -23,21 +25,38 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     rows = [];
   }
 
+  // 번역그룹별 형제 모음 → 각 글 url 에 hreflang 대체 링크(xhtml:link) 삽입.
+  const byGroup = new Map<string, Row[]>();
+  for (const r of rows) {
+    if (!r.translation_group_id) continue;
+    const arr = byGroup.get(r.translation_group_id);
+    if (arr) arr.push(r); else byGroup.set(r.translation_group_id, [r]);
+  }
+
   const urls = [
     `  <url><loc>${SITE}/community</loc><changefreq>hourly</changefreq><priority>0.8</priority></url>`,
     ...rows.map((r) => {
       const lastmod = (r.created_at || "").slice(0, 10);
+      const sibs = r.translation_group_id ? byGroup.get(r.translation_group_id) || [] : [];
+      let alts = "";
+      if (sibs.length > 1) {
+        for (const s of sibs) {
+          if (s.language) alts += `<xhtml:link rel="alternate" hreflang="${escapeXml(s.language)}" href="${SITE}/community/p/${escapeXml(s.id)}"/>`;
+        }
+        const anchor = sibs.find((s) => s.id === r.translation_group_id) || sibs[0];
+        alts += `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/community/p/${escapeXml(anchor.id)}"/>`;
+      }
       return (
         `  <url><loc>${SITE}/community/p/${escapeXml(r.id)}</loc>` +
         (lastmod ? `<lastmod>${lastmod}</lastmod>` : "") +
-        `<changefreq>weekly</changefreq><priority>0.7</priority></url>`
+        `<changefreq>weekly</changefreq><priority>0.7</priority>${alts}</url>`
       );
     }),
   ].join("\n");
 
   const xml =
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls}\n</urlset>\n`;
 
   return new Response(xml, {
     status: 200,

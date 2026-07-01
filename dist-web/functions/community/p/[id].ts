@@ -33,7 +33,20 @@ interface Post {
   views: number | null;
   is_agent: boolean | null;
   agent_role: string | null;
-  comments?: { count: number }[];
+  language: string | null;
+  translation_group_id: string | null;
+  comment_count: number | null;
+}
+
+// 언어별 상수: <title> 접미사, og:locale, hreflang 코드.
+const LANG_SUFFIX: Record<string, string> = {
+  ko: "BaroSit 커뮤니티",
+  en: "BaroSit Community",
+  ja: "BaroSit コミュニティ",
+};
+const OG_LOCALE: Record<string, string> = { ko: "ko_KR", en: "en_US", ja: "ja_JP" };
+function langOf(p: { language: string | null }): string {
+  return p.language && LANG_SUFFIX[p.language] ? p.language : "ko";
 }
 
 // ── 텍스트 유틸 ──────────────────────────────────────────────
@@ -78,7 +91,7 @@ function isNotice(p: Post): boolean {
 // 글 → JSON-LD 객체. 공지=BlogPosting, 질문=QAPage, 그 외 UGC=DiscussionForumPosting.
 function buildJsonLd(p: Post, url: string): unknown {
   const cleanBody = stripMarkdown(p.content);
-  const commentCount = p.comments?.[0]?.count ?? 0;
+  const commentCount = p.comment_count ?? 0; // 공유 스레드 카운트(트리거 동기화)
   const author = p.is_agent
     ? { "@type": "Organization", name: "BaroSit" }
     : { "@type": "Person", name: p.author_name || "익명" };
@@ -98,6 +111,7 @@ function buildJsonLd(p: Post, url: string): unknown {
         logo: { "@type": "ImageObject", url: `${SITE}/og-image.png` },
       },
       mainEntityOfPage: { "@type": "WebPage", "@id": url },
+      inLanguage: langOf(p),
       url,
     };
   }
@@ -129,6 +143,7 @@ function buildJsonLd(p: Post, url: string): unknown {
         interactionStatistic: interaction,
         url,
       },
+      inLanguage: langOf(p),
     };
   }
 
@@ -141,6 +156,7 @@ function buildJsonLd(p: Post, url: string): unknown {
     datePublished: p.created_at,
     author,
     interactionStatistic: interaction,
+    inLanguage: langOf(p),
     url,
   };
 }
@@ -171,7 +187,7 @@ async function fetchPost(env: Env, id: string): Promise<Post | null> {
   const base = env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
   const key = env.SUPABASE_ANON_KEY || FALLBACK_SUPABASE_ANON_KEY;
   const select =
-    "id,title,content,author_name,category,created_at,likes,views,is_agent,agent_role,comments(count)";
+    "id,title,content,author_name,category,created_at,likes,views,is_agent,agent_role,language,translation_group_id,comment_count";
   const url = `${base}/rest/v1/posts?id=eq.${encodeURIComponent(id)}&select=${encodeURIComponent(select)}&limit=1`;
   try {
     const res = await fetch(url, {
@@ -182,6 +198,25 @@ async function fetchPost(env: Env, id: string): Promise<Post | null> {
     return rows && rows.length ? rows[0] : null;
   } catch {
     return null;
+  }
+}
+
+// 번역그룹 형제 글(언어별 id) — hreflang 대체 링크용.
+async function fetchSiblings(
+  env: Env,
+  groupId: string,
+): Promise<{ id: string; language: string }[]> {
+  const base = env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
+  const key = env.SUPABASE_ANON_KEY || FALLBACK_SUPABASE_ANON_KEY;
+  const url = `${base}/rest/v1/posts?translation_group_id=eq.${encodeURIComponent(groupId)}&select=id,language`;
+  try {
+    const res = await fetch(url, {
+      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json" },
+    });
+    if (!res.ok) return [];
+    return (await res.json()) as { id: string; language: string }[];
+  } catch {
+    return [];
   }
 }
 
@@ -215,11 +250,25 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
   }
 
-  const title = `${post.title} — BaroSit 커뮤니티`;
+  const lang = langOf(post);
+  const title = `${post.title} — ${LANG_SUFFIX[lang]}`;
   const desc = truncate(stripMarkdown(post.content), 155);
   const jsonLd = jsonLdSafe(buildJsonLd(post, url));
   const authorLabel = post.is_agent ? "BaroSit" : post.author_name || "익명";
   const dateLabel = (post.created_at || "").slice(0, 10);
+
+  // 다국어 hreflang 대체 링크(번역그룹 있을 때). anchor = 그룹 id(원본, 보통 KO) → x-default.
+  const siblings = post.translation_group_id
+    ? await fetchSiblings(env, post.translation_group_id)
+    : [];
+  let hreflangLinks = "";
+  if (siblings.length > 1) {
+    for (const s of siblings) {
+      if (s.language) hreflangLinks += `<link rel="alternate" hreflang="${s.language}" href="${SITE}/community/p/${s.id}">`;
+    }
+    const anchor = siblings.find((s) => s.id === post.translation_group_id) || siblings[0];
+    hreflangLinks += `<link rel="alternate" hreflang="x-default" href="${SITE}/community/p/${anchor.id}">`;
+  }
 
   // 크롤러용 <noscript> 본문 — JS 켜진 브라우저/봇은 무시하고 SPA 하이드레이션.
   const noscript =
@@ -232,15 +281,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     `</article></noscript>`;
 
   rewriter = rewriter
+    .on("html", new AttrSetter("lang", lang))
     .on("title", new TextSetter(title))
     .on('meta[name="description"]', new AttrSetter("content", desc))
     .on('meta[property="og:title"]', new AttrSetter("content", title))
     .on('meta[property="og:description"]', new AttrSetter("content", desc))
     .on('meta[property="og:type"]', new AttrSetter("content", "article"))
     .on('meta[property="og:url"]', new AttrSetter("content", url))
+    .on('meta[property="og:locale"]', new AttrSetter("content", OG_LOCALE[lang]))
     .on('link[rel="canonical"]', new AttrSetter("href", url))
     .on("head", {
       element(el: Element) {
+        if (hreflangLinks) el.append(hreflangLinks, { html: true });
         el.append(`<script type="application/ld+json">${jsonLd}</script>`, { html: true });
       },
     })

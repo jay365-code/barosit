@@ -51,15 +51,28 @@ class Remover {
   }
 }
 
+const LIST_TITLE: Record<string, string> = {
+  ko: "커뮤니티 — BaroSit 바로씻",
+  en: "Community — BaroSit",
+  ja: "コミュニティ — BaroSit",
+};
+const LIST_DESC: Record<string, string> = {
+  ko: "BaroSit 사용자들의 자세 꿀팁·기능 제안·질문과 답변. 거북목·데스크워크 자세 관리 이야기를 나누는 공간.",
+  en: "Posture tips, feature ideas, and Q&A from BaroSit users. A space to talk about forward-head and desk-work posture.",
+  ja: "BaroSitユーザーの姿勢のコツ・機能提案・質問と回答。猫背やデスクワークの姿勢について語り合う場所。",
+};
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
   const shell = await env.ASSETS.fetch(new URL("/index.html", request.url));
   const posts = await fetchRecentPosts(env);
 
+  // UI 언어는 ?lang 쿼리(클라 i18n 과 동일 소스). 목록은 프레젠테이션용 — canonical 은 각 상세가 관장.
+  const qlang = new URL(request.url).searchParams.get("lang") || "ko";
+  const lang = LIST_TITLE[qlang] ? qlang : "ko";
   const url = `${SITE}/community`;
-  const title = "커뮤니티 — BaroSit 바로씻";
-  const desc =
-    "BaroSit 사용자들의 자세 꿀팁·기능 제안·질문과 답변. 거북목·데스크워크 자세 관리 이야기를 나누는 공간.";
+  const title = LIST_TITLE[lang];
+  const desc = LIST_DESC[lang];
 
   const itemList = {
     "@context": "https://schema.org",
@@ -91,14 +104,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       .join("") +
     `</ul></section></noscript>`;
 
+  const ogLocale: Record<string, string> = { ko: "ko_KR", en: "en_US", ja: "ja_JP" };
   const rewriter = new HTMLRewriter()
     .on('script[type="application/ld+json"]', new Remover())
+    .on("html", new AttrSetter("lang", lang))
     .on("title", new TextSetter(title))
     .on('meta[name="description"]', new AttrSetter("content", desc))
     .on('meta[property="og:title"]', new AttrSetter("content", title))
     .on('meta[property="og:description"]', new AttrSetter("content", desc))
     .on('meta[property="og:type"]', new AttrSetter("content", "website"))
     .on('meta[property="og:url"]', new AttrSetter("content", url))
+    .on('meta[property="og:locale"]', new AttrSetter("content", ogLocale[lang]))
     .on('link[rel="canonical"]', new AttrSetter("href", url))
     .on("head", {
       element(el: Element) {
