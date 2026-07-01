@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaroSit — 아바타 · 움직임 재미 요소 설계 (제안)</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --border:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6ea8fe;
+    --have:#3fb950; --extend:#d29922; --new:#a371f7; --hold:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  header{padding:30px 24px 18px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#141821,#0f1115)}
+  h1{margin:0 0 6px;font-size:25px}
+  .sub{color:var(--muted);font-size:13px}
+  .status-pill{display:inline-block;margin-top:10px;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;
+    background:rgba(163,113,247,.15);color:#bc8cff;border:1px solid rgba(163,113,247,.4)}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  section{margin-top:34px}
+  h2{font-size:20px;border-bottom:1px solid var(--border);padding-bottom:7px;margin:0 0 14px}
+  h3{font-size:16px;margin:22px 0 8px;color:#cdd3de}
+  p{margin:9px 0}
+  .lead{color:var(--muted);font-size:14px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .panel.accent{border-left:4px solid var(--accent)}
+  .panel.new{border-left:4px solid var(--new)}
+  .panel.hold{border-left:4px solid var(--hold)}
+  .panel.have{border-left:4px solid var(--have)}
+  ul,ol{margin:8px 0;padding-left:20px} li{margin:5px 0}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  tr:last-child td{border-bottom:none}
+  .tag{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;display:inline-block}
+  .t-have{background:rgba(63,185,80,.15);color:#56d364;border:1px solid rgba(63,185,80,.4)}
+  .t-extend{background:rgba(210,153,34,.15);color:#e3b341;border:1px solid rgba(210,153,34,.4)}
+  .t-new{background:rgba(163,113,247,.15);color:#bc8cff;border:1px solid rgba(163,113,247,.4)}
+  .t-hold{background:rgba(248,81,73,.15);color:#ff7b72;border:1px solid rgba(248,81,73,.4)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:6px 0 2px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .flow{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#cdd3de;overflow-x:auto;line-height:1.75}
+  .callout{background:var(--panel2);border-radius:8px;padding:10px 13px;margin:10px 0;font-size:13.5px}
+  .callout b{color:#ffd}
+  .star{color:#e3b341;letter-spacing:1px}
+  footer{color:var(--muted);font-size:12px;margin-top:50px;border-top:1px solid var(--border);padding-top:16px}
+  .toc{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin:16px 0}
+  .toc h2{border:none;font-size:14px;margin:0 0 8px;padding:0;color:var(--muted)}
+  .toc ol{margin:0;padding-left:20px;columns:2;font-size:13.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>아바타 · 움직임 재미 요소 <span style="color:var(--muted);font-weight:400">Avatar &amp; Playful Movement</span></h1>
+  <div class="sub">BaroSit 설계 제안 · 랜드마크 재활용 → 캐릭터 아바타 → 자세·움직임을 재미·공유로</div>
+  <div class="status-pill">📋 제안 (미구현) · 향후 기능 반영 여부 검토용</div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#s1">배경 &amp; 문제의식</a></li>
+    <li><a href="#s2">핵심 컨셉 — 미션과의 정합</a></li>
+    <li><a href="#s3">아바타 방식 비교</a></li>
+    <li><a href="#s4">자세 반응형 마스코트</a></li>
+    <li><a href="#s5">거리 적응형 (앉음/섬)</a></li>
+    <li><a href="#s6">움직임 클립 (팬더 댄스)</a></li>
+    <li><a href="#s7">아바타 꾸미기 · 옷 입히기</a></li>
+    <li><a href="#s8">기존 자산 재활용 맵</a></li>
+    <li><a href="#s9">한계 · 리스크</a></li>
+    <li><a href="#s10">단계적 구현 계획</a></li>
+    <li><a href="#s11">향후 확장 / 보류 트랙</a></li>
+    <li><a href="#s12">열린 질문</a></li>
+  </ol>
+</div>
+
+<div class="legend">
+  <span><span class="tag t-have">보유</span> 기존 코드에 이미 있음</span>
+  <span><span class="tag t-extend">확장</span> 작은 추가로 가능</span>
+  <span><span class="tag t-new">신규</span> 새로 만들어야 함</span>
+  <span><span class="tag t-hold">보류</span> 정체성/비용상 별도 트랙</span>
+</div>
+
+<!-- 1 -->
+<section id="s1">
+  <h2>1. 배경 &amp; 문제의식</h2>
+  <p class="lead">BaroSit의 약점은 <b>재미 요소 부재</b>와 <b>바이럴/신규 유입</b>. 지루한 자세 잔소리 앱이라는 인상을 넘어설 훅이 필요하다.</p>
+  <p>다행히 BaroSit은 카메라에서 <b>Pose 33점 + 얼굴 메시 468점 + 손 21점 + 인물 세그멘테이션 마스크</b>를 이미 실시간으로 뽑고, 초록 실루엣으로 렌더링까지 한다(<span class="ref">SilhouetteOverlay.tsx</span>). 즉 <b>"사람을 스타일화해 그리는 파이프라인"이 이미 존재</b> — 캐릭터/동물 아바타는 그 자연스러운 확장이다.</p>
+  <div class="callout"><b>제약 상수:</b> 온디바이스 · 카메라 단일 · 추가 모델 도입 최소화(랜드마크 재활용) · 자세 코치 정체성 유지 · 배터리 보수적(opt-in).</div>
+</section>
+
+<!-- 2 -->
+<section id="s2">
+  <h2>2. 핵심 컨셉 — 미션과의 정합</h2>
+  <p>재미 요소가 <b>자세 미션에서 벗어나지 않는다</b>는 것이 이 제안의 핵심. BaroSit의 과학적 근거 자체가 Stuart McGill의 <i>"The best posture is the next posture"</i> — <b>움직임이 곧 목표</b>다(<span class="ref">variabilityTracker.ts</span>). 따라서 "춤/움직임 = 재미"는 미션의 <b>정면 실현</b>이다.</p>
+  <div class="flow">넛지 "일어나 움직이세요"
+   │
+   ▼
+팬더와 함께 춤/스트레칭  ──  운동 + 재미
+   │
+   ▼
+클립 저장 · 공유  ──  바이럴 유입 · 재방문 동기
+   │
+   ▼
+더 자주 열고 · 더 많이 움직임  ──  자세·건강 목표 달성 ↑</div>
+  <p class="lead"><b>운동 + 재미 + 공유 + 자세개선</b>이 하나의 선순환으로 도는 구조. 지루한 경쟁 앱이 못 주는 가치.</p>
+</section>
+
+<!-- 3 -->
+<section id="s3">
+  <h2>3. 아바타 방식 비교</h2>
+  <table>
+    <tr><th>방식</th><th>구동 신호</th><th>착석 맥락 적합</th><th>비용</th></tr>
+    <tr><td><b>① 동물/캐릭터 얼굴</b> (Animoji식)</td><td>얼굴 메시 468 + blendshape(눈·입·눈썹) + 머리각도</td><td class="star">★★★ 최적</td><td><span class="tag t-extend">확장</span></td></tr>
+    <tr><td><b>② 상반신 2D 퍼펫</b> (VTuber 2D식)</td><td>어깨·팔(Pose) + 머리각도 리깅</td><td class="star">★★ 좋음</td><td><span class="tag t-new">신규</span></td></tr>
+    <tr><td><b>③ 실루엣 스타일화</b></td><td>세그멘테이션 마스크 재텍스처/셰이더</td><td class="star">★★ 좋음</td><td><span class="tag t-extend">확장</span></td></tr>
+    <tr><td><b>④ 전신 아바타</b></td><td>Pose 33 전신 (거리 두면 가능)</td><td class="star">★ 조건부(기립·후퇴 시)</td><td><span class="tag t-new">신규 대</span></td></tr>
+  </table>
+  <p class="callout">blendshape(눈 깜빡임·입 벌림·눈썹)는 <span class="ref">detector.ts:143</span>에 <code>outputFaceBlendshapes:true</code> <b>한 줄</b>이면 확보 → 표정 풍부해짐. 랜드마크 스트림은 이미 돌고 있어 <b>추가 모델 비용 0</b>.</p>
+</section>
+
+<!-- 4 -->
+<section id="s4">
+  <h2>4. 자세 반응형 마스코트</h2>
+  <div class="panel accent">
+    <p>아바타를 <b>장식이 아니라 "내 자세의 거울"</b>로. 자세 판정 결과를 캐릭터 상태에 매핑한다.</p>
+    <table>
+      <tr><th>자세/컨디션</th><th>캐릭터 반응</th></tr>
+      <tr><td>바르게 앉음</td><td>활짝 펴짐 · 표정 밝음 · 꽃이 핌</td></tr>
+      <tr><td>구부정 / 거북목</td><td>축 처짐 · 시무룩</td></tr>
+      <tr><td>하품 / 피로(컨디션 레이어)</td><td>같이 하품 · 눈 처짐</td></tr>
+      <tr><td>바른자세 스트릭</td><td>성장 · 의상/액세서리 해금 (보상 넛지 연동)</td></tr>
+    </table>
+    <p class="ref">자세 신호: analyzer.ts / 보상·성장: 기존 넛지 슬라이스(posture-nudge-design.md) 연동</p>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="s5">
+  <h2>5. 거리 적응형 (앉음 / 섬)</h2>
+  <p>사용자 거리는 기존 신호로 감지 가능(어깨 폭 · <code>noseToShoulderZ</code> · face <code>tz</code> — 캘리브레이션/모니터근접 판정에 이미 사용). 이걸로 아바타 모드를 전환한다.</p>
+  <table>
+    <tr><th>상황</th><th>프레임</th><th>아바타</th><th>역할</th></tr>
+    <tr><td>책상 착석(가까움)</td><td>얼굴·상반신</td><td>얼굴/상반신 아바타</td><td>자세 미러링</td></tr>
+    <tr><td>기립·후퇴(멂)</td><td>전신 33점</td><td>전신 캐릭터</td><td>움직임 미러링·댄스</td></tr>
+  </table>
+  <div class="callout">전신이 잡히는 순간 = 대개 <b>일어나 움직일 때</b> = BaroSit이 원래 권장하는 행동. "앉으면 자세 거울, 일어서면 움직임 게임"으로 재미와 미션이 맞물린다.</div>
+</section>
+
+<!-- 6 -->
+<section id="s6">
+  <h2>6. 움직임 클립 (팬더 댄스)</h2>
+  <div class="panel new">
+    <p><b>아이디어:</b> 재택에서 춤추면 귀여운 팬더가 따라 춤추는 <b>클립을 생성·저장·공유</b>. 모션캡처 → 아바타 → 영상.</p>
+    <div class="flow">Pose 33 (전신) + world landmarks
+   │  [스무딩 · 리타게팅]
+   ▼
+팬더 리그 구동 (canvas 렌더)
+   │  [MediaRecorder — canvas 캡처]
+   ▼
+webm/mp4 클립  ──  저장 · SNS 공유</div>
+    <ul>
+      <li><b>프라이버시 이점:</b> 저장물은 <b>팬더 렌더링뿐, 실제 웹캠 영상 아님</b> → 안심 공유. 온디바이스 원칙 유지.</li>
+      <li><b>마케팅 훅:</b> "내 팬더 댄스" 공유 = <b>무료 신규 유입</b> 콘텐츠 (SEO/마케팅 방향과 정합).</li>
+      <li><b>기술:</b> <code>MediaRecorder</code>로 canvas 스트림 녹화 — 웹 표준, 구현 가볍다.</li>
+    </ul>
+    <p class="callout"><b>MVP:</b> "15초 춤춰보세요" → 2D 팬더가 상반신~전신 따라함 → 클립 저장. <b>정면·잔잔한 동작</b> 기준이면 지금 자산으로 프로토타입 가능.</p>
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="s7">
+  <h2>7. 아바타 꾸미기 · 옷 입히기</h2>
+  <p>아바타 커스터마이징은 재미·보상 루프를 강화한다. 옷 입어보기는 <b>정체성에 맞는 범위까지만</b> 채택.</p>
+  <table>
+    <tr><th>방식</th><th>결과</th><th>온디바이스</th><th>판정</th></tr>
+    <tr><td>① 아바타에 코스튬(프리셋/업로드)</td><td>팬더가 그 옷 입음(스타일화)</td><td>✅</td><td><span class="tag t-new">채택 후보</span></td></tr>
+    <tr><td>② 실제 몸 2D 오버레이</td><td>납작한 스티커 느낌</td><td>✅</td><td><span class="tag t-hold">구매판단엔 조잡</span></td></tr>
+    <tr><td>③ 실사 try-on(diffusion)</td><td>포토리얼</td><td>❌ 서버 생성AI</td><td><span class="tag t-hold">보류(§11)</span></td></tr>
+  </table>
+  <p class="lead"><b>결론:</b> 재미 요소로는 <b>①(아바타 코스튬)</b> 까지가 적정. 정체성·비용상 결이 맞고 공유거리도 된다.</p>
+</section>
+
+<!-- 8 -->
+<section id="s8">
+  <h2>8. 기존 자산 재활용 맵</h2>
+  <table>
+    <tr><th>자산</th><th>위치</th><th>재활용처</th></tr>
+    <tr><td>Pose 33 · 얼굴 468 · 손 21</td><td class="ref">src/pose/detector.ts</td><td>아바타 구동 원천 (추가 모델 0)</td></tr>
+    <tr><td>세그멘테이션 마스크 + 실루엣 렌더</td><td class="ref">SilhouetteOverlay.tsx</td><td>③ 실루엣 스타일화 · 배경 합성</td></tr>
+    <tr><td>머리각도 pitch/yaw/roll</td><td class="ref">src/pose/analyzer.ts</td><td>얼굴 아바타 회전</td></tr>
+    <tr><td>LandmarkSmoother</td><td class="ref">src/pose/smoothing.ts</td><td>댄스 mocap 떨림 완화</td></tr>
+    <tr><td>거리 신호(어깨폭·tz)</td><td class="ref">calibration.ts / analyzer.ts</td><td>거리 적응형 전환</td></tr>
+    <tr><td>blendshape 플래그(off)</td><td class="ref">detector.ts:143</td><td>한 줄 ON → 표정</td></tr>
+    <tr><td>보상·성장 넛지</td><td class="ref">docs/posture-nudge-design.md</td><td>의상 해금·마스코트 성장</td></tr>
+  </table>
+</section>
+
+<!-- 9 -->
+<section id="s9">
+  <h2>9. 한계 · 리스크</h2>
+  <div class="panel hold">
+    <ol>
+      <li><b>아트 에셋 = 진짜 비용:</b> 코드보다 <b>캐릭터 디자인·리깅</b>이 큰 작업. 방향(귀여운 동물? 마스코트?)·종수 결정 필요.</li>
+      <li><b>단일 카메라 mocap 한계:</b> 빠른 춤·회전·팔 교차·뒤돌기에서 튀거나 추적 상실. <b>정면·잔잔한 동작</b>이 최선. 스무딩 필수.</li>
+      <li><b>전신 조건부:</b> 반쯤 앉아 다리 가리면 하체 불안정 → "완전히 물러났을 때만 전신 모드".</li>
+      <li><b>배터리:</b> 렌더링 추가 → 메모리 상시 이슈. <b>opt-in · 경량 · 유휴 시 정지</b>.</li>
+      <li><b>초점 이탈:</b> 정식 기능이 아니라 <b>재미/공유 훅</b>으로. 자세 코치 정체성이 주(主), 아바타는 종(從).</li>
+    </ol>
+  </div>
+</section>
+
+<!-- 10 -->
+<section id="s10">
+  <h2>10. 단계적 구현 계획 (제안)</h2>
+  <table>
+    <tr><th>단계</th><th>내용</th><th>비용</th></tr>
+    <tr><td><b>P0 · 얼굴 마스코트</b></td><td>blendshape ON → 동물 얼굴 아바타(머리각도+표정). 자세 반응(시무룩/활짝).</td><td><span class="tag t-extend">확장</span></td></tr>
+    <tr><td><b>P1 · 자세 미러링 강화</b></td><td>자세/컨디션 → 캐릭터 상태 매핑. 보상 스트릭 연동.</td><td><span class="tag t-extend">확장</span></td></tr>
+    <tr><td><b>P2 · 거리 적응 전신</b></td><td>거리 감지 → 기립 시 전신 캐릭터 전환.</td><td><span class="tag t-new">신규</span></td></tr>
+    <tr><td><b>P3 · 댄스 클립</b></td><td>전신 mocap + MediaRecorder 캡처 → 클립 저장·공유.</td><td><span class="tag t-new">신규</span></td></tr>
+    <tr><td><b>P4 · 코스튬 꾸미기</b></td><td>프리셋/업로드 의상을 아바타에 입힘 · 해금 보상.</td><td><span class="tag t-new">신규</span></td></tr>
+  </table>
+  <p class="lead">P0(얼굴 마스코트)만으로도 독립적 재미 가치 → "작게 시작 → 반응 보고 확장".</p>
+</section>
+
+<!-- 11 -->
+<section id="s11">
+  <h2>11. 향후 확장 / 보류 트랙</h2>
+  <div class="panel hold">
+    <p><b>실사 가상 피팅(virtual try-on):</b> 매력적이나 BaroSit 정체성과 충돌 — <b>보류 결정</b>.</p>
+    <ul>
+      <li>포토리얼 try-on = <b>diffusion 기반 클라우드 생성AI</b>(IDM-VTON류) → 서버·GPU 비용 + <b>"온디바이스·데이터 안 나감" 약속 파기</b>.</li>
+      <li>패션 커머스는 <b>별도 산업·시장</b> — 자세/웰니스와 결이 다르고 초점을 희석.</li>
+      <li>하려면 온디바이스 원칙·비용 구조를 <b>처음부터 재설계</b>해야 하므로 재미 로드맵과 분리.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 12 -->
+<section id="s12">
+  <h2>12. 열린 질문</h2>
+  <ul>
+    <li>마스코트 <b>아트 방향</b>(동물 1종 vs 여러 캐릭터 선택) — 아트 예산과 직결.</li>
+    <li>아바타를 <b>메인 화면 기본</b>으로 둘지, <b>opt-in 토글</b>로 둘지 (프라이버시 선호 사용자엔 기본 아바타가 이점).</li>
+    <li>댄스 클립을 <b>무료 vs 유료 차별화</b> 요소로 쓸지.</li>
+    <li>클립 공유에 <b>워터마크/브랜딩</b>을 넣어 마케팅 훅으로 강화할지.</li>
+    <li>2D 퍼펫 vs 경량 3D — 초기엔 <b>2D</b>로 검증 후 3D 판단?</li>
+  </ul>
+</section>
+
+<footer>
+  BaroSit 내부 설계 제안 문서 · 상태: 미구현(검토용) · 작성 맥락: 얼굴 랜드마크 활용 논의 → 재미 요소 브레인스토밍에서 파생<br>
+  관련: <span class="ref">docs/condition-aware-nudging-design.html</span> · <span class="ref">docs/posture-nudge-design.md</span> · <span class="ref">src/pose/detector.ts</span> · <span class="ref">src/components/SilhouetteOverlay.tsx</span>
+</footer>
+
+</div>
+</body>
+</html>
