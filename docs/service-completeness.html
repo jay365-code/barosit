@@ -524,11 +524,11 @@
       <div class="ref">supabase/functions/cm-agent-draft/* · ai_response_drafts · (신규) feature_requests/roadmap 상태 · src/views/AdminDashboardView.tsx</div>
     </div>
 
-    <div class="item" data-status="todo">
+    <div class="item" data-status="done">
       <div class="item-top"><span class="title">커뮤니티 SEO 구조 리팩토링 (permalink + 엣지 SSR + 사이트맵)</span><span class="gapid">CM-3</span></div>
-      <div class="detail"><b>⚠️ 토대 블로커</b>: 현재 커뮤니티는 ① <b>해시 라우팅</b>(<code>#/community</code>) ② <b>개별 글에 URL 자체가 없음</b>(<code>setView("detail")</code>+<code>activePost</code> React 상태, permalink 부재) → <b>검색·소셜·AI 검색에 100% 안 보임</b>. 커뮤니티를 마케팅 엔진(롱테일 UGC 색인 + AEO 인용)으로 쓰려면 필수.
-      <br><b>아키텍처(엣지 SSR — UGC는 빌드타임 정적생성 불가):</b> (1) 글 영구 path URL <code>/community/p/&lt;id&gt;</code> + 클라 pathname 라우팅 + Cloudflare SPA fallback(<code>_redirects</code>) (2) <b>Cloudflare Pages Function 엣지 SSR</b>(<code>/community/*</code>): Supabase 조회 → <code>&lt;title&gt;</code>·meta·OG·본문 + <b>JSON-LD <code>QAPage</code>/<code>DiscussionForumPosting</code></b> 렌더 → SPA 하이드레이션(재빌드 없이 색인) (3) 동적 <code>/community-sitemap.xml</code>. <b>MVP=글 상세 SSR만</b>, 목록·사이트맵 2단계. → 글 하나가 검색 랭킹+소셜 공유 카드+AI 인용 동시 획득.</div>
-      <div class="ref">(신규) functions/community/[[path]].ts (Cloudflare Pages Function) · public/_redirects · src/web/Marketing.tsx 라우팅 · 상세 docs/마케팅전략.html §9</div>
+      <div class="detail"><b>✅ 배포+프로덕션 검증 완료(2026-07-01).</b> 커뮤니티가 해시 라우팅+permalink 부재로 검색·소셜·AI에 0 노출이던 문제 해소. <b>구현:</b> (1) 글 영구 path URL <code>/community/p/&lt;id&gt;</code> + 목록 clean URL <code>/community</code>(해시 제거) + 클라 pathname 라우팅(해시 라우팅과 공존) + <code>public/_redirects</code> SPA fallback (2) <b>Cloudflare Pages Function 엣지 SSR</b> — <code>functions/community/p/[id].ts</code>(글 상세)·<code>index.ts</code>(목록): Supabase REST 조회 → HTMLRewriter로 <code>&lt;title&gt;</code>·meta·OG·canonical override + <b>글별 JSON-LD</b>(공지=<code>BlogPosting</code>·질문=<code>QAPage</code>·그외=<code>DiscussionForumPosting</code>) + <code>&lt;noscript&gt;</code> 본문/글 링크 주입 + 404 + UGC 이스케이프 → SPA 하이드레이션(재빌드 없이 색인) (3) 동적 <code>functions/community-sitemap.xml.ts</code> + robots.txt 등록 (4) <code>public/_routes.json</code>로 함수 범위 한정.
+      <br><b>prod curl 검증:</b> /community(CollectionPage)·글 상세(QAPage)·사이트맵(200/3URL)·미존재글 404·정적 SEO 페이지 무회귀 전부 OK. <b>남은 운영:</b> GSC+네이버 사이트맵 제출·수집요청 · (별개 기존 보안) 게스트 <code>password_hash</code> 익명 노출 차단 · (후속) 글별 동적 OG 이미지.</div>
+      <div class="ref">functions/community/p/[id].ts · functions/community/index.ts · functions/community-sitemap.xml.ts · functions/_shared/ssr.ts · public/_redirects · public/_routes.json · src/main.tsx · src/web/Marketing.tsx · 상세 docs/마케팅전략.html §9 · docs/community-roadmap.md #18</div>
     </div>
   </section>
 
