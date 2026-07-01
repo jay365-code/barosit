@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaroSit — 컨디션 인지형 적응 넛지 설계 (제안)</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --border:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6ea8fe;
+    --have:#3fb950; --extend:#d29922; --new:#a371f7; --risk:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  header{padding:30px 24px 18px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#141821,#0f1115)}
+  h1{margin:0 0 6px;font-size:25px}
+  .sub{color:var(--muted);font-size:13px}
+  .status-pill{display:inline-block;margin-top:10px;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;
+    background:rgba(163,113,247,.15);color:#bc8cff;border:1px solid rgba(163,113,247,.4)}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  section{margin-top:34px}
+  h2{font-size:20px;border-bottom:1px solid var(--border);padding-bottom:7px;margin:0 0 14px}
+  h3{font-size:16px;margin:22px 0 8px;color:#cdd3de}
+  p{margin:9px 0}
+  .lead{color:var(--muted);font-size:14px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .panel.accent{border-left:4px solid var(--accent)}
+  .panel.new{border-left:4px solid var(--new)}
+  .panel.risk{border-left:4px solid var(--risk)}
+  .panel.have{border-left:4px solid var(--have)}
+  ul,ol{margin:8px 0;padding-left:20px} li{margin:5px 0}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  tr:last-child td{border-bottom:none}
+  .tag{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;display:inline-block}
+  .t-have{background:rgba(63,185,80,.15);color:#56d364;border:1px solid rgba(63,185,80,.4)}
+  .t-extend{background:rgba(210,153,34,.15);color:#e3b341;border:1px solid rgba(210,153,34,.4)}
+  .t-new{background:rgba(163,113,247,.15);color:#bc8cff;border:1px solid rgba(163,113,247,.4)}
+  .t-risk{background:rgba(248,81,73,.15);color:#ff7b72;border:1px solid rgba(248,81,73,.4)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:6px 0 2px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .flow{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#cdd3de;overflow-x:auto;line-height:1.75}
+  .kbd{font-size:11px;color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:1px 7px}
+  .callout{background:var(--panel2);border-radius:8px;padding:10px 13px;margin:10px 0;font-size:13.5px}
+  .callout b{color:#ffd}
+  footer{color:var(--muted);font-size:12px;margin-top:50px;border-top:1px solid var(--border);padding-top:16px}
+  .toc{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin:16px 0}
+  .toc h2{border:none;font-size:14px;margin:0 0 8px;padding:0;color:var(--muted)}
+  .toc ol{margin:0;padding-left:20px;columns:2;font-size:13.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>컨디션 인지형 적응 넛지 <span style="color:var(--muted);font-weight:400">Condition-Aware Adaptive Nudging</span></h1>
+  <div class="sub">BaroSit 설계 제안 · 얼굴·자세 신호의 시간축 누적 → 컨디션 추정 → 개입 적응</div>
+  <div class="status-pill">📋 제안 (미구현) · 향후 기능 반영 여부 검토용</div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#s1">배경 &amp; 문제의식</a></li>
+    <li><a href="#s2">핵심 컨셉</a></li>
+    <li><a href="#s3">감지 신호 4종</a></li>
+    <li><a href="#s4">피로 인덱스 설계</a></li>
+    <li><a href="#s5">적응형 개입 (JITAI 연동)</a></li>
+    <li><a href="#s6">측면 45° 세팅 대응</a></li>
+    <li><a href="#s7">기존 자산 재활용 맵</a></li>
+    <li><a href="#s8">한계 · 리스크 · 원칙</a></li>
+    <li><a href="#s9">단계적 구현 계획</a></li>
+    <li><a href="#s10">열린 질문</a></li>
+  </ol>
+</div>
+
+<div class="legend">
+  <span><span class="tag t-have">보유</span> 기존 코드에 이미 있음</span>
+  <span><span class="tag t-extend">확장</span> 작은 추가로 가능</span>
+  <span><span class="tag t-new">신규</span> 새로 만들어야 함</span>
+  <span><span class="tag t-risk">리스크</span> 주의/검증 필요</span>
+</div>
+
+<!-- ============ 1 ============ -->
+<section id="s1">
+  <h2>1. 배경 &amp; 문제의식</h2>
+  <p class="lead">BaroSit은 이미 카메라에서 <b>Pose 33점(전신 뼈대) + 정밀 얼굴 메시(468점) + 머리 각도(pitch/yaw/roll)</b>를 실시간으로 뽑고 있다. 지금은 이 신호를 <b>자세 판정</b>에만 쓴다. 하지만 같은 신호를 시간축으로 누적하면 <b>사용자의 컨디션(집중/딴짓/졸음/피로)</b>을 추정할 여지가 크다.</p>
+  <p>모니터링 중 발생하는 "업무 이탈"의 현대적 패턴은 대부분 <b>핸드폰(유튜브·SNS)</b> — 즉 <b>시선/고개가 아래로 떨어지는 행동</b>이다. 정밀한 좌우 시선 추적보다, "떨어짐 + 지속"을 보는 것이 기술적으로 더 견고하고 실사용 패턴과도 맞는다.</p>
+  <div class="callout"><b>제약 상수:</b> 온디바이스 · 카메라 단일 · 추가 모델 도입 최소화(기존 468점·pitch 재활용) · 임상 주장 금지(휴리스틱 추정치로 포지셔닝).</div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="s2">
+  <h2>2. 핵심 컨셉</h2>
+  <p>흩어진 아이디어(딴짓/시선이탈/졸음/피로도)는 사실 <b>하나의 파이프라인</b>으로 수렴한다:</p>
+  <div class="flow">얼굴·자세 신호 (실시간)
+   │
+   ▼  [시간축 누적 · 개인 기준선 대비]
+컨디션 신호 추정  ──  딴짓 / 시선이탈 / 졸음 / 피로
+   │
+   ▼  [가중 합성]
+컨디션 인덱스 (0~1, 상대값)
+   │
+   ▼  [적응 변수로 주입]
+기존 JITAI 넛지 엔진  ──  빈도·강도·톤·타이밍·휴식권유 조절</div>
+  <p class="lead">즉 <b>새 기능 4개가 아니라, "컨디션 인지 레이어" 1개 + 기존 넛지 엔진의 적응화</b>다.</p>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="s3">
+  <h2>3. 감지 신호 4종</h2>
+
+  <h3>3-1. 딴짓 (Distraction) — 고개 아래로 떨어짐 지속</h3>
+  <div class="panel accent">
+    <p><b>정의:</b> 기준자세 대비 <code>pitch</code>가 아래로 X° 이상 + Y초 이상 지속 (얼굴 여전히 present).</p>
+    <p><b>왜 견고한가:</b> pitch-down은 측면 45° 카메라에서도 살아남는다(좌우 시선/홍채는 무너짐). 실제 딴짓 = 무릎/책상 폰 내려다봄 = pitch-down 지속.</p>
+    <p><b>오탐 처리:</b> 짧게 내려다봄(키보드·서류)은 <b>지속시간 임계값</b>으로 필터. "서서히 숙임(자세)" vs "오래 아래 고정(딴짓)"은 지속성/패턴으로 분기.</p>
+    <span class="tag t-have">pitch 계산 보유</span> <span class="tag t-new">지속-딴짓 판정 신규</span>
+  </div>
+
+  <h3>3-2. 시선 이탈 (Gaze-off) — 거친 수준만</h3>
+  <div class="panel accent">
+    <p><b>정의:</b> yaw가 "작업 기준선"에서 크게 벗어나 지속 (딴 데로 고개 돌림).</p>
+    <p><b>한계:</b> "어느 화면을 보는지" 정밀 판별은 45° off-axis에서 불가. <b>거친 present/away · 큰 고개돌림</b>까지만 목표.</p>
+    <span class="tag t-have">yaw · MultiAngle 기준선 보유</span> <span class="tag t-extend">이탈 지속 판정 확장</span>
+  </div>
+
+  <h3>3-3. 졸음 (Drowsiness)</h3>
+  <div class="panel accent">
+    <table>
+      <tr><th>하위 신호</th><th>방법</th><th>측면 45°</th><th>상태</th></tr>
+      <tr><td>눈 감김 / PERCLOS</td><td>눈 랜드마크 EAR, 또는 <code>eyeBlink</code> blendshape</td><td>약함(먼 눈 압축)</td><td><span class="tag t-extend">확장</span></td></tr>
+      <tr><td>깜빡임 느려짐/길어짐</td><td>EAR 시계열</td><td>약함</td><td><span class="tag t-extend">확장</span></td></tr>
+      <tr><td>하품</td><td>입 벌림(MAR) / <code>jawOpen</code></td><td>견고</td><td><span class="tag t-extend">확장</span></td></tr>
+      <tr><td>고개 꾸벅(microsleep nod)</td><td>pitch 급강하→반등</td><td>견고</td><td><span class="tag t-extend">확장</span></td></tr>
+    </table>
+    <p class="callout">현재 얼굴 모델은 <code>outputFacialTransformationMatrixes:true</code>만 켜져 있음 (<span class="ref">src/pose/detector.ts:143</span>). <b><code>outputFaceBlendshapes:true</code> 한 줄</b>이면 <code>eyeBlink</code>/<code>jawOpen</code> 값이 바로 나와 EAR/MAR 수동계산을 대체·보강한다.</p>
+    <p><b>측면 세팅 전략:</b> 눈 신호가 약하므로 <b>하품 + 고개꾸벅 조합</b>을 주력, 눈 감김은 보조.</p>
+  </div>
+
+  <h3>3-4. 피로도 (Fatigue) — 합성 지표</h3>
+  <div class="panel accent">
+    <p>단일 신호로는 안 잡힘. <b>여러 대리 신호를 개인 기준선 대비 롤링 누적·가중합</b>.</p>
+    <table>
+      <tr><th>신호</th><th>피로와의 관계</th><th>상태</th></tr>
+      <tr><td>작업 지속 시간</td><td>가장 강한 프록시 (오래 = 피로↑)</td><td><span class="tag t-have">세션 추적 보유</span></td></tr>
+      <tr><td>자세 붕괴 속도</td><td>지칠수록 구부정·기대기 위반 빈도↑</td><td><span class="tag t-have">violation 추적 보유</span></td></tr>
+      <tr><td>움직임 변동성 변화</td><td>피로 시 미동↓(축 처짐) 또는 잔움직임↑</td><td><span class="tag t-have">variabilityTracker 보유</span></td></tr>
+      <tr><td>깜빡임/PERCLOS</td><td>피로 초기 신호</td><td><span class="tag t-extend">확장(측면 약함)</span></td></tr>
+      <tr><td>하품 빈도 증가</td><td>세션 후반 상승</td><td><span class="tag t-extend">확장</span></td></tr>
+      <tr><td>고개 꾸벅 빈도</td><td>후기 피로/졸음</td><td><span class="tag t-extend">확장</span></td></tr>
+    </table>
+    <p class="ref">variabilityTracker: 롤링 10분 윈도우로 어깨Y·코Y/Z·face pitch 표준편차 = movement index — src/pose/variabilityTracker.ts</p>
+  </div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="s4">
+  <h2>4. 피로 인덱스 설계</h2>
+  <div class="panel new">
+    <p><b>목표:</b> 절대 측정이 아닌 <b>"자기 자신 대비 상대 피로 추정치"</b> (0~1).</p>
+    <div class="flow">fatigueIndex(t) =
+    w1 · timeOnTaskNorm        // 마지막 휴식 이후 경과 (자연 상승)
+  + w2 · postureDecayRate      // 최근 위반 빈도 상승 기울기
+  + w3 · variabilityDrift      // movement index의 기준선 대비 이탈
+  + w4 · ocularFatigue         // PERCLOS/blink (측면이면 가중치↓)
+  + w5 · yawnRate
+  + w6 · nodEvents
+    → EMA 평활 → 0~1 clamp</div>
+    <ul>
+      <li><b>개인 기준선:</b> 세션 초반 N분을 "정상 컨디션"으로 잡고 이후를 상대 비교 (개인차 흡수).</li>
+      <li><b>가중치 적응:</b> 측면 세팅 감지 시 <code>w4</code>(눈)↓, <code>w1·w2·w3</code>(시간·자세·변동성)↑.</li>
+      <li><b>표시:</b> 숫자 노출은 신중히 — "피로 %"보다 <b>3단계(양호/누적/휴식필요)</b> 정도의 정성 표현 권장.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="s5">
+  <h2>5. 적응형 개입 (JITAI 연동)</h2>
+  <p>BaroSit엔 이미 <b>JITAI·백오프·보상</b> 넛지 슬라이스가 있다(<span class="ref">docs/posture-nudge-design.md</span>). 컨디션 인덱스를 <b>그 엔진의 입력 변수</b>로 주입하면 "적응형"이 자연히 완성된다.</p>
+  <table>
+    <tr><th>컨디션 상태</th><th>개입 적응</th></tr>
+    <tr><td>낮은 피로 · 집중</td><td>넛지 최소화 · 방해 안 함 (몰입 보호)</td></tr>
+    <tr><td>피로 상승 중</td><td>스트레칭·자세 넛지 타이밍 강화 · 톤 부드럽게</td></tr>
+    <tr><td>딴짓 지속 감지</td><td>집중 모드에서 가벼운 리마인드 (자세 잔소리와 톤 분리)</td></tr>
+    <tr><td>졸음 신호(꾸벅+하품)</td><td>"잠깐 일어나 걷기/세수" 권유 · 자세 넛지는 유예</td></tr>
+    <tr><td>높은 피로</td><td>자세 잔소리 대신 <b>진짜 휴식 권유</b> · 넛지 빈도↓ (역효과 방지)</td></tr>
+  </table>
+  <div class="callout"><b>적응형 포모도로:</b> 피로가 오르면 작업 블록을 자동 단축 — 고정 25분이 아니라 컨디션 기반 가변 사이클.</div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="s6">
+  <h2>6. 측면 45° 세팅 대응</h2>
+  <p class="lead">노트북이 좌/우 45°에 있고 서브모니터(정면)를 응시하는 흔한 세팅. 카메라 입장에선 얼굴이 ~45° 돌아간 상태 = 얼굴 랜드마크 성능 저하 시작점.</p>
+  <table>
+    <tr><th>신호</th><th>45°에서</th><th>대응</th></tr>
+    <tr><td>pitch (딴짓·꾸벅·거북목)</td><td>견고</td><td>주력 신호로 채택</td></tr>
+    <tr><td>하품(입 벌림)</td><td>견고</td><td>졸음 주력</td></tr>
+    <tr><td>yaw (시선이탈)</td><td>중간</td><td>거친 판정만</td></tr>
+    <tr><td>눈 EAR/PERCLOS</td><td>약함</td><td>가중치↓, 보조로만</td></tr>
+    <tr><td>얼굴 유실(>~55°)</td><td>추적 끊김</td><td class="ref">pose 33점으로 몸 잡히면 "자리비움" 오판 유예 필요</td></tr>
+  </table>
+  <div class="panel risk">
+    <p><b>가장 큰 실질 리스크:</b> 고개를 서브모니터로 더 돌리면(55~60°) 얼굴 유실 → 앱이 <b>"자리비움"으로 오판</b>. 측면 사용자 UX의 핵심 이슈. → 얼굴 없어도 pose 몸 신호로 present 유지하는 유예 로직 확인/보강 필요.</p>
+    <p>BaroSit은 이미 <b>MultiAngleBaseline(front/left/right)</b> + yaw 히스테리시스가 있어(<span class="ref">src/pose/calibration.ts</span>) 측면을 부분 대응하나, 전환 임계가 yaw ±12°라 45° 고정이면 항상 left/right 기준으로 평가됨 → <b>그 쪽 기준자세 캘리브레이션 필수</b>.</p>
+  </div>
+  <div class="callout"><b>권장:</b> 정밀 컨디션 감지가 필요하면 <b>서브모니터 위 외장 웹캠(정면)</b>이 최선. 노트북 45° 유지 시엔 "거친 딴짓/졸음(꾸벅·하품) + 시간·자세 기반 피로"까지가 현실적 목표.</div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section id="s7">
+  <h2>7. 기존 자산 재활용 맵</h2>
+  <table>
+    <tr><th>자산</th><th>위치</th><th>재활용처</th></tr>
+    <tr><td>Pose 33점 + 468 얼굴점</td><td class="ref">src/pose/detector.ts</td><td>모든 신호의 원천 (추가 모델 0)</td></tr>
+    <tr><td>머리 각도 pitch/yaw/roll/tz</td><td class="ref">src/pose/analyzer.ts</td><td>딴짓·꾸벅·시선이탈</td></tr>
+    <tr><td>variabilityTracker (10분 std)</td><td class="ref">src/pose/variabilityTracker.ts</td><td>피로 변동성 항</td></tr>
+    <tr><td>violation/score 시계열</td><td class="ref">useMonitoringEngine.ts</td><td>피로 자세붕괴 항</td></tr>
+    <tr><td>JITAI·백오프·보상 넛지</td><td class="ref">docs/posture-nudge-design.md</td><td>적응 개입 엔진</td></tr>
+    <tr><td>집중 모드</td><td class="ref">넛지 슬라이스</td><td>딴짓/졸음 개입 연동점</td></tr>
+    <tr><td>blendshape 플래그(off)</td><td class="ref">detector.ts:143</td><td>한 줄 켜면 eyeBlink/jawOpen 확보</td></tr>
+  </table>
+</section>
+
+<!-- ============ 8 ============ -->
+<section id="s8">
+  <h2>8. 한계 · 리스크 · 원칙</h2>
+  <div class="panel risk">
+    <ol>
+      <li><b>검증 불가 문제:</b> 카메라 기반 피로/졸음은 <b>임상 측정이 아닌 휴리스틱 추정</b>. "피로 감지"가 아니라 <b>"컨디션 케어/추정 신호"</b>로 포지셔닝. 메모리의 임상주장 인용규칙(PRI/27kg 금지) 준수.</li>
+      <li><b>개인차:</b> 피로·깜빡임·자세 기준선은 사람마다 극단적. <b>자기 기준선 대비 상대 판정</b> 필수, 절대 임계 금지.</li>
+      <li><b>신뢰/거부감:</b> 카메라로 인지·정서 상태 추론은 민감. <b>온디바이스</b>가 큰 무기 — 투명하게 <b>opt-in</b>, 데이터 미전송 명시.</li>
+      <li><b>개입 역효과:</b> 적응형 넛지가 틀리면 짜증·조종당하는 느낌. <b>보수적 임계 + 사용자 컨트롤 + 백오프</b> 필수.</li>
+      <li><b>포지셔닝 흐림:</b> BaroSit은 자세 코치. 졸음/피로는 인접하나 결이 다름 → <b>"집중/컨디션 케어" 부가 레이어</b>로 묶되 주 정체성을 흐리지 않기.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ 9 ============ -->
+<section id="s9">
+  <h2>9. 단계적 구현 계획 (제안)</h2>
+  <table>
+    <tr><th>단계</th><th>내용</th><th>비용</th></tr>
+    <tr><td><b>P0 · 딴짓</b></td><td>pitch-down 지속 판정 + 집중모드 리마인드. 측면에서도 견고, 가치 즉시 체감.</td><td><span class="tag t-new">신규 소</span></td></tr>
+    <tr><td><b>P1 · 졸음(측면 견고분)</b></td><td>blendshape 플래그 ON → 하품(jawOpen) + 고개꾸벅(pitch) 이벤트.</td><td><span class="tag t-extend">확장</span></td></tr>
+    <tr><td><b>P2 · 피로 인덱스</b></td><td>시간+자세붕괴+변동성 합성(눈은 정면일 때만 가중). 3단계 정성 표시.</td><td><span class="tag t-new">신규 중</span></td></tr>
+    <tr><td><b>P3 · 적응 개입</b></td><td>인덱스를 JITAI 입력으로 주입 → 빈도·톤·휴식권유·적응 포모도로.</td><td><span class="tag t-extend">확장</span></td></tr>
+    <tr><td><b>P4 · 측면 UX 보강</b></td><td>얼굴 유실 시 pose 몸 신호로 자리비움 오판 유예.</td><td><span class="tag t-risk">검증</span></td></tr>
+  </table>
+  <p class="lead">P0만으로도 독립적 가치가 있어 "작게 시작 → 반응 보고 확장"이 가능하다.</p>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="s10">
+  <h2>10. 열린 질문</h2>
+  <ul>
+    <li>딴짓/자세 위반을 <b>같은 신호로 볼지, 분리할지</b> — 톤·개입이 달라짐.</li>
+    <li>피로 인덱스를 <b>사용자에게 노출할지</b> (동기부여 ↔ 불안·자기감시 유발).</li>
+    <li>졸음/피로가 BaroSit 정체성에 <b>부가 가치인지, 산만인지</b> — 유료 차별화 요소로 쓸지.</li>
+    <li>기업 도입(B2B) 시 <b>"직원 감시" 프레임 리스크</b> — 개인 온디바이스 원칙을 어떻게 계약·UX로 보장할지.</li>
+    <li>정면 웹캠 사용자와 측면 사용자에게 <b>다른 기능 셋</b>을 줄지(감지 신뢰도 차이).</li>
+  </ul>
+</section>
+
+<footer>
+  BaroSit 내부 설계 제안 문서 · 상태: 미구현(검토용) · 작성 맥락: Pause 카메라 수정 → 얼굴 랜드마크 활용 논의에서 파생<br>
+  관련: <span class="ref">docs/posture-nudge-design.md</span> · <span class="ref">src/pose/analyzer.ts</span> · <span class="ref">src/pose/variabilityTracker.ts</span> · <span class="ref">src/pose/detector.ts</span>
+</footer>
+
+</div>
+</body>
+</html>
