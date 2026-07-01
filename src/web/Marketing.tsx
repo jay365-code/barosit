@@ -3191,15 +3191,13 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
         {view === "list" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             
-            {/* Category Pills (Disquiet Style) */}
+            {/* Category Pills — 줄바꿈 허용(카테고리 늘어도 잘리지 않게) */}
             <div
               style={{
                 display: "flex",
                 gap: 8,
-                overflowX: "auto",
+                flexWrap: "wrap",
                 paddingBottom: 4,
-                msOverflowStyle: "none",
-                scrollbarWidth: "none",
               }}
             >
               {[
