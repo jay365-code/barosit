@@ -217,6 +217,17 @@ const emitVariabilityAlert = async (
 const onVariabilityAlert = (cb: (p: VariabilityAlertEvent) => void) =>
   wrapListen<VariabilityAlertEvent>("variability:alert", cb);
 
+interface ForceBlurEvent {
+  active: boolean;
+}
+
+const emitForceBlur = async (payload: ForceBlurEvent): Promise<void> => {
+  await emit("force:blur", payload);
+};
+
+const onForceBlur = (cb: (p: ForceBlurEvent) => void) =>
+  wrapListen<ForceBlurEvent>("force:blur", cb);
+
 const checkForUpdate = async (): Promise<UpdateInfo | null> => {
   try {
     const [updater, app] = await Promise.all([
@@ -316,6 +327,8 @@ export const tauriPlatform: PlatformAPI = {
   onCumulativeAlert,
   emitVariabilityAlert,
   onVariabilityAlert,
+  emitForceBlur,
+  onForceBlur,
   checkForUpdate,
   downloadAndInstallUpdate,
   openBrowser: async (url: string) => {

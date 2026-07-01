@@ -16,6 +16,7 @@
     "micro": "換気"
   },
   "breakBadgeAria": "{{minutes}}分連続着席 — {{label}}推奨",
+  "seatedTimerAria": "{{minutes}}分連続着席中",
   "alertBanner": "{{sec}}秒経過 · 姿勢を変えましょう",
   "currentPosture": "検出された姿勢",
   "chip": {

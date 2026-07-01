@@ -3,11 +3,13 @@
   "sittingMinutes": "{{min}}분 연속 착석",
   "cumulativeBadge": "누적 부하 · 30분 중 {{pct}}%",
   "cumulativeFrequent": "{{label}} 잦음",
-  "staticMinutes": "{{min}}분 정자세 유지",
-  "variabilityGood": "잘 유지 중이에요",
-  "variabilityTip": "잠깐 어깨·목을 풀고 자세 바꿔볼까요",
+  "staticMinutes": "{{min}}분째 같은 자세",
+  "variabilityGood": "한 자세로 오래 계셨어요",
+  "variabilityTip": "좋은 자세도 오래 유지하면 부담이 쌓여요. 앉은 채 자세를 살짝 바꿔볼까요",
   "rewardTitle": "좋아요! 잘 움직였어요",
   "rewardMsg": "+{{points}}점",
   "escalationTitle": "잠깐 일어날 시간이에요",
-  "escalationMsg": "1분만 움직이면 훨씬 가뿐해져요"
+  "escalationMsg": "1분만 움직이면 훨씬 가뿐해져요",
+  "forceTitle": "잠깐, 움직일 시간이에요",
+  "forceMsg": "몸을 움직이면 화면이 다시 또렷해져요"
 }

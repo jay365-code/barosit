@@ -16,6 +16,7 @@
     "micro": "Breathe"
   },
   "breakBadgeAria": "Seated for {{minutes}} min — {{label}} recommended",
+  "seatedTimerAria": "Seated for {{minutes}} min",
   "alertBanner": "{{sec}}s so far · time to adjust",
   "currentPosture": "Detected posture",
   "chip": {

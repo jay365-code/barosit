@@ -16,6 +16,7 @@
     "micro": "환기"
   },
   "breakBadgeAria": "{{minutes}}분 연속 착석 — {{label}} 권장",
+  "seatedTimerAria": "{{minutes}}분 연속 착석 중",
   "alertBanner": "{{sec}}초째 · 자세를 바꿔볼까요",
   "currentPosture": "현재 감지된 자세",
   "chip": {

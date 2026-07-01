@@ -181,6 +181,8 @@ export const webPlatform: PlatformAPI = {
   onCumulativeAlert: async () => () => undefined,
   emitVariabilityAlert: async () => undefined,
   onVariabilityAlert: async () => () => undefined,
+  emitForceBlur: async () => undefined,
+  onForceBlur: async () => () => undefined,
   checkForUpdate: async () => null,
   downloadAndInstallUpdate: async () => undefined,
   openBrowser: async (url: string) => {

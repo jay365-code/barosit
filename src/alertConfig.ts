@@ -21,6 +21,11 @@ export interface AlertModes {
    *  8초 자동소멸 카드(하드스톱 아님)라 제품 결정상 기본 On 으로 둔다.
    *  사용자가 설정에서 끌 수 있음. */
   focusMode: boolean;
+  /** 강제 모드(옵트인, 기본 Off) — 휴식·변동성 넛지를 무시하면 화면을 흐리게
+   *  덮어 움직임을 강하게 유도. 화면 잠금이 아니라 **click-through 반투명 블러**라
+   *  뒤 작업은 계속 가능(비잠금). 움직이면 즉시 걷히고, 안 움직여도 자동 시간제한
+   *  후 사라짐 → 절대 갇히지 않음. 근거(§2-1) 강제성=옵트인 권장에 정합. */
+  forceMode: boolean;
 }
 
 export const DEFAULT_ALERT_MODES: AlertModes = {
@@ -29,6 +34,7 @@ export const DEFAULT_ALERT_MODES: AlertModes = {
   fullscreenToast: false,
   sound: false,
   focusMode: true,
+  forceMode: false,
 };
 
 const STORAGE_KEY = "alert_modes";
@@ -167,4 +173,20 @@ export const ESCALATION_ALERT_EVENT = "barosit:escalation-alert";
 export function dispatchEscalationAlert(kind: NudgeKind): void {
   const detail: EscalationDetail = { kind };
   window.dispatchEvent(new CustomEvent(ESCALATION_ALERT_EVENT, { detail }));
+}
+
+// ─── 강제 모드 블러 (옵트인, 비잠금) ──────────────────────────────────────────
+// 무시된 넛지에 대해 화면을 흐리게 덮는 click-through 블러. 루프가 lifecycle 을
+// 소유하고(움직임/시간제한 시 active=false) UI(AlertOverlay/AlertWindow)는 이
+// 이벤트만 듣고 켜고 끈다. 데스크톱 풀스크린 브리지는 AlertOverlay 가 담당.
+
+export interface ForceBlurDetail {
+  active: boolean;
+}
+
+export const FORCE_BLUR_EVENT = "barosit:force-blur";
+
+export function dispatchForceBlur(active: boolean): void {
+  const detail: ForceBlurDetail = { active };
+  window.dispatchEvent(new CustomEvent(FORCE_BLUR_EVENT, { detail }));
 }

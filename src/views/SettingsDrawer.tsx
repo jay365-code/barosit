@@ -11,6 +11,7 @@ import {
   dispatchBreakReminder,
   dispatchCumulativeAlert,
   dispatchVariabilityAlert,
+  dispatchForceBlur,
   loadAlertModes,
   saveAlertModes,
   type AlertModes,
@@ -479,6 +480,29 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             v={alertModes.focusMode}
             onChange={(v) => setAlertMode("focusMode", v)}
           />
+          <Row
+            label={t("alertBoost.forceMode.label")}
+            sub={t("alertBoost.forceMode.sub")}
+            v={alertModes.forceMode}
+            onChange={(v) => setAlertMode("forceMode", v)}
+          />
+          <button
+            className="b-btn b-btn-ghost"
+            onClick={() => {
+              // 미리보기 — 실제 모니터링과 무관하게 블러 veil 을 잠깐 띄웠다 자동
+              // 해제. (실사용은 루프가 해제하지만 미리보기는 여기서 직접 끈다.)
+              dispatchForceBlur(true);
+              window.setTimeout(() => dispatchForceBlur(false), 3500);
+            }}
+            style={{
+              width: "100%",
+              justifyContent: "center",
+              fontSize: 12,
+              marginTop: 8,
+            }}
+          >
+            {t("alertBoost.forcePreview")}
+          </button>
           <div
             style={{
               fontSize: 11,

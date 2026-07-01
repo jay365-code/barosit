@@ -18,12 +18,12 @@
     "head_roll": "Head tilt has been frequent in the last 30 min. Check your secondary monitor alignment."
   },
   "breakLabel": {
-    "micro": "Take a quick breather",
+    "micro": "Stand up for a moment",
     "standup": "Time to stand up",
     "deep": "You need a longer break"
   },
   "break": {
-    "micro": "Shrug your shoulders, rotate your neck, breathe deeply for 10s",
+    "micro": "Get up and move gently for just 30s",
     "standup": "Walk for 1 min or do some light stretching",
     "deep": "5 min break. A glass of water + look out the window (20-20-20)"
   }

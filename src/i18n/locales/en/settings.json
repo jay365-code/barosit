@@ -44,9 +44,14 @@
       "label": "Focus mode",
       "sub": "If you ignore a break reminder, nudge once more with a bolder prompt (never locks your screen)"
     },
+    "forceMode": {
+      "label": "Force mode",
+      "sub": "If you ignore a break or posture-shift nudge, blur the screen to strongly prompt movement. It clears the moment you move, and fades on its own if you don't (never a lock)"
+    },
     "hint": "Fires when bad posture <b>lasts {{secs}}s or more</b>. The same posture has a 5-minute cooldown. The longer it lasts, the deeper the color and duration.",
     "previewLight": "Preview (subtle)",
-    "previewStrong": "Preview (strong)"
+    "previewStrong": "Preview (strong)",
+    "forcePreview": "Preview force-mode blur"
   },
   "break": {
     "title": "Break reminders",
@@ -85,7 +90,7 @@
   },
   "variability": {
     "title": "Posture variability alert",
-    "intro": "Holding even a good posture too long builds up static pressure on one part of a disc.<br/>If your shoulders and head barely move during a 10-minute window, you get a gentle \"loosen up for a moment\" nudge.<br/>(McGill — \"best posture is the next posture\")",
+    "intro": "Holding even a good posture too long builds up strain on one area.<br/>If your shoulders and head barely move during the window, you get a \"you've held one posture a while\" nudge to change it.<br/>(McGill — \"best posture is the next posture\")",
     "enable": {
       "label": "Enable variability alert",
       "sub": "Default 10-min window, stillness threshold 0.6, 15-min cooldown"

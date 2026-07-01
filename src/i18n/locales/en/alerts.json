@@ -4,10 +4,12 @@
   "cumulativeBadge": "Cumulative load · {{pct}}% of 30 min",
   "cumulativeFrequent": "Frequent {{label}}",
   "staticMinutes": "Still for {{min}} min",
-  "variabilityGood": "You're holding it well",
-  "variabilityTip": "Loosen your shoulders and neck, and shift your posture",
+  "variabilityGood": "You've held one posture a while",
+  "variabilityTip": "Even a good posture strains if held too long — shift a little in your seat",
   "rewardTitle": "Nice — you moved!",
   "rewardMsg": "+{{points}} pts",
   "escalationTitle": "Time to stand up",
-  "escalationMsg": "Just one minute of movement helps a lot"
+  "escalationMsg": "Just one minute of movement helps a lot",
+  "forceTitle": "Time to move a little",
+  "forceMsg": "Move your body and the screen comes back into focus"
 }

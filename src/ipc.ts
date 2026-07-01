@@ -69,3 +69,7 @@ export const emitVariabilityAlert: PlatformAPI["emitVariabilityAlert"] = (p) =>
   platform.emitVariabilityAlert(p);
 export const onVariabilityAlert: PlatformAPI["onVariabilityAlert"] = (cb) =>
   platform.onVariabilityAlert(cb);
+export const emitForceBlur: PlatformAPI["emitForceBlur"] = (p) =>
+  platform.emitForceBlur(p);
+export const onForceBlur: PlatformAPI["onForceBlur"] = (cb) =>
+  platform.onForceBlur(cb);

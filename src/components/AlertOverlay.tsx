@@ -7,6 +7,7 @@ import {
   VARIABILITY_ALERT_EVENT,
   COMPLIANCE_REWARD_EVENT,
   ESCALATION_ALERT_EVENT,
+  FORCE_BLUR_EVENT,
   loadAlertModes,
   type AlertFiredDetail,
   type AlertModes,
@@ -15,12 +16,14 @@ import {
   type VariabilityAlertDetail,
   type ComplianceRewardDetail,
   type EscalationDetail,
+  type ForceBlurDetail,
 } from "../alertConfig";
 import {
   emitAlertFired,
   emitBreakReminder,
   emitCumulativeAlert,
   emitVariabilityAlert,
+  emitForceBlur,
   hideAlertWindow,
   showAlertWindow,
 } from "../ipc";
@@ -111,6 +114,7 @@ export function AlertOverlay() {
   const [activeVariability, setActiveVariability] = useState<ActiveVariability | null>(null);
   const [activeReward, setActiveReward] = useState<ActiveReward | null>(null);
   const [activeEscalation, setActiveEscalation] = useState<ActiveEscalation | null>(null);
+  const [forceBlur, setForceBlur] = useState(false);
   const idRef = useRef(0);
   const breakIdRef = useRef(0);
   const cumIdRef = useRef(0);
@@ -301,13 +305,56 @@ export function AlertOverlay() {
     return () => window.removeEventListener(ESCALATION_ALERT_EVENT, onFire);
   }, []);
 
+  // 강제 모드 블러 — 루프가 lifecycle 소유(active on/off). 데스크톱은 풀스크린
+  // alert 윈도우로 브리지(showAlertWindow + emitForceBlur), 웹은 이 창에 직접 veil.
+  useEffect(() => {
+    let failsafe: number | null = null;
+    const clearFailsafe = () => {
+      if (failsafe) {
+        clearTimeout(failsafe);
+        failsafe = null;
+      }
+    };
+    const deactivate = () => {
+      clearFailsafe();
+      setForceBlur(false);
+      if (platform.features.multiWindow) {
+        emitForceBlur({ active: false }).catch(() => undefined);
+        hideAlertWindow().catch(() => undefined);
+      }
+    };
+    const onToggle = (e: Event) => {
+      const detail = (e as CustomEvent<ForceBlurDetail>).detail;
+      if (!detail) return;
+      if (detail.active) {
+        setForceBlur(true);
+        if (platform.features.multiWindow) {
+          showAlertWindow()
+            .then(() => emitForceBlur({ active: true }))
+            .catch(() => undefined);
+        }
+        // 루프가 해제 이벤트를 못 쏴도 veil 이 갇히지 않도록 실패안전 자동 해제.
+        clearFailsafe();
+        failsafe = window.setTimeout(deactivate, 35000);
+      } else {
+        deactivate();
+      }
+    };
+    window.addEventListener(FORCE_BLUR_EVENT, onToggle);
+    return () => {
+      window.removeEventListener(FORCE_BLUR_EVENT, onToggle);
+      clearFailsafe();
+    };
+  }, []);
+
   if (
     !active &&
     !activeBreak &&
     !activeCumulative &&
     !activeVariability &&
     !activeReward &&
-    !activeEscalation
+    !activeEscalation &&
+    !forceBlur
   )
     return null;
 
@@ -663,6 +710,46 @@ export function AlertOverlay() {
             </div>
             <div style={{ fontSize: 15, opacity: 0.9 }}>
               {escalationRender.msg}
+            </div>
+          </div>
+        </div>
+      )}
+      {forceBlur && !platform.features.multiWindow && (
+        // 웹(단일 윈도우) 강제 블러 veil — click-through(뒤 작업 계속 가능),
+        // 움직이면 루프가 해제. 데스크톱은 AlertWindow 가 풀스크린으로 렌더.
+        <div
+          aria-live="assertive"
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            background: "rgba(12, 14, 18, 0.45)",
+            backdropFilter: "blur(7px)",
+            WebkitBackdropFilter: "blur(7px)",
+            zIndex: 9998,
+            animation: "barosit-toast-in 0.3s ease-out",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(20, 24, 22, 0.92)",
+              color: "#fff",
+              padding: "24px 34px",
+              borderRadius: 20,
+              border: "2px solid #5db49f",
+              boxShadow: "0 16px 48px rgba(0,0,0,0.55), 0 0 0 10px #5db49f22",
+              maxWidth: "70vw",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 8 }}>
+              {t("alerts:forceTitle")}
+            </div>
+            <div style={{ fontSize: 15, opacity: 0.9 }}>
+              {t("alerts:forceMsg")}
             </div>
           </div>
         </div>

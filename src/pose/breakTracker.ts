@@ -18,6 +18,12 @@ export interface BreakConfig {
   standupMinutes: number;
   /** 강한 휴식 권유까지의 연속 착석 분 (기본 120) */
   deepMinutes: number;
+  /**
+   * 알림을 "완료"로 인정하는 데 필요한 누적 움직임 초 (기본 60 = "30-1").
+   * 근거: 순간 움직임 1회가 아니라 ~1분 지속 활동이 dose (대사 하한선 ≈ 1분
+   * chair stands, 20-8-2 의 "2분 움직임"). 목표를 채워야 secsSeated 리셋+보상.
+   */
+  movementGoalSecs: number;
   enabled: { micro: boolean; standup: boolean; deep: boolean };
 }
 
@@ -25,6 +31,7 @@ export const DEFAULT_BREAK_CONFIG: BreakConfig = {
   microMinutes: 30,
   standupMinutes: 50,
   deepMinutes: 120,
+  movementGoalSecs: 60,
   enabled: { micro: true, standup: true, deep: true },
 };
 
@@ -35,6 +42,10 @@ export interface BreakStatus {
   stage: BreakStage;
   /** 단계가 발사된 시각(ms epoch). UI 표시·재알림 타이밍에 사용. */
   stageFiredAt: number | null;
+  /** 알림 단계가 뜬 뒤 누적한 움직임 초. 목표(goalSecs) 도달 시 완료+리셋. */
+  movementSecs: number;
+  /** 움직임 목표 초 (config.movementGoalSecs 미러 — UI 진행률 표시용). */
+  goalSecs: number;
 }
 
 export interface BreakFiredEvent {
@@ -57,6 +68,10 @@ export class BreakTracker {
   private stage: BreakStage = "none";
   private stageFiredAt: number | null = null;
   private lastPushAt: number | null = null;
+  /** 알림 단계가 뜬 뒤 누적한 움직임 초. 목표 도달 시 완료+리셋. */
+  private movementSecs = 0;
+  /** 마지막 push 의 목표 초 (snapshot 용 미러). */
+  private goalSecs = DEFAULT_BREAK_CONFIG.movementGoalSecs;
 
   /**
    * 매 프레임 호출. dt 는 lastPushAt 기준 자동 계산 — 호출 빈도와 무관하게
@@ -65,6 +80,11 @@ export class BreakTracker {
    * 반환값:
    *   - status: 현재 누적 상태 (UI 표시용)
    *   - fired: 이번 push 에서 새로 단계 진입했으면 이벤트, 아니면 null (1회성)
+   *   - completed: 이번 push 에서 움직임 목표(1분)를 채워 단계를 완료했으면 그
+   *     단계, 아니면 null (1회성). 완료 시 secsSeated 는 리셋됨 → 보상 지급용.
+   *
+   * @param movingNow 이번 프레임에 유의미한 자세 변동/움직임이 감지됐는지
+   *   (변동성 movementIndex ≥ 임계). 착석 중 활발한 움직임도 목표에 기여.
    */
   push(
     now: number,
@@ -73,7 +93,13 @@ export class BreakTracker {
     isStanding: boolean,
     stretchFired: boolean,
     config: BreakConfig,
-  ): { status: BreakStatus; fired: BreakFiredEvent | null } {
+    movingNow = false,
+  ): {
+    status: BreakStatus;
+    fired: BreakFiredEvent | null;
+    completed: BreakStage | null;
+  } {
+    this.goalSecs = config.movementGoalSecs;
     const dt =
       this.lastPushAt == null
         ? 0
@@ -111,16 +137,42 @@ export class BreakTracker {
     ) {
       this.reset();
       return {
-        status: { secsSeated: 0, stage: "none", stageFiredAt: null },
+        status: {
+          secsSeated: 0,
+          stage: "none",
+          stageFiredAt: null,
+          movementSecs: 0,
+          goalSecs: config.movementGoalSecs,
+        },
         fired: null,
+        completed: null,
       };
     }
 
-    // 스트레치 감지 → 현재 단계 dismiss. 다음 단계로 진행 가능.
-    // 누적 시간 자체는 유지 (스트레치 한 번으로 timer 초기화하면 사용자가 회피 가능).
-    if (stretchFired && this.stage !== "none") {
-      this.stage = "none";
-      this.stageFiredAt = null;
+    // 움직임 목표 (30-1) — 알림 단계가 뜬 뒤 누적 움직임이 목표(기본 60초)에
+    // 도달하면 "제대로 쉬었다"로 인정: secsSeated 리셋 + 완료 반환(보상용).
+    // 스트레치 한 번(순간)으로는 리셋 안 됨 — 회피 방지 + 근거(≥1분 dose) 정합.
+    if (this.stage !== "none") {
+      const inMotion =
+        !personPresent || isStanding || isResting || movingNow || stretchFired;
+      if (inMotion) this.movementSecs += safeDt;
+      if (this.movementSecs >= config.movementGoalSecs) {
+        const completed = this.stage;
+        this.reset();
+        return {
+          status: {
+            secsSeated: 0,
+            stage: "none",
+            stageFiredAt: null,
+            movementSecs: 0,
+            goalSecs: config.movementGoalSecs,
+          },
+          fired: null,
+          completed,
+        };
+      }
+    } else {
+      this.movementSecs = 0;
     }
 
     // 단계 진행 — 높은 단계부터 검사. micro → standup → deep 으로만.
@@ -161,8 +213,11 @@ export class BreakTracker {
         secsSeated: this.secsSeated,
         stage: this.stage,
         stageFiredAt: this.stageFiredAt,
+        movementSecs: this.movementSecs,
+        goalSecs: config.movementGoalSecs,
       },
       fired,
+      completed: null,
     };
   }
 
@@ -173,6 +228,7 @@ export class BreakTracker {
     this.secsStanding = 0;
     this.stage = "none";
     this.stageFiredAt = null;
+    this.movementSecs = 0;
     // lastPushAt 은 의도적으로 유지 — dt 연속성 보존
   }
 
@@ -181,6 +237,8 @@ export class BreakTracker {
       secsSeated: this.secsSeated,
       stage: this.stage,
       stageFiredAt: this.stageFiredAt,
+      movementSecs: this.movementSecs,
+      goalSecs: this.goalSecs,
     };
   }
 }

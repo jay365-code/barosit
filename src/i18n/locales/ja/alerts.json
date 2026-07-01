@@ -4,10 +4,12 @@
   "cumulativeBadge": "累積負荷・30分中{{pct}}%",
   "cumulativeFrequent": "{{label}}が頻発",
   "staticMinutes": "{{min}}分間ほぼ静止",
-  "variabilityGood": "よく保てています",
-  "variabilityTip": "肩と首をほぐして姿勢を変えてみましょう",
+  "variabilityGood": "同じ姿勢が長く続いています",
+  "variabilityTip": "良い姿勢も長く続くと負担に。座ったまま少し姿勢を変えましょう",
   "rewardTitle": "いいですね！動けました",
   "rewardMsg": "+{{points}}点",
   "escalationTitle": "立ち上がる時間です",
-  "escalationMsg": "1分動くだけでぐっと楽になります"
+  "escalationMsg": "1分動くだけでぐっと楽になります",
+  "forceTitle": "少し動く時間です",
+  "forceMsg": "体を動かすと画面がはっきり戻ります"
 }

@@ -420,7 +420,27 @@ export function Widget() {
           minutes: state.breakStatus
             ? Math.floor(state.breakStatus.secsSeated / 60)
             : 0,
+          // 1분 움직임 목표(30-1) 진행. movementSecs>0 이면 배지가 진행률로 전환.
+          movementSecs: Math.floor(state.breakStatus?.movementSecs ?? 0),
+          goalSecs: Math.round(state.breakStatus?.goalSecs ?? 60),
         };
+
+  // 상시 착석 타이머 — 앉은 순간(1분+)부터 경과를 미니바에 계속 표시. 단계 발사(30분)
+  // 전 구간을 커버해 "얼마나 오래 고정 중인지" 상시 인지시킨다. 단계 뜨면 breakBadge 로
+  // 전환(상호배타). 30분 근접에 따라 톤 상승 → 스스로 움직이도록 유도.
+  const seatedSecs = Math.floor(state.breakStatus?.secsSeated ?? 0);
+  const seatedTimer =
+    breakStage === "none" && !state.away && seatedSecs >= 60
+      ? {
+          minutes: Math.floor(seatedSecs / 60),
+          accent:
+            seatedSecs >= 25 * 60
+              ? "#d98a3d" // 25분+ 경고(주황)
+              : seatedSecs >= 15 * 60
+                ? "#c9a94a" // 15분+ 주의(황)
+                : "#8a97a6", // 차분(회)
+        }
+      : null;
 
   return (
     <div
@@ -585,7 +605,40 @@ export function Widget() {
                       background: breakBadge.accent,
                     }}
                   />
-                  {breakBadge.minutes}m
+                  {breakBadge.movementSecs > 0
+                    ? `${breakBadge.movementSecs}/${breakBadge.goalSecs}s`
+                    : `${breakBadge.minutes}m`}
+                </span>
+              )}
+              {seatedTimer && (
+                <span
+                  aria-label={t("widget:seatedTimerAria", {
+                    minutes: seatedTimer.minutes,
+                  })}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "3px 7px",
+                    borderRadius: 999,
+                    background: `${seatedTimer.accent}14`,
+                    color: seatedTimer.accent,
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    letterSpacing: "0.02em",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: seatedTimer.accent,
+                    }}
+                  />
+                  {seatedTimer.minutes}m
                 </span>
               )}
               <button

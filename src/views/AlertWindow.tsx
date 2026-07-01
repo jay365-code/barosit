@@ -11,6 +11,7 @@ import {
   onBreakReminder,
   onCumulativeAlert,
   onVariabilityAlert,
+  onForceBlur,
 } from "../ipc";
 import type { PostureType } from "../pose/types";
 import type { BreakStage } from "../pose/breakTracker";
@@ -66,6 +67,7 @@ export function AlertWindow() {
   const [activeBreak, setActiveBreak] = useState<ActiveBreak | null>(null);
   const [activeCumulative, setActiveCumulative] = useState<ActiveCumulative | null>(null);
   const [activeVariability, setActiveVariability] = useState<ActiveVariability | null>(null);
+  const [forceBlur, setForceBlur] = useState(false);
   const idRef = useRef(0);
   const breakIdRef = useRef(0);
   const cumIdRef = useRef(0);
@@ -198,6 +200,34 @@ export function AlertWindow() {
     });
     return () => {
       unsub?.();
+    };
+  }, []);
+
+  // 강제 모드 블러 — 루프가 on/off 소유. 단, 루프가 멈춰(일시정지 등) 해제
+  // 이벤트를 못 쏘면 veil 이 갇히므로 UI 실패안전 타이머로 반드시 자동 해제.
+  const forceBlurTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    onForceBlur((payload) => {
+      setForceBlur(payload.active);
+      if (forceBlurTimerRef.current) {
+        clearTimeout(forceBlurTimerRef.current);
+        forceBlurTimerRef.current = null;
+      }
+      if (payload.active) {
+        forceBlurTimerRef.current = window.setTimeout(() => {
+          setForceBlur(false);
+          hideAlertWindow().catch(() => undefined);
+        }, 35000);
+      } else {
+        hideAlertWindow().catch(() => undefined);
+      }
+    }).then((u) => {
+      unsub = u;
+    });
+    return () => {
+      unsub?.();
+      if (forceBlurTimerRef.current) clearTimeout(forceBlurTimerRef.current);
     };
   }, []);
 
@@ -408,6 +438,45 @@ export function AlertWindow() {
             </div>
             <div style={{ fontSize: 16, opacity: 0.88 }}>
               {t("alerts:variabilityTip")}
+            </div>
+          </div>
+        </div>
+      )}
+      {forceBlur && (
+        // 강제 모드 풀스크린 블러 veil — click-through(pointerEvents none)라 뒤
+        // 작업은 계속 가능(비잠금). 움직이면 루프가 해제, 안 움직여도 시간제한 후 해제.
+        <div
+          aria-live="assertive"
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            background: "rgba(12, 14, 18, 0.5)",
+            backdropFilter: "blur(9px)",
+            WebkitBackdropFilter: "blur(9px)",
+            animation: "barosit-toast-in 0.3s ease-out",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(20, 24, 22, 0.92)",
+              color: "#fff",
+              padding: "26px 40px",
+              borderRadius: 22,
+              border: "3px solid #5db49f",
+              boxShadow: "0 20px 56px rgba(0,0,0,0.6), 0 0 0 12px #5db49f22",
+              maxWidth: "60vw",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 30, fontWeight: 800, marginBottom: 10 }}>
+              {t("alerts:forceTitle")}
+            </div>
+            <div style={{ fontSize: 17, opacity: 0.9 }}>
+              {t("alerts:forceMsg")}
             </div>
           </div>
         </div>

@@ -171,6 +171,9 @@ export interface PlatformAPI {
       duration_secs: number;
     }) => void,
   ): Promise<Unsubscribe>;
+  /** 강제 모드 블러 (옵트인) — 풀스크린 alert 윈도우에 흐림 veil on/off. 웹은 no-op. */
+  emitForceBlur(payload: { active: boolean }): Promise<void>;
+  onForceBlur(cb: (payload: { active: boolean }) => void): Promise<Unsubscribe>;
   /** 현재 실행 중인 앱의 버전을 반환 */
   getAppVersion(): Promise<string>;
   /** 새 버전 확인. 없으면 null. 웹은 항상 null. */

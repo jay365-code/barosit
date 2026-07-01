@@ -88,6 +88,7 @@ import {
   dispatchVariabilityAlert,
   dispatchComplianceReward,
   dispatchEscalationAlert,
+  dispatchForceBlur,
   loadAlertModes,
   intensityFromDuration,
 } from "../alertConfig";
@@ -166,6 +167,13 @@ const POSTURE_FIGURE: Record<PostureType, PostureFigureState> = {
 };
 
 const ABSENCE_GRACE_MS = 8000;
+/** 강제 모드 블러 최대 지속(ms). 안 움직여도 이 시간 후 자동 해제 → 절대 갇히지 않음. */
+const FORCE_BLUR_MAX_MS = 30_000;
+/** 강제 모드 블러 해제 후 재발동까지의 쿨다운(ms). 도배 방지 = "5분 스누즈". */
+const FORCE_BLUR_COOLDOWN_MS = 5 * 60_000;
+/** 휴식·변동성 넛지 상호 쿨다운(ms). 휴식이 우선 — 최근 휴식 넛지가 있으면 변동성
+ *  억제(둘 다 "움직여라"라 근접 발사 시 중복 체감·compliance 덮어쓰기 방지). */
+const MUTUAL_NUDGE_COOLDOWN_MS = 5 * 60_000;
 
 function formatDuration(secs: number): string {
   if (secs < 60) return i18n.t("monitor:secs", { s: Math.round(secs) });
@@ -880,6 +888,15 @@ export function MonitorView({
   const variabilityTrackerRef = useRef(new VariabilityTracker());
   const variabilityConfigRef = useRef<VariabilityConfig>(loadVariabilityConfig());
   const complianceTrackerRef = useRef(new ComplianceTracker());
+  // 직전 프레임의 "움직이는 중" 신호(변동성 movementIndex ≥ 임계). breakTracker 의
+  // 1분 움직임 목표에 착석 중 활발한 움직임도 기여시키기 위해 캐리(1프레임 지연 무해).
+  const prevMovingNowRef = useRef(false);
+  // 강제 모드 블러 lifecycle — 루프가 소유. active/시작시각/재발동 쿨다운.
+  const forceBlurActiveRef = useRef(false);
+  const forceBlurStartedAtRef = useRef(0);
+  const forceBlurCooldownUntilRef = useRef(0);
+  // 최근 휴식 넛지 발사 시각 — 변동성 알림을 억제해 중복 방지(상호 쿨다운).
+  const lastBreakNudgeAtRef = useRef(0);
   const breakJitaiGateRef = useRef(new JitaiGate<BreakFiredEvent>());
   const jitaiConfigRef = useRef<JitaiConfig>({ ...DEFAULT_JITAI_CONFIG });
   const adaptiveConfigRef = useRef<AdaptiveSensitivityConfig>({
@@ -1369,11 +1386,16 @@ export function MonitorView({
         !!result.isStanding,
         !!stretchFired,
         adjustedBreakConfig,
+        prevMovingNowRef.current,
       );
       setBreakStatus(breakResult.status);
       if (breakResult.fired) {
         // JITAI — 즉시 발사하지 않고 방해 가능 순간까지 보류(아래 Phase 6 에서 발사).
         breakJitaiGateRef.current.hold(breakResult.fired, Date.now());
+      }
+      if (breakResult.completed) {
+        // 1분 움직임 목표 달성 → 착석시계 리셋됨. 긍정 강화(보상 토스트+점수).
+        dispatchComplianceReward(`break_${breakResult.completed}` as NudgeKind);
       }
 
       // Phase 2 — 누적 부하 추적
@@ -1415,8 +1437,15 @@ export function MonitorView({
         adjustedVariabilityConfig,
       );
       if (variabilityResult.fired) {
-        dispatchVariabilityAlert(variabilityResult.fired);
-        complianceTrackerRef.current.notifyFired("variability", Date.now());
+        // 상호 쿨다운 — 휴식 넛지가 대기 중이거나 최근에 떴으면 변동성 억제(휴식 우선).
+        // 둘 다 "움직여라"라 근접 발사 시 중복 잔소리·compliance 덮어쓰기를 막는다.
+        const breakActive =
+          breakJitaiGateRef.current.isPending ||
+          Date.now() - lastBreakNudgeAtRef.current < MUTUAL_NUDGE_COOLDOWN_MS;
+        if (!breakActive) {
+          dispatchVariabilityAlert(variabilityResult.fired);
+          complianceTrackerRef.current.notifyFired("variability", Date.now());
+        }
       }
 
       // Phase 6 — JITAI: 보류된 휴식 알림을 방해 가능 순간(고개 돌림·움직임)에 발사.
@@ -1424,6 +1453,8 @@ export function MonitorView({
       const movedNow =
         variabilityResult.status.movementIndex >=
         variabilityConfigRef.current.threshold;
+      // 다음 프레임 breakTracker 목표 누적에 쓰도록 캐리.
+      prevMovingNowRef.current = movedNow;
       const tookBreakNow =
         !!stretchFired ||
         !!result.isStanding ||
@@ -1449,6 +1480,7 @@ export function MonitorView({
             `break_${releasedBreak.stage}` as NudgeKind,
             Date.now(),
           );
+          lastBreakNudgeAtRef.current = Date.now();
         }
       }
 
@@ -1472,10 +1504,35 @@ export function MonitorView({
         const { kind, complied } = complianceResult.resolved;
         recordDailyCompliance(complied, Date.now());
         if (complied) {
-          dispatchComplianceReward(kind);
-        } else if (kind.startsWith("break_") && loadAlertModes().focusMode) {
-          // 집중모드(옵트인): 무시된 휴식 알림을 단호한(비잠금) 프롬프트로 에스컬레이션.
-          dispatchEscalationAlert(kind);
+          // 휴식 알림(break_*) 보상은 1분 목표 달성(breakResult.completed)에서 지급 →
+          // 순간 반응엔 중복 보상 금지. 변동성 알림만 즉시 보상.
+          if (kind === "variability") dispatchComplianceReward(kind);
+        } else {
+          // 무시됨. 강제 모드(옵트인)면 화면 블러 에스컬레이션(휴식·변동성 둘 다),
+          // 아니면 기존 집중모드 카드(휴식만).
+          const modes = loadAlertModes();
+          if (
+            modes.forceMode &&
+            !forceBlurActiveRef.current &&
+            Date.now() >= forceBlurCooldownUntilRef.current
+          ) {
+            forceBlurActiveRef.current = true;
+            forceBlurStartedAtRef.current = Date.now();
+            dispatchForceBlur(true);
+          } else if (kind.startsWith("break_") && modes.focusMode) {
+            dispatchEscalationAlert(kind);
+          }
+        }
+      }
+
+      // 강제 모드 블러 해제 — 움직이면 즉시, 안 움직여도 최대 시간 후 자동 해제
+      // (절대 갇히지 않음). 해제 후 재발동 쿨다운으로 도배 방지.
+      if (forceBlurActiveRef.current) {
+        const elapsed = Date.now() - forceBlurStartedAtRef.current;
+        if (tookBreakNow || movedNow || elapsed > FORCE_BLUR_MAX_MS) {
+          forceBlurActiveRef.current = false;
+          forceBlurCooldownUntilRef.current = Date.now() + FORCE_BLUR_COOLDOWN_MS;
+          dispatchForceBlur(false);
         }
       }
 

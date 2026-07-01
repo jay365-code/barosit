@@ -113,5 +113,11 @@
   - ✅ 슬라이스 3a — JITAI 발사 타이밍(jitaiGate, 휴식 알림을 방해 가능 순간에 발사, 테스트 7개)
   - ✅ 슬라이스 3b — 집중모드(옵트인 에스컬레이션 토글, AlertModes.focusMode, 비잠금 프롬프트)
   - ✅ 슬라이스 4 — **움직임 인지 완화**(violationTracker: computeMovementRelaxation/relaxThresholdDurations). 활발히 움직이는(movementIndex 높은) 사용자는 위반 알람 durationSecs 를 ×1.0~2.0 늘려 "자세 바꾸는 중 잠깐 나쁜 모양"을 봐줌 → 변동성을 벌하지 않고 보상. 두 루프 배선, 테스트 7개. (부수: 어깨 으쓱 stretch 과민감 임계 상향 0.35→0.42/0.24→0.30, 실기기 튜닝 필요)
-  - **설계 코드 빈칸 5개 + 개념정합 완화 1개 구현 완료.** 남은 것: 실기기 수동 QA(end-to-end는 카메라+시간 임계 필요)
+  - ✅ 슬라이스 5 — **"30-1" 움직임 목표(dose-gated 완료)** (2026-07-01). 근거 재확인: "1초만 바꾸면 됨" 지침 없음 → 30분마다 + **최소 ~1분 dose**(1분 chair stands≈2분 걷기, 20-8-2 "2분", 혈당 30분/5분). breakTracker `movementGoalSecs`(기본 60): 알림 단계 발사 후 누적 움직임(기립/휴식/자리비움/stretch/movingNow) 60초 채워야 `secsSeated` 리셋+보상(`completed` 반환). **스트레치 순간 dismiss 제거**(회피/오탐 방지, 사용자 결정). 미니바 배지 진행률 `n/60s`. 두 루프 배선(prevMovingNowRef). 테스트 6개+89 통과.
+    - **결정**: 목표 일괄 1분, 강제=소프트 기본.
+  - ✅ 슬라이스 6 — **강제모드(블러 에스컬레이션)** (2026-07-01). `AlertModes.forceMode`(기본 OFF, 옵트인). 무시된 넛지(휴식+변동성 둘 다)에 화면 click-through 반투명 블러+딤 veil. 데스크톱=풀스크린 AlertWindow(비잠금), 웹=AlertOverlay. 루프가 lifecycle 소유: 움직이면 즉시 해제 / 안 움직여도 30초 자동해제(안 갇힘) / 5분 재발동 쿨다운. UI 35초 실패안전. IPC emit·onForceBlur 추가. forceMode ON이면 focusMode 카드보다 우선. i18n 3국. tsc0·89통과.
+  - ✅ 슬라이스 7 — **상시 착석 타이머**(2026-07-01). 미니바에 앉은 지 1분+부터 경과 상시 표시(30분 알림 전 갭 해소), 30분 근접 톤 상승(회→황→주황). breakBadge 와 상호배타.
+  - ✅ 슬라이스 8 — **휴식↔변동성 중복 정리**(2026-07-01). 검토 결과 micro 휴식(제자리 스트레칭)과 변동성(제자리 바꾸기)이 행동·타이밍 중복 + compliance 덮어쓰기. 해소: **행동 분리**(휴식 micro="일어나 30초"→get-up 축, 변동성="앉은 채 살짝"→in-place 축, coaching/alerts 3국) + **상호 쿨다운**(변동성이 휴식에 양보: 휴식 pending 또는 최근 5분내 발사면 변동성 억제, 두 루프 lastBreakNudgeAtRef).
+    - **미구현(iteration4, 실기기 튜닝)**: 단계별 목표·movingNow 임계·블러 강도·타이머 색전환·상호쿨다운 값(5분).
+  - **설계 코드 빈칸 5개 + 개념정합 완화 1개 + 30-1 목표 구현 완료.** 남은 것: 실기기 수동 QA(end-to-end는 카메라+시간 임계 필요)
 - 미검증: 보상 토스트 시각·준수 흐름 end-to-end는 카메라+시간 임계 필요 → 실 모니터링 세션 수동 QA 필요
