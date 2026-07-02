@@ -30,6 +30,12 @@
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
+  <url>
+    <loc>https://barosit.com/guide</loc>
+    <lastmod>2026-07-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
   <!-- /blog/posture-myth (ko) → 커뮤니티 아리아 블로그로 301 이전. community-sitemap.xml 에서 노출 -->
 
   <url>

@@ -300,6 +300,9 @@ function Footer() {
           <a href="#/changelog" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.changelog")}
           </a>
+          <a href="/guide.html" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
+            {t("footer.guide")}
+          </a>
           <a href="#/science" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.science")}
           </a>
@@ -960,6 +963,19 @@ function Landing() {
             </details>
           ))}
         </div>
+        <a
+          href="/guide.html"
+          style={{
+            display: "inline-block",
+            marginTop: 20,
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--b-sig)",
+            textDecoration: "none",
+          }}
+        >
+          {t("landing.faq.moreGuide")}
+        </a>
       </div>
 
       <div
@@ -4351,6 +4367,19 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                 <p style={{ fontSize: 12, color: "var(--b-fg-3)", margin: 0, marginBottom: 14, lineHeight: 1.5 }}>
                   {t("community.guideDesc")}
                 </p>
+                <a
+                  href="/guide.html"
+                  style={{
+                    display: "inline-block",
+                    marginBottom: 14,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--b-sig)",
+                    textDecoration: "none",
+                  }}
+                >
+                  {t("community.appGuideLink")}
+                </a>
               </div>
               <div
                 style={{ fontSize: 12, fontWeight: 600, color: "var(--b-sig-deep)", display: "inline-flex", alignItems: "center", gap: 4 }}
@@ -5206,6 +5235,19 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
                 </>
               )}
             </ol>
+            <a
+              href="/guide.html"
+              style={{
+                display: "inline-block",
+                marginTop: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--b-sig)",
+                textDecoration: "none",
+              }}
+            >
+              {t("downloadPage.guideLink")}
+            </a>
           </MiniCard>
         </div>
 

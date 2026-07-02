@@ -12,6 +12,7 @@
     "address": "Address: #3425, 3F, 5-12 Ogeum-ro 15-gil, Songpa-gu, Seoul, Korea",
     "registration": "Business Reg. No.: 512-88-00059 | Mail-order License: 2025-Seoul Songpa-2552",
     "changelog": "Changelog",
+    "guide": "Guide",
     "science": "Science",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
@@ -123,6 +124,7 @@
     "faq": {
       "eyebrow": "FAQ",
       "title": "Questions, answered",
+      "moreGuide": "From install to first session — 5-minute getting-started guide →",
       "items": {
         "goodposture": {
           "q": "Do I have to keep 'perfect posture' all the time?",
@@ -142,11 +144,11 @@
         },
         "webapp": {
           "q": "What's the difference between the web version and the desktop app?",
-          "a": "The web version runs right in your browser with no install. The desktop app (Windows·macOS) adds uninterrupted background detection even when the window is closed, plus a floating mini widget and system-tray control."
+          "a": "The web version runs right in your browser with no install. The desktop app (Windows·macOS) adds a floating mini bar, widget mode, and system-tray control — minimize the main window or switch to widget mode and detection keeps running with just the mini bar on screen."
         },
         "background": {
           "q": "Does it keep detecting when I close the main window?",
-          "a": "Yes — the desktop app keeps detecting your posture in the background even with the main window closed. It lives in the system tray and notifies you when poor posture persists. (The web version runs while its browser tab is open.)"
+          "a": "Closing the main window quits the app, so detection stops too. Instead, minimize the main window or switch to widget mode — detection keeps running with only the floating mini bar on screen, and you'll get a notification when poor posture persists. (The web version runs while its browser tab is open.)"
         },
         "widget": {
           "q": "What are the mini bar and widget mode?",
@@ -266,6 +268,7 @@
     "installHow": "How to install",
     "installStep1": "Open the downloaded file",
     "installStep3": "Allow camera access on first launch",
+    "guideLink": "Installed? 5-minute getting-started guide →",
     "latestBuild": "{{ver}} — latest build",
     "feat1": "Detects 7 posture types (forward head · chin resting · shoulder tilt · slouching · screen distance · shoulder asymmetry · head tilt)",
     "feat2": "0–100 score system + stretch bonus",
@@ -361,6 +364,7 @@
     "mailCopy": "Copy email address",
     "guideTitle": "Guidelines & suggestions",
     "guideDesc": "Your community posts become helpful information for other users. For a pleasant community, please keep conversations healthy and courteous.",
+    "appGuideLink": "New to the app? 5-minute getting-started guide →",
     "monitoring": "Monitored in real time, 24/7/365",
     "cat": {
       "all": "All",
