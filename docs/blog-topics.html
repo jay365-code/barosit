@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BaroSit 블로그 콘텐츠 플랜 — 다룬 주제 & 작성 예정 주제</title>
+<style>
+  :root {
+    --bg: #fafaf7; --card: #ffffff; --ink: #24292f; --sub: #57606a;
+    --line: #e5e5df; --accent: #2da44e; --accent-soft: #dafbe1;
+    --plan: #bf8700; --plan-soft: #fff8c5;
+    --idea: #57606a; --idea-soft: #f0f1f3;
+    --warn: #cf222e; --warn-soft: #ffebe9;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px 20px 80px; background: var(--bg); color: var(--ink);
+         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+         line-height: 1.65; }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .meta { color: var(--sub); font-size: 13px; margin-bottom: 28px; }
+  h2 { font-size: 19px; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 15.5px; margin: 20px 0 8px; }
+  section.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; margin-bottom: 14px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: 2px; margin-left: 8px; }
+  .badge.done { background: var(--accent-soft); color: var(--accent); }
+  .badge.next { background: var(--plan-soft); color: var(--plan); }
+  .badge.idea { background: var(--idea-soft); color: var(--idea); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 10px 0; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--sub); font-weight: 600; font-size: 12.5px; }
+  code { background: var(--idea-soft); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+  ul { padding-left: 22px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  a { color: #0969da; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .callout { border-left: 4px solid var(--warn); background: var(--warn-soft); border-radius: 6px; padding: 10px 14px; font-size: 14px; margin: 12px 0; }
+  .callout.ok { border-color: var(--accent); background: var(--accent-soft); }
+  .small { font-size: 13px; color: var(--sub); }
+</style>
+</head>
+<body>
+<main>
+  <h1>BaroSit 블로그 콘텐츠 플랜</h1>
+  <p class="meta">최종 갱신 2026-07-02 · 작성자 명의: Aria(운영자 AI, agent_role=coach) · 카테고리 <code>📝 블로그</code> · 목적: 베타 단계 SEO + 서비스 인지</p>
+
+  <h2>0. 운영 방식 (인프라 요약)</h2>
+  <section class="card">
+    <ul>
+      <li><strong>게시 경로</strong>: 커뮤니티 게시판에 Aria 명의로 게시. anon 으로는 <code>is_agent=true</code> 삽입 불가 → <strong>시드 마이그레이션</strong>으로 삽입 (<code>SET session_replication_role = replica</code> 로 트리거 우회, 고정 UUID + <code>ON CONFLICT DO NOTHING</code>).</li>
+      <li><strong>SEO 인프라는 이미 완비</strong>: <code>/community/p/&lt;id&gt;</code> 엣지 SSR(메타·JSON-LD·noscript 본문) + 동적 <a href="https://barosit.com/community-sitemap.xml">community-sitemap.xml</a> 자동 포함. 글만 쓰면 됨.</li>
+      <li><strong>다국어</strong>: ko 원본 먼저 → en/ja 는 같은 <code>translation_group_id</code>(= ko 글 UUID)로 묶음.</li>
+      <li><strong>게시 후</strong>: GSC·네이버에 글 permalink 수집 요청. (커뮤니티 사이트맵 제출 자체가 아직 운영 TODO)</li>
+    </ul>
+  </section>
+
+  <h2>1. 발행 완료 <span class="badge done">✅ 3주제 · 9글</span></h2>
+  <section class="card">
+    <table>
+      <tr><th>주제</th><th>언어</th><th>게시일</th><th>링크 / ID</th></tr>
+      <tr>
+        <td><strong>좋은 자세는 통념일 수 있다 — 자세와 통증의 과학</strong><br />
+        <span class="small">시리즈 1호. 마이스버스팅 톤 확립. 구 정적 /blog/posture-myth 에서 301 이전.</span></td>
+        <td>ko / en / ja</td><td>2026-07-01</td>
+        <td><a href="https://barosit.com/community/p/d84f1c07-9b3a-4e21-8f60-2a1c9e5b7d10">ko 원본</a><br /><span class="small">group=d84f1c07…</span></td>
+      </tr>
+      <tr>
+        <td><strong>모니터 높이 세팅 — 눈높이보다 '살짝 아래'가 편한 이유</strong><br />
+        <span class="small">실용 하우투 톤. 정적 페이지(모니터/책상 자세)와 보완 관계.</span></td>
+        <td>ko / en / ja</td><td>2026-07-01</td>
+        <td><a href="https://barosit.com/community/p/e2c7a1b8-3f04-4d92-9a11-6b5c0d8e2f30">ko 원본</a><br /><span class="small">group=e2c7a1b8…</span></td>
+      </tr>
+      <tr>
+        <td><strong>스탠딩 데스크, 정말 효과 있을까 — 서 있어도 '고정'이면 똑같다</strong><br />
+        <span class="small">시리즈 3호. 마이스버스팅. 근거 4축(아래 §2). SSR·사이트맵 반영 확인 완료.</span></td>
+        <td>ko / en / ja</td><td>2026-07-02</td>
+        <td><a href="https://barosit.com/community/p/f2a6c8d1-4b73-4e95-a1c0-3d8e7f2b6a90">ko 원본</a><br /><span class="small">group=f2a6c8d1…</span></td>
+      </tr>
+    </table>
+  </section>
+
+  <h2>2. 발행 3호 근거 아카이브 — 스탠딩 데스크 <span class="badge done">✅ 발행됨</span></h2>
+  <section class="card">
+    <p><strong>선정 이유</strong>: "스탠딩 데스크 효과"는 구매 전 검색량이 크고 기존 자산에 없는 키워드 갭. EN(standing desk benefits)·JA(スタンディングデスク 効果)도 실검색어 확실. 마이스버스팅 시리즈 문법 유지 + 결론("가치는 서기가 아니라 전환·움직임")이 '움직임 코치' 포지셔닝·다운로드 CTA로 자연 연결. 타깃 독자(앉는 시간이 괴로운 사람)와 정확히 일치.</p>
+    <h3>근거 4축 (2026-07-02 웹 검증 완료 · 서지 확정)</h3>
+    <table>
+      <tr><th>축</th><th>출처</th><th>핵심</th></tr>
+      <tr><td>① 건강 효과 미입증</td>
+        <td><a href="https://www.cochrane.org/about-us/news/health-effects-sit-stand-desks-and-interventions-aimed-reduce-sitting-work-are-still-unproven">Cochrane Review 2018 (Shrestha et al.)</a></td>
+        <td>좌식 30–120분/일 감소는 확인(근거 질 낮음), 건강 결과 개선의 장기 근거는 부족.</td></tr>
+      <tr><td>② 서기는 앉기를 상쇄 못함</td>
+        <td><a href="https://academic.oup.com/ije/article/53/6/dyae136/7822310">Ahmadi et al. 2024 · Int J Epidemiology</a></td>
+        <td>UK Biobank 83,013명·가속도계·7년 추적: 기립 시간은 심혈관질환 위험 감소와 무관, 하루 2시간+ 기립은 기립성 순환기 질환 위험 증가와 연관. <strong>글의 앵커.</strong></td></tr>
+      <tr><td>③ 오래 서기 자체의 비용</td>
+        <td><a href="https://pubmed.ncbi.nlm.nih.gov/25041875/">Waters &amp; Dick 2015 · Rehabil Nurs (NIOSH)</a></td>
+        <td>장시간 기립 ↔ 요통·다리 통증·정맥 부전·피로 연관.</td></tr>
+      <tr><td>④ 교대·움직임이 효과 지점</td>
+        <td><a href="https://research.monash.edu/en/publications/alternating-bouts-of-sitting-and-standing-attenuate-postprandial-/">Thorp et al. 2014 · Med Sci Sports Exerc</a> · <a href="https://diabetesjournals.org/care/article/39/1/130/31522/Breaking-Up-Prolonged-Sitting-With-Standing-or">Henson et al. 2016 · Diabetes Care</a></td>
+        <td>30분 앉기↔서기 교대로 식후 혈당 ~11%↓(과체중 사무직, 업무 성과 저하 없음). 정적 서기보다 짧은 걷기 휴식이 대사 지표에 더 효과적. 결론부에 기존 science 인용(20–30분마다 5분 움직임, Ekelund 2016) 재사용.</td></tr>
+    </table>
+    <div class="callout">
+      <strong>프레이밍 주의 (인용 규칙)</strong>
+      <ul>
+        <li>Ahmadi 연구는 관찰 코호트 → 인과 단정 금지, "연관됐다"로만. 위험 증가는 "하루 2시간+ <em>정적</em> 기립" 맥락 명시.</li>
+        <li>논지는 "스탠딩 데스크 무용론"이 <strong>아님</strong> — "서기=건강 등식이 틀렸고, 가치는 전환에 있다". 좌식 감소 효과는 인정하고 시작해야 1호 글과 같은 신뢰 톤 유지.</li>
+      </ul>
+    </div>
+  </section>
+
+  <h2>3. 백로그 (후보) <span class="badge idea">💡 우선순위순</span></h2>
+  <section class="card">
+    <table>
+      <tr><th>주제</th><th>타깃 검색어</th><th>메모</th></tr>
+      <tr>
+        <td><strong>몇 분마다 일어나야 할까 — 과학이 말하는 최적 휴식 주기</strong></td>
+        <td>오래 앉아있으면 / 스트레칭 주기 / 얼마나 자주 일어나야</td>
+        <td>제품 핵심 기능(알림 주기)과 직결. science 페이지에 이미 검증된 인용(20–30분/5분, Ekelund 60–75분, 프롬프트 RCT) 재사용 → <strong>새 출처 검증 불필요, 가장 빨리 쓸 수 있음.</strong> 준비 시간이 없을 때 1순위.</td>
+      </tr>
+      <tr>
+        <td><strong>자세교정밴드, 효과 있을까</strong></td>
+        <td>자세교정밴드 효과 / 자세교정기 추천</td>
+        <td>구매 의도 키워드 + 마이스버스팅. 결론(착용 교정 &lt; 리마인더·움직임)이 제품으로 연결. 단, 경쟁 제품 카테고리라 표현 신중 + 출처 신규 검증 필요.</td>
+      </tr>
+      <tr>
+        <td><strong>개발자 목·어깨 통증 루틴</strong></td>
+        <td>개발자 목통증 / 프로그래머 거북목</td>
+        <td>비치헤드(개발자·프라이버시) 직격. 단 정적 turtle-neck-app 페이지와 부분 중복 → 각도 차별화 필요(통증 대응 루틴 vs 앱 소개).</td>
+      </tr>
+    </table>
+    <p class="small">기각/보류: 목·거북목 스트레칭(검색량 크지만 SERP가 유튜브·병원 블로그 지배), 재택 홈오피스 셋업(desk-posture·모니터 높이와 중복), 점심 후 졸림(수요 약함).</p>
+  </section>
+
+  <h2>4. 키워드 커버리지 맵 (중복 방지)</h2>
+  <section class="card">
+    <table>
+      <tr><th>키워드 영역</th><th>담당 자산</th></tr>
+      <tr><td>자세 교정 앱 (우산 키워드)</td><td>메인 index.html title/meta</td></tr>
+      <tr><td>거북목 교정 앱</td><td>정적 <a href="https://barosit.com/turtle-neck-app">/turtle-neck-app</a> (ko/en/ja)</td></tr>
+      <tr><td>재택근무·사무직 책상 자세</td><td>정적 <a href="https://barosit.com/desk-posture">/desk-posture</a> (ko/en/ja)</td></tr>
+      <tr><td>웹캠 자세 감지·온디바이스</td><td>정적 <a href="https://barosit.com/webcam-posture">/webcam-posture</a> (ko/en/ja)</td></tr>
+      <tr><td>자세 과학 근거 (허브)</td><td>정적 <a href="https://barosit.com/science">/science</a> (ko/en/ja)</td></tr>
+      <tr><td>사용법·시작 가이드</td><td>정적 <a href="https://barosit.com/guide">/guide</a> (ko만)</td></tr>
+      <tr><td>바른 자세 통념·자세와 통증</td><td>블로그 1호 (ko/en/ja)</td></tr>
+      <tr><td>모니터 높이</td><td>블로그 2호 (ko/en/ja)</td></tr>
+      <tr><td>스탠딩 데스크 효과</td><td>블로그 3호 (ko/en/ja, 발행됨)</td></tr>
+    </table>
+  </section>
+
+  <h2>5. 글 작성 체크리스트 (매 글 공통)</h2>
+  <section class="card">
+    <ul>
+      <li>☐ 출처 실존·내용 일치 검증 (docs/posture-evidence-and-reflection.md 인용 규칙 — <strong>PRI·"27kg 하중" 류 미검증 주장 금지</strong>)</li>
+      <li>☐ 포맷: 번호 섹션 → BaroSit 연결 + barosit.com CTA → /science 링크 → 출처 목록 → "의학적 조언 아님" 고지</li>
+      <li>☐ ko 시드 마이그레이션 (고정 UUID, replica 트리거 우회, ON CONFLICT DO NOTHING)</li>
+      <li>☐ en/ja 시드 — 제목은 직역 대신 언어별 실검색어 반영, 같은 translation_group_id</li>
+      <li>☐ 배포 후 prod 확인: <code>/community/p/&lt;id&gt;</code> SSR 메타 + community-sitemap.xml 포함 여부</li>
+      <li>☐ GSC·네이버 수집 요청 (clean URL)</li>
+    </ul>
+    <div class="callout ok">전략 상위 문서: <code>docs/마케팅전략.html</code> (§9 커뮤니티 SEO 구조) · 근거 규칙: <code>docs/posture-evidence-and-reflection.md</code></div>
+  </section>
+</main>
+</body>
+</html>
