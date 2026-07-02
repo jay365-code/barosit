@@ -170,7 +170,7 @@
     "title": "App",
     "confirm": "Click again to quit",
     "button": "Quit app completely",
-    "hint": "The X button on the main window also quits the app completely. To keep detection running with the window out of the way, minimize it — it switches to widget mode (mini bar)."
+    "hint": "The X button on the main window also quits the app completely."
   },
   "desktopApp": {
     "title": "Desktop app",
