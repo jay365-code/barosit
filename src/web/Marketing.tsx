@@ -5129,9 +5129,35 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
 // ───────── Download ─────────
 
 function Download({ os = "mac" }: { os?: "mac" | "win" }) {
-  const { t } = useTranslation("marketing");
+  const { t, i18n } = useTranslation("marketing");
   const { user } = useAuth();
   const [userPlan, setUserPlan] = useState<"free" | "pro">("free");
+  // 다운로드 페이지 "최신 빌드" 카드 = 이 버전의 실제 릴리스 노트(웹 #/changelog 와 동일 소스).
+  // releases 테이블에서 현재 버전(vX.Y.Z)을 찾아 표시하고, 없으면 정적 기능 목록으로 폴백.
+  const [relNotes, setRelNotes] = useState<string | null>(null);
+
+  useEffect(() => {
+    // 릴리스 노트는 한국어 단일 저장 → 한국어 UI 에서만 changelog 를 연동한다.
+    // (en/ja 는 로컬라이즈된 정적 기능 목록 유지 — 외국어 방문자에게 한국어 노트를 노출하지 않음)
+    if (!i18n.language?.startsWith("ko")) {
+      setRelNotes(null);
+      return;
+    }
+    const fetchNotes = async () => {
+      const ver = import.meta.env.PACKAGE_VERSION || "0.1.8";
+      try {
+        const { data } = await supabase
+          .from("releases")
+          .select("content")
+          .eq("version", `v${ver}`)
+          .maybeSingle();
+        if (data?.content) setRelNotes(data.content as string);
+      } catch {
+        /* 릴리스 조회 실패 시 정적 기능 목록으로 폴백 */
+      }
+    };
+    fetchNotes();
+  }, [i18n.language]);
 
   useEffect(() => {
     const checkPlan = async () => {
@@ -5391,20 +5417,29 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
         </div>
 
         <MiniCard title={t("downloadPage.latestBuild", { ver: currentVer })} icon="sparkle">
-          <ul
-            style={{
-              fontSize: 13,
-              color: "var(--b-fg-2)",
-              paddingLeft: 18,
-              margin: 0,
-              lineHeight: 1.8,
-            }}
-          >
-            <li>{t("downloadPage.feat1")}</li>
-            <li>{t("downloadPage.feat2")}</li>
-            <li>{t("downloadPage.feat3")}</li>
-            <li>{t("downloadPage.feat4")}</li>
-          </ul>
+          {relNotes ? (
+            <div
+              className="b-legal-body"
+              style={{ fontSize: 13, lineHeight: 1.7, color: "var(--b-fg-2)" }}
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{relNotes}</ReactMarkdown>
+            </div>
+          ) : (
+            <ul
+              style={{
+                fontSize: 13,
+                color: "var(--b-fg-2)",
+                paddingLeft: 18,
+                margin: 0,
+                lineHeight: 1.8,
+              }}
+            >
+              <li>{t("downloadPage.feat1")}</li>
+              <li>{t("downloadPage.feat2")}</li>
+              <li>{t("downloadPage.feat3")}</li>
+              <li>{t("downloadPage.feat4")}</li>
+            </ul>
+          )}
           <a
             style={{
               display: "inline-flex",
