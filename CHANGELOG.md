@@ -8,13 +8,27 @@
 - 한 항목 = 사용자가 체감하는 변화 한 문장. 내부 리팩토링·빌드·문서·테스트 변경은 쓰지 않는다.
 - 기술 용어(세그멘터·훅·마이그레이션 등) 금지. 보안 수정은 "보안 개선"으로 뭉뚱그린다.
 - 가격·출시일·법적 약속 금지.
-- 각 버전 마지막에 *(en)* 한 줄 영어 요약.
+
+포맷(다국어 ko+en, v0.9.5~):
+- 각 버전 섹션은 "**한국어**" 블록과 "**English**" 블록으로 나눠 같은 내용을 두 언어로 적는다.
+  한국어는 웹/앱의 한국어 UI, English 는 그 외 언어(en/ja)에 노출된다.
+
+  ## vX.Y.Z — YYYY-MM-DD
+
+  **한국어**
+
+  - 변화 1
+
+  **English**
+
+  - Change 1
 
 파이프라인(자동):
-- 태그 vX.Y.Z 푸시 시 CI 가 "## vX.Y.Z" 섹션을 추출해 GitHub Release 본문으로 게시한다.
-  섹션이 없으면 릴리스가 실패한다. → 새 버전 태그 전에 반드시 이 파일에 섹션을 추가할 것.
+- 태그 vX.Y.Z 푸시 시 CI 가 "## vX.Y.Z" 섹션을 추출(한국어/영어 블록 분리)해 GitHub Release 본문·
+  releases 테이블(content/content_en)로 게시한다. 섹션이 없으면 릴리스가 실패한다.
 - Release 본문은 앱 업데이트 배너(latest.json notes)와 웹 업데이트 내역(#/changelog, releases 테이블)에 전파된다.
-- 초안 생성: GitHub Actions "Prepare Release Notes" 수동 실행 → Ethan 이 커밋 로그를 요약해 PR 생성.
+- 초안 생성: GitHub Actions "Prepare Release Notes" 수동 실행 → Ethan 이 커밋 로그를 ko/en 으로 요약해 PR 생성.
+- (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
 ## v0.9.4 — 2026-07-03

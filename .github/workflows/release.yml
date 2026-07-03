@@ -22,6 +22,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       body: ${{ steps.extract.outputs.body }}
+      body_en: ${{ steps.extract.outputs.body_en }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,21 +35,36 @@ jobs:
           if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::릴리스는 vX.Y.Z 태그에서만 실행하세요 (현재 ref: $TAG)."; exit 1
           fi
-          BODY=$(awk -v ver="$TAG" '
+          # 해당 버전 섹션 전체 추출
+          SECTION=$(awk -v ver="$TAG" '
             $1=="##" && $2==ver { flag=1; next }
             $1=="##" && flag    { exit }
             flag                { print }
-          ' CHANGELOG.md | sed -e '/./,$!d' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
-          if [ -z "$BODY" ]; then
+          ' CHANGELOG.md)
+          if [ -z "$SECTION" ]; then
             echo "::error::CHANGELOG.md 에 '## $TAG' 섹션이 없습니다. prepare-release.yml 로 초안 PR 을 만들어 머지한 뒤 태그를 다시 푸시하세요."
             exit 1
           fi
+          # 앞뒤 공백/빈줄 정리 함수
+          trim() { printf '%s\n' "$1" | sed -e '/./,$!d' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'; }
+          # 다국어 블록 분리: **한국어** / **English** 소제목 기준. 구 포맷(단일 한국어)은 폴백.
+          if printf '%s\n' "$SECTION" | grep -q '^\*\*English\*\*'; then
+            BODY=$(printf '%s\n' "$SECTION" | awk '/^\*\*한국어\*\*/{k=1;next} /^\*\*English\*\*/{k=0} k')
+            BODY_EN=$(printf '%s\n' "$SECTION" | awk '/^\*\*English\*\*/{e=1;next} e')
+          else
+            BODY="$SECTION"
+            BODY_EN=""
+          fi
+          BODY=$(trim "$BODY"); BODY_EN=$(trim "$BODY_EN")
+          if [ -z "$BODY" ]; then
+            echo "::error::'## $TAG' 한국어 본문이 비어 있습니다."; exit 1
+          fi
           {
-            echo "body<<CHANGELOG_BODY_EOF"
-            echo "$BODY"
-            echo "CHANGELOG_BODY_EOF"
+            echo "body<<CHANGELOG_BODY_EOF"; echo "$BODY"; echo "CHANGELOG_BODY_EOF"
+            echo "body_en<<CHANGELOG_BODY_EN_EOF"; echo "$BODY_EN"; echo "CHANGELOG_BODY_EN_EOF"
           } >> "$GITHUB_OUTPUT"
-          echo "--- Release body ---"; echo "$BODY"
+          echo "--- Release body (ko) ---"; echo "$BODY"
+          echo "--- Release body (en) ---"; echo "$BODY_EN"
 
   release:
     needs: notes
@@ -168,6 +184,7 @@ jobs:
         env:
           SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           BODY: ${{ needs.notes.outputs.body }}
+          BODY_EN: ${{ needs.notes.outputs.body_en }}
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
@@ -178,9 +195,9 @@ jobs:
             exit 0
           fi
           SUPABASE_URL="https://kllcnllkcewnutxodwhx.supabase.co"
-          jq -n --arg version "$TAG" --arg content "$BODY" \
+          jq -n --arg version "$TAG" --arg content "$BODY" --arg content_en "$BODY_EN" \
             --arg released_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{version: $version, content: $content, released_at: $released_at, updated_at: $released_at}' \
+            '{version: $version, content: $content, content_en: (if $content_en == "" then null else $content_en end), released_at: $released_at, updated_at: $released_at}' \
             > /tmp/release.json
           # return=representation 으로 upsert 결과 행을 돌려받아 실제 기록 여부를 검증한다.
           HTTP=$(curl -sS -o /tmp/out.json -w "%{http_code}" \

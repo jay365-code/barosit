@@ -300,9 +300,6 @@ function Footer() {
           <a href="#/changelog" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.changelog")}
           </a>
-          <a href="#/roadmap" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
-            {t("footer.roadmap")}
-          </a>
           <a href="/guide.html" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.guide")}
           </a>
@@ -1848,7 +1845,9 @@ function ChangelogPage() {
                       },
                     }}
                   >
-                    {release.content}
+                    {i18n.language?.startsWith("ko")
+                      ? release.content
+                      : release.content_en || release.content}
                   </ReactMarkdown>
                 </div>
               </div>
@@ -5137,23 +5136,24 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
   const [relNotes, setRelNotes] = useState<string | null>(null);
 
   useEffect(() => {
-    // 릴리스 노트는 한국어 단일 저장 → 한국어 UI 에서만 changelog 를 연동한다.
-    // (en/ja 는 로컬라이즈된 정적 기능 목록 유지 — 외국어 방문자에게 한국어 노트를 노출하지 않음)
-    if (!i18n.language?.startsWith("ko")) {
-      setRelNotes(null);
-      return;
-    }
+    // 릴리스 노트는 한국어(content) + 영어(content_en)로 저장 → UI 언어로 선택.
+    // 한국어 UI = content, 그 외(en/ja) = content_en. 해당 언어 노트가 없으면
+    // null 로 두어 로컬라이즈된 정적 기능 목록으로 폴백한다.
+    const isKo = i18n.language?.startsWith("ko");
     const fetchNotes = async () => {
       const ver = import.meta.env.PACKAGE_VERSION || "0.1.8";
       try {
+        // select("*") 로 조회 → content_en 컬럼이 아직 없어도(마이그레이션 전) 에러 없이
+        // undefined 로 폴백. 배포 순서 의존성 제거.
         const { data } = await supabase
           .from("releases")
-          .select("content")
+          .select("*")
           .eq("version", `v${ver}`)
           .maybeSingle();
-        if (data?.content) setRelNotes(data.content as string);
+        const notes = isKo ? data?.content : data?.content_en;
+        setRelNotes((notes as string) || null);
       } catch {
-        /* 릴리스 조회 실패 시 정적 기능 목록으로 폴백 */
+        setRelNotes(null);
       }
     };
     fetchNotes();
