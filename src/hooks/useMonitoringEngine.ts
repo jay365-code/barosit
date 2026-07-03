@@ -26,6 +26,7 @@ import {
   type BreakConfig,
   type BreakFiredEvent,
 } from "../pose/breakTracker";
+import { PresenceDebouncer } from "../pose/presenceStabilizer";
 import {
   CumulativeLoadTracker,
   CUMULATIVE_CONFIG_CHANGED_EVENT,
@@ -193,13 +194,20 @@ export function useMonitoringEngine(opts: {
   const REST_MIN_HOLD_MS = 4000;
   const violationSmootherRef = useRef(new ViolationSmoother());
   const stretchTrackerRef = useRef(new StretchTracker());
-  const breakTrackerRef = useRef(new BreakTracker());
+  // persist: reload(Cmd+R·메모리 회수·watchdog) 생존 + 메인/위젯 두 엔진이
+  // localStorage 스냅샷을 이어받아 단일 착석 시계처럼 동작.
+  const breakTrackerRef = useRef(new BreakTracker({ persist: true }));
+  // 트래커 공용 안정화 presence — 순간 미검출(어깨 visibility 진동)이 변동성
+  // 윈도우·준수 추적을 오염시키지 않게 디바운스. 화면 표시는 기존 8초 grace.
+  const presenceDebouncerRef = useRef(new PresenceDebouncer());
   const breakConfigRef = useRef<BreakConfig>(loadBreakConfig());
   const cumulativeTrackerRef = useRef(new CumulativeLoadTracker());
   const cumulativeConfigRef = useRef<CumulativeLoadConfig>(loadCumulativeConfig());
   const variabilityTrackerRef = useRef(new VariabilityTracker());
   const variabilityConfigRef = useRef<VariabilityConfig>(loadVariabilityConfig());
   const complianceTrackerRef = useRef(new ComplianceTracker());
+  // 변동성 진단 로그 throttle — 정체 알림 미발사 원인 판별용(윈도우 미충전 vs 임계 미달).
+  const lastVariabilityLogAtRef = useRef(0);
   // 직전 프레임의 "움직이는 중" 신호(변동성 movementIndex ≥ 임계). breakTracker 의
   // 1분 움직임 목표에 착석 중 활발한 움직임도 기여시키기 위해 캐리(1프레임 지연 무해).
   const prevMovingNowRef = useRef(false);
@@ -335,6 +343,7 @@ export function useMonitoringEngine(opts: {
       violationSmootherRef.current.reset();
       stretchTrackerRef.current.reset();
       breakTrackerRef.current.reset();
+      presenceDebouncerRef.current.reset();
       cumulativeTrackerRef.current.reset();
       variabilityTrackerRef.current.reset();
       complianceTrackerRef.current.reset();
@@ -635,13 +644,33 @@ export function useMonitoringEngine(opts: {
         ...variabilityConfigRef.current,
         cooldownMinutes: variabilityConfigRef.current.cooldownMinutes * backoff,
       };
-      const variabilityResult = variabilityTrackerRef.current.push(
+      // 안정화 presence — raw personPresent 는 어깨 visibility 0.7 경계에서
+      // 프레임 단위로 진동한다. 그대로 쓰면 변동성 10분 윈도우가 노이즈 1프레임에
+      // 통째로 리셋되고(정체 알림 발사 불가), 준수 추적이 가짜 부재를 "휴식함"으로
+      // 오인한다. breakTracker 는 자체 유예 버퍼가 있어 raw 를 그대로 받는다.
+      const stablePresent = presenceDebouncerRef.current.update(
         Date.now(),
         result.personPresent,
+      );
+      const variabilityResult = variabilityTrackerRef.current.push(
+        Date.now(),
+        stablePresent,
         result.isResting,
         variabilityMetrics,
         adjustedVariabilityConfig,
       );
+      // 진단 — filled=false 가 지속되면 윈도우 연속성 문제, filled=true 인데
+      // index 가 늘 임계 위면 임계(기본 0.6)가 실사용 대비 엄격한 것.
+      if (Date.now() - lastVariabilityLogAtRef.current >= 60_000) {
+        lastVariabilityLogAtRef.current = Date.now();
+        const vc = variabilityResult.status.components;
+        const parts = vc
+          ? ` (sy=${vc.sy.toFixed(2)} ny=${vc.ny.toFixed(2)} nz=${vc.nz.toFixed(2)} p=${vc.p.toFixed(2)})`
+          : "";
+        console.info(
+          `[barosit:variability] index=${variabilityResult.status.movementIndex.toFixed(2)}${parts} filled=${variabilityResult.status.windowFilled} threshold=${adjustedVariabilityConfig.threshold}`,
+        );
+      }
       if (variabilityResult.fired) {
         // 상호 쿨다운 — 휴식 넛지가 대기 중이거나 최근에 떴으면 변동성 억제(휴식 우선).
         // 둘 다 "움직여라"라 근접 발사 시 중복 잔소리·compliance 덮어쓰기를 막는다.
@@ -658,14 +687,14 @@ export function useMonitoringEngine(opts: {
       // 사용자가 이미 휴식을 취했으면 보류 폐기. 좋은 순간이 없어도 maxHold 후 발사.
       const movedNow =
         variabilityResult.status.movementIndex >=
-        variabilityConfigRef.current.threshold;
+        variabilityConfigRef.current.movementThreshold;
       // 다음 프레임 breakTracker 목표 누적에 쓰도록 캐리.
       prevMovingNowRef.current = movedNow;
       const tookBreakNow =
         !!stretchFired ||
         !!result.isStanding ||
         result.isResting ||
-        !result.personPresent;
+        !stablePresent;
       if (tookBreakNow) {
         breakJitaiGateRef.current.reset();
       } else if (breakJitaiGateRef.current.isPending) {
@@ -695,14 +724,10 @@ export function useMonitoringEngine(opts: {
       const complianceResult = complianceTrackerRef.current.push(
         Date.now(),
         {
-          tookBreak:
-            !!stretchFired ||
-            !!result.isStanding ||
-            result.isResting ||
-            !result.personPresent,
+          tookBreak: tookBreakNow,
           movedSlightly:
             variabilityResult.status.movementIndex >=
-            variabilityConfigRef.current.threshold,
+            variabilityConfigRef.current.movementThreshold,
         },
         DEFAULT_COMPLIANCE_CONFIG,
       );
@@ -775,7 +800,7 @@ export function useMonitoringEngine(opts: {
         thresholds,
         computeMovementRelaxation(
           variabilityResult.status.movementIndex,
-          variabilityConfigRef.current.threshold,
+          variabilityConfigRef.current.movementThreshold,
         ),
       );
       const fired = result.isResting

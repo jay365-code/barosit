@@ -22,9 +22,19 @@ export interface VariabilityConfig {
   enabled: boolean;
   /** 롤링 윈도우 길이 (분). 기본 10. */
   windowMinutes: number;
-  /** Movement index 임계 (이 값 미만이면 정체로 판정).
-   *  메트릭 4개의 정규화 표준편차 합산이라 0~수십 범위. 기본 0.6. */
+  /**
+   * 정체 임계 — movement index 가 이 값 **미만**이면 "한 자세 고정"으로 판정.
+   * 실측 캘리브레이션(2026-07-02, MacBook 내장캠): 정지 착석 ≈ 3.4~4.3,
+   * 의도적 움직임 ≈ 7.4~7.9 (재조정 가중치 기준). 기본 5.0 = 정지 위·움직임 아래.
+   */
   threshold: number;
+  /**
+   * 움직임 인정 임계 — index 가 이 값 **이상**이어야 "유의미한 움직임"으로 인정
+   * (휴식 목표 기여·준수 판정·JITAI 방해가능·위반 완화). 정체 임계와 분리한 이유:
+   * 한 선을 공유하면 정지 노이즈가 "운동"으로 인정되어 휴식 목표가 자가 완료되고
+   * 블러 에스컬레이션에 도달 불가능해진다(실측으로 확인된 회귀). 기본 6.5.
+   */
+  movementThreshold: number;
   /** 재발사 쿨다운 (분). 기본 15. */
   cooldownMinutes: number;
 }
@@ -32,7 +42,8 @@ export interface VariabilityConfig {
 export const DEFAULT_VARIABILITY_CONFIG: VariabilityConfig = {
   enabled: true,
   windowMinutes: 10,
-  threshold: 0.6,
+  threshold: 5.0,
+  movementThreshold: 6.5,
   cooldownMinutes: 15,
 };
 
@@ -41,6 +52,8 @@ export interface VariabilityStatus {
   movementIndex: number;
   /** 윈도우가 채워졌는지 (false 면 아직 판정 안 함). */
   windowFilled: boolean;
+  /** 가중치 적용 후 성분별 기여값 — 임계 캘리브레이션 진단용. */
+  components?: { sy: number; ny: number; nz: number; p: number };
 }
 
 export interface VariabilityFiredEvent {
@@ -142,13 +155,19 @@ export class VariabilityTracker {
     const p = stdev(this.samples.map((s) => s.p));
 
     // 정규화 — 각 메트릭은 다른 스케일이므로 sensitivity 조정.
-    // sy/ny/nz 는 정규화 좌표(0~1)이라 stdev 가 작음. pitch 는 rad (0~수십).
-    // 가중치는 직관적 — 큰 움직임(어깨/머리)에 비중.
+    // 가중치는 실측 분리도 기반(2026-07-02, 성분 진단 로그): 정지↔움직임 분리가
+    // 좋은 위치 신호(sy ×2.8, ny ×2.1)에 비중을 두고, 추정 노이즈가 지배해
+    // 분리가 없는 축(nz ×1.2 — MediaPipe z 는 원래 불안정 + face fallback 시 0,
+    // pitch ×1.7)는 대폭 축소. 이전 가중치(nz 40/p 50)에서는 정지 상태 index 의
+    // 78%가 노이즈 축에서 나와 정체/움직임 판별이 사실상 불가능했다.
+    const components = {
+      sy: sy * 100, // 어깨 Y 변동 — 자세 변화 핵심 지표
+      ny: ny * 80, // 코 Y — 머리 위치 변화
+      nz: nz * 5, // 코 Z — 노이즈 지배 축, 진단 가시성용 최소 가중치만
+      p: p * 20, // pitch — 신호 약간, 노이즈 절반
+    };
     const movementIndex =
-      sy * 100 + // 어깨 Y 변동 — 자세 변화 핵심 지표
-      ny * 80 + // 코 Y — 머리 위치 변화
-      nz * 40 + // 코 Z — 앞뒤 변화 (face fallback 시 0)
-      p * 50; // pitch — 머리 기울임 변화
+      components.sy + components.ny + components.nz + components.p;
 
     let fired: VariabilityFiredEvent | null = null;
     if (
@@ -164,7 +183,7 @@ export class VariabilityTracker {
     }
 
     return {
-      status: { movementIndex, windowFilled: true },
+      status: { movementIndex, windowFilled: true, components },
       fired,
     };
   }
@@ -187,10 +206,20 @@ export function loadVariabilityConfig(): VariabilityConfig {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return { ...DEFAULT_VARIABILITY_CONFIG };
   try {
-    return {
-      ...DEFAULT_VARIABILITY_CONFIG,
-      ...(JSON.parse(raw) as Partial<VariabilityConfig>),
-    };
+    const parsed = JSON.parse(raw) as Partial<VariabilityConfig>;
+    // 마이그레이션 — 구 스케일 임계(기본 0.6, 노이즈 축 가중치 기준)가 저장돼
+    // 있으면 폐기. 재조정된 index 스케일(정지 ≈ 3~4)에서 2 미만 임계는 도달
+    // 불가능한 값이라 구 설정으로 확정할 수 있다.
+    if (typeof parsed.threshold === "number" && parsed.threshold < 2) {
+      delete parsed.threshold;
+    }
+    if (
+      typeof parsed.movementThreshold === "number" &&
+      parsed.movementThreshold < 2
+    ) {
+      delete parsed.movementThreshold;
+    }
+    return { ...DEFAULT_VARIABILITY_CONFIG, ...parsed };
   } catch {
     return { ...DEFAULT_VARIABILITY_CONFIG };
   }
