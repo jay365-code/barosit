@@ -17,6 +17,14 @@
 - 초안 생성: GitHub Actions "Prepare Release Notes" 수동 실행 → Ethan 이 커밋 로그를 요약해 PR 생성.
 -->
 
+## v0.9.4 — 2026-07-03
+
+- 자리를 비운 시간이 실제와 다르게 기록되던 문제를 수정했습니다.
+- 휴식 알림이 떴을 때 응답할 수 있는 시간이 3분으로 늘어나 알림을 놓치기 어려워졌습니다.
+- '몇 분마다 일어나야 할까 — 최적 휴식 주기' 아티클이 새롭게 추가되었습니다.
+
+*(en)* Away-time tracking is now accurate, break-response window extended to 3 min, and a new article on optimal break intervals is live.
+
 ## v0.9.3 — 2026-07-03
 
 - 미니바의 연속 착석 시간이 실제보다 짧게 계산되던 문제를 수정했습니다. 새로고침이나 창 전환에도 시간이 이어집니다.
