@@ -1697,9 +1697,27 @@ function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
 
 function ChangelogPage() {
   const { t, i18n } = useTranslation("marketing");
+  const { user } = useAuth();
   const [releases, setReleases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 관리자면 이 페이지에서 바로 업데이트 관리(편집)로 갈 수 있게 진입점을 노출한다.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user) { setIsAdmin(false); return; }
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!cancelled) setIsAdmin(!error && !!data?.is_admin);
+      } catch { if (!cancelled) setIsAdmin(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     const fetchReleases = async () => {
@@ -1767,6 +1785,28 @@ function ChangelogPage() {
         >
           {t("changelog.subtitle")}
         </p>
+
+        {isAdmin && (
+          <a
+            href="#/admin"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              marginBottom: 28,
+              padding: "8px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--b-line)",
+              background: "var(--b-surface)",
+              color: "var(--b-fg-2)",
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            {t("changelog.adminManage")} <Icon name="chev-r" size={12} />
+          </a>
+        )}
 
         {loading ? (
           <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--b-fg-3)", fontSize: 14 }}>
@@ -5128,36 +5168,9 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
 // ───────── Download ─────────
 
 function Download({ os = "mac" }: { os?: "mac" | "win" }) {
-  const { t, i18n } = useTranslation("marketing");
+  const { t } = useTranslation("marketing");
   const { user } = useAuth();
   const [userPlan, setUserPlan] = useState<"free" | "pro">("free");
-  // 다운로드 페이지 "최신 빌드" 카드 = 이 버전의 실제 릴리스 노트(웹 #/changelog 와 동일 소스).
-  // releases 테이블에서 현재 버전(vX.Y.Z)을 찾아 표시하고, 없으면 정적 기능 목록으로 폴백.
-  const [relNotes, setRelNotes] = useState<string | null>(null);
-
-  useEffect(() => {
-    // 릴리스 노트는 한국어(content) + 영어(content_en)로 저장 → UI 언어로 선택.
-    // 한국어 UI = content, 그 외(en/ja) = content_en. 해당 언어 노트가 없으면
-    // null 로 두어 로컬라이즈된 정적 기능 목록으로 폴백한다.
-    const isKo = i18n.language?.startsWith("ko");
-    const fetchNotes = async () => {
-      const ver = import.meta.env.PACKAGE_VERSION || "0.1.8";
-      try {
-        // select("*") 로 조회 → content_en 컬럼이 아직 없어도(마이그레이션 전) 에러 없이
-        // undefined 로 폴백. 배포 순서 의존성 제거.
-        const { data } = await supabase
-          .from("releases")
-          .select("*")
-          .eq("version", `v${ver}`)
-          .maybeSingle();
-        const notes = isKo ? data?.content : data?.content_en;
-        setRelNotes((notes as string) || null);
-      } catch {
-        setRelNotes(null);
-      }
-    };
-    fetchNotes();
-  }, [i18n.language]);
 
   useEffect(() => {
     const checkPlan = async () => {
@@ -5416,42 +5429,24 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
           </MiniCard>
         </div>
 
-        <MiniCard title={t("downloadPage.latestBuild", { ver: currentVer })} icon="sparkle">
-          {relNotes ? (
-            <div
-              className="b-legal-body"
-              style={{ fontSize: 13, lineHeight: 1.7, color: "var(--b-fg-2)" }}
-            >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{relNotes}</ReactMarkdown>
-            </div>
-          ) : (
-            <ul
-              style={{
-                fontSize: 13,
-                color: "var(--b-fg-2)",
-                paddingLeft: 18,
-                margin: 0,
-                lineHeight: 1.8,
-              }}
-            >
-              <li>{t("downloadPage.feat1")}</li>
-              <li>{t("downloadPage.feat2")}</li>
-              <li>{t("downloadPage.feat3")}</li>
-              <li>{t("downloadPage.feat4")}</li>
-            </ul>
-          )}
+        <MiniCard title={t("downloadPage.updatesTitle")} icon="sparkle">
+          <p style={{ fontSize: 13, color: "var(--b-fg-2)", margin: 0, lineHeight: 1.7 }}>
+            {t("downloadPage.updatesDesc")}
+          </p>
           <a
+            href="#/changelog"
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 4,
               marginTop: 12,
-              fontSize: 12,
+              fontSize: 13,
               color: "var(--b-sig)",
               fontWeight: 600,
+              textDecoration: "none",
             }}
           >
-            {t("downloadPage.releaseNotes")} <Icon name="chev-r" size={11} />
+            {t("downloadPage.releaseNotes")} <Icon name="chev-r" size={12} />
           </a>
         </MiniCard>
 

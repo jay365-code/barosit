@@ -271,6 +271,8 @@
     "installStep3": "Allow camera access on first launch",
     "guideLink": "Installed? 5-minute getting-started guide →",
     "latestBuild": "{{ver}} — latest build",
+    "updatesTitle": "What's new",
+    "updatesDesc": "See what changed in the latest version.",
     "feat1": "Detects 7 posture types (forward head · chin resting · shoulder tilt · slouching · screen distance · shoulder asymmetry · head tilt)",
     "feat2": "0–100 score system + stretch bonus",
     "feat3": "Widget mode (drag · position saved)",
@@ -409,6 +411,7 @@
   "changelog": {
     "title": "Announcements & changelog",
     "subtitle": "See BaroSit's latest updates and feature changes at a glance.",
+    "adminManage": "Admin · Manage updates",
     "loading": "Loading the changelog...",
     "empty": "No updates have been posted yet.",
     "error": "An error occurred while loading the release notes. (Please make sure the 'releases' table exists in the database.)",

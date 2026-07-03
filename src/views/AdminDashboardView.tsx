@@ -139,6 +139,7 @@ interface ReleaseData {
   version: string;
   released_at: string;
   content: string;
+  content_en?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -179,6 +180,7 @@ export function AdminDashboardView({ onClose }: Props) {
   const [releaseVersion, setReleaseVersion] = useState("");
   const [releaseReleasedAt, setReleaseReleasedAt] = useState("");
   const [releaseContent, setReleaseContent] = useState("");
+  const [releaseContentEn, setReleaseContentEn] = useState("");
   const [savingRelease, setSavingRelease] = useState(false);
   const [releaseError, setReleaseError] = useState<string | null>(null);
   
@@ -695,6 +697,7 @@ export function AdminDashboardView({ onClose }: Props) {
         version: releaseVersion.trim(),
         released_at: releaseReleasedAt ? new Date(releaseReleasedAt).toISOString() : new Date().toISOString(),
         content: releaseContent,
+        content_en: releaseContentEn.trim() || null,
         updated_at: new Date().toISOString()
       };
 
@@ -754,6 +757,7 @@ export function AdminDashboardView({ onClose }: Props) {
     setReleaseVersion(rel.version);
     setReleaseReleasedAt(getLocalDateTimeString(new Date(rel.released_at)));
     setReleaseContent(rel.content);
+    setReleaseContentEn(rel.content_en || "");
     setReleaseError(null);
   };
 
@@ -762,6 +766,7 @@ export function AdminDashboardView({ onClose }: Props) {
     setReleaseVersion("");
     setReleaseReleasedAt(getLocalDateTimeString());
     setReleaseContent("");
+    setReleaseContentEn("");
     setReleaseError(null);
   };
 
@@ -2869,13 +2874,36 @@ export function AdminDashboardView({ onClose }: Props) {
                         </div>
 
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.7 }}>릴리즈 노트 내용 (마크다운 지원) *</label>
+                          <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.7 }}>릴리즈 노트 — 한국어 (마크다운) *</label>
                           <textarea
                             value={releaseContent}
                             onChange={e => setReleaseContent(e.target.value)}
                             placeholder="이번 릴리즈의 변경 사항을 마크다운 형식으로 작성해주세요.&#10;예:&#10;### 주요 변경 사항&#10;- 거북목 감지 성능 향상&#10;- 어드민 제어판 추가"
                             required
-                            rows={12}
+                            rows={10}
+                            style={{
+                              background: "rgba(255, 255, 255, 0.05)",
+                              border: "1px solid rgba(255, 255, 255, 0.1)",
+                              borderRadius: 8,
+                              padding: "12px 16px",
+                              color: "#fff",
+                              fontSize: 13,
+                              fontFamily: "monospace",
+                              lineHeight: 1.6,
+                              resize: "vertical",
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <label style={{ fontSize: 12, fontWeight: 600, opacity: 0.7 }}>
+                            릴리즈 노트 — English (마크다운, 선택 · 영어/일본어 UI 에 노출)
+                          </label>
+                          <textarea
+                            value={releaseContentEn}
+                            onChange={e => setReleaseContentEn(e.target.value)}
+                            placeholder="English release notes (optional). Shown on non-Korean UI. Leave empty to fall back to Korean on #/changelog."
+                            rows={10}
                             style={{
                               background: "rgba(255, 255, 255, 0.05)",
                               border: "1px solid rgba(255, 255, 255, 0.1)",
