@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>시작 가이드 — BaroSit 설치부터 첫 사용까지 | 사용법</title>
+    <meta
+      name="description"
+      content="BaroSit을 처음 쓰는 분을 위한 시작 가이드. 다운로드·설치, 카메라 배치, 기준 자세 잡기, 감지되는 6가지 자세, 알림에 반응하는 법까지 5분이면 준비 끝."
+    />
+    <link rel="canonical" href="https://barosit.com/guide" />
+    <link rel="alternate" hreflang="ko" href="https://barosit.com/guide" />
+    <link rel="alternate" hreflang="x-default" href="https://barosit.com/guide" />
+    <meta name="theme-color" content="#fafaf7" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="시작 가이드 — BaroSit 설치부터 첫 사용까지" />
+    <meta
+      property="og:description"
+      content="다운로드·설치, 카메라 배치, 기준 자세 잡기, 알림에 반응하는 법까지. 5분이면 준비 끝."
+    />
+    <meta property="og:url" content="https://barosit.com/guide" />
+    <meta property="og:site_name" content="BaroSit" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:image" content="https://barosit.com/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://barosit.com/og-image.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "BaroSit 시작하기",
+        "description": "BaroSit 설치부터 첫 자세 감지까지 준비하는 방법.",
+        "image": "https://barosit.com/og-image.png",
+        "inLanguage": "ko",
+        "step": [
+          { "@type": "HowToStep", "name": "앱 설치", "text": "barosit.com에서 내 OS(macOS·Windows)용 앱을 내려받아 설치합니다." },
+          { "@type": "HowToStep", "name": "카메라 배치와 권한", "text": "정면(모니터 위 웹캠)이든 측면(서브 모니터 위 노트북)이든 상반신이 잘 보이게 카메라를 두고 권한을 허용합니다. BaroSit은 두 배치 모두 잘 감지합니다." },
+          { "@type": "HowToStep", "name": "기준 자세 잡기", "text": "평소 자세로 5초간 가만히 있으면 나만의 기준 자세가 저장됩니다." },
+          { "@type": "HowToStep", "name": "알림에 반응하기", "text": "자세가 무너지면 부드러운 알림이 오고, 잠깐 움직이면 점수로 응원해 줍니다." },
+          { "@type": "HowToStep", "name": "설정 다듬기", "text": "알림 민감도·알림 방식·휴식 간격·프라이버시(실루엣 모드)·성능 모드는 설정에서 취향대로 조절할 수 있습니다." }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "웹캠 영상이 서버로 전송되나요?",
+            "acceptedAnswer": { "@type": "Answer", "text": "아니요. 자세 인식은 100% 이 컴퓨터 안에서만 처리되고 영상은 저장되지도, 외부로 나가지도 않습니다. 인터넷이 끊겨도 작동합니다." }
+          },
+          {
+            "@type": "Question",
+            "name": "카메라를 정면에 두어도 되나요?",
+            "acceptedAnswer": { "@type": "Answer", "text": "네. 정면(모니터 위 웹캠)·측면(서브 모니터 위 노트북) 어느 배치든 잘 감지합니다. 실제로 듀얼 모니터 환경에서 측면 각도로 쓰는 분들이 많아 두 각도 모두에 맞춰 만들어졌어요. 상반신이 화면에 잘 들어오고 조명이 충분하면 됩니다." }
+          },
+          {
+            "@type": "Question",
+            "name": "설치하지 않고 먼저 써볼 수 있나요?",
+            "acceptedAnswer": { "@type": "Answer", "text": "네. barosit.com에서 웹 브라우저만으로 바로 체험할 수 있습니다. 미니바·위젯 모드(메인 창을 최소화해도 미니바만 띄운 채 감지 지속)·시스템 알림 같은 기능은 데스크톱 앱에서 제공됩니다." }
+          },
+          {
+            "@type": "Question",
+            "name": "알림이 너무 자주 오거나 너무 안 와요.",
+            "acceptedAnswer": { "@type": "Answer", "text": "설정의 민감도를 조절하세요. 앉은 위치나 카메라를 바꿨다면 ‘기준 다시 잡기’로 재측정하는 것이 가장 정확합니다." }
+          }
+        ]
+      }
+    </script>
+    <style>
+      :root {
+        --bg: #fafaf7;
+        --surface: #ffffff;
+        --line: #e7e6df;
+        --fg-1: #1f2421;
+        --fg-2: #4a514c;
+        --fg-3: #6c7470;
+        --sig: #5f8d76;
+        --sig-deep: #3f6b54;
+        --sig-bg: #f1f4ef;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+          system-ui, sans-serif;
+        line-height: 1.7;
+        font-size: 17px;
+      }
+      .wrap { max-width: 760px; margin: 0 auto; padding: 56px 22px 96px; }
+      .eyebrow {
+        font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+        color: var(--sig); text-transform: uppercase; margin-bottom: 12px;
+      }
+      h1 { font-size: 34px; line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 16px; font-weight: 800; }
+      .intro { font-size: 18px; color: var(--fg-2); margin: 0 0 20px; }
+      .meta-row { font-size: 13px; color: var(--fg-3); margin: 0 0 36px; }
+      h2 {
+        font-size: 15px; font-weight: 700; letter-spacing: 0.02em;
+        color: var(--sig-deep); margin: 44px 0 16px; text-transform: uppercase;
+      }
+      .card {
+        padding: 22px; border-radius: 14px; background: var(--surface);
+        border: 1px solid var(--line); margin-bottom: 16px;
+      }
+      .step-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+      .num {
+        font-size: 13px; font-weight: 800; color: #fff; background: var(--sig);
+        min-width: 26px; height: 26px; border-radius: 8px; display: inline-flex;
+        align-items: center; justify-content: center; font-variant-numeric: tabular-nums;
+        flex: 0 0 auto; align-self: center;
+      }
+      .step-title { font-size: 18px; font-weight: 700; margin: 0; }
+      .claim { font-size: 15px; line-height: 1.65; margin: 0 0 6px; color: var(--fg-2); }
+      .claim strong { color: var(--fg-1); font-weight: 700; }
+      ul.tight { margin: 10px 0 0; padding-left: 20px; }
+      ul.tight li { font-size: 15px; line-height: 1.6; color: var(--fg-2); margin-bottom: 6px; }
+      .os { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+      .os-box { flex: 1 1 240px; padding: 16px; border-radius: 12px; background: var(--sig-bg); border: 1px solid var(--line); }
+      .os-box .os-name { font-size: 13px; font-weight: 700; color: var(--sig-deep); margin-bottom: 6px; }
+      .os-box p { font-size: 14px; line-height: 1.6; color: var(--fg-2); margin: 0; }
+      .postures { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+      .posture { font-size: 14px; padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); color: var(--fg-1); }
+      .posture b { display: block; font-weight: 700; margin-bottom: 2px; }
+      .posture span { font-size: 12.5px; color: var(--fg-3); }
+      .cta { display: inline-block; margin-top: 8px; padding: 12px 22px; border-radius: 12px; background: var(--sig-deep); color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; }
+      .cta:hover { background: #35583f; }
+      .privacy {
+        margin-top: 36px; padding: 22px; border-radius: 14px;
+        background: var(--sig-bg); border: 1px solid var(--line);
+        font-size: 15px; line-height: 1.7; color: var(--fg-2);
+      }
+      .privacy strong { color: var(--fg-1); }
+      details { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 4px 18px; margin-bottom: 10px; }
+      summary { font-size: 15.5px; font-weight: 600; cursor: pointer; padding: 14px 0; color: var(--fg-1); }
+      details p { font-size: 14.5px; color: var(--fg-2); margin: 0 0 14px; line-height: 1.65; }
+      .disclaimer { font-size: 12px; color: var(--fg-3); margin-top: 28px; }
+      .back { display: inline-block; margin-top: 22px; font-size: 14px; color: var(--sig-deep); text-decoration: none; font-weight: 600; }
+      footer { font-size: 13px; color: var(--fg-3); margin-top: 40px; }
+      a { color: var(--sig-deep); }
+      @media (max-width: 480px) { .postures { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <article class="wrap">
+      <div class="eyebrow">가이드 · GET STARTED</div>
+      <h1>BaroSit 시작하기</h1>
+      <p class="intro">
+        웹캠으로 앉은 자세를 살펴보고, 무너질 때 부드럽게 짚어주는 앱입니다.
+        설치부터 첫 감지까지 5분이면 충분해요. 순서대로 따라와 주세요.
+      </p>
+      <p class="meta-row">준비물: 웹캠(내장/외장) · 소요 시간 약 5분</p>
+
+      <h2>설치와 첫 설정</h2>
+
+      <div class="card">
+        <div class="step-head"><span class="num">1</span><p class="step-title">앱 내려받아 설치하기</p></div>
+        <p class="claim">
+          <a href="https://barosit.com/">barosit.com</a>에서 내 컴퓨터에 맞는 앱을 받으세요.
+          설치 없이 <strong>웹 브라우저로 먼저 체험</strong>하는 것도 가능합니다.
+        </p>
+        <div class="os">
+          <div class="os-box">
+            <div class="os-name">macOS</div>
+            <p>내려받은 <b>.dmg</b>를 열고 BaroSit을 <b>응용 프로그램</b> 폴더로 드래그하세요. 처음 실행 시 경고가 뜨면 앱을 <b>우클릭 → 열기</b>로 한 번만 실행하면 됩니다.</p>
+          </div>
+          <div class="os-box">
+            <div class="os-name">Windows</div>
+            <p>내려받은 <b>설치 파일(.exe)</b>을 실행하고 안내에 따라 설치하세요. 완료되면 시작 메뉴에서 BaroSit을 열 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="step-head"><span class="num">2</span><p class="step-title">카메라 배치와 권한 허용</p></div>
+        <p class="claim">
+          <strong>정면(모니터 위 웹캠)이든 측면(서브 모니터 위 노트북)이든 괜찮아요.</strong>
+          BaroSit은 두 배치 모두 잘 감지합니다. 앉은 <strong>상반신이 화면에 잘 들어오게</strong>만 해주세요.
+        </p>
+        <ul class="tight">
+          <li>어깨부터 머리까지 화면 안에 들어오도록 카메라를 조금 멀리 두거나 의자를 살짝 뒤로.</li>
+          <li>듀얼 모니터라면 서브 모니터 쪽 노트북 카메라를 그대로 써도 됩니다 — 측면 각도도 잘 인식해요.</li>
+          <li>첫 실행 때 <strong>카메라 권한을 허용</strong>하세요. 권한은 나중에 시스템 설정에서도 바꿀 수 있어요.</li>
+          <li>조명이 너무 어두우면 인식이 어려우니 화면·얼굴이 밝게 보이도록 해주세요.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="step-head"><span class="num">3</span><p class="step-title">기준 자세 잡기</p></div>
+        <p class="claim">
+          BaroSit은 정답 자세를 강요하지 않습니다. 대신 <strong>평소 모니터를 볼 때처럼 편하게 앉은
+          모습</strong>을 기준으로 삼아요. 안내에 따라 <strong>5초간 가만히</strong> 있으면 저장됩니다.
+        </p>
+        <ul class="tight">
+          <li>측정 중에는 움직임을 줄이고, 손으로 턱·얼굴을 괴지 마세요.</li>
+          <li>고개는 살짝 든 채 정면을 편하게 바라보고, 머리를 좌우로 기울이지 마세요.</li>
+          <li>자리·카메라 위치를 바꿨다면 설정에서 <strong>‘기준 다시 잡기’</strong>로 재측정하세요.</li>
+        </ul>
+      </div>
+
+      <h2>매일 쓰는 법</h2>
+
+      <div class="card">
+        <div class="step-head"><span class="num">4</span><p class="step-title">감지되는 여섯 가지 자세</p></div>
+        <p class="claim">기준 자세에서 벗어나면 아래 여섯 가지를 구분해 짚어줍니다.</p>
+        <div class="postures">
+          <div class="posture"><b>거북목</b><span>머리가 앞으로 빠짐</span></div>
+          <div class="posture"><b>턱 괴임</b><span>손으로 턱·얼굴을 받침</span></div>
+          <div class="posture"><b>어깨 기울임</b><span>한쪽으로 몸이 쏠림</span></div>
+          <div class="posture"><b>등 구부정</b><span>등이 말려 굽음</span></div>
+          <div class="posture"><b>모니터 너무 가까움</b><span>화면에 얼굴이 붙음</span></div>
+          <div class="posture"><b>어깨 비대칭</b><span>양어깨 높이가 다름</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="step-head"><span class="num">5</span><p class="step-title">알림에 반응하고 점수 쌓기</p></div>
+        <p class="claim">
+          자세가 무너지면 <strong>잔소리 대신 부드러운 신호</strong>가 옵니다. 그때 잠깐 자세를
+          바꾸거나 일어나 움직이면 됩니다. 회복하면 <strong>점수와 보상</strong>으로 응원해요.
+        </p>
+        <ul class="tight">
+          <li><strong>자리비움 자동 감지</strong> — 잠깐 자리를 비우면 알아서 멈췄다가 돌아오면 다시 시작합니다.</li>
+          <li><strong>미니 위젯·트레이 상태</strong>(데스크톱 앱) — 다른 작업 중에도 현재 상태를 곁눈질로 확인.</li>
+          <li><strong>스트레칭 점수·자세 등급</strong> — 하루 동안의 움직임과 자세 습관을 한눈에.</li>
+          <li>오래 앉을수록 <strong>50분마다 1분</strong> 정도 일어나 걷거나 스트레칭하는 것을 권장해요.</li>
+        </ul>
+        <p class="claim" style="margin-top:14px">
+          왜 ‘완벽한 자세’가 아니라 ‘자주 움직이기’인지 궁금하다면 →
+          <a href="/science">BaroSit이 따르는 과학</a>을 참고하세요.
+        </p>
+      </div>
+
+      <h2>설정 다듬기</h2>
+
+      <div class="card">
+        <div class="step-head"><span class="num">6</span><p class="step-title">처음엔 기본값이면 충분해요</p></div>
+        <p class="claim">
+          기능이 늘면서 설정도 풍부해졌지만, 전부 만질 필요는 없어요.
+          <strong>필요해질 때</strong> 아래 항목만 기억해 두세요.
+        </p>
+        <ul class="tight">
+          <li><strong>알림</strong> — 민감도 프리셋(엄격·보통·관대)과 알림 지속 시간. 알림이 너무 잦거나 뜸하면 여기부터.</li>
+          <li><strong>알림 강화</strong> — 화면 가장자리 글로우·위젯 일시 확장·중앙 토스트·사운드 중 취향대로. 알림을 자꾸 놓친다면 집중모드·강제 모드를 켜보세요.</li>
+          <li><strong>휴식 알림</strong> — 30분 환기·50분 일어서기·120분 긴 휴식의 3단계. 간격은 조절할 수 있어요.</li>
+          <li><strong>더 똑똑한 알림</strong> — 누적 부하(짧은 나쁜 자세가 자주 쌓일 때), 자세 변동성(좋은 자세라도 오래 고정될 때), 적응형 민감도(오후 피로 시간대 자동 보정).</li>
+          <li><strong>스트레칭 보정</strong> — 내 유연성에 맞춰 감지 기준을 조율하고, 측면 카메라 각도도 보정합니다.</li>
+          <li><strong>프라이버시</strong> — 실루엣 모드(영상 대신 윤곽선만 표시). 오류 보고·익명 통계는 선택.</li>
+          <li><strong>성능 모드</strong> — 저사양 노트북이라면 ‘절약형’으로 CPU·배터리 부담을 줄이세요.</li>
+          <li><strong>데스크톱</strong> — 로그인 시 자동 시작, 미니바 표시.</li>
+          <li><strong>데이터</strong> — 점수·이력·기준 자세를 JSON으로 백업·복원하거나 기록을 초기화합니다.</li>
+        </ul>
+        <p class="claim" style="margin-top:14px">
+          💡 <strong>웹 브라우저는 다른 창에 가려지면 감지가 느려지거나 멈춰요.</strong>
+          데스크톱 앱은 다릅니다 — 모니터 화면의 <strong>‘위젯 모드’</strong> 버튼을 누르면
+          메인 창이 닫히고 작은 미니바만 남아, 다른 작업을 하는 동안에도 감지가 계속됩니다.
+        </p>
+      </div>
+
+      <div class="privacy">
+        <strong>🔒 영상은 이 컴퓨터를 떠나지 않습니다.</strong><br />
+        자세 인식은 100% 온디바이스에서 처리됩니다. 웹캠 영상은 저장되지 않고, 외부로
+        전송되지도 않으며, 인터넷이 끊겨도 작동합니다. 카메라는 언제든 끌 수 있어요.
+      </div>
+
+      <h2>자주 묻는 질문</h2>
+
+      <details>
+        <summary>웹캠 영상이 서버로 전송되나요?</summary>
+        <p>아니요. 자세 인식은 100% 이 컴퓨터 안에서만 처리되고 영상은 저장되지도, 외부로 나가지도 않습니다. 인터넷이 끊겨도 작동합니다.</p>
+      </details>
+      <details>
+        <summary>카메라를 정면에 두어도 되나요?</summary>
+        <p>네. 정면(모니터 위 웹캠)·측면(서브 모니터 위 노트북) 어느 배치든 잘 감지합니다. 실제로 듀얼 모니터 환경에서 측면 각도로 쓰는 분들이 많아 두 각도 모두에 맞춰 만들어졌어요. 상반신이 화면에 잘 들어오고 조명이 충분하면 됩니다.</p>
+      </details>
+      <details>
+        <summary>설치하지 않고 먼저 써볼 수 있나요?</summary>
+        <p>네. barosit.com에서 웹 브라우저만으로 바로 체험할 수 있습니다. 미니바·위젯 모드(메인 창을 최소화해도 미니바만 띄운 채 감지 지속)·시스템 알림 같은 기능은 데스크톱 앱에서 제공됩니다.</p>
+      </details>
+      <details>
+        <summary>알림이 너무 자주 오거나 너무 안 와요.</summary>
+        <p>설정의 민감도를 조절하세요. 앉은 위치나 카메라를 바꿨다면 ‘기준 다시 잡기’로 재측정하는 것이 가장 정확합니다.</p>
+      </details>
+
+      <p style="margin-top:28px">
+        <a class="cta" href="https://barosit.com/">BaroSit 시작하기 →</a>
+      </p>
+
+      <p class="disclaimer">
+        본 페이지는 일반 건강 정보이며 의학적 조언이 아닙니다. 통증이 지속된다면 전문가와
+        상담하세요.
+      </p>
+      <a class="back" href="https://barosit.com/">← BaroSit 홈으로</a>
+      <footer>© BaroSit · <a href="https://barosit.com/">barosit.com</a></footer>
+    </article>
+  </body>
+</html>
