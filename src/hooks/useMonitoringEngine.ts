@@ -394,6 +394,44 @@ export function useMonitoringEngine(opts: {
       heartbeat.tick();
       if (!baseline || opts.paused) return;
 
+      // 자리비움 확정 시 호출. 아래 정상 흐름의 트래커 push 들은 자리비움 early-return
+      // 으로 스킵되므로, 여기서 각 트래커에 '자리비움' 신호를 명시적으로 흘려 상태
+      // 불일치를 막는다. (두 자리비움 경로 — frame.pose=null / face 미검출 — 공통.)
+      const handleAbsenceConfirmed = (now: number) => {
+        // 변동성: 윈도우 끊기 — 복귀 직후 이전 정체 샘플로 "N분째 같은 자세" 오발사 방지.
+        variabilityTrackerRef.current.push(
+          now,
+          false,
+          false,
+          null,
+          variabilityConfigRef.current,
+        );
+        // JITAI: 보류된 휴식 넛지 폐기 — 자리 떴다 앉자마자 "일어나" 헛발사 방지.
+        breakJitaiGateRef.current.reset();
+        // 누적부하: 빈 위반으로 진행 중 에피소드 종료 — 자리비움 시간이 30분 부하로
+        // 오염되는 것 방지(에피소드가 자리비움을 관통하지 않게).
+        cumulativeTrackerRef.current.push(
+          now,
+          new Set<PostureType>(),
+          cumulativeConfigRef.current,
+        );
+        // 준수: 자리비움 = 휴식 취함(tookBreak). 응답 대기 중 넛지가 있으면(=그 알림에
+        // 응답한 동기 있는 이탈) 준수로 확정 → "무시" 오기록·백오프 오염 방지. 대기
+        // 넛지가 없으면(그냥 뜬 자리비움) push 는 아무것도 하지 않는다.
+        const cr = complianceTrackerRef.current.push(
+          now,
+          { tookBreak: true, movedSlightly: true },
+          DEFAULT_COMPLIANCE_CONFIG,
+        );
+        if (cr.resolved) {
+          recordDailyCompliance(cr.resolved.complied, now);
+          // 정상 흐름과 동일 — 휴식 보상은 1분 목표(completed)에서, 여기선 변동성만.
+          if (cr.resolved.complied && cr.resolved.kind === "variability") {
+            dispatchComplianceReward(cr.resolved.kind);
+          }
+        }
+      };
+
       // 실시간 카메라 각도 감지 및 기준선 오토 스위칭 연동.
       // lastAngleRef 로 hysteresis 적용 — yaw 임계 근처 진동에 의한 flap 차단.
       if (frame.face) {
@@ -451,6 +489,8 @@ export function useMonitoringEngine(opts: {
         // 윈도우가 가려진 동안의 frame.pose=null 은 브라우저 throttling 영향일
         // 가능성이 크므로 absence 판정 보류 (마지막 상태 유지).
         if (since > ABSENCE_GRACE_MS && !document.hidden) {
+          // 매 확정 프레임: 변동성·JITAI·누적·준수 트래커에 자리비움 신호 전달.
+          handleAbsenceConfirmed(Date.now());
           if (status !== "paused") {
             setStatus("paused");
             updateStatus("paused").catch(() => undefined);
@@ -540,6 +580,10 @@ export function useMonitoringEngine(opts: {
           false,
           breakConfigRef.current,
         );
+        // 변동성·JITAI·누적·준수 트래커에 자리비움 신호 전달. 이 블록은 곧 early
+        // return 하므로 아래 정상 흐름의 각 push 에 도달하지 못한다 — 여기서 직접
+        // 처리하지 않으면 복귀 후 오발사/오기록/부하오염이 발생한다.
+        handleAbsenceConfirmed(Date.now());
         if (status !== "paused") {
           setStatus("paused");
           updateStatus("paused").catch(() => undefined);

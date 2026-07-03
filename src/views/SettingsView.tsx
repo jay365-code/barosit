@@ -125,7 +125,7 @@ export function SettingsView() {
     <div className="settings">
       <h2 style={{ margin: 0 }}>설정</h2>
       <p className="hint" style={{ color: "var(--text-dim)", marginTop: "-0.5rem" }}>
-        자세별 알림이 너무 잦으면 지속 시간을 늘리거나 민감도를 낮추세요.
+        자세별 알림이 너무 잦으면 지속 시간을 늘리거나 민감도 값을 높이세요(관대 쪽).
       </p>
 
       {(Object.keys(POSTURE_LABELS) as PostureType[]).map((type) => (

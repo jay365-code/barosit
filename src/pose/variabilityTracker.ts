@@ -73,8 +73,13 @@ interface Sample {
 export class VariabilityTracker {
   private samples: Sample[] = [];
   private lastFiredAt = 0;
-  /** 사용자가 윈도우 동안 계속 착석했는지 추적. 자리비움/휴식이 끼면 false. */
-  private continuouslyPresent = true;
+  /**
+   * 사용자가 윈도우 동안 계속 착석했는지 추적. 자리비움/휴식이 끼면 false.
+   * 초기값 false — 세션 시작을 "끊김"으로 간주해, 첫 프레임에서 lastInterruptedAt
+   * 를 now 로 찍고 10분 가드를 무장한다. true 로 두면 lastInterruptedAt=0 과 맞물려
+   * 시작 직후 ~4초 정체만으로 오발사된다.
+   */
+  private continuouslyPresent = false;
   /** 가장 최근 자리비움/휴식 발생 시각. 그 이후로 윈도우 만큼 지나야 다시 판정. */
   private lastInterruptedAt: number | null = 0;
 
@@ -190,7 +195,9 @@ export class VariabilityTracker {
 
   reset(): void {
     this.samples = [];
-    this.continuouslyPresent = true;
+    // false — 재개 후 첫 프레임에서 lastInterruptedAt 를 now 로 재무장(초기값과 동일
+    // 논리). true 로 두면 10분 가드가 무력화돼 재개 직후 정체 오발사.
+    this.continuouslyPresent = false;
     this.lastInterruptedAt = 0;
     // lastFiredAt 은 보존 — 쿨다운은 모니터링 세션 전체에서 유효
   }

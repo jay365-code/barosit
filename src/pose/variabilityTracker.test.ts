@@ -67,6 +67,31 @@ describe("VariabilityTracker 정체 판정 (재조정 스케일)", () => {
     expect(res.status.windowFilled).toBe(false);
     expect(res.fired).toBeNull();
   });
+
+  // 회귀 — 세션 시작 직후 정체가 windowMs(여기선 60초)를 채우기 전에 발사되던 버그.
+  // 원인: continuouslyPresent 초기값 true + lastInterruptedAt=0 → 10분 경과 가드가
+  // 무력화돼 30샘플(≈수초)만으로 "N분째 같은 자세"가 오발사됨.
+  it("시작 직후 정체는 윈도우를 채우기 전엔 발사 안 함 (10분 경과 가드)", () => {
+    const t = new VariabilityTracker();
+    const still = () => ({ sy: 0.5, ny: 0.3, nz: 0.1, p: 0.05 });
+    // step 1초 · 40초 → 샘플 40개(≥30)지만 경과 40초 < 윈도우 60초 → 아직 판정 불가
+    const { res, anyFired } = feed(t, START, 40, still, 1);
+    expect(res.status.windowFilled).toBe(false);
+    expect(anyFired).toBeNull();
+  });
+
+  // 회귀 — 자리비움 복귀 후 이전 정체 샘플로 즉시 재발사되던 버그의 트래커측 계약.
+  // (엔진측: 자리비움 블록이 variabilityTracker.push(false)로 윈도우를 끊어줘야 함.)
+  it("자리비움 신호 후에는 윈도우를 다시 채우기 전(짧은 정체)엔 재발사 안 함", () => {
+    const t = new VariabilityTracker();
+    const still = () => ({ sy: 0.5, ny: 0.3, nz: 0.1, p: 0.05 });
+    const { now, anyFired } = feed(t, START, 90, still); // 1차: 충분히 채워 발사
+    expect(anyFired).not.toBeNull();
+    t.push(now + 2000, false, false, null, cfg); // 자리비움 → 윈도우 끊김
+    const { res, anyFired: refired } = feed(t, now + 4000, 40, still, 1); // 복귀 40초(<60초)
+    expect(res.status.windowFilled).toBe(false);
+    expect(refired).toBeNull();
+  });
 });
 
 describe("loadVariabilityConfig 마이그레이션", () => {

@@ -27,8 +27,15 @@ export type NudgeKind =
 
 export interface ComplianceConfig {
   enabled: boolean;
-  /** 알림 후 준수 여부를 판정하는 응답 윈도우(초). 기본 60. */
+  /** 변동성 알림 응답 윈도우(초). 자세 전환은 즉각적이라 짧게. 기본 60. */
   responseWindowSecs: number;
+  /**
+   * 휴식 알림(break_*) 응답 윈도우(초). 기본 180. 응답 윈도우를 변동성과 분리한
+   * 이유: "일어나 움직여"는 하던 일을 끊고 일어나야 해서 즉시 반응하기 어렵다.
+   * 60초로 두면 문단 마무리하고 2분 뒤 일어난 성실한 사용자가 "무시"로 오기록되고,
+   * 그 뒤의 자리비움도 크레딧을 못 받는다(동기 있는 이탈을 놓침).
+   */
+  breakResponseWindowSecs: number;
   /** 순응률·연속무시 산출에 쓰는 최근 이력 길이. 기본 20. */
   historySize: number;
 }
@@ -36,6 +43,7 @@ export interface ComplianceConfig {
 export const DEFAULT_COMPLIANCE_CONFIG: ComplianceConfig = {
   enabled: true,
   responseWindowSecs: 60,
+  breakResponseWindowSecs: 180,
   historySize: 20,
 };
 
@@ -92,6 +100,10 @@ export class ComplianceTracker {
 
     if (this.pending) {
       const elapsed = (now - this.pending.firedAt) / 1000;
+      // 휴식 알림은 넓은 창(일 끊고 일어나는 지연 반응 포용), 변동성은 짧은 창.
+      const windowSecs = this.pending.kind.startsWith("break_")
+        ? config.breakResponseWindowSecs
+        : config.responseWindowSecs;
       const acted =
         this.pending.kind === "variability"
           ? signals.tookBreak || signals.movedSlightly
@@ -101,7 +113,7 @@ export class ComplianceTracker {
         resolved = { kind: this.pending.kind, complied: true, latencySecs: elapsed };
         this.record(true, config);
         this.pending = null;
-      } else if (elapsed >= config.responseWindowSecs) {
+      } else if (elapsed >= windowSecs) {
         resolved = { kind: this.pending.kind, complied: false, latencySecs: elapsed };
         this.record(false, config);
         this.pending = null;

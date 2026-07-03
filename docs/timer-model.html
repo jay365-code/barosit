@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaroSit — 타이머 모델 (Timer & Counter Reference)</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --border:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6ea8fe;
+    --axisA:#6ea8fe; --axisB:#a371f7; --reset:#3fb950; --aux:#d29922; --other:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  header{padding:30px 24px 18px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#141821,#0f1115)}
+  h1{margin:0 0 6px;font-size:25px}
+  .sub{color:var(--muted);font-size:13px}
+  .status-pill{display:inline-block;margin-top:10px;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;
+    background:rgba(63,185,80,.15);color:#56d364;border:1px solid rgba(63,185,80,.4)}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  section{margin-top:34px;scroll-margin-top:16px}
+  h2{font-size:20px;border-bottom:1px solid var(--border);padding-bottom:7px;margin:0 0 14px}
+  h3{font-size:16px;margin:22px 0 8px;color:#cdd3de}
+  p{margin:9px 0}
+  .lead{color:var(--muted);font-size:14px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .panel.axisA{border-left:4px solid var(--axisA)}
+  .panel.axisB{border-left:4px solid var(--axisB)}
+  .panel.reset{border-left:4px solid var(--reset)}
+  .panel.aux{border-left:4px solid var(--aux)}
+  .panel.other{border-left:4px solid var(--other)}
+  ul,ol{margin:8px 0;padding-left:20px} li{margin:5px 0}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  tr:last-child td{border-bottom:none}
+  .tag{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;display:inline-block}
+  .t-a{background:rgba(110,168,254,.15);color:#8fbcff;border:1px solid rgba(110,168,254,.4)}
+  .t-b{background:rgba(163,113,247,.15);color:#bc8cff;border:1px solid rgba(163,113,247,.4)}
+  .t-reset{background:rgba(63,185,80,.15);color:#56d364;border:1px solid rgba(63,185,80,.4)}
+  .t-aux{background:rgba(210,153,34,.15);color:#e3b341;border:1px solid rgba(210,153,34,.4)}
+  .t-other{background:rgba(248,81,73,.15);color:#ff7b72;border:1px solid rgba(248,81,73,.4)}
+  .ok{color:#56d364;font-weight:700}
+  .no{color:#ff7b72;font-weight:700}
+  .flow{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#cdd3de;overflow-x:auto;line-height:1.75;white-space:pre}
+  .callout{background:var(--panel2);border-radius:8px;padding:10px 13px;margin:10px 0;font-size:13.5px}
+  .callout b{color:#ffd}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  @media(max-width:720px){.two{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:15px 17px}
+  .card h3{margin-top:0}
+  .card.axisA{border-top:3px solid var(--axisA)}
+  .card.axisB{border-top:3px solid var(--axisB)}
+  .big{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  footer{color:var(--muted);font-size:12px;margin-top:50px;border-top:1px solid var(--border);padding-top:16px}
+  .toc{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin:16px 0}
+  .toc h2{border:none;font-size:14px;margin:0 0 8px;padding:0;color:var(--muted)}
+  .toc ol{margin:0;padding-left:20px;columns:2;font-size:13.5px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:8px 0}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+<header>
+  <h1>타이머 모델 <span style="color:var(--muted);font-weight:400">Timer &amp; Counter Reference</span></h1>
+  <div class="sub">"올바른 자세는 없다 · 최고의 자세는 다음 자세다" 철학을 구현한 타이머들이 여러 파일에 흩어져 중복·혼동되므로 한 장으로 정리 · 2026-07-03</div>
+  <div class="status-pill">✅ 구현 반영 · 코드 실측 기반</div>
+</header>
+
+<div class="wrap">
+
+<div class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#s0">한 문장 요약</a></li>
+    <li><a href="#s1">핵심 시계 2개 (축 A / 축 B)</a></li>
+    <li><a href="#s2">공유 리셋: "1분 움직임"</a></li>
+    <li><a href="#s3">보조 타이머 (노이즈 필터)</a></li>
+    <li><a href="#s4">다른 가족: 나쁜 자세 판정</a></li>
+    <li><a href="#s5">축 A ↔ 축 B 상호작용 (자리비움)</a></li>
+    <li><a href="#s6">사용자 설명용 4줄</a></li>
+    <li><a href="#s7">부록: 기본값 · 상수</a></li>
+  </ol>
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--axisA)"></i>축 A · 착석 시간</span>
+  <span><i class="dot" style="background:var(--axisB)"></i>축 B · 자세 변동성</span>
+  <span><i class="dot" style="background:var(--reset)"></i>공유 리셋</span>
+  <span><i class="dot" style="background:var(--aux)"></i>보조(노이즈 필터)</span>
+  <span><i class="dot" style="background:var(--other)"></i>다른 가족(나쁜 자세)</span>
+</div>
+
+<section id="s0">
+  <h2>0 · 한 문장 요약</h2>
+  <div class="panel reset">
+    타이머가 많아 보이지만 <b>"다음 자세" 철학을 구현한 핵심 시계는 딱 2개</b> — <span class="tag t-a">축 A 착석 시간</span> 와 <span class="tag t-b">축 B 자세 변동성</span>.
+    둘 다 <span class="tag t-reset">1분 움직임</span> 이라는 하나의 리셋 버튼을 공유한다.
+    나머지 타이머는 전부 이 둘을 덜 짜증나게 만드는 <b>보조(노이즈 필터·매너)</b>. 그리고 이와 별개로 <span class="tag t-other">나쁜 자세 가족(위반·누적부하)</span> 이 공존한다 — 철학이 정반대라 섞어 보면 헷갈린다.
+  </div>
+</section>
+
+<section id="s1">
+  <h2>1 · 핵심 시계 2개 = "다음 자세" 철학</h2>
+  <p class="lead">앱은 앉아있는 사용자에게 서로 다른 <b>두 질문</b>을 던진다. 각각 독립된 시계로 돈다.</p>
+
+  <div class="two">
+    <div class="card axisA">
+      <h3>축 A — "너무 오래 앉았다"</h3>
+      <p class="big" style="color:var(--axisA)">secsSeated</p>
+      <p><b>재는 것</b> · 연속 착석 <b>누적 시간</b> (카운트업 스톱워치)</p>
+      <p><b>던지는 말</b> · "이제 그만 일어나 / 움직여"</p>
+      <p><b>발동</b> · 30분 · 50분 · 120분</p>
+      <p><b>근거</b> · KOSHA 30분 규칙 (오래 앉음 자체가 문제)</p>
+      <p class="ref">src/pose/breakTracker.ts</p>
+    </div>
+    <div class="card axisB">
+      <h3>축 B — "너무 안 움직인다"</h3>
+      <p class="big" style="color:var(--axisB)">movementIndex</p>
+      <p><b>재는 것</b> · 최근 <b>10분 창</b>에서 자세가 얼마나 흔들렸나</p>
+      <p><b>던지는 말</b> · "가만히 고여있네, 자세 좀 바꿔"</p>
+      <p><b>발동</b> · 정체 임계(5.0) 밑으로 떨어질 때 · <b>앉은 시간 무관</b></p>
+      <p><b>근거</b> · McGill (좋은 자세도 오래 고정되면 나쁨)</p>
+      <p class="ref">src/pose/variabilityTracker.ts</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    두 축 모두 "올바른 자세는 없다"의 두 얼굴이다. <b>A는 <i>휴식으로 넘어가라</i>, B는 <i>제자리에서 바꿔라</i>.</b> — 이 둘이 헷갈리는 이유는 둘 다 "움직여라"라고 말하지만 근거가 정반대이기 때문.
+  </div>
+
+  <h3>1.1 축 A — 착석 시간 장부 <span class="tag t-a">breakTracker.ts</span></h3>
+  <p>착석 스톱워치 <code>secsSeated</code> 가 임계에 닿을 때마다 단계가 오른다. 단방향: <code>none → micro → standup → deep</code>.</p>
+  <table>
+    <tr><th>단계</th><th>임계 (연속 착석)</th><th>기본</th><th>메시지 성격</th></tr>
+    <tr><td><code>micro</code></td><td>30분</td><td class="ok">✓</td><td>가벼운 마이크로 무브먼트</td></tr>
+    <tr><td><code>standup</code></td><td>50분</td><td class="ok">✓</td><td>일어서기 (KOSHA H-30)</td></tr>
+    <tr><td><code>deep</code></td><td>120분</td><td class="ok">✓</td><td>강한 휴식</td></tr>
+  </table>
+  <table>
+    <tr><th>보조 카운터</th><th>뜻</th><th>리셋 임계</th></tr>
+    <tr><td><code>secsSeated</code></td><td>연속 착석 누적(초)</td><td>아래 4가지 중 하나</td></tr>
+    <tr><td><code>secsAbsent</code></td><td>미검출(자리비움) 누적(초)</td><td>5분(<code>ABSENCE_RESET_SECS</code>) → 리셋</td></tr>
+    <tr><td><code>secsResting</code></td><td>등받이 깊은 휴식 누적(초)</td><td>5분(<code>RESTING_RESET_SECS</code>) → 리셋</td></tr>
+    <tr><td><code>secsStanding</code></td><td>선 자세 누적(초)</td><td>5분(<code>STANDING_RESET_SECS</code>) → 리셋</td></tr>
+    <tr><td><code>movementSecs</code></td><td>알림 후 움직임 누적(초)</td><td>목표(60초) 도달 → 완료+리셋</td></tr>
+  </table>
+
+  <h3>1.2 축 B — 자세 변동성 <span class="tag t-b">variabilityTracker.ts</span></h3>
+  <p>앉은 시간과 무관하게, <b>최근 10분 창</b>의 자세 흔들림(어깨 Y·코 Y/Z·face pitch 표준편차 합 = <code>movementIndex</code>)을 본다.</p>
+  <table>
+    <tr><th>파라미터</th><th>기본값</th><th>뜻</th></tr>
+    <tr><td><code>windowMinutes</code></td><td>10분</td><td>롤링 윈도우</td></tr>
+    <tr><td><code>threshold</code></td><td>5.0</td><td>index &lt; 5.0 → <b>정체</b> 판정(알림)</td></tr>
+    <tr><td><code>movementThreshold</code></td><td>6.5</td><td>index ≥ 6.5 → <b>유의미한 움직임</b> 인정</td></tr>
+    <tr><td><code>cooldownMinutes</code></td><td>15분</td><td>재발사 쿨다운 (백오프로 최대 2배)</td></tr>
+  </table>
+  <div class="callout">
+    실측(2026-07-02, MacBook 내장캠): 정지 착석 ≈ 3.4~4.3 / 의도적 움직임 ≈ 7.4~7.9. 사이 <b>5.0~6.5는 애매 구간</b>(알림·기여 없음). 윈도우는 <b>자리비움/휴식 진입 시 끊긴다</b> → §5 참조.
+  </div>
+</section>
+
+<section id="s2">
+  <h2>2 · 공유 리셋 버튼: "1분 움직임" (딱 하나)</h2>
+  <div class="panel reset">
+    두 축 모두 <b>같은 방법으로 초기화</b>된다. 이게 철학의 심장이다.
+    <p style="margin:10px 0 4px"><b><code>movementGoalSecs</code> = 60초.</b> 알림이 뜬 뒤 누적으로 1분 움직이면 → 착석 시계 0으로, "제대로 쉼" 인정 + 보상.</p>
+  </div>
+  <ul>
+    <li>1초 찔끔 움직임으론 안 됨(회피 방지). 근거: 1분 dose가 혈당·디스크 회복 최소선.</li>
+    <li>기여 행동: 기립 / 등받이 휴식 / 자리비움 / 스트레치 감지 / 변동성 <code>movementIndex ≥ 6.5</code>.</li>
+  </ul>
+  <div class="callout">
+    <b>혼동 주의</b> · <code>movementSecs</code>(1분 목표 진행률, 단위 <b>초</b>)와 <code>movementIndex</code>(변동성 지수, <b>무차원</b>)는 이름만 비슷한 별개 값. index가 6.5를 넘으면 movementSecs에 기여하는 것이 둘 사이 <b>유일한 연결고리</b>.
+  </div>
+</section>
+
+<section id="s3">
+  <h2>3 · 보조 타이머 — "핵심 2개를 덜 짜증나게" (개념 아님)</h2>
+  <p class="lead">핵심 시계를 방해 없이 굴리기 위한 매너·노이즈 필터. 헷갈릴 필요 없다.</p>
+  <table>
+    <tr><th>종류</th><th>값</th><th>역할</th><th>파일</th></tr>
+    <tr><td>착석 유예</td><td>30초 <code>PRESENCE_GRACE_SECS</code></td><td>검출 노이즈로 "자리 떴다" 오판 방지</td><td class="ref">presenceStabilizer.ts</td></tr>
+    <tr><td>화면 배지 유예</td><td>8초 <code>ABSENCE_GRACE_MS</code></td><td>자리비움 배지 표시용 (트래커와 별개)</td><td class="ref">useMonitoringEngine.ts</td></tr>
+    <tr><td>위반 재알림 쿨다운</td><td>5분 <code>ALERT_COOLDOWN_MS</code></td><td>같은 위반 도배 방지</td><td class="ref">violationTracker.ts</td></tr>
+    <tr><td>변동성/누적 쿨다운</td><td>15분</td><td>정체·누적 알림 도배 방지</td><td class="ref">variability / cumulativeLoad</td></tr>
+    <tr><td>JITAI 보류</td><td>최대 90초 <code>maxHoldSecs</code></td><td>"고개 돌리는 틈" 등 방해 가능 순간까지 대기 후 발사</td><td class="ref">jitaiGate.ts</td></tr>
+    <tr><td>적응형 백오프</td><td>최대 2배</td><td>계속 무시하면 알림 빈도 스스로 낮춤 (자율성)</td><td class="ref">complianceTracker.ts</td></tr>
+    <tr><td>움직임 완화</td><td>최대 2배</td><td>활발히 움직이는 중이면 잠깐 나쁜 자세 봐줌</td><td class="ref">violationTracker.ts</td></tr>
+  </table>
+  <p class="lead">준수 추적(complianceTracker): 알림 후 60초 응답 윈도우 안에 움직였나 판정 → <code>ignoreStreak</code>(연속 무시)이 백오프 배수를 만든다.</p>
+</section>
+
+<section id="s4">
+  <h2>4 · ⚠️ 함께 헷갈리는 "다른 가족" — 나쁜 자세 판정</h2>
+  <div class="panel other">
+    <code>violationTracker.ts</code>(거북목·어깨기울임·구부정 등)와 <code>cumulativeLoadTracker.ts</code>(누적 부하)는 위 철학과 <b>정반대 가족</b>이다. 여기엔 "나쁜 자세"가 명시적으로 존재한다(예: forward_head 5초 지속 → 알림; 30분 창에서 나쁜 자세 25% 누적 → 알림).
+  </div>
+  <p>앱의 철학은 사실상 두 갈래로 공존한다:</p>
+  <ol>
+    <li><span class="tag t-a">축 A</span> + <span class="tag t-b">축 B</span> = <b>"올바른 자세 없음 / 다음 자세" 가족</b></li>
+    <li><span class="tag t-other">위반 + 누적부하</span> = <b>"이건 나쁜 자세다" 가족</b></li>
+  </ol>
+  <p>"타이머가 중복돼 헷갈린다"는 느낌의 상당 부분은 이 <b>두 철학이 한 화면에서 섞여 보이기 때문</b>이다.</p>
+</section>
+
+<section id="s5">
+  <h2>5 · 축 A ↔ 축 B 상호작용 (자리비움 전후)</h2>
+  <p>자리비움이 발생하면:</p>
+  <ul>
+    <li><span class="tag t-a">축 A</span> <code>secsAbsent</code>가 5분에 닿으면 <code>secsSeated</code> = 0 리셋 (일어났다 온 것으로 간주).</li>
+    <li><span class="tag t-b">축 B</span> 자리비움 순간 윈도우가 끊기고(<code>continuouslyPresent=false</code>, <code>lastInterruptedAt</code> 갱신) 복귀 후 새 창을 다시 채워야 정체 알림 발사 가능.</li>
+  </ul>
+
+  <h3>5.1 "자리비움 리셋 직후 축 B 오발사" — 확정 버그 + 수정 <span class="ref">2026-07-03</span></h3>
+  <p>관찰(스크린샷 확정): 5분+ 자리비움으로 축 A가 리셋된 직후, <b>"10분째 같은 자세 / 한 자세로 오래 계셨어요"</b> = 정확히 <b>축 B 변동성 알림</b>이 오발사됨.</p>
+  <div class="panel other">
+    <b>근본 원인 (두 겹) · 10분 경과 가드가 무력화됨.</b>
+    <ol style="margin-bottom:0">
+      <li><b>엔진 early-return</b> — 자리비움 확정 블록(<span class="ref">useMonitoringEngine.ts:530-558</span>)이 <code>breakTracker</code>엔 자리비움을 넘기지만 곧바로 <code>return</code>. <code>variabilityTracker.push()</code>는 그 아래(<span class="ref">:655</span>)라 <b>자리비움 동안 호출조차 안 됨</b> → 변동성 윈도우의 "자리비움→끊기" 로직(<span class="ref">variabilityTracker.ts:101-104</span>)이 실전에서 죽은 코드. 복귀 시 트래커는 자리비움을 몰라 <b>이전 정체 샘플</b>을 그대로 들고 발사.</li>
+      <li><b>가드 초기값</b> — <code>continuouslyPresent=true</code> + <code>lastInterruptedAt=0</code>이라 <code>now - lastInterruptedAt ≥ windowMs</code>가 항상 참. 앱 시작·일시정지 해제 직후에도 fps 8 기준 <b>~4초</b> 정체만으로 발사 가능.</li>
+    </ol>
+  </div>
+  <div class="panel reset">
+    <b>수정 (적용됨):</b>
+    <ul style="margin-bottom:0">
+      <li>자리비움 블록에서 <code>variabilityTracker.push(now, false, …)</code>를 호출해 윈도우를 명시적으로 끊음 — <code>breakTracker</code> 패턴과 동일 <span class="ref">useMonitoringEngine.ts</span>.</li>
+      <li><code>continuouslyPresent</code> 초기값·<code>reset()</code>를 <code>false</code>로 — 세션 시작을 "끊김"으로 봐 첫 프레임에서 <code>lastInterruptedAt=now</code>를 찍고 10분 가드를 무장 <span class="ref">variabilityTracker.ts</span>.</li>
+      <li>회귀 테스트 2종 추가(시작 직후·복귀 직후 오발사 차단). 수정 전 실패 → 수정 후 통과 검증. 전체 111 테스트 통과 · tsc 클린.</li>
+    </ul>
+  </div>
+  <div class="callout">
+    <b>"10분째"는 실제 착석 시간이 아니라 창 길이(<code>windowMinutes</code>)를 찍는 고정 문구</b>라 오발사 시 더 혼란스러웠다. 참고로 <span class="tag t-other">누적부하</span>("누적 부하 · 30분 중 X%")는 30분 창이 자리비움을 넘어 생존하므로 복귀 직후 발사가 정상 — 이번 건과는 별개 알림.
+  </div>
+</section>
+
+<section id="s6">
+  <h2>6 · 사용자 설명용 4줄 요약</h2>
+  <div class="flow">① 오래 앉으면 알려줘요       → 30분 스트레칭 · 50분 일어서기 · 120분 휴식   (축 A)
+② 제자리에서 자주 바꿔요     → 10분간 안 흔들리면 "고여있다" 경고           (축 B)
+③ 1분만 움직이면 초기화돼요  → 두 축 공통 리셋 (움직임 목표 60초)          (공유 리셋)
+④ 나쁜 자세는 따로 알려줘요  → 거북목·구부정 등                            (다른 가족)</div>
+</section>
+
+<section id="s7">
+  <h2>7 · 부록: 기본값 · 상수</h2>
+  <table>
+    <tr><th>상수</th><th>값</th><th>파일</th></tr>
+    <tr><td>micro / standup / deep</td><td>30 / 50 / 120분</td><td class="ref">breakTracker.ts (break_config)</td></tr>
+    <tr><td>movementGoalSecs</td><td>60초</td><td class="ref">breakTracker.ts</td></tr>
+    <tr><td>ABSENCE / RESTING / STANDING_RESET_SECS</td><td>각 300초(5분)</td><td class="ref">breakTracker.ts</td></tr>
+    <tr><td>PRESENCE_GRACE_SECS</td><td>30초</td><td class="ref">presenceStabilizer.ts</td></tr>
+    <tr><td>variability window / threshold / movementThreshold / cooldown</td><td>10분 / 5.0 / 6.5 / 15분</td><td class="ref">variabilityTracker.ts</td></tr>
+    <tr><td>cumulative window / threshold / cooldown</td><td>30분 / 0.25 / 15분</td><td class="ref">cumulativeLoadTracker.ts</td></tr>
+    <tr><td>violation durationSecs (기본)</td><td>5~8초 (유형별)</td><td class="ref">thresholds.ts</td></tr>
+    <tr><td>ALERT_COOLDOWN_MS</td><td>5분</td><td class="ref">violationTracker.ts</td></tr>
+    <tr><td>JITAI maxHoldSecs / interruptible YAW</td><td>90초 / 0.26rad(~15°)</td><td class="ref">jitaiGate.ts</td></tr>
+  </table>
+</section>
+
+<footer>
+  BaroSit 내부 참조 문서 · 관련: posture-nudge-design.md · posture-evidence-and-reflection.md · detection-algorithm.md<br>
+  코드 기준: v0.9.3 · 값 변동 시 이 표를 함께 갱신할 것.
+</footer>
+
+</div>
+</body>
+</html>

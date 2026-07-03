@@ -9,7 +9,13 @@ import {
 
 // Phase 5 준수 추적 — 알림 후 응답 윈도우 내 행동으로 준수/미준수를 확정하는지 검증.
 
-const cfg: ComplianceConfig = { ...DEFAULT_COMPLIANCE_CONFIG, responseWindowSecs: 60, historySize: 5 };
+// 기존 단위 테스트는 휴식도 60초 창을 전제 — breakResponseWindowSecs 도 60 으로 맞춰 보존.
+const cfg: ComplianceConfig = {
+  ...DEFAULT_COMPLIANCE_CONFIG,
+  responseWindowSecs: 60,
+  breakResponseWindowSecs: 60,
+  historySize: 5,
+};
 const NONE: ComplianceSignals = { tookBreak: false, movedSlightly: false };
 const BREAK: ComplianceSignals = { tookBreak: true, movedSlightly: false };
 const MOVE: ComplianceSignals = { tookBreak: false, movedSlightly: true };
@@ -81,6 +87,33 @@ describe("ComplianceTracker", () => {
     t.notifyFired("break_standup", 1_000); // 교체
     const { resolved } = t.push(2_000, BREAK, cfg);
     expect(resolved?.kind).toBe("break_standup");
+  });
+
+  // 종류별 응답 창 — 휴식(break_*)은 기본 넓은 창(180초), 변동성은 60초.
+  it("휴식 알림은 넓은 창(기본 180초) 동안 지연 반응도 준수로 인정", () => {
+    const t = new ComplianceTracker();
+    t.notifyFired("break_micro", 0);
+    // 100초(60초 초과, 180초 미만)에 일어남 → 여전히 준수
+    expect(t.push(60_000, NONE, DEFAULT_COMPLIANCE_CONFIG).resolved).toBeNull(); // 아직 대기
+    const { resolved } = t.push(100_000, BREAK, DEFAULT_COMPLIANCE_CONFIG);
+    expect(resolved).toEqual({ kind: "break_micro", complied: true, latencySecs: 100 });
+  });
+
+  it("휴식 알림은 넓은 창을 넘기면 미준수로 확정", () => {
+    const t = new ComplianceTracker();
+    t.notifyFired("break_micro", 0);
+    expect(t.push(120_000, NONE, DEFAULT_COMPLIANCE_CONFIG).resolved).toBeNull(); // 180초 내
+    expect(
+      t.push(181_000, NONE, DEFAULT_COMPLIANCE_CONFIG).resolved?.complied,
+    ).toBe(false);
+  });
+
+  it("변동성 알림은 좁은 창(60초) 유지 — 넓히지 않음", () => {
+    const t = new ComplianceTracker();
+    t.notifyFired("variability", 0);
+    expect(t.push(61_000, NONE, DEFAULT_COMPLIANCE_CONFIG).resolved?.complied).toBe(
+      false,
+    );
   });
 });
 
