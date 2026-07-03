@@ -31,6 +31,16 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.6 — 2026-07-03
+
+**한국어**
+
+- 절전 모드 또는 자리 비움 상태에서 돌아온 후 자세 감지가 자동으로 다시 작동합니다.
+
+**English**
+
+- Posture detection now resumes automatically after waking from sleep or returning from away mode.
+
 ## v0.9.5 — 2026-07-03
 
 **한국어**
