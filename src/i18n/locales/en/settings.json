@@ -93,7 +93,7 @@
     "intro": "Holding even a good posture too long builds up strain on one area.<br/>If your shoulders and head barely move during the window, you get a \"you've held one posture a while\" nudge to change it.<br/>(McGill — \"best posture is the next posture\")",
     "enable": {
       "label": "Enable variability alert",
-      "sub": "Default 10-min window, stillness threshold 0.6, 15-min cooldown"
+      "sub": "Default 10-min window, stillness threshold 5.0, 15-min cooldown"
     },
     "window": "Window length",
     "preview": "Preview posture variability alert",
@@ -192,6 +192,7 @@
     "title": "About",
     "version": "BaroSit · version {{version}}",
     "checkUpdate": "Check for updates",
+    "changelog": "Release notes",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service"
   },

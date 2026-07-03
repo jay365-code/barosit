@@ -109,14 +109,15 @@ interface CommentData {
   created_at: string;
 }
 
-// 커뮤니티 운영자(Aria) AI 답변 초안 검수 레코드
+// 커뮤니티 에이전트(Aria/Ethan) AI 답변 초안 검수 레코드
 interface AiDraftData {
   id: string;
   source_type: "post" | "comment" | "feedback";
   source_id: string | null;
   post_id: string | null;
   intent: string | null;
-  agent_role: "coach" | "manager" | null;
+  agent_role: "coach" | "manager" | "pm" | null;
+  feature_request_id?: string | null;
   category: string | null;
   should_respond: boolean;
   reason: string | null;
@@ -142,12 +143,31 @@ interface ReleaseData {
   updated_at?: string;
 }
 
+// 기능 제안 클러스터(PM 에이전트 Ethan) — 공개 로드맵(#/roadmap)의 데이터
+interface FeatureRequestData {
+  id: string;
+  title: string;
+  status: "reviewing" | "planned" | "in_progress" | "done" | "declined";
+  request_count: number;
+  released_version: string | null;
+  first_requested_at: string;
+  updated_at: string;
+}
+
+const FEATURE_STATUS_LABELS: Record<FeatureRequestData["status"], string> = {
+  reviewing: "검토중",
+  planned: "예정",
+  in_progress: "진행중",
+  done: "완료",
+  declined: "반려",
+};
+
 interface Props {
   onClose: () => void;
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "ai_review" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "ai_review" | "roadmap" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
@@ -199,11 +219,15 @@ export function AdminDashboardView({ onClose }: Props) {
   const [selectedPost, setSelectedPost] = useState<PostData | null>(null);
   const [newCommentText, setNewCommentText] = useState("");
 
-  // AI 응답 검수(Aria) 상태
+  // AI 응답 검수(Aria/Ethan) 상태
   const [drafts, setDrafts] = useState<AiDraftData[]>([]);
   const [selectedDraft, setSelectedDraft] = useState<AiDraftData | null>(null);
   const [editingBody, setEditingBody] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
+
+  // 기능 요청 로드맵(Ethan) 상태
+  const [featureRequests, setFeatureRequests] = useState<FeatureRequestData[]>([]);
+  const [frBusy, setFrBusy] = useState(false);
 
   // 데이터 로드 함수
   const fetchAllData = async () => {
@@ -277,6 +301,19 @@ export function AdminDashboardView({ onClose }: Props) {
       } catch (err) {
         console.warn("Failed to fetch releases. releases table might not exist yet.", err);
       }
+
+      // 9. 기능 요청 클러스터(Ethan 로드맵) 조회
+      let frData: FeatureRequestData[] = [];
+      try {
+        const { data } = await supabase
+          .from("feature_requests")
+          .select("*")
+          .order("updated_at", { ascending: false });
+        frData = (data as FeatureRequestData[]) || [];
+      } catch (err) {
+        console.warn("Failed to fetch feature_requests. table might not exist yet.", err);
+      }
+      setFeatureRequests(frData);
 
       setProfiles(profData || []);
       setSubscriptions(subData || []);
@@ -561,10 +598,12 @@ export function AdminDashboardView({ onClose }: Props) {
     setReviewBusy(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      // Aria 운영자 자격으로 댓글 게시 (user_id=null, is_agent=true → 클라이언트가 운영자 뱃지 렌더)
+      // 에이전트 자격으로 댓글 게시 (user_id=null, is_agent=true → 클라이언트가 운영자 뱃지 렌더)
+      // 명의는 역할로 결정: pm=Ethan(프로덕트 매니저), coach/manager=Aria — docs/agent-roster.md
+      const agentName = draft.agent_role === "pm" ? "Ethan" : "Aria";
       const { data: inserted, error: insErr } = await supabase
         .from("comments")
-        .insert([{ post_id: draft.post_id, user_id: null, author_name: "Aria", is_agent: true, agent_role: draft.agent_role ?? "coach", content: body, password_hash: "" }])
+        .insert([{ post_id: draft.post_id, user_id: null, author_name: agentName, is_agent: true, agent_role: draft.agent_role ?? "coach", content: body, password_hash: "" }])
         .select();
       if (insErr) throw insErr;
 
@@ -724,6 +763,37 @@ export function AdminDashboardView({ onClose }: Props) {
     setReleaseReleasedAt(getLocalDateTimeString());
     setReleaseContent("");
     setReleaseError(null);
+  };
+
+  // 4-3. 기능 요청 로드맵(Ethan) — 상태/반영 버전 변경 (공개 로드맵 #/roadmap 에 즉시 반영)
+  const handleUpdateFeatureRequest = async (id: string, patch: Partial<Pick<FeatureRequestData, "status" | "released_version">>) => {
+    setFrBusy(true);
+    try {
+      const { error } = await supabase
+        .from("feature_requests")
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      setFeatureRequests(prev => prev.map(fr => (fr.id === id ? { ...fr, ...patch } : fr)));
+    } catch (err: any) {
+      alert("기능 요청 업데이트 실패: " + err.message);
+    } finally {
+      setFrBusy(false);
+    }
+  };
+
+  const handleDeleteFeatureRequest = async (id: string) => {
+    if (!window.confirm("이 기능 요청 클러스터를 삭제할까요? 연결된 제안 글 링크도 함께 삭제됩니다(글 자체는 유지).")) return;
+    setFrBusy(true);
+    try {
+      const { error } = await supabase.from("feature_requests").delete().eq("id", id);
+      if (error) throw error;
+      setFeatureRequests(prev => prev.filter(fr => fr.id !== id));
+    } catch (err: any) {
+      alert("삭제 실패: " + err.message);
+    } finally {
+      setFrBusy(false);
+    }
   };
 
   // 5. 90일 미활동 데이터 만료 청소 (수동 실행)
@@ -1098,6 +1168,7 @@ export function AdminDashboardView({ onClose }: Props) {
               { id: "users", label: "가입자 관리", icon: "shield" as const },
               { id: "qna", label: "커뮤니티 관리", icon: "info" as const },
               { id: "ai_review", label: "AI 응답 검수", icon: "sparkle" as const },
+              { id: "roadmap", label: "기능 요청 로드맵", icon: "target" as const },
               { id: "alerts", label: "실시간 알림", icon: "bell" as const },
               { id: "feedback", label: "사용자 피드백", icon: "flag" as const },
               { id: "errors", label: "오류 리포트", icon: "info" as const },
@@ -2209,7 +2280,7 @@ export function AdminDashboardView({ onClose }: Props) {
                     {/* 초안 목록 */}
                     <div style={{ borderRight: "1px solid rgba(255,255,255,0.08)", paddingRight: 16, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-                        Aria 답변 초안 ({drafts.filter(d => d.status === "pending").length} 검수 대기)
+                        에이전트 답변 초안 ({drafts.filter(d => d.status === "pending").length} 검수 대기)
                       </div>
                       {drafts.length === 0 ? (
                         <div style={{ textAlign: "center", padding: 40, opacity: 0.4, fontSize: 13 }}>
@@ -2299,7 +2370,7 @@ export function AdminDashboardView({ onClose }: Props) {
 
                           {/* 편집 가능한 답변 본문 */}
                           <div>
-                            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Aria 답변 (수정 후 게시 가능)</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{selectedDraft.agent_role === "pm" ? "Ethan" : "Aria"} 답변 (수정 후 게시 가능)</div>
                             <textarea
                               value={editingBody}
                               onChange={e => setEditingBody(e.target.value)}
@@ -2316,7 +2387,7 @@ export function AdminDashboardView({ onClose }: Props) {
                                 disabled={reviewBusy}
                                 style={{ flex: 1, background: "#5b8c7a", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontSize: 13, fontWeight: 700, cursor: reviewBusy ? "default" : "pointer", opacity: reviewBusy ? 0.6 : 1 }}
                               >
-                                Aria 운영자로 승인 · 게시
+                                {selectedDraft.agent_role === "pm" ? "Ethan(PM)으로 승인 · 게시" : "Aria 운영자로 승인 · 게시"}
                               </button>
                               <button
                                 onClick={() => handleRejectDraft(selectedDraft, true)}
@@ -2565,6 +2636,96 @@ export function AdminDashboardView({ onClose }: Props) {
                         )}
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* 4-3. 기능 요청 로드맵(Ethan) 관리 — 상태 변경이 공개 로드맵(#/roadmap)에 즉시 반영 */}
+                {activeTab === "roadmap" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "calc(100vh - 200px)", overflowY: "auto", paddingRight: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>
+                        기능 요청 로드맵 ({featureRequests.length}건)
+                      </div>
+                      <div style={{ fontSize: 12, opacity: 0.5 }}>
+                        💡 기능 제안 글을 PM 에이전트 Ethan 이 클러스터링합니다. 상태 변경은 공개 로드맵에 즉시 반영됩니다.
+                      </div>
+                    </div>
+                    {featureRequests.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "40px 0", opacity: 0.4, fontSize: 13 }}>
+                        접수된 기능 요청이 없습니다. 커뮤니티에 💡 기능 제안 글이 올라오면 Ethan 이 자동으로 접수합니다.
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {featureRequests.map(fr => (
+                          <div
+                            key={fr.id}
+                            style={{
+                              background: "rgba(255, 255, 255, 0.02)",
+                              border: "1px solid rgba(255, 255, 255, 0.05)",
+                              borderRadius: 10,
+                              padding: "12px 14px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <div style={{ flex: 1, minWidth: 220 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{fr.title}</div>
+                              <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2 }}>
+                                {fr.request_count}명 요청 · 최초 {new Date(fr.first_requested_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <select
+                              value={fr.status}
+                              disabled={frBusy}
+                              onChange={e => handleUpdateFeatureRequest(fr.id, { status: e.target.value as FeatureRequestData["status"] })}
+                              style={{
+                                background: "rgba(255,255,255,0.05)",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderRadius: 8,
+                                color: "#eee",
+                                padding: "6px 10px",
+                                fontSize: 12,
+                              }}
+                            >
+                              {(Object.keys(FEATURE_STATUS_LABELS) as FeatureRequestData["status"][]).map(sVal => (
+                                <option key={sVal} value={sVal} style={{ color: "#222" }}>{FEATURE_STATUS_LABELS[sVal]}</option>
+                              ))}
+                            </select>
+                            {fr.status === "done" && (
+                              <input
+                                type="text"
+                                placeholder="반영 버전 (예: v0.9.3)"
+                                defaultValue={fr.released_version ?? ""}
+                                disabled={frBusy}
+                                onBlur={e => {
+                                  const v = e.target.value.trim() || null;
+                                  if (v !== fr.released_version) handleUpdateFeatureRequest(fr.id, { released_version: v });
+                                }}
+                                style={{
+                                  background: "rgba(255,255,255,0.05)",
+                                  border: "1px solid rgba(255,255,255,0.12)",
+                                  borderRadius: 8,
+                                  color: "#eee",
+                                  padding: "6px 10px",
+                                  fontSize: 12,
+                                  width: 140,
+                                }}
+                              />
+                            )}
+                            <button
+                              type="button"
+                              disabled={frBusy}
+                              onClick={() => handleDeleteFeatureRequest(fr.id)}
+                              style={{ background: "none", border: "none", color: "#c95c5c", fontSize: 12, cursor: "pointer" }}
+                            >
+                              <Icon name="trash" size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

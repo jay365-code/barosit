@@ -300,6 +300,9 @@ function Footer() {
           <a href="#/changelog" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.changelog")}
           </a>
+          <a href="#/roadmap" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
+            {t("footer.roadmap")}
+          </a>
           <a href="/guide.html" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.guide")}
           </a>
@@ -448,6 +451,37 @@ function AriaAvatar({ size = 28, onClick }: { size?: number; onClick?: () => voi
       <path d="M17.6 21.4 Q20 23.2 22.4 21.4" stroke="#B07B5C" strokeWidth="1" fill="none" strokeLinecap="round" />
     </svg>
   );
+}
+
+// PM 에이전트 Ethan(이든) 아바타. 실사 이미지를 쓰려면 ETHAN_AVATAR_SRC 에 경로를 넣는다
+// (public/ 에 두면 오프라인/사내망에서도 동작). 비어 있으면 인라인 일러스트로 폴백.
+const ETHAN_AVATAR_SRC = "";
+function EthanAvatar({ size = 28, onClick }: { size?: number; onClick?: () => void }) {
+  const clickStyle = onClick ? { cursor: "zoom-in" as const } : {};
+  if (ETHAN_AVATAR_SRC) {
+    return (
+      <img src={ETHAN_AVATAR_SRC} alt="Ethan" width={size} height={size} onClick={onClick}
+        title={onClick ? "프로필 사진 크게 보기" : undefined}
+        style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0, ...clickStyle }} />
+    );
+  }
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true" onClick={onClick} style={{ borderRadius: "50%", flexShrink: 0, ...clickStyle }}>
+      <circle cx="20" cy="20" r="20" fill="#E5EFEA" />
+      <path d="M12 15 Q12 6.5 20 6.5 Q28 6.5 28 15 L28 19 Q28 27 20 27 Q12 27 12 19 Z" fill="#3A2E24" />
+      <circle cx="20" cy="19" r="7" fill="#EFCBB2" />
+      <path d="M13 16.5 Q13.5 9.5 20 9.5 Q26.5 9.5 27 16.5 Q25 12.5 20 12.5 Q15 12.5 13 16.5 Z" fill="#3A2E24" />
+      <path d="M14.5 40 Q14.5 29.5 20 29.5 Q25.5 29.5 25.5 40 Z" fill="#2F4A3D" />
+      <path d="M18.6 30 L20 33 L21.4 30 Z" fill="#F7F5F0" />
+      <path d="M17.8 20.6 Q20 22 22.2 20.6" stroke="#A9764F" strokeWidth="1" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// 에이전트 이름으로 아바타 라우팅 — 새 에이전트 페르소나는 docs/agent-roster.md 에 정의 후 여기 추가.
+function AgentAvatar({ name, size = 28, onClick }: { name?: string | null; size?: number; onClick?: () => void }) {
+  if (name === "Ethan") return <EthanAvatar size={size} onClick={onClick} />;
+  return <AriaAvatar size={size} onClick={onClick} />;
 }
 
 // 운영자(Aria) 댓글 전용 안전 서식 변환: HTML 이스케이프 후 **굵게** 와 줄바꿈만 변환.
@@ -1851,6 +1885,111 @@ function ChangelogPage() {
   );
 }
 
+// ───────── Roadmap (기능 요청 공개 로드맵 — PM 에이전트 Ethan 관리) ─────────
+
+// 상태 표시 순서 = 사용자가 궁금한 순서: 진행중 → 예정 → 검토중 → 완료. 반려(declined)는 노출하지 않는다.
+const ROADMAP_STATUS_ORDER = ["in_progress", "planned", "reviewing", "done"] as const;
+const ROADMAP_STATUS_COLORS: Record<string, string> = {
+  in_progress: "#5b8c7a",
+  planned: "#6E63C6",
+  reviewing: "#b0893c",
+  done: "#8a8a8a",
+};
+
+function RoadmapPage() {
+  const { t } = useTranslation("marketing");
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("feature_requests")
+          .select("id, title, status, request_count, released_version, updated_at")
+          .neq("status", "declined")
+          .order("request_count", { ascending: false });
+        setItems(data || []);
+      } catch (err) {
+        console.error("Failed to fetch feature_requests:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  return (
+    <div style={{ background: "var(--b-bg)", minHeight: "100vh" }}>
+      <TopNav />
+      <div style={{ maxWidth: 820, margin: "0 auto", padding: "60px 56px 80px" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--b-sig)", letterSpacing: "0.1em", marginBottom: 10 }}>
+          PRODUCT ROADMAP
+        </div>
+        <h1 style={{ fontSize: 40, fontWeight: 700, letterSpacing: "-0.028em", margin: 0, marginBottom: 8, lineHeight: 1.15 }}>
+          {t("roadmap.title")}
+        </h1>
+        <p style={{ fontSize: 13, color: "var(--b-fg-3)", margin: 0, marginBottom: 32 }}>
+          {t("roadmap.subtitle")}
+        </p>
+
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--b-fg-3)", fontSize: 14 }}>
+            {t("roadmap.loading")}
+          </div>
+        ) : items.length === 0 ? (
+          <div style={{ padding: "80px 40px", border: "1px solid var(--b-line)", borderRadius: 14, background: "var(--b-surface)", color: "var(--b-fg-3)", fontSize: 14, textAlign: "center" }}>
+            {t("roadmap.empty")}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
+            {ROADMAP_STATUS_ORDER.map((status) => {
+              const group = items.filter((it) => it.status === status);
+              if (group.length === 0) return null;
+              return (
+                <div key={status}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: ROADMAP_STATUS_COLORS[status] }} />
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{t(`roadmap.status.${status}`)}</span>
+                    <span style={{ fontSize: 12, color: "var(--b-fg-4)" }}>{group.length}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {group.map((it) => (
+                      <div key={it.id} style={{ border: "1px solid var(--b-line)", borderRadius: 12, background: "var(--b-surface)", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <span style={{ flex: 1, minWidth: 200, fontSize: 14, fontWeight: 600, color: "var(--b-fg-1)" }}>{it.title}</span>
+                        {status === "done" && it.released_version && (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--b-sig-deep)", background: "var(--b-sig-bg)", padding: "3px 10px", borderRadius: 12 }}>
+                            {it.released_version}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 12, color: "var(--b-fg-3)" }}>
+                          {t("roadmap.requestCount", { count: it.request_count })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 제안 유도 + Ethan 소개 */}
+        <div style={{ marginTop: 40, padding: 22, borderRadius: 14, background: "var(--b-sig-bg)", border: "1px solid var(--b-line)", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <EthanAvatar size={40} />
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{t("roadmap.ethanTitle")}</div>
+            <div style={{ fontSize: 13, color: "var(--b-fg-2)", lineHeight: 1.6 }}>{t("roadmap.ethanDesc")}</div>
+          </div>
+          <a href="/community" className="b-btn b-btn-primary" style={{ textDecoration: "none" }}>
+            {t("roadmap.suggestCta")}
+          </a>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
 // ───────── Contact ─────────
 
 // 카테고리는 DB의 category 컬럼에 저장되는 정규값(한국어+이모지)이므로 값은 유지하고
@@ -2807,7 +2946,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
       {/* Comment Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "inline-flex", alignItems: "center", gap: 6 }}>
-          {comment.is_agent && <AriaAvatar size={24} onClick={ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />}
+          {comment.is_agent && <AgentAvatar name={comment.author_name} size={24} onClick={comment.author_name !== "Ethan" && ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />}
           {renderAuthorName(comment.author_name, comment.user_id, comment.is_agent)}
           {comment.is_agent ? (
             <span style={{
@@ -2820,7 +2959,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
               display: "inline-flex",
               alignItems: "center",
               gap: 3,
-            }}>{t(comment.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}</span>
+            }}>{t(comment.agent_role === "pm" ? "community.rolePm" : comment.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}</span>
           ) : comment.user_id ? (
             <span style={{
               fontSize: 9,
@@ -3590,7 +3729,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                           }}
                         >
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            {post.is_agent && <AriaAvatar size={20} />}
+                            {post.is_agent && <AgentAvatar name={post.author_name} size={20} />}
                             {t("community.authorLabel")} <strong style={{ color: "var(--b-fg-2)" }}>{renderAuthorName(post.author_name, post.user_id, post.is_agent)}</strong>
                             {post.is_agent ? (
                               <span style={{
@@ -3600,7 +3739,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                                 background: "var(--b-sig)",
                                 color: "#fff",
                                 fontWeight: 700,
-                              }}>{t(post.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}</span>
+                              }}>{t(post.agent_role === "pm" ? "community.rolePm" : post.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}</span>
                             ) : post.user_id ? (
                               <span style={{
                                 fontSize: 10,
@@ -3972,11 +4111,11 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
               {/* 운영자(Aria) 작성 글 바이라인 */}
               {activePost.is_agent && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22 }}>
-                  <AriaAvatar size={28} onClick={ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />
+                  <AgentAvatar name={activePost.author_name} size={28} onClick={activePost.author_name !== "Ethan" && ARIA_AVATAR_SRC ? () => setZoomedImage(ARIA_AVATAR_SRC) : undefined} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-2)", display: "inline-flex", alignItems: "center", gap: 6 }}>
                     {renderAuthorName(activePost.author_name, activePost.user_id, activePost.is_agent)}
                     <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "var(--b-sig)", color: "#fff", fontWeight: 700 }}>
-                      {t(activePost.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}
+                      {t(activePost.agent_role === "pm" ? "community.rolePm" : activePost.agent_role === "manager" ? "community.roleManager" : "community.roleCoach")}
                     </span>
                   </span>
                 </div>
@@ -7344,6 +7483,7 @@ export type MarketingRoute =
   | "terms"
   | "community"
   | "changelog"
+  | "roadmap"
   | "science"
   | "auth-callback"
   | "forgot-password"
@@ -7459,6 +7599,7 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   if (h === "privacy") return "privacy";
   if (h === "terms") return "terms";
   if (h === "changelog" || h === "release" || h === "releases") return "changelog";
+  if (h === "roadmap") return "roadmap";
   if (h === "community" || h === "contact" || h === "support") return "community";
   if (h === "science" || h === "evidence") return "science";
   if (h === "auth/callback") return "auth-callback";
@@ -7491,6 +7632,8 @@ function routeBody(route: MarketingRoute, initialPostId?: string | null) {
       return <LegalPage kind="terms" />;
     case "changelog":
       return <ChangelogPage />;
+    case "roadmap":
+      return <RoadmapPage />;
     case "community":
       return <Contact initialPostId={initialPostId} />;
     case "science":

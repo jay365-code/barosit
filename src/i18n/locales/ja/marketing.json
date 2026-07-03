@@ -16,7 +16,8 @@
     "science": "エビデンス",
     "privacy": "プライバシーポリシー",
     "terms": "利用規約",
-    "community": "コミュニティ"
+    "community": "コミュニティ",
+    "roadmap": "ロードマップ"
   },
   "landing": {
     "badge": "オンデバイス · 映像は外部に出ません",
@@ -303,7 +304,6 @@
     "replyPlaceholder": "{{name}} さんへ返信...",
     "viewReplies": "返信 {{count}}件",
     "hideReplies": "返信を非表示",
-    "sortRecent": "新着順",
     "sortTop": "人気順",
     "commentEditTitle": "コメントを編集",
     "commentEditSave": "保存",
@@ -315,6 +315,7 @@
     "cancelReply": "取消",
     "roleCoach": "姿勢コーチ",
     "roleManager": "コミュニティマネージャー",
+    "rolePm": "プロダクトマネージャー",
     "authorLabel": "投稿者:",
     "viewAuthorPosts": "{{name}} さんの活動を見る",
     "authorActivityTitle": "{{name}} さんの活動",
@@ -410,6 +411,22 @@
     "error": "リリース履歴の読み込み中にエラーが発生しました。（データベースに'releases'テーブルが登録されているかご確認ください。）",
     "home": "ホームへ",
     "viewPrivacy": "プライバシーポリシーを見る"
+  },
+  "roadmap": {
+    "title": "プロダクトロードマップ",
+    "subtitle": "提案された機能の進捗状況をご確認ください。PMのイーサン(Ethan)が提案を受け付け、状態を管理しています。",
+    "loading": "ロードマップを読み込んでいます...",
+    "empty": "まだ機能リクエストはありません。コミュニティで最初の提案をしてみましょう!",
+    "requestCount": "{{count}}名がリクエスト",
+    "status": {
+      "in_progress": "進行中",
+      "planned": "予定",
+      "reviewing": "検討中",
+      "done": "完了"
+    },
+    "ethanTitle": "Ethan · BaroSit プロダクトマネージャー",
+    "ethanDesc": "コミュニティの機能提案を受け付け、重複をまとめてロードマップとして管理しています。ほしい機能があればコミュニティで提案してください。",
+    "suggestCta": "機能を提案する"
   },
   "forgotPw": {
     "title": "パスワードの再設定",

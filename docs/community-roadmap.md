@@ -29,7 +29,7 @@
 ## 📋 할일 (우선순위)
 
 ### 🥇 다음 작업 — 둘 중 택1로 시작
-- [ ] **#19 ⭐ 프로덕트 매니저 에이전트 (참여 루프)** — 💡기능 제안 전담: 접수→중복 클러스터링→"N명 요청·검토중/예정/완료" 상태 회신→공개 로드맵. cm-agent-draft에 PM 역할(intent=feature_request)+로드맵 상태 스키마(feature_requests/votes/status). 상세: service-completeness **CM-2**.
+- [ ] **#19 ⭐ 프로덕트 매니저 에이전트 (참여 루프)** — 💡기능 제안 전담: 접수→중복 클러스터링→"N명 요청·검토중/예정/완료" 상태 회신→공개 로드맵. cm-agent-draft에 PM 역할(intent=feature_request)+로드맵 상태 스키마(feature_requests/votes/status). 상세: service-completeness **CM-2**. **페르소나 확정(2026-07-02) = "Ethan(이든)"** — Aria와 별도 남성 PM 인격(1인격+뱃지 원칙 변경), 첫 임무는 릴리스 노트 큐레이션(CHANGELOG 초안 PR 파이프라인). 정의: `docs/agent-roster.md`.
 - [x] **#18 ✅ 커뮤니티 SEO 구조 리팩토링 (마케팅 토대) — 배포+프로덕션 검증 완료(2026-07-01, 커밋 21f314f·abf9dab·fc9fbc7).** 프로덕션 curl 검증: /community(CollectionPage)·글 상세(QAPage)·사이트맵(200)·404·정적페이지 무회귀 전부 OK. **남은 운영 TODO: ① GSC+네이버에 community-sitemap.xml 제출+수집요청 ② 별개 보안이슈 게스트 password_hash 익명노출(task chip) ③ (후속) 글별 동적 OG 이미지.** 아래는 구현 상세 ↓ 결정=**A안(공지=블로그, `📣 공지`→BlogPosting; UGC→DiscussionForumPosting/QAPage)**. 구현: ① permalink `/community/p/<id>`(pathname 라우팅, 해시 라우팅과 공존)+`public/_redirects` SPA fallback ② **Cloudflare Pages Function 엣지 SSR**(`functions/community/p/[id].ts`: REST 단건조회→HTMLRewriter로 title/meta/OG/canonical override+정적 JSON-LD 제거+글별 JSON-LD·noscript 주입+404·이스케이프) ③ `public/_routes.json`로 함수 범위 한정. 클라: 리스트 제목 real `<a href>`+pushState, 뒤로/popstate/document.title 동기화. 빌드: `scripts/copy-functions.mjs`가 `functions/`→`dist-web/functions/` 복사. **로컬 wrangler 검증 OK**(SSR meta·QAPage JSON-LD·noscript·404·이스케이프·SPA 하이드레이션·back/forward, 콘솔에러 0). **Phase 2도 구현+로컬검증 완료(2026-07-01)**: 목록을 clean URL `/community`로(해시 제거 — 사용자 지적) + 목록 SSR(`functions/community/index.ts`: CollectionPage/ItemList JSON-LD + `<noscript>` 글 링크 나열로 크롤러 발견) + **동적 사이트맵**(`functions/community-sitemap.xml.ts` → `/community`+전체 글 permalink urlset, robots.txt 등록). nav/footer 링크 `#/community`→`/community`(해시 라우팅은 하위호환 유지). `_shared/ssr.ts` 헬퍼 공유. 라우팅 우선순위: 명시적 해시(≠community) > `/community`(/p/<id>) pathname > 해시 #/community > landing. wrangler 검증: `/community` 200·CollectionPage·noscript링크·사이트맵 urlset·글 상세 유지·하이드레이션(로드→목록·클릭→상세·뒤로→목록, 해시 0)·콘솔에러 0. **남은 것**: 배포 후 prod `curl`로 함수 실감지 재확인(리스크1) · 공지 BlogPosting 분기 실데이터 검증(공지 첫 게시 시). 상세: service-completeness **CM-3** · 마케팅전략 **§9** · 계획 `~/.claude/plans/humming-petting-kettle.md`.
 
 > 💡 베타 어필이 목적이면 외부 유입 입구(검색·공유)가 먼저라 **#18(특히 공지=블로그)부터** 권장. 참여 루프 우선이면 #19.
@@ -57,6 +57,7 @@
 
 ## 📂 어디에 뭐가 있나
 - 기능/상태: `docs/service-completeness.html` CM-1(보드 UX·완료)·CM-2(에이전트 로스터·PM우선)·CM-3(SEO 리팩토링).
+- 에이전트 페르소나: `docs/agent-roster.md` — Aria(커뮤니티)·Ethan(PM) 정의·가드레일·담당 업무.
 - 마케팅: `docs/마케팅전략.html` §7 베타플랜·§8 플라이휠·§9 SEO리팩토링(체크리스트 통합).
 - 변경이력: `docs/changelog.md` §0-9.
 - 코드: `src/web/Marketing.tsx`(커뮤니티 전체)·`src/components/Icon.tsx`·`supabase/functions/cm-agent-draft/*`·`supabase/migrations/2026063008~10*`.

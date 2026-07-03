@@ -3,6 +3,11 @@ name: Release (signed, auto-updater)
 # v* 태그 푸시 또는 수동 실행으로 macOS · Windows 빌드 → 자동 서명(updater signature)
 # → GitHub Release 게시. latest.json 메니페스트는 tauri-action 이 자동 생성·업로드 함.
 # 앱은 tauri.conf.json 의 endpoints (Release latest URL) 를 fetch 해서 새 버전 감지.
+#
+# 릴리스 노트: CHANGELOG.md 의 "## vX.Y.Z" 섹션이 Release 본문이 된다 (notes 잡).
+# 섹션이 없으면 빌드 전에 실패한다 → 태그 전에 prepare-release.yml 로 초안 PR 을 만들어
+# 머지(=관리자 승인)할 것. 게시 후 본문은 latest.json notes(앱 업데이트 배너)와
+# Supabase releases 테이블(웹 #/changelog)로 전파된다. — PM 에이전트 Ethan 파이프라인.
 
 on:
   workflow_dispatch:
@@ -11,7 +16,42 @@ on:
       - "v*"
 
 jobs:
+  # 릴리스 노트 추출 — CHANGELOG.md 에 해당 버전 섹션이 없으면 여기서 실패(빌드 낭비 방지)
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      body: ${{ steps.extract.outputs.body }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract release notes from CHANGELOG.md
+        id: extract
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::릴리스는 vX.Y.Z 태그에서만 실행하세요 (현재 ref: $TAG)."; exit 1
+          fi
+          BODY=$(awk -v ver="$TAG" '
+            $1=="##" && $2==ver { flag=1; next }
+            $1=="##" && flag    { exit }
+            flag                { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+          if [ -z "$BODY" ]; then
+            echo "::error::CHANGELOG.md 에 '## $TAG' 섹션이 없습니다. prepare-release.yml 로 초안 PR 을 만들어 머지한 뒤 태그를 다시 푸시하세요."
+            exit 1
+          fi
+          {
+            echo "body<<CHANGELOG_BODY_EOF"
+            echo "$BODY"
+            echo "CHANGELOG_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "--- Release body ---"; echo "$BODY"
+
   release:
+    needs: notes
     permissions:
       contents: write
     strategy:
@@ -78,9 +118,8 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "BaroSit __VERSION__"
-          releaseBody: |
-            ## 변경사항
-            아래 자산을 다운로드해 설치하세요. 기존 사용자는 앱이 자동으로 업데이트를 안내합니다.
+          # CHANGELOG.md 의 해당 버전 섹션(관리자 승인분) — notes 잡에서 추출
+          releaseBody: ${{ needs.notes.outputs.body }}
           # v0.3.6 에서 서명·공증(.app + .dmg staple) 검증 완료 → 자동 공개로 전환.
           # 태그 푸시 시 빌드 후 Release 가 즉시 Latest 로 공개되고 기존 사용자에게
           # 자동 업데이트가 나간다. 문제 빌드도 바로 배포되므로 빌드 신뢰가 전제.
@@ -114,3 +153,39 @@ jobs:
           # tauri-action 이 이미 release 에 올린 동일 이름 자산을 staple 된 파일로 교체
           gh release upload "${{ github.ref_name }}" "$DMG" \
             --clobber --repo "${{ github.repository }}"
+
+  # 웹 업데이트 내역(#/changelog = Supabase releases 테이블)에 릴리스 노트 전파.
+  # SUPABASE_SERVICE_ROLE_KEY secret 이 없으면 건너뛴다(릴리스는 정상 완료).
+  publish-web-changelog:
+    needs: [notes, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Upsert release into Supabase releases table
+        shell: bash
+        env:
+          SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BODY: ${{ needs.notes.outputs.body }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SERVICE_ROLE_KEY" ]; then
+            echo "::notice::SUPABASE_SERVICE_ROLE_KEY 미설정 — 웹 업데이트 내역 게시를 건너뜁니다."
+            exit 0
+          fi
+          SUPABASE_URL="https://kllcnllkcewnutxodwhx.supabase.co"
+          TAG="${GITHUB_REF_NAME}"
+          jq -n --arg version "$TAG" --arg content "$BODY" \
+            --arg released_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version: $version, content: $content, released_at: $released_at, updated_at: $released_at}' \
+            > /tmp/release.json
+          HTTP=$(curl -sS -o /tmp/out.json -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/releases?on_conflict=version" \
+            -H "apikey: $SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            --data @/tmp/release.json)
+          if [ "$HTTP" != "201" ] && [ "$HTTP" != "200" ]; then
+            echo "::error::releases 테이블 upsert 실패 ($HTTP): $(cat /tmp/out.json)"; exit 1
+          fi
+          echo "웹 업데이트 내역에 $TAG 게시 완료."

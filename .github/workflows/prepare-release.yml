@@ -1,0 +1,152 @@
+name: Prepare Release Notes (Ethan)
+
+# PM 에이전트 "Ethan(이든)" 의 릴리스 노트 초안 파이프라인 (docs/agent-roster.md).
+#
+# 사용법: Actions 탭 → 이 워크플로 → Run workflow → 버전 입력(예: 0.9.3).
+#   1) 이전 태그 이후의 커밋 로그를 수집
+#   2) Claude API 로 사용자 관점 요약 초안 생성 (Ethan 페르소나 규칙)
+#   3) CHANGELOG.md 에 섹션을 추가하는 PR 을 연다 → 관리자가 검토·수정 후 머지(=승인)
+#   4) 머지 후 vX.Y.Z 태그를 푸시하면 release.yml 이 해당 섹션을 Release 본문으로 게시
+#
+# 필요한 Secrets: ANTHROPIC_API_KEY
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "릴리스할 버전 (예: 0.9.3 — v 접두사 없이)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate input & collect commit log
+        id: log
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::버전 형식이 잘못됐습니다: '$VERSION' (예: 0.9.3)"; exit 1
+          fi
+          if grep -qE "^## v${VERSION//./\\.}( |$)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md 에 v$VERSION 섹션이 이미 있습니다."; exit 1
+          fi
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "")
+          echo "last_tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          RANGE=${LAST_TAG:+$LAST_TAG..HEAD}; RANGE=${RANGE:-HEAD}
+          git log --format="- %s" $RANGE | grep -v "^- chore(release)" > /tmp/commits.txt || true
+          if [ ! -s /tmp/commits.txt ]; then
+            echo "::error::$LAST_TAG 이후 커밋이 없습니다."; exit 1
+          fi
+          echo "커밋 $(wc -l < /tmp/commits.txt)건 수집 ($LAST_TAG → HEAD)"
+
+      - name: Generate draft with Claude (Ethan persona)
+        id: draft
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret 이 설정되지 않았습니다."; exit 1
+          fi
+          VERSION="${{ steps.log.outputs.version }}"
+          TODAY=$(date -u +%Y-%m-%d)
+
+          SYSTEM="너는 BaroSit 의 프로덕트 매니저 에이전트 \"Ethan(이든)\" 이다 (docs/agent-roster.md).
+          아래 커밋 로그를 읽고 사용자용 릴리스 노트 섹션을 작성한다.
+
+          작성 규칙:
+          - 한 항목 = 사용자가 체감하는 변화 한 문장 (한국어, '-습니다' 체). 3~7개 항목.
+          - 내부 리팩토링·빌드 설정·문서·테스트·CI 변경은 절대 쓰지 않는다.
+          - 기술 용어(세그멘터·훅·마이그레이션·RLS 등) 금지 — 사용자 언어로 번역한다.
+          - 보안 관련 수정은 구체 내용 대신 '보안을 개선했습니다'로 뭉뚱그린다.
+          - 가격·출시일·법적 약속은 쓰지 않는다.
+          - 마지막에 *(en)* 으로 시작하는 영어 한 줄 요약을 붙인다.
+          - 출력은 아래 형식의 마크다운만. 다른 말은 붙이지 않는다.
+
+          ## v$VERSION — $TODAY
+
+          - 첫 번째 변화
+          - 두 번째 변화
+
+          *(en)* One-line English summary."
+
+          jq -n --arg model "claude-sonnet-4-6" --arg system "$SYSTEM" \
+            --rawfile commits /tmp/commits.txt \
+            '{model: $model, max_tokens: 1024, system: $system,
+              messages: [{role: "user", content: ("[커밋 로그]\n" + $commits)}]}' > /tmp/req.json
+
+          HTTP=$(curl -sS -o /tmp/res.json -w "%{http_code}" https://api.anthropic.com/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            --data @/tmp/req.json)
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::Anthropic API 오류 ($HTTP): $(cat /tmp/res.json)"; exit 1
+          fi
+          jq -r '.content[0].text' /tmp/res.json > /tmp/section.md
+          if ! head -1 /tmp/section.md | grep -q "^## v$VERSION"; then
+            echo "::error::초안이 기대한 형식이 아닙니다:"; cat /tmp/section.md; exit 1
+          fi
+          echo "--- 초안 ---"; cat /tmp/section.md
+
+      - name: Insert section into CHANGELOG.md
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 헤더 주석 블록(-->) 바로 다음, 첫 "## v" 섹션 앞에 삽입
+          awk 'BEGIN { ins=0 }
+               /^## v/ && !ins { while ((getline line < "/tmp/section.md") > 0) print line; print ""; ins=1 }
+               { print }' CHANGELOG.md > /tmp/CHANGELOG.new
+          mv /tmp/CHANGELOG.new CHANGELOG.md
+
+      - name: Open PR for admin review
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.log.outputs.version }}"
+          BRANCH="release-notes/v$VERSION"
+          git config user.name "ethan-barosit-pm[bot]"
+          git config user.email "noreply@barosit.app"
+          git checkout -b "$BRANCH"
+          git add CHANGELOG.md
+          git commit -m "docs(release): v$VERSION 릴리스 노트 초안 — Ethan"
+          git push -u origin "$BRANCH" --force
+          gh pr create \
+            --title "릴리스 노트 v$VERSION (Ethan 초안 — 검토 필요)" \
+            --body "$(printf '%s\n' \
+              "PM 에이전트 Ethan 이 커밋 로그를 요약한 릴리스 노트 초안입니다." \
+              "" \
+              "**검토 방법**: CHANGELOG.md 의 v$VERSION 섹션을 확인하고, 문구를 다듬거나 항목을 빼고 싶으면 이 브랜치에서 직접 수정 후 머지하세요. 머지가 곧 승인입니다." \
+              "" \
+              "**머지 후**: \`v$VERSION\` 태그를 푸시하면 release.yml 이 이 섹션을 GitHub Release 본문·앱 업데이트 배너·웹 업데이트 내역에 게시합니다. (섹션이 없으면 릴리스가 실패하므로, 이 PR 을 머지하기 전에는 태그를 푸시하지 마세요.)" \
+              "" \
+              "— Ethan (BaroSit PM)")" \
+            --base main --head "$BRANCH" \
+            --assignee "${{ github.repository_owner }}" \
+            --reviewer "${{ github.repository_owner }}" || \
+          gh pr create \
+            --title "릴리스 노트 v$VERSION (Ethan 초안 — 검토 필요)" \
+            --body "PM 에이전트 Ethan 의 릴리스 노트 초안입니다. CHANGELOG.md 를 검토·수정 후 머지하세요. — Ethan (BaroSit PM)" \
+            --base main --head "$BRANCH"
+          # (reviewer/assignee 지정이 권한 문제로 실패해도 PR 자체는 생성되도록 폴백)

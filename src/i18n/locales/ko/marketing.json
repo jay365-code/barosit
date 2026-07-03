@@ -16,7 +16,8 @@
     "science": "근거",
     "privacy": "개인정보 처리방침",
     "terms": "이용약관",
-    "community": "커뮤니티"
+    "community": "커뮤니티",
+    "roadmap": "로드맵"
   },
   "landing": {
     "badge": "온디바이스 · 영상은 외부로 나가지 않습니다",
@@ -290,7 +291,7 @@
     "writeSubtitle": "작성하신 소중한 글은 커뮤니티 모든 유저들과 실시간으로 공유됩니다.",
     "detailMeta": "작성자: {{author}} · 작성일: {{date}}",
     "searchPlaceholder": "제목, 내용, 작성자 검색...",
-    "sortRecent": "최신순",
+    "sortRecent": "작성순",
     "sortLikes": "추천순",
     "writeCta": "이야기 등록하기",
     "loading": "커뮤니티 글을 불러오는 중입니다...",
@@ -303,7 +304,6 @@
     "replyPlaceholder": "{{name}}님에게 답글 남기기...",
     "viewReplies": "답글 {{count}}개",
     "hideReplies": "답글 숨기기",
-    "sortRecent": "작성순",
     "sortTop": "인기순",
     "commentEditTitle": "댓글 수정",
     "commentEditSave": "수정 완료",
@@ -315,6 +315,7 @@
     "cancelReply": "취소",
     "roleCoach": "자세 코치",
     "roleManager": "커뮤니티 매니저",
+    "rolePm": "프로덕트 매니저",
     "authorLabel": "작성자:",
     "viewAuthorPosts": "{{name}}님의 활동 보기",
     "authorActivityTitle": "{{name}}님의 활동",
@@ -410,6 +411,22 @@
     "error": "릴리즈 내역을 불러오는 중 오류가 발생했습니다. (데이터베이스에 'releases' 테이블이 등록되었는지 확인해주세요.)",
     "home": "홈으로 가기",
     "viewPrivacy": "개인정보 처리방침 보기"
+  },
+  "roadmap": {
+    "title": "제품 로드맵",
+    "subtitle": "여러분이 제안한 기능이 어디까지 왔는지 확인하세요. PM 이든(Ethan)이 제안을 접수하고 상태를 관리합니다.",
+    "loading": "로드맵을 불러오는 중입니다...",
+    "empty": "아직 접수된 기능 요청이 없습니다. 커뮤니티에 첫 제안을 남겨보세요!",
+    "requestCount": "{{count}}명 요청",
+    "status": {
+      "in_progress": "진행중",
+      "planned": "예정",
+      "reviewing": "검토중",
+      "done": "완료"
+    },
+    "ethanTitle": "Ethan · BaroSit 프로덕트 매니저",
+    "ethanDesc": "커뮤니티의 기능 제안을 접수하고 중복 제안을 묶어 로드맵으로 관리합니다. 원하는 기능이 있다면 커뮤니티에 제안해 주세요.",
+    "suggestCta": "기능 제안하기"
   },
   "forgotPw": {
     "title": "비밀번호 찾기",

@@ -16,7 +16,8 @@
     "science": "Science",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
-    "community": "Community"
+    "community": "Community",
+    "roadmap": "Roadmap"
   },
   "landing": {
     "badge": "On-device · Your video never leaves your computer",
@@ -304,7 +305,6 @@
     "viewReplies_one": "{{count}} reply",
     "viewReplies_other": "{{count}} replies",
     "hideReplies": "Hide replies",
-    "sortRecent": "Newest",
     "sortTop": "Top",
     "commentEditTitle": "Edit comment",
     "commentEditSave": "Save",
@@ -316,6 +316,7 @@
     "cancelReply": "Cancel",
     "roleCoach": "Posture Coach",
     "roleManager": "Community Manager",
+    "rolePm": "Product Manager",
     "authorLabel": "By",
     "viewAuthorPosts": "View {{name}}'s activity",
     "authorActivityTitle": "{{name}}'s activity",
@@ -413,6 +414,22 @@
     "error": "An error occurred while loading the release notes. (Please make sure the 'releases' table exists in the database.)",
     "home": "Go home",
     "viewPrivacy": "View Privacy Policy"
+  },
+  "roadmap": {
+    "title": "Product Roadmap",
+    "subtitle": "See where your feature requests stand. Ethan, our PM, collects suggestions and keeps this roadmap up to date.",
+    "loading": "Loading roadmap...",
+    "empty": "No feature requests yet. Be the first to suggest one in the community!",
+    "requestCount": "{{count}} requested",
+    "status": {
+      "in_progress": "In progress",
+      "planned": "Planned",
+      "reviewing": "Reviewing",
+      "done": "Shipped"
+    },
+    "ethanTitle": "Ethan · BaroSit Product Manager",
+    "ethanDesc": "Ethan collects feature suggestions from the community, merges duplicates, and manages this roadmap. Have an idea? Post it in the community.",
+    "suggestCta": "Suggest a feature"
   },
   "forgotPw": {
     "title": "Reset password",

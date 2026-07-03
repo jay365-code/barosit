@@ -1384,6 +1384,23 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
           >
             <button
               type="button"
+              onClick={() => platform.openBrowser("https://barosit.com/#/changelog")}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: "var(--b-fg-3)",
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily: "inherit",
+              }}
+            >
+              {t("about.changelog")}
+            </button>
+            <span style={{ color: "var(--b-line-2)" }}>·</span>
+            <button
+              type="button"
               onClick={() => onShowLegal("privacy")}
               style={{
                 background: "none",
