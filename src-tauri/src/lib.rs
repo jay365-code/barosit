@@ -488,6 +488,130 @@ fn stop_auth_loopback(port: u16, state: tauri::State<AuthLoopbackState>) {
     }
 }
 
+/// macOS 자동시작(로그인 항목)을 SMAppService(macOS 13+)로 등록/해제한다.
+///
+/// 기존 `tauri-plugin-autostart` 의 LaunchAgent 방식은 시스템 설정 > 일반 >
+/// 로그인 항목 / 백그라운드 활동 목록에서 앱 이름이 아니라 코드서명 조직명
+/// ("Gu B Deu Co., Ltd.") 으로 묶여 표시된다. SMAppService.mainApp 으로 등록하면
+/// 번들 표시 이름("BaroSit")으로 나온다. SMAppService 클래스가 없는 macOS 12
+/// 이하에서는 `None`/`Ok(false)` 로 폴백(플러그인 LaunchAgent) 을 알린다.
+#[cfg(target_os = "macos")]
+mod macos_login {
+    use objc2::msg_send;
+    use objc2::runtime::{AnyClass, AnyObject};
+    use std::ffi::CStr;
+
+    // SMAppServiceStatusEnabled = 1
+    const SM_STATUS_ENABLED: isize = 1;
+
+    /// `[SMAppService mainAppService]`. 클래스가 없으면(구 macOS) None.
+    fn main_app_service() -> Option<*mut AnyObject> {
+        let cls = AnyClass::get("SMAppService")?;
+        unsafe {
+            let svc: *mut AnyObject = msg_send![cls, mainAppService];
+            (!svc.is_null()).then_some(svc)
+        }
+    }
+
+    /// `Some(true/false)` = 지원됨(현재 등록 여부). `None` = SMAppService 미지원(구 macOS).
+    pub fn is_enabled() -> Option<bool> {
+        let svc = main_app_service()?;
+        unsafe {
+            let status: isize = msg_send![svc, status];
+            Some(status == SM_STATUS_ENABLED)
+        }
+    }
+
+    /// `Ok(true)` 등록/해제 성공, `Ok(false)` 미지원(폴백 필요), `Err` 실패(사유 포함).
+    pub fn set(enabled: bool) -> Result<bool, String> {
+        let Some(svc) = main_app_service() else {
+            return Ok(false);
+        };
+        unsafe {
+            let mut err: *mut AnyObject = std::ptr::null_mut();
+            let err_ref: *mut *mut AnyObject = &mut err;
+            let ok: bool = if enabled {
+                msg_send![svc, registerAndReturnError: err_ref]
+            } else {
+                msg_send![svc, unregisterAndReturnError: err_ref]
+            };
+            if ok {
+                Ok(true)
+            } else {
+                Err(error_message(err))
+            }
+        }
+    }
+
+    unsafe fn error_message(err: *mut AnyObject) -> String {
+        if err.is_null() {
+            return "SMAppService 작업 실패(원인 불명)".into();
+        }
+        let desc: *mut AnyObject = msg_send![err, localizedDescription];
+        if desc.is_null() {
+            return "SMAppService 작업 실패".into();
+        }
+        let utf8: *const std::os::raw::c_char = msg_send![desc, UTF8String];
+        if utf8.is_null() {
+            return "SMAppService 작업 실패".into();
+        }
+        CStr::from_ptr(utf8).to_string_lossy().into_owned()
+    }
+
+    /// 구 LaunchAgent plist(플러그인 방식) 를 제거해 SMAppService 와 중복 자동실행을
+    /// 막는다. plist 가 존재했으면(=이전에 자동시작을 켜 둔 사용자) `true`.
+    pub fn remove_legacy_launch_agent() -> bool {
+        let Some(home) = std::env::var_os("HOME") else {
+            return false;
+        };
+        let path = std::path::Path::new(&home).join("Library/LaunchAgents/BaroSit.plist");
+        if path.exists() {
+            let _ = std::fs::remove_file(&path);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// 자동시작 활성 여부 조회. macOS 13+ 는 SMAppService, 그 외/구 macOS 는
+/// autostart 플러그인(LaunchAgent·레지스트리 Run) 으로 폴백.
+#[tauri::command]
+fn autostart_is_enabled(app: AppHandle) -> Result<Option<bool>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(v) = macos_login::is_enabled() {
+            return Ok(Some(v));
+        }
+    }
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        app.autolaunch()
+            .is_enabled()
+            .map(Some)
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// 자동시작 설정/해제. macOS 13+ 는 SMAppService, 그 외/구 macOS 는 플러그인 폴백.
+#[tauri::command]
+fn autostart_set(app: AppHandle, enabled: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        match macos_login::set(enabled) {
+            Ok(true) => return Ok(()),
+            Ok(false) => {} // 미지원(구 macOS) → 폴백
+            Err(e) => return Err(e),
+        }
+    }
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        let mgr = app.autolaunch();
+        let r = if enabled { mgr.enable() } else { mgr.disable() };
+        r.map_err(|e| e.to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -546,6 +670,16 @@ pub fn run() {
         .setup(|app| {
             use tauri_plugin_global_shortcut::GlobalShortcutExt;
             tray::setup_tray(app.handle())?;
+
+            // 자동시작 마이그레이션: 구버전은 플러그인 LaunchAgent 로 자동시작을
+            // 등록해 로그인 항목 목록에 조직명("Gu B Deu Co., Ltd.")으로 떴다.
+            // 이제 SMAppService(앱 이름 "BaroSit" 표시)로 전환한다. 기존 plist 가
+            // 있으면 = 사용자가 자동시작을 켜 뒀던 것이므로, SMAppService 로 다시
+            // 등록해 설정을 유지하고 구 plist 를 지워 중복 실행을 막는다.
+            #[cfg(target_os = "macos")]
+            if macos_login::remove_legacy_launch_agent() {
+                let _ = macos_login::set(true);
+            }
 
             // Windows / Linux 는 deep-link 스킴이 install 시점 (MSI/NSIS) 에 OS 에 등록되므로
             // 개발 빌드 (cargo dev) 에선 미등록 상태. 런타임에 register_all 로 보강해 dev 에서도
@@ -634,6 +768,8 @@ pub fn run() {
             system_idle_secs,
             start_auth_loopback,
             stop_auth_loopback,
+            autostart_is_enabled,
+            autostart_set,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
