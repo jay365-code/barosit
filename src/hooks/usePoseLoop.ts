@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import i18n from "../i18n";
 import {
   detectFromVideo,
@@ -6,6 +6,7 @@ import {
   disposeLandmarker,
   refreshLandmarkers,
 } from "../pose/detector";
+import { subscribeWake } from "../wakeDetector";
 import { startKeepAwake, stopKeepAwake } from "../keepAwake";
 import type { DetectionFrame } from "../pose/types";
 
@@ -170,23 +171,44 @@ export function usePoseLoop({
   // 흐르지만 detectFromVideo 의 null 가드 + SilhouetteOverlay 의 직전 mask 유지로
   // 화면은 그대로다. enabled 가 아니면(일시정지/유휴) 스킵, 중복 실행은 ref 로 차단.
   const refreshingRef = useRef(false);
+
+  // 모델 재빌드의 단일 진입점 — soft-refresh·세그멘터 워치독·detect 에러복구·wake
+  // 선제 재빌드가 모두 이걸 거친다. refreshingRef 로 중복/동시 실행을 차단하고,
+  // 재빌드 중에는 tick 이 detect 를 스킵해 null↔재생성 레이스를 막는다.
+  const rebuild = useCallback((reason: string, e?: unknown) => {
+    if (refreshingRef.current) return;
+    console.warn(`rebuilding landmarkers — ${reason}`, e ?? "");
+    refreshingRef.current = true;
+    refreshLandmarkers()
+      .catch((err) => console.warn(`${reason} refresh failed:`, err))
+      .finally(() => {
+        refreshingRef.current = false;
+      });
+  }, []);
+
+  // [경량 메모리 회수] useMemoryReloadGuard 가 자주(기본 90s) 발행하는 soft-refresh
+  // 신호에 모델만 dispose+reinit 한다. 페이지 reload 가 아니라 화면 깜빡임이 없고,
+  // MediaPipe/GPU 메모리(증가분의 대부분)를 회수한다. 재생성 중(~1~2s)에는 빈 프레임이
+  // 흐르지만 detectFromVideo 의 null 가드 + SilhouetteOverlay 의 직전 mask 유지로
+  // 화면은 그대로다. enabled 가 아니면(일시정지/유휴) 스킵, 중복 실행은 ref 로 차단.
   useEffect(() => {
     if (!enabled) return;
-    const onSoftRefresh = async () => {
-      if (refreshingRef.current) return;
-      refreshingRef.current = true;
-      try {
-        await refreshLandmarkers();
-      } catch (e) {
-        console.warn("soft model refresh failed:", e);
-      } finally {
-        refreshingRef.current = false;
-      }
-    };
+    const onSoftRefresh = () => rebuild("soft memory refresh");
     window.addEventListener("barosit:soft-memory-refresh", onSoftRefresh);
     return () =>
       window.removeEventListener("barosit:soft-memory-refresh", onSoftRefresh);
-  }, [enabled]);
+  }, [enabled, rebuild]);
+
+  // [복귀 시 선제 재빌드 — 루트 픽스] 시스템 슬립/절전 복귀 후엔 WKWebView 의 WebGL
+  // 컨텍스트가 무효화돼, GPU delegate 로 만든 landmarker 에 detectForVideo 를 부르면
+  // WASM 이 "Aborted()" 로 죽는다(오류 리포트의 실제 발생 지점). 카메라는 useCamera 가
+  // wake 에 복구하지만 GPU landmarker 는 죽은 컨텍스트를 그대로 들고 있으므로, 여기서도
+  // wake 에 선제 재빌드해 새 컨텍스트에서 GPU→CPU 를 다시 협상한다. 복귀 첫 프레임부터
+  // 정상 동작 → abort 자체가 안 난다(tick 의 catch 는 놓친 경우의 안전망).
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribeWake(() => rebuild("system wake"));
+  }, [enabled, rebuild]);
 
   // [배터리] keepAwake(무음 오디오로 webview suspend 방지)를 enabled 에 묶는다.
   // 감지 중일 때만 깨어 있고, 일시정지/자리비움/유휴/언마운트면 즉시 중단해 시스템이
@@ -226,56 +248,63 @@ export function usePoseLoop({
     const tick = () => {
       if (cancelled) return;
       const start = performance.now();
-      const video = videoRef.current;
-      if (!video || video.readyState < 2) {
-        timer = window.setTimeout(tick, intervalMs);
-        return;
-      }
-      const ts = performance.now();
-      const safeTs = ts <= lastTs ? lastTs + 1 : ts;
-      lastTs = safeTs;
-      tickCount += 1;
-      const segment =
-        segmentEveryN <= 0 ? false : tickCount % segmentEveryN === 0;
-      // faceEveryN/handsEveryN: N틱당 1회만 모델 실행, 나머지 틱은 detector가
-      // 직전 결과를 재사용. 자세는 느린 신호라 stride 지연이 품질에 영향 없음.
-      const face = runFace && (faceEveryN <= 1 || tickCount % faceEveryN === 0);
-      const hands =
-        runHands && (handsEveryN <= 1 || tickCount % handsEveryN === 0);
-      const frame = detectFromVideo(video, safeTs, {
-        segment,
-        face,
-        hands,
-      });
-      callbackRef.current?.(frame);
+      try {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2) return;
+        // 재빌드(soft-refresh/워치독/에러복구) 진행 중엔 모델이 null↔재생성 사이라
+        // detect 진입 금지. 스킵해도 finally 가 다음 틱을 재예약하므로 루프는 유지.
+        if (refreshingRef.current) return;
 
-      // [세그멘터 워치독] pose 는 잡히는데 mask 만 maskStallMs 이상 끊기면 세그멘터
-      // 재구축으로 자가복구. pose=null(자리비움) 이나 refresh 중(전 모델 null → pose 도
-      // null)에는 발동하지 않는다. segment 틱에서만 stall 판정(스킵 틱은 원래 mask=null).
-      const now = performance.now();
-      if (frame.mask) {
-        lastMaskTs = now;
-      } else if (
-        segment &&
-        frame.pose &&
-        now - lastMaskTs > maskStallMs &&
-        !refreshingRef.current
-      ) {
-        console.warn(
-          `segmenter stalled ${Math.round(now - lastMaskTs)}ms with pose present — rebuilding models`,
-        );
-        lastMaskTs = now; // 재트리거 방지 — 다음 발동까지 stall 창을 다시 채워야 함
-        refreshingRef.current = true;
-        refreshLandmarkers()
-          .catch((e) => console.warn("segmenter watchdog refresh failed:", e))
-          .finally(() => {
-            refreshingRef.current = false;
-          });
-      }
+        const ts = performance.now();
+        const safeTs = ts <= lastTs ? lastTs + 1 : ts;
+        lastTs = safeTs;
+        tickCount += 1;
+        const segment =
+          segmentEveryN <= 0 ? false : tickCount % segmentEveryN === 0;
+        // faceEveryN/handsEveryN: N틱당 1회만 모델 실행, 나머지 틱은 detector가
+        // 직전 결과를 재사용. 자세는 느린 신호라 stride 지연이 품질에 영향 없음.
+        const face =
+          runFace && (faceEveryN <= 1 || tickCount % faceEveryN === 0);
+        const hands =
+          runHands && (handsEveryN <= 1 || tickCount % handsEveryN === 0);
+        const frame = detectFromVideo(video, safeTs, {
+          segment,
+          face,
+          hands,
+        });
+        callbackRef.current?.(frame);
 
-      const elapsed = performance.now() - start;
-      const wait = Math.max(0, intervalMs - elapsed);
-      timer = window.setTimeout(tick, wait);
+        // [세그멘터 워치독] pose 는 잡히는데 mask 만 maskStallMs 이상 끊기면 세그멘터
+        // 재구축으로 자가복구. pose=null(자리비움) 이나 refresh 중(전 모델 null → pose 도
+        // null)에는 발동하지 않는다. segment 틱에서만 stall 판정(스킵 틱은 원래 mask=null).
+        const now = performance.now();
+        if (frame.mask) {
+          lastMaskTs = now;
+        } else if (
+          segment &&
+          frame.pose &&
+          now - lastMaskTs > maskStallMs &&
+          !refreshingRef.current
+        ) {
+          lastMaskTs = now; // 재트리거 방지 — 다음 발동까지 stall 창을 다시 채워야 함
+          rebuild(
+            `segmenter stalled ${Math.round(now - lastMaskTs)}ms with pose present`,
+          );
+        }
+      } catch (e) {
+        // MediaPipe WASM abort("Aborted()") — GPU(WebGL) 컨텍스트 상실·복귀 레이스 등으로
+        // detectForVideo 가 throw. 여기서 삼키지 않으면 (1) 예외가 setTimeout 밖으로 튀어
+        // window.onerror 로 리포트되고, (2) 아래 finally 이전 코드였다면 재예약이 실행되지
+        // 않아 tick 루프가 영구 정지한다(감지기 사망). 모델을 재빌드(createWithFallback 이
+        // GPU 재시도 후 CPU 폴백)해 자가복구하고, finally 가 루프를 계속 살린다.
+        rebuild("detect loop error", e);
+      } finally {
+        if (!cancelled) {
+          const elapsed = performance.now() - start;
+          const wait = Math.max(0, intervalMs - elapsed);
+          timer = window.setTimeout(tick, wait);
+        }
+      }
     };
     tick();
 
@@ -283,7 +312,7 @@ export function usePoseLoop({
       cancelled = true;
       if (timer != null) window.clearTimeout(timer);
     };
-  }, [ready, enabled, fps, segmentEveryN, runFace, runHands, faceEveryN, handsEveryN, videoRef]);
+  }, [ready, enabled, fps, segmentEveryN, runFace, runHands, faceEveryN, handsEveryN, videoRef, rebuild]);
 
   return { ready, error, retry };
 }

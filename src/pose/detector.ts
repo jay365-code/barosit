@@ -355,11 +355,24 @@ export function detectFromVideo(
   return frame;
 }
 
+// close() 는 WASM 이 이미 abort 상태면 스스로 "Aborted()" 를 throw 할 수 있다.
+// disposeLandmarker 는 언마운트/커밋·before-reload·idle 등에서 불리므로, 여기서
+// 새는 예외는 React 커밋을 크래시(REACT 오류 리포트)시키거나 이후 close/null 초기화를
+// 건너뛰게 만든다. 개별로 삼켜 나머지 정리가 항상 끝나게 한다 — 손상된 인스턴스는
+// 어차피 폐기 대상이라 잃는 게 없다.
+function safeClose(lm: { close: () => void } | null): void {
+  try {
+    lm?.close();
+  } catch (e) {
+    console.warn("landmarker close() failed (already aborted?):", e);
+  }
+}
+
 export function disposeLandmarker(): void {
-  poseLm?.close();
-  faceLm?.close();
-  handLm?.close();
-  segLm?.close();
+  safeClose(poseLm);
+  safeClose(faceLm);
+  safeClose(handLm);
+  safeClose(segLm);
   poseLm = null;
   faceLm = null;
   handLm = null;
