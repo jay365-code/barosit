@@ -126,10 +126,12 @@ const generateCoachingMessage = async (opts: {
   }
 };
 
+// 자동시작은 Rust 커맨드로 위임한다. macOS 13+ 는 SMAppService 로 등록해
+// 로그인 항목 목록에 앱 이름("BaroSit")으로 표시되고(구 LaunchAgent 는 코드서명
+// 조직명으로 떴음), 그 외 플랫폼/구 macOS 는 autostart 플러그인으로 폴백한다.
 const isAutostartEnabled = async (): Promise<boolean | null> => {
   try {
-    const m = await import("@tauri-apps/plugin-autostart");
-    return await m.isEnabled();
+    return await invoke<boolean | null>("autostart_is_enabled");
   } catch (e) {
     console.warn("autostart query failed", e);
     return null;
@@ -138,9 +140,7 @@ const isAutostartEnabled = async (): Promise<boolean | null> => {
 
 const setAutostartEnabled = async (enabled: boolean): Promise<void> => {
   try {
-    const m = await import("@tauri-apps/plugin-autostart");
-    if (enabled) await m.enable();
-    else await m.disable();
+    await invoke("autostart_set", { enabled });
   } catch (e) {
     console.warn("autostart toggle failed", e);
   }

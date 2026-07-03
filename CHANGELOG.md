@@ -31,6 +31,16 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.5 — 2026-07-03
+
+**한국어**
+
+- 자동 시작을 켜면 시스템 설정의 로그인 항목에 앱 이름 'BaroSit'으로 표시됩니다.
+
+**English**
+
+- When auto-start is on, BaroSit now appears by its own name in the system's login-items list.
+
 ## v0.9.4 — 2026-07-03
 
 - 자리를 비운 시간이 실제와 다르게 기록되던 문제를 수정했습니다.
