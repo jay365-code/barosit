@@ -17,6 +17,18 @@
 - 초안 생성: GitHub Actions "Prepare Release Notes" 수동 실행 → Ethan 이 커밋 로그를 요약해 PR 생성.
 -->
 
+## v0.9.3 — 2026-07-03
+
+- 미니바의 연속 착석 시간이 실제보다 짧게 계산되던 문제를 수정했습니다. 새로고침이나 창 전환에도 시간이 이어집니다.
+- 조명·각도 때문에 인식이 잠깐 끊겨도 착석 시간이 끊기지 않습니다.
+- "한 자세가 오래됐어요"(자세 변동성) 알림이 실제 환경에서 동작하도록 감지 기준을 다시 조정했습니다.
+- 가만히 있어도 "잘 움직였어요"로 잘못 인정되던 오류를 고쳤습니다 — 이제 실제로 일어나거나 크게 움직여야 인정됩니다.
+- 자세 알림(거북목 등)이 설정보다 늦게 뜨던 문제를 바로잡았습니다.
+- 받은 기능 제안의 진행 상황을 보여주는 공개 로드맵 페이지가 웹에 생겼습니다.
+- 커뮤니티 블로그에 "스탠딩 데스크, 정말 효과 있을까" 글이 올라왔습니다.
+
+*(en)* Fixed the seated timer undercounting and losing time on reloads, recalibrated stillness detection so posture-change nudges fire reliably, movement is now only credited when you actually move, plus a public feature roadmap page and a new blog post on standing desks.
+
 ## v0.9.2 — 2026-07-01
 
 - 하단 미니바가 내용 길이에 맞춰 크기가 조절돼, 오른쪽 버튼이 잘리던 문제를 수정했습니다.
