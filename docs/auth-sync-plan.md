@@ -111,7 +111,7 @@ create table user_settings (
 
 ### 2-4. UI 통합
 - [ ] [src/hooks/useMonitoringEngine.ts](../src/hooks/useMonitoringEngine.ts) — 로그인 상태일 때 push 호출 추가
-- [ ] [src/views/DashboardView.tsx](../src/views/DashboardView.tsx) — 로그인 시 서버 데이터 표시 옵션 ("전체 / 이 기기만")
+- [ ] [src/views/MonitorView.tsx](../src/views/MonitorView.tsx) (상세 분석 리포트) — 로그인 시 서버 데이터 표시 옵션 ("전체 / 이 기기만")
 
 ## Phase 3 — 충돌 해결·오프라인·마이그레이션 (~2-3일)
 

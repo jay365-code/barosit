@@ -224,12 +224,12 @@
     <div class="sec-head"><h2>5. 대시보드 · 분석</h2><span class="sec-prog"></span></div>
     <div class="item" data-status="done">
       <div class="item-top"><span class="title">일별 통계 + 당일 시간대별 막대 + 이번 주 합계</span></div>
-      <div class="ref">src/views/DashboardView.tsx · src/pose/eventLog.ts</div>
+      <div class="ref">src/views/MonitorView.tsx (상세 분석 리포트, detailedReportOpen) · src/pose/eventLog.ts</div>
     </div>
     <div class="item" data-status="todo">
       <div class="item-top"><span class="title">주간/월간 트렌드 + 장기 시간대별 히트맵</span><span class="gapid">DASH-1</span></div>
       <div class="detail">현재 today/week 두 뷰만. 전주 대비 비교·월 추이 없음.</div>
-      <div class="ref">src/views/DashboardView.tsx:26</div>
+      <div class="ref">src/views/MonitorView.tsx (상세 분석 리포트)</div>
       <div class="next"><b>다음 작업:</b> 월간 뷰 + 히트맵 컴포넌트, 범위 선택.</div>
     </div>
     <div class="item" data-status="todo">
@@ -289,14 +289,14 @@
       <div class="item-top"><span class="title">웹 Apple OAuth</span></div>
       <div class="detail"><b>전략 결정(2026-06-29):</b> 이메일/비번 일반 노출과 함께 서구·macOS 사용자용 Apple 로그인 정식 채택. 프론트(웹·데스크톱 버튼+타입) + Apple Developer(App ID <code>com.gubed.barosit</code>/Team <code>LHR4658746</code>, Services ID <code>com.gubed.barosit.web</code>, .p8 키, client secret JWT) + Supabase Apple Enable <b>전부 완료</b>. <b>실 Apple ID 로그인 E2E 성공(2026-06-29) = secret 토큰교환까지 검증.</b> 함정: 커스텀 도메인 <code>auth.barosit.com</code> 콜백이라 Apple Return URL 에 <code>https://auth.barosit.com/auth/v1/callback</code> 추가 필수였음.</div>
       <div class="ref">src/auth/useAuth.ts (signInWithApple) · src/web/Marketing.tsx · src/views/ProfileView.tsx</div>
-      <div class="next"><b>남은 것:</b> ① 새 프론트 배포(버튼 라이브) ② <b>secret 6개월 만료 → 재생성 캘린더 알림</b> 필수.</div>
+      <div class="next"><b>남은 것:</b> ① ✅ 프론트 배포 완료 — 라이브 barosit.com 번들에 <code>signInWithApple</code> 확인(2026-07-06) ② <b>secret 6개월 만료 → 재생성 캘린더 알림</b> 필수(유일 잔여).</div>
     </div>
     <div class="item" data-status="partial">
       <div class="item-top"><span class="title">이메일/비밀번호 로그인 + 회원가입 + 비번 복구</span></div>
       <div class="detail">기존 이메일 폼은 로고 3클릭 이스터에그(리뷰어 바이패스, 로그인 전용)였음 → <b>정식 회원가입·로그인·비밀번호 찾기 UI 로 승격</b>. <code>useAuth</code> 에 <code>signUpWithPassword</code>(이메일 확인 redirect)·<code>resetPasswordForEmail</code>·<code>updatePassword</code> 추가, 비번 재설정 페이지/라우트(<code>#/reset-password</code>) 신설, 이메일 확인 안내 UX. 소셜(Google/Kakao/Apple)이 막히는 사내망·반Google 사용자의 <b>보편 탈출구</b> 역할.</div>
       <div class="ref">src/auth/useAuth.ts · src/web/Marketing.tsx (Login·ResetPassword)</div>
       <div class="detail" style="margin-top:6px">✅ <b>이메일 인프라 검증 완료(2026-06-29):</b> 커스텀 SMTP(RESEND, 도메인 <code>send.barosit.com</code> Verified, AWS SES 도쿄) 연결 → 프로덕션 <code>/auth/v1/recover</code> 200 + <b>받은편지함(비스팸) 실도착 확인</b>. 이메일 확인(autoconfirm OFF=확인필수) 프로덕션 동작 확인. redirect allowlist <code>barosit.com/**</code> 등록됨. (초기 recover 500 → RESEND API 키 재발급으로 해결)</div>
-      <div class="next"><b>남은 것:</b> ① <b>새 프론트엔드 배포</b>(현재 working tree only — 배포돼야 메일 링크 클릭→가입완료·비번재설정 페이지 동작) ② Supabase 비번 최소길이 6→8(프론트와 정렬, 선택).</div>
+      <div class="next"><b>남은 것:</b> ① ✅ <b>프론트엔드 배포 완료</b> — 라이브 barosit.com 번들에 <code>signUp·resetPasswordForEmail·updatePassword·#/reset-password</code> 확인(2026-07-06). ② Supabase 비번 최소길이 6→8(프론트와 정렬, 선택 — 유일 잔여).</div>
     </div>
     <div class="item" data-status="todo">
       <div class="item-top"><span class="title">인증 이메일 다국어화 (ko/en/ja) — Send Email Hook</span></div>
@@ -480,7 +480,7 @@
       <div class="item-top"><span class="title">회원탈퇴 (계정·데이터 삭제) — 셀프서비스 구현 완료</span></div>
       <div class="detail">셀프 탈퇴 구현(2026-06-30). 정책 확정: <b>유예 30일 / 유예중 복구 허용 / 구독은 자동갱신만 해지(환불 없음) / export 제외</b>. soft delete 후 <b>pg_cron 예약 파기</b>(<code>purge_deleted_accounts()</code>), <b>결제·거래 기록은 전자상거래법 5년 법정보존</b> — billing_history FK CASCADE→SET NULL + <code>anon_user_hash</code> 가명화로 익명 보존. 빌링키는 user_subscriptions cascade 삭제로 폐기. 데스크톱·웹 ProfileView 모두 탈퇴 버튼 + 유예중 취소 배너.</div>
       <div class="ref">supabase/migrations/20260630000000_account_deletion.sql · supabase/functions/delete-account · src/views/ProfileView.tsx · src/web/Marketing.tsx · docs/account-deletion-policy.html</div>
-      <div class="next"><b>운영 잔여:</b> pg_cron <code>daily-account-purge-job</code> 스케줄 1회 등록 + delete-account Edge Function 배포(supabase functions deploy). App Store 입점 시 필수(5.1.1 v) 충족.</div>
+      <div class="next"><b>✅ 배포·검증 완료(2026-07-06):</b> prod 확인 — delete-account Edge Function ACTIVE(v3), 마이그레이션 <code>20260630000000/01</code> 적용됨, pg_cron <code>daily-account-purge-job</code> 등록·active(<code>30 18 * * *</code>). App Store 입점 필수(5.1.1 v) 충족. 잔여 없음.</div>
     </div>
   </section>
 
@@ -606,7 +606,7 @@
         <b>3. SYNC-1</b> 동기화 실패 가시화 + 재시도/오프라인 큐 — ✅ (충돌해결 updated_at 비교는 partial 잔여)<br>
         <b>4. UX-1</b> 캘리브레이션 실패 안내 — ✅<br>
         <b>+ MEASURE</b> 익명 사용 분석(활성화 퍼널/재방문) + 능동 피드백 넛지 — ✅ 프로덕션 배포<br>
-        <b style="color:var(--accent)">↳ DASH-1</b> 재평가: 실제 대시보드("상세 분석 리포트")에 누적시간·평균·개선율·트렌드·히트맵이 <b>이미 구현</b>됨. 추가 구현 불필요 — 죽은 DashboardView.tsx 삭제 + 진짜 갭(스트레칭 점수 표시 등)만 추후.<br><br>
+        <b style="color:var(--accent)">↳ DASH-1</b> 재평가: 실제 대시보드("상세 분석 리포트")에 누적시간·평균·개선율·트렌드·히트맵이 <b>이미 구현</b>됨. 추가 구현 불필요 — ✅ 죽은 DashboardView.tsx 삭제 완료(2026-07-06). 진짜 갭(스트레칭 점수 표시 등)만 추후.<br><br>
         <b style="color:var(--done)">✅ 완료 (2026-06-30 세션)</b><br>
         <b>CM-1</b> 커뮤니티 운영자 AI 에이전트 <b>Aria</b>(초안→승인, 자세코치/매니저 자동전환, 가드레일) + 게시판 UX(📣공지·답글 스레드·추천) — ✅ 프로덕션+로컬 E2E. 백로그: 지식베이스 보강·Aria 후속답변·승인버튼 문구.
       </div>
@@ -616,7 +616,7 @@
         <b style="color:var(--todo)">남은 항목</b><br>
         <b>5. PAY-1</b> 결제 정합성 (유료 전환 전, 베타엔 비노출).<br>
         <b>6. DET-1</b> 자세 감지 한계 — ROI 낮음, 사용 분석 데이터 보고 착수.<br>
-        <b>7. DOC-1</b> 문서 정정 — 대부분 반영(project-status stale 정정 완료). DashboardView 삭제만 잔여.<br>
+        <b>7. DOC-1</b> 문서 정정 — 대부분 반영(project-status stale 정정 완료). ✅ 죽은 코드 <code>DashboardView.tsx</code> 삭제 완료(2026-07-06).<br>
         <b style="color:var(--accent)">권장:</b> 며칠 실데이터(사용 분석·피드백)를 모은 뒤 PAY-1/DET-1 우선순위를 근거로 결정.
       </div>
     </div>

@@ -39,7 +39,7 @@
 - 🟡 일부 UX 다듬기 + 영문화 미진행 (※ i18n ko/en/ja 는 완료, 잔여는 미세 카피)
 - ✅ **Kakao OAuth 동작** (QA 실증: `kauth.kakao.com` 302) — 과거 "검수 필요" 표기는 stale
 - ✅ **데스크탑 deep-link OAuth(PKCE) + 클라우드 동기화** 구현됨(`src/auth/useAuth.ts`·`src/lib/syncService.ts`, profiles/posture_events/daily_scores/user_settings) — 과거 "미연결 ❌"는 stale (코드 기준 정정, DOC-1)
-- ℹ️ **대시보드 주의**: 사용자용 대시보드는 MonitorView "상세 분석 리포트"(`detailedReportOpen`, 누적시간·평균·개선율·시간대추이·12개월그리드·히트맵 포함). `src/views/DashboardView.tsx` 는 **미사용(죽은 코드)** — 정리 대상
+- ℹ️ **대시보드 주의**: 사용자용 대시보드는 MonitorView "상세 분석 리포트"(`detailedReportOpen`, 누적시간·평균·개선율·시간대추이·12개월그리드·히트맵 포함). `src/views/DashboardView.tsx` 는 미사용(죽은 코드)였으며 **삭제 완료(2026-07-06)**
 
 ### 🔴 출시 블로커 진행 상황
 

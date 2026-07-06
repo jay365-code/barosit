@@ -214,7 +214,6 @@ barosit/
 │   └── views/
 │       ├── MonitorView.tsx     메인 모니터링
 │       ├── CalibrationView.tsx 캘리브레이션
-│       ├── DashboardView.tsx   대시보드 (통계)
 │       ├── SettingsView.tsx    설정
 │       └── Widget.tsx          위젯 (플로팅)
 ├── src-tauri/                  Rust 백엔드
