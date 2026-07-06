@@ -42,7 +42,7 @@
 <body>
 <main>
   <h1>BaroSit 블로그 콘텐츠 플랜</h1>
-  <p class="meta">최종 갱신 2026-07-02 · 작성자 명의: Aria(운영자 AI, agent_role=coach) · 카테고리 <code>📝 블로그</code> · 목적: 베타 단계 SEO + 서비스 인지</p>
+  <p class="meta">최종 갱신 2026-07-06 · 작성자 명의: Aria(운영자 AI, agent_role=coach) · 카테고리 <code>📝 블로그</code> · 목적: 베타 단계 SEO + 서비스 인지</p>
 
   <h2>0. 운영 방식 (인프라 요약)</h2>
   <section class="card">
@@ -50,11 +50,12 @@
       <li><strong>게시 경로</strong>: 커뮤니티 게시판에 Aria 명의로 게시. anon 으로는 <code>is_agent=true</code> 삽입 불가 → <strong>시드 마이그레이션</strong>으로 삽입 (<code>SET session_replication_role = replica</code> 로 트리거 우회, 고정 UUID + <code>ON CONFLICT DO NOTHING</code>).</li>
       <li><strong>SEO 인프라는 이미 완비</strong>: <code>/community/p/&lt;id&gt;</code> 엣지 SSR(메타·JSON-LD·noscript 본문) + 동적 <a href="https://barosit.com/community-sitemap.xml">community-sitemap.xml</a> 자동 포함. 글만 쓰면 됨.</li>
       <li><strong>다국어</strong>: ko 원본 먼저 → en/ja 는 같은 <code>translation_group_id</code>(= ko 글 UUID)로 묶음.</li>
-      <li><strong>게시 후</strong>: GSC·네이버에 글 permalink 수집 요청. (커뮤니티 사이트맵 제출 자체가 아직 운영 TODO)</li>
+      <li><strong>사이트맵 제출 = 완료(2026-07-06)</strong>: <code>community-sitemap.xml</code> 를 GSC·네이버에 1회 제출함 → 이후 새 글은 사이트맵에 자동 포함되어 자동 발견됨. <strong>글마다 수동 요청은 불필요.</strong></li>
+      <li><strong>게시 후(선택)</strong>: 구글은 자동 발견에 맡김(수동 색인요청은 중요 글에만·하루 한도). 네이버는 자동 크롤이 약해 신규 글마다 "웹페이지 수집" 수동 요청이 값어치 있음(하루 한도).</li>
     </ul>
   </section>
 
-  <h2>1. 발행 완료 <span class="badge done">✅ 4주제 · 12글</span></h2>
+  <h2>1. 발행 완료 <span class="badge done">✅ 5주제 · 15글</span></h2>
   <section class="card">
     <table>
       <tr><th>주제</th><th>언어</th><th>게시일</th><th>링크 / ID</th></tr>
@@ -81,6 +82,12 @@
         <span class="small">시리즈 4호. 3호 후속("얼마나 자주?"). 앵커=Duran 2023 용량-반응(30분마다 5분). science 인용 재사용. SSR·사이트맵 확인 완료.</span></td>
         <td>ko / en / ja</td><td>2026-07-03</td>
         <td><a href="https://barosit.com/community/p/c1e5a9b7-2d68-4f34-a90b-6c2d1e7f4a83">ko 원본</a><br /><span class="small">group=c1e5a9b7…</span></td>
+      </tr>
+      <tr>
+        <td><strong>자세교정밴드, 정말 효과 있을까 — 차고 있을 때만 곧게 펴지는 이유</strong><br />
+        <span class="small">시리즈 5호. 마이스버스팅. 구매 의도 키워드(자세교정밴드/자세교정기 효과). 근거: Hamzelouie 2025 SR·Leung 2023 RCT·Augustsson 2022 RCT·Prakash 2023 메타·Azadinia 2017 SR + science 재사용 앵커. 양방향 정직 톤(효과도·"근육 약화"도 근거 약함)으로 경쟁제품 비방 회피. SSR·사이트맵 3건 확인 완료.</span></td>
+        <td>ko / en / ja</td><td>2026-07-06</td>
+        <td><a href="https://barosit.com/community/p/a7f3c2e9-5d81-4b6a-9c40-7e2f1a8d3b60">ko 원본</a><br /><span class="small">group=a7f3c2e9…</span></td>
       </tr>
     </table>
   </section>
@@ -113,22 +120,87 @@
     </div>
   </section>
 
-  <h2>3. 백로그 (후보) <span class="badge idea">💡 우선순위순</span></h2>
+  <h2>3. 백로그 (후보) <span class="badge idea">💡 발행 순서순 · 근거 검증 완료</span></h2>
   <section class="card">
+    <p class="small">2026-07-06 리서치 3클러스터 병렬 검증(장비/움직임/앉는자세·화면 12후보). 아래 근거 앵커는 <strong>모두 실제 fetch·검증</strong>(PubMed/PMC/Cochrane), 인용 규칙(인과 단정 금지·PRI/27kg/배수 금지) 통과. 발행 순서는 <strong>테마 교차 배치</strong>(같은 테마 연속 금지)로 신선도 유지 — 5호(밴드)가 '장비' 테마였으므로 6호는 움직임/행동에서 시작.</p>
     <table>
-      <tr><th>주제</th><th>타깃 검색어</th><th>메모</th></tr>
+      <tr><th>#</th><th>주제 (각도)</th><th>타깃 검색어(ko)</th><th>근거 앵커 (검증 2026-07-06)</th><th>테마·중복</th></tr>
       <tr>
-        <td><strong>자세교정밴드, 효과 있을까</strong></td>
-        <td>자세교정밴드 효과 / 자세교정기 추천</td>
-        <td>구매 의도 키워드 + 마이스버스팅. 결론(착용 교정 &lt; 리마인더·움직임)이 제품으로 연결. 단, 경쟁 제품 카테고리라 표현 신중 + 출처 신규 검증 필요.</td>
+        <td><strong>6</strong></td>
+        <td><strong>하루 '만보'의 함정 — 몇 걸음이 정말 필요할까</strong><br /><span class="small">만보=1965 일본 만보계(万歩計) 마케팅 유래. 근거는 더 적은 걸음에서도 이득.</span></td>
+        <td>만보 걷기 효과 / 하루 몇 걸음 / 8000보</td>
+        <td><a href="https://pubmed.ncbi.nlm.nih.gov/35247352/">Paluch 2022 · Lancet Public Health</a>(15코호트: 6~8천보서 사망위험 정체) + Ekelund 2016 재사용</td>
+        <td>움직임 · 중복 낮음(4호=중단빈도, 이건 총량). ⚠"연속 vs 분산" 긴장 정직 처리</td>
       </tr>
       <tr>
-        <td><strong>개발자 목·어깨 통증 루틴</strong></td>
-        <td>개발자 목통증 / 프로그래머 거북목</td>
-        <td>비치헤드(개발자·프라이버시) 직격. 단 정적 turtle-neck-app 페이지와 부분 중복 → 각도 차별화 필요(통증 대응 루틴 vs 앱 소개).</td>
+        <td><strong>7</strong></td>
+        <td><strong>다리 꼬기·양반다리, 정말 골반이 틀어질까</strong><br /><span class="small">논지: 문제는 다리꼬기 자체가 아니라 '한쪽으로 오래 고정' → 좌우 교대+휴식.</span></td>
+        <td>다리 꼬기 골반 / 양반다리 골반 틀어짐</td>
+        <td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4242947/">Park &amp; Bae 2014 · J Phys Ther Sci</a>(3h+ 다리꼬기 ↔ 골반 경사, 단면·상관) + Swain 2020 재사용</td>
+        <td>앉는행동 · 중복 中(1호와 겹치지 않게 '비대칭+시간' 각도로). 인과 단정 금지</td>
+      </tr>
+      <tr>
+        <td><strong>8</strong></td>
+        <td><strong>블루라이트 차단 안경, 효과 있을까</strong><br /><span class="small">강한 debunk. 눈 피로는 안경보다 '휴식 행동'으로 → 넛지 연결.</span></td>
+        <td>블루라이트 차단 안경 효과 / 효과 없다</td>
+        <td><a href="https://pubmed.ncbi.nlm.nih.gov/37593770/">Singh 2023 · Cochrane CD013244</a>(17 RCT: 눈 피로에 차이 없을 수 있음)</td>
+        <td>화면/눈(신규 영역) · 중복 없음. ⚠"눈 피로 무효"까지만, "블루라이트 무해 입증"은 금지(황반은 미연구)</td>
+      </tr>
+      <tr>
+        <td><strong>9</strong></td>
+        <td><strong>자세교정 의자·에르고 의자, 자세를 만들어 줄까</strong><br /><span class="small">최고 등급 근거로 강한 debunk. 가치는 의자가 아니라 운동·자주 바꾸기.</span></td>
+        <td>자세교정 의자 효과 / 에르고노믹 의자</td>
+        <td><a href="https://jamanetwork.com/journals/jamainternalmedicine/fullarticle/2481158">Steffens 2016 · JAMA Intern Med</a>(21 RCT·3만명: 에르고 조정만으론 요통예방 무연관, 운동+교육은 연관) + <a href="https://pubmed.ncbi.nlm.nih.gov/20360197/">Driessen 2010</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3552974/">van Niekerk 2012</a>(조절식+교육 병행 시 약간)</td>
+        <td>장비(구매의도 최상) · 5호와 간격 확보 후 배치. desk-posture와 각도 구분</td>
+      </tr>
+      <tr>
+        <td><strong>10</strong></td>
+        <td><strong>워킹패드(트레드밀 책상), 살 만할까</strong><br /><span class="small">서기(3호)보다 움직임. 단 '다이어트 지름길' 프레이밍은 근거 없음.</span></td>
+        <td>워킹패드 효과 / 언더데스크 트레드밀</td>
+        <td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8590128/">Oye-Somefun 2021 · BMC Public Health</a>(13연구: 에너지소비↑·좌식↓, 혈압·혈당·지질 유의변화 없음)</td>
+        <td>움직임(구매의도) · 3호 companion, 중복 낮음. SERP 제품후기와 과학각도로 차별화</td>
+      </tr>
+      <tr>
+        <td><strong>11</strong></td>
+        <td><strong>오래 앉으면 다리가 붓는다 — 발받침이 도움 될까</strong><br /><span class="small">붓기는 사실(참). 정적 해법(발받침·자세) 약함, 근육펌프=일어서기가 답.</span></td>
+        <td>오래 앉으면 다리 붓기 / 발 받침대 붓기</td>
+        <td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9219739/">Francisco 2022 · Biology</a>(sit-to-stand 중단이 하지 부종↓) + <a href="https://academic.oup.com/joh/article/38/4/186/7270483">Seo 1996 · J Occup Health</a>(보조)</td>
+        <td>앉는행동/순환(신규) · 중복 낮음. 3호의 '오래 서기 정맥부담'과 반대상황이라 혼동 방지</td>
+      </tr>
+      <tr>
+        <td><strong>12</strong></td>
+        <td><strong>허리 받침(럼버서포트)이 요통을 막나</strong><br /><span class="small">예방 근거 없음. 오히려 '움직임 유도' 동적 방석이 효과 → 정적 지지 &lt; 움직임.</span></td>
+        <td>허리 받침 효과 / 럼버서포트 요통</td>
+        <td><a href="https://pubmed.ncbi.nlm.nih.gov/18425875/">Cochrane 2008 · CD001823</a>(예방에 무효, 치료는 불충분) + <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11479679/">Channak 2024</a>(동적 방석 RCT는 효과, 신중 인용)</td>
+        <td>장비 · 9호(의자)와 간격. 예방/치료 구분, "치료 효과 입증"으로 과장 금지</td>
+      </tr>
+      <tr>
+        <td><strong>13</strong></td>
+        <td><strong>마사지건, 뭉침과 자세를 풀어줄까</strong><br /><span class="small">단기 ROM·근육통 완화(스트레칭 수준)만. 자세·뭉침 영구해소 근거 없음.</span></td>
+        <td>마사지건 효과 / 테라건 효과</td>
+        <td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10532323/">Ferreira 2023 · JFMK</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10069390/">Sams 2023</a>(단기 ROM↑, 장기 미지)</td>
+        <td>장비(구매의도) · 중복 없음. 벤더 블로그 '자세개선' 주장은 미검증→인용 금지</td>
+      </tr>
+      <tr>
+        <td><strong>14</strong></td>
+        <td><strong>20-20-20 눈 휴식 규칙, 근거 있을까</strong><br /><span class="small">숫자는 임의(창시자도 근거 주장 안 함). 단 규칙적 휴식 자체는 합리적.</span></td>
+        <td>20 20 20 규칙 / 눈 피로 휴식</td>
+        <td><a href="https://pubmed.ncbi.nlm.nih.gov/35963776/">Talens-Estarelles 2023 · CLAE</a>(리마인더가 2주간 증상↓, 중단 후 소멸·임상징후 불변)</td>
+        <td>화면/눈 · 8호와 눈 미니페어. 4호와 인접→'눈 버전'으로 크로스링크. <span class="badge idea">MAYBE(컴패니언)</span></td>
+      </tr>
+      <tr>
+        <td><strong>15</strong></td>
+        <td><strong>거북목 베개·경추 베개, 효과 있을까</strong><br /><span class="small">근거 불충분·모호. 라텍스 통증 소폭↓지만 수면질·척추정렬 무효.</span></td>
+        <td>거북목 베개 효과 / 경추 베개</td>
+        <td><a href="https://pubmed.ncbi.nlm.nih.gov/40633255/">Ghosh 2025 · Rehabilitación</a>(우월 베개 없음) + <a href="https://research.polyu.edu.hk/en/publications/the-effects-of-pillow-designs-on-neck-pain-waking-symptoms-neck-d/">Pang 2021</a>(라텍스 소폭↓, 정렬·수면 무효)</td>
+        <td>장비/수면 · 중복 낮음. 근거 中(약함)이라 후순위. 수면 맥락=거북목은 주간 부하 문제라는 각도</td>
       </tr>
     </table>
-    <p class="small">기각/보류: 목·거북목 스트레칭(검색량 크지만 SERP가 유튜브·병원 블로그 지배), 재택 홈오피스 셋업(desk-posture·모니터 높이와 중복), 점심 후 졸림(수요 약함).</p>
+    <p class="small"><strong>추가 후보(보류/병합):</strong>
+      ▹ <strong>개발자 목·어깨 통증 루틴</strong>(개발자 목통증/프로그래머 거북목) — 비치헤드 직격이나 정적 <code>/turtle-neck-app</code>과 중복 → '통증 대응 루틴' 각도로 차별화 필요, 별도 근거 검증 요.
+      ▹ <strong>운동 스낵·계단 오르기</strong>(<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12354995/">Wan 2025 SMSS</a> 검증완료: VO2max↑·지질↓, 체중 무효) — 4호와 인접 → '계단으로 심폐↑, 짧고 강하게' 강도/체력 각도로 좁히면 가능.
+      ▹ <strong>식후 걷기 타이밍</strong>(<a href="https://pubmed.ncbi.nlm.nih.gov/36715875/">Engeroff 2023 Sports Med</a>: 식후&gt;식전 혈당↓) — 4호 혈당과 중복 커서 <strong>단독 스킵</strong>, '식후&gt;식전' 너겟만 6호 또는 4호에 병합.</p>
+    <p class="small"><strong>기각/보류:</strong> 목·거북목 스트레칭(검색량 크지만 SERP가 유튜브·병원 블로그 지배), 재택 홈오피스 셋업(desk-posture·모니터 높이와 중복), 점심 후 졸림(수요 약함).</p>
   </section>
 
   <h2>4. 키워드 커버리지 맵 (중복 방지)</h2>
@@ -145,6 +217,7 @@
       <tr><td>모니터 높이</td><td>블로그 2호 (ko/en/ja)</td></tr>
       <tr><td>스탠딩 데스크 효과</td><td>블로그 3호 (ko/en/ja, 발행됨)</td></tr>
       <tr><td>휴식 주기·얼마나 자주 일어나야</td><td>블로그 4호 (ko/en/ja, 발행됨)</td></tr>
+      <tr><td>자세교정밴드·자세교정기 효과</td><td>블로그 5호 (ko/en/ja, 발행됨)</td></tr>
     </table>
   </section>
 
@@ -153,10 +226,11 @@
     <ul>
       <li>☐ 출처 실존·내용 일치 검증 (docs/posture-evidence-and-reflection.md 인용 규칙 — <strong>PRI·"27kg 하중" 류 미검증 주장 금지</strong>)</li>
       <li>☐ 포맷: 번호 섹션 → BaroSit 연결 + barosit.com CTA → /science 링크 → 출처 목록 → "의학적 조언 아님" 고지</li>
+      <li>☐ <strong>BaroSit 연결 문단은 글마다 표현을 다르게</strong> — "한 자세가 오래 이어지면 부드럽게 알려…잔소리 대신 응원" 상투구 재사용 금지. 그 글 주제와 자연스럽게 잇고, 대놓고 광고하는 인상 대신 마무리 생각처럼. CTA도 "바로 시작하세요"류 강권 대신 "관심 있으면 둘러보세요"류로 톤 다운.</li>
       <li>☐ ko 시드 마이그레이션 (고정 UUID, replica 트리거 우회, ON CONFLICT DO NOTHING)</li>
       <li>☐ en/ja 시드 — 제목은 직역 대신 언어별 실검색어 반영, 같은 translation_group_id</li>
       <li>☐ 배포 후 prod 확인: <code>/community/p/&lt;id&gt;</code> SSR 메타 + community-sitemap.xml 포함 여부</li>
-      <li>☐ GSC·네이버 수집 요청 (clean URL)</li>
+      <li>☐ (사이트맵 1회 제출 완료 → 구글 자동 발견) 네이버만 신규 글 "웹페이지 수집" 수동 요청 (clean URL, 하루 한도)</li>
     </ul>
     <div class="callout ok">전략 상위 문서: <code>docs/마케팅전략.html</code> (§9 커뮤니티 SEO 구조) · 근거 규칙: <code>docs/posture-evidence-and-reflection.md</code></div>
   </section>

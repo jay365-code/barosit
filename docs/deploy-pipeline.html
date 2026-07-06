@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaroSit 배포 파이프라인</title>
+<style>
+  :root {
+    --ink: #17212b;
+    --ink-2: #55636f;
+    --ink-3: #8a96a1;
+    --paper: #ffffff;
+    --ground: #ecf0f3;
+    --line: #d7dee4;
+    --line-soft: #e6ebef;
+
+    /* 세 주체 */
+    --you: #b25a12;        /* 당신 — 결정·승인 */
+    --you-soft: #f7e7d6;
+    --you-ink: #8a4610;
+
+    --claude: #5b53b8;     /* 클로드 — 실행 대행 */
+    --claude-soft: #e6e4f5;
+    --claude-ink: #453e93;
+
+    --ci: #0c7b72;         /* CI — 완전 자동 */
+    --ci-soft: #dcefec;
+    --ci-ink: #0a5b54;
+
+    --slate: #34424f;
+    --slate-soft: #e3e8ec;
+
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", "JetBrains Mono", "Menlo", "Consolas", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 40px 28px 72px; }
+
+  .topbar {
+    height: 4px; border-radius: 4px; margin-bottom: 26px;
+    background: linear-gradient(90deg, var(--you) 0 33.3%, var(--claude) 33.3% 66.6%, var(--ci) 66.6% 100%);
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(26px, 4.4vw, 36px); line-height: 1.12;
+    letter-spacing: -0.02em; margin: 0 0 12px; text-wrap: balance;
+  }
+  .lede { font-size: 16px; color: var(--ink-2); max-width: 62ch; margin: 0 0 24px; }
+  .lede b { color: var(--ink); }
+
+  /* 주체 요약 카드 */
+  .roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+  .role {
+    background: var(--paper); border: 1px solid var(--line);
+    border-top-width: 3px; border-radius: 12px; padding: 14px 16px;
+  }
+  .role.you { border-top-color: var(--you); }
+  .role.claude { border-top-color: var(--claude); }
+  .role.ci { border-top-color: var(--ci); }
+  .role .who { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; margin-bottom: 3px; }
+  .role .who .d { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .role.you .d { background: var(--you); }
+  .role.claude .d { background: var(--claude); }
+  .role.ci .d { background: var(--ci); }
+  .role p { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+  .callout {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: #fbf4ec; border: 1px solid var(--you-soft);
+    border-left: 3px solid var(--you); border-radius: 0 10px 10px 0;
+    padding: 12px 16px; margin-bottom: 34px; font-size: 13.5px; color: var(--you-ink);
+  }
+  .callout b { font-weight: 600; }
+
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin: 40px 0 18px; }
+  .sec-head h2 { font-size: 19px; letter-spacing: -0.01em; margin: 0; }
+  .sec-head .tag {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+
+  /* 파이프라인 스파인 */
+  .pipe { position: relative; padding-left: 34px; }
+  .pipe::before {
+    content: ""; position: absolute; left: 11px; top: 6px; bottom: 6px;
+    width: 2px; background: var(--line);
+  }
+  .stage { position: relative; margin-bottom: 14px; }
+  .node {
+    position: absolute; left: -34px; top: 18px; width: 24px; height: 24px;
+    border-radius: 50%; background: var(--paper); border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--ink-2); z-index: 1;
+  }
+  .stage.you .node { border-color: var(--you); color: var(--you-ink); }
+  .stage.claude .node { border-color: var(--claude); color: var(--claude-ink); }
+  .stage.ci .node { border-color: var(--ci); color: var(--ci-ink); }
+
+  .card {
+    background: var(--paper); border: 1px solid var(--line);
+    border-left-width: 4px; border-radius: 10px; padding: 15px 18px;
+  }
+  .stage.you .card { border-left-color: var(--you); }
+  .stage.claude .card { border-left-color: var(--claude); }
+  .stage.ci .card { border-left-color: var(--ci); }
+
+  .card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+  .card-top h3 { font-size: 15.5px; margin: 0; letter-spacing: -0.01em; }
+  .chip {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 999px; flex: none; white-space: nowrap;
+  }
+  .chip.you { background: var(--you-soft); color: var(--you-ink); }
+  .chip.claude { background: var(--claude-soft); color: var(--claude-ink); }
+  .chip.ci { background: var(--ci-soft); color: var(--ci-ink); }
+
+  .card p { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
+  .say {
+    display: inline-block; font-weight: 600; color: var(--you-ink);
+    background: var(--you-soft); border-radius: 6px; padding: 1px 8px; margin: 2px 0;
+  }
+  code {
+    font-family: var(--mono); font-size: 12.5px; background: var(--ground);
+    border: 1px solid var(--line-soft); border-radius: 5px; padding: 1px 5px; color: var(--ink); white-space: nowrap;
+  }
+  .meta {
+    margin-top: 9px; font-family: var(--mono); font-size: 12px; color: var(--ink-2);
+    display: flex; flex-wrap: wrap; gap: 6px 10px;
+  }
+  .meta .k { color: var(--ink-3); }
+
+  .gate {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; color: var(--you-ink);
+    background: #fff; border: 1px dashed var(--you); border-radius: 999px;
+    padding: 2px 9px; margin-top: 10px;
+  }
+
+  /* CI 묶음 내부 미니 리스트 */
+  .substeps { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .substeps li {
+    display: flex; gap: 10px; align-items: baseline;
+    font-size: 13.5px; color: var(--ink-2); padding-left: 2px;
+  }
+  .substeps .s-n {
+    font-family: var(--mono); font-size: 11px; color: var(--ci-ink);
+    background: var(--ci-soft); border-radius: 5px; padding: 1px 6px; flex: none;
+  }
+  .substeps b { color: var(--ink); font-weight: 600; }
+
+  /* fan-out */
+  .fanout { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .source {
+    display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono);
+    font-size: 13px; font-weight: 600; color: var(--ink); background: var(--slate-soft);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; margin-bottom: 4px;
+  }
+  .source .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--slate); }
+  .fan-sub { font-size: 13px; color: var(--ink-3); margin: 6px 0 16px; }
+  .targets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .target { border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px; background: #fbfcfd; }
+  .target h4 { margin: 0 0 4px; font-size: 14px; }
+  .target p { margin: 0; font-size: 12.5px; color: var(--ink-2); }
+  .target .src { display: block; font-family: var(--mono); font-size: 11px; color: var(--ci-ink); margin-top: 7px; }
+
+  /* setup table */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 440px; }
+  th, td { text-align: left; padding: 11px 15px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; background: #f5f7f9; }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+  td .use { color: var(--ink-2); }
+
+  /* guards */
+  .guards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .guard { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 15px 17px; }
+  .guard h4 { margin: 0 0 5px; font-size: 14.5px; display: flex; align-items: center; gap: 8px; }
+  .guard h4 .g { font-family: var(--mono); color: var(--ci); font-size: 15px; }
+  .guard p { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+  footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-3); font-family: var(--mono); }
+
+  @media (max-width: 620px) {
+    .wrap { padding: 28px 16px 56px; }
+    .roles { grid-template-columns: 1fr; }
+    .targets { grid-template-columns: 1fr; }
+    .guards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="topbar"></div>
+  <p class="eyebrow">Release &amp; Changelog Pipeline · 협업 관점</p>
+  <h1>BaroSit 배포 파이프라인</h1>
+  <p class="lede">
+    실제로 배포는 당신이 저에게 <span class="say">“배포하자”</span> 한 마디로 시작합니다.
+    그 뒤 <b>제(클로드)가 기계적인 일을 대신 실행</b>하고, <b>당신은 되돌리기 어려운 두 관문에서만 승인</b>하면,
+    나머지는 <b>CI가 완전히 자동</b>으로 처리합니다.
+  </p>
+
+  <div class="roles">
+    <div class="role you">
+      <div class="who"><span class="d"></span>당신</div>
+      <p>결정과 승인. “배포하자” → 문구 승인 → 방출 승인. <b>되돌리기 어려운 곳만</b> 당신 몫.</p>
+    </div>
+    <div class="role claude">
+      <div class="who"><span class="d"></span>클로드 (나)</div>
+      <p>기계적 실행 대행. 워크플로 실행, CHANGELOG·버전 파일 편집, 커밋, 태그 푸시.</p>
+    </div>
+    <div class="role ci">
+      <div class="who"><span class="d"></span>CI (GitHub Actions)</div>
+      <p>태그 하나에 반응해 빌드·서명·공개·전파까지 사람 손 없이 자동.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span>🔑</span>
+    <div><b>당신만 눌러야 하는 두 관문</b> — ③ 문구 승인(PR 머지)과 ⑤ 방출 승인(태그). 이 둘은 사용자에게 실제로 나가는 지점이라, 제가 대신 하지 않고 당신 확인을 받습니다.</div>
+  </div>
+
+  <div class="sec-head">
+    <h2>배포 한 번, 실제 순서</h2>
+    <span class="tag">how we do it together</span>
+  </div>
+
+  <div class="pipe">
+
+    <div class="stage you">
+      <div class="node">1</div>
+      <div class="card">
+        <div class="card-top"><h3>배포 결정</h3><span class="chip you">당신</span></div>
+        <p>저에게 한 마디: <span class="say">“0.9.4 배포하자”</span>. 이게 전체 파이프라인의 시작 신호입니다.</p>
+      </div>
+    </div>
+
+    <div class="stage claude">
+      <div class="node">2</div>
+      <div class="card">
+        <div class="card-top"><h3>릴리스 노트 초안 만들기</h3><span class="chip claude">클로드</span></div>
+        <p>제가 <code>Prepare Release Notes</code> 워크플로를 돌리거나(에이전트 Ethan이 커밋 로그를 사용자 언어로 요약), 필요하면 CHANGELOG를 직접 작성 → 검토용 PR을 준비합니다.</p>
+        <div class="meta"><span class="k">workflow</span> prepare-release.yml <span class="k">secret</span> ANTHROPIC_API_KEY</div>
+      </div>
+    </div>
+
+    <div class="stage you">
+      <div class="node">3</div>
+      <div class="card">
+        <div class="card-top"><h3>문구 승인</h3><span class="chip you">당신</span></div>
+        <p>PR의 CHANGELOG 문구를 확인. 고칠 게 있으면 말씀만 하시면 제가 수정, 괜찮으면 <b>머지 = 승인</b>. 사용자에게 보일 문장을 최종 확정하는 곳.</p>
+        <span class="gate">🔒 되돌리기 어려운 관문 ①</span>
+      </div>
+    </div>
+
+    <div class="stage claude">
+      <div class="node">4</div>
+      <div class="card">
+        <div class="card-top"><h3>버전 범프</h3><span class="chip claude">클로드</span></div>
+        <p>제가 앱 매니페스트 4개 파일 버전을 올려 커밋하고 <code>main</code>에 반영합니다. (빠뜨리면 사용자가 업데이트를 못 받으므로 태그 전 필수)</p>
+        <div class="meta">package.json · tauri.conf.json · Cargo.toml · Cargo.lock</div>
+      </div>
+    </div>
+
+    <div class="stage you">
+      <div class="node">5</div>
+      <div class="card">
+        <div class="card-top"><h3>방출 승인</h3><span class="chip you">당신</span></div>
+        <p>준비가 끝나면 제가 확인을 요청합니다. <span class="say">“태그 올려”</span> 하시는 순간이 <b>실제 사용자에게 배포가 나가는 지점</b>. 되돌리기 가장 어려운 곳이라 반드시 당신 승인.</p>
+        <span class="gate">🔒 되돌리기 어려운 관문 ②</span>
+      </div>
+    </div>
+
+    <div class="stage claude">
+      <div class="node">6</div>
+      <div class="card">
+        <div class="card-top"><h3>태그 푸시</h3><span class="chip claude">클로드</span></div>
+        <p>승인받으면 제가 태그를 밀어 CI를 깨웁니다. 이 한 줄이 아래 자동 구간의 방아쇠.</p>
+        <div class="meta"><span class="k">$</span> git tag v0.9.4 &amp;&amp; git push origin v0.9.4</div>
+      </div>
+    </div>
+
+    <div class="stage ci">
+      <div class="node">7</div>
+      <div class="card">
+        <div class="card-top"><h3>CI 자동 구간 — 사람 손 없음</h3><span class="chip ci">CI 자동</span></div>
+        <p>태그를 감지한 <code>release.yml</code>이 순서대로 처리합니다:</p>
+        <ul class="substeps">
+          <li><span class="s-n">7a</span><span><b>노트 추출 게이트</b> — CHANGELOG 섹션 추출, 없으면 빌드 전에 실패</span></li>
+          <li><span class="s-n">7b</span><span><b>빌드·서명·공증</b> — macOS/Windows, 업데이터 서명 + Apple 코드서명·공증</span></li>
+          <li><span class="s-n">7c</span><span><b>Release 공개 + 자동 업데이트</b> — Latest로 공개, 기존 사용자에게 배포</span></li>
+          <li><span class="s-n">7d</span><span><b>웹 changelog 게시</b> — releases 테이블 upsert → <code>#/changelog</code></span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stage claude">
+      <div class="node">8</div>
+      <div class="card">
+        <div class="card-top"><h3>결과 확인</h3><span class="chip claude">클로드 + 당신</span></div>
+        <p>제가 Actions Summary(<b>✅ 웹 게시</b>)와 <code>barosit.com/#/changelog</code> 반영을 확인해 보고드립니다. 문제 있으면 경고가 뜨니 바로 알 수 있습니다.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FAN-OUT -->
+  <div class="sec-head">
+    <h2>사용자에게 도달하는 것</h2>
+    <span class="tag">one source → 3 surfaces</span>
+  </div>
+  <div class="fanout">
+    <span class="source"><span class="dot"></span>CHANGELOG.md · "## vX.Y.Z" 섹션</span>
+    <p class="fan-sub">사용자가 보는 문구는 오직 이 섹션 하나. 커밋 메시지·PR 설명 등은 전부 내부용입니다.</p>
+    <div class="targets">
+      <div class="target"><h4>GitHub Release 본문</h4><p>릴리스 페이지에 그대로 게시.</p><span class="src">← 7a 추출분</span></div>
+      <div class="target"><h4>앱 자동업데이트 배너</h4><p>업데이트 알림에 뜨는 변경 내용.</p><span class="src">← latest.json notes</span></div>
+      <div class="target"><h4>웹 업데이트 내역</h4><p>barosit.com <code>#/changelog</code> · 앱 설정→정보.</p><span class="src">← releases 테이블</span></div>
+    </div>
+  </div>
+
+  <!-- SETUP -->
+  <div class="sec-head">
+    <h2>1회 셋업 · 필수 시크릿</h2>
+    <span class="tag">configure once</span>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>항목</th><th>쓰이는 곳</th><th>용도</th></tr></thead>
+      <tbody>
+        <tr><td><code>ANTHROPIC_API_KEY</code></td><td>2 초안</td><td class="use">Ethan의 릴리스 노트 요약</td></tr>
+        <tr><td><code>TAURI_SIGNING_PRIVATE_KEY</code> (+PW)</td><td>7b 서명</td><td class="use">자동 업데이터 서명(minisign)</td></tr>
+        <tr><td><code>APPLE_*</code> <span class="use">(6개)</span></td><td>7b 서명</td><td class="use">macOS 코드서명 · 공증</td></tr>
+        <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>7d 웹 게시</td><td class="use">releases 테이블 쓰기(RLS 우회)</td></tr>
+        <tr><td>Actions → “Allow … create and approve PRs”</td><td>2 PR 오픈</td><td class="use">워크플로가 스스로 PR 생성</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- GUARDS -->
+  <div class="sec-head">
+    <h2>안전장치</h2>
+    <span class="tag">fail-safe</span>
+  </div>
+  <div class="guards">
+    <div class="guard">
+      <h4><span class="g">✓</span> CHANGELOG 누락 게이트</h4>
+      <p>태그를 밀어도 해당 버전 섹션이 없으면 <code>notes</code> 잡이 빌드 전에 실패 → 빈 릴리스 방지.</p>
+    </div>
+    <div class="guard">
+      <h4><span class="g">✓</span> 웹 게시 가시화</h4>
+      <p>시크릿 없으면 조용히 넘어가지 않고 경고 + Summary에 “⚠︎ 게시 건너뜀” 표기. 성공 시 기록된 행을 되받아 검증.</p>
+    </div>
+  </div>
+
+  <footer>
+    BaroSit release pipeline · 당신 = 결정·승인 / 클로드 = 실행 / CI = 자동 · reflects v0.9.4 setup (2026-07-03)
+  </footer>
+</div>
+
+</body>
+</html>
