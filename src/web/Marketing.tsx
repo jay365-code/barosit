@@ -9,6 +9,7 @@ import { useAuth } from "../auth/useAuth";
 import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, LAUNCH_MODE_CHANGED_EVENT } from "../launchMode";
 import { priceFor } from "../lib/pricing";
 import { interpolateLegalTemplate } from "../lib/legal";
+import { uploadPostImage, ACCEPTED_IMAGE_TYPES } from "../lib/uploadPostImage";
 import i18n from "../i18n";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { Icon, type IconName } from "../components/Icon";
@@ -2117,6 +2118,10 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
   const [writeCategory, setWriteCategory] = useState(COMMUNITY_CATEGORIES[0].value);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 이미지 첨부: 로컬 미리보기(objectURL) + 선택 파일. 업로드는 등록 시점에 수행.
+  const [writeImageFile, setWriteImageFile] = useState<File | null>(null);
+  const [writeImagePreview, setWriteImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Comment Form States
   const [commentAuthor, setCommentAuthor] = useState("");
@@ -2619,6 +2624,38 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     }
   };
 
+  const clearWriteImage = () => {
+    // 로컬 미리보기 objectURL 정리(메모리 누수 방지)
+    setWriteImagePreview((prevUrl) => {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      return null;
+    });
+    setWriteImageFile(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
+  const handlePickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setErrorMsg(t("community.errImageType"));
+      e.target.value = "";
+      return;
+    }
+    // 5MB 상한(버킷 제한과 동일) — 압축 전 원본 기준으로도 1차 차단
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg(t("community.errImageSize"));
+      e.target.value = "";
+      return;
+    }
+    setErrorMsg(null);
+    setWriteImagePreview((prevUrl) => {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      return URL.createObjectURL(file);
+    });
+    setWriteImageFile(file);
+  };
+
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     const needsPassword = !user;
@@ -2642,6 +2679,20 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     setErrorMsg(null);
 
     try {
+      // 이미지가 선택돼 있으면 먼저 압축·업로드 → 실패 시 글 작성 자체를 중단.
+      let imageUrl: string | null = null;
+      if (writeImageFile) {
+        try {
+          const { url } = await uploadPostImage(writeImageFile);
+          imageUrl = url;
+        } catch (upErr) {
+          console.error("Error uploading post image:", upErr);
+          setErrorMsg(t("community.errImageUpload"));
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const hashedPassword = needsPassword ? await hashPassword(writePassword) : "";
       const { error } = await supabase.from("posts").insert([
         {
@@ -2651,6 +2702,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
           password_hash: hashedPassword,
           user_id: user ? user.id : null,
           category: writeCategory,
+          image_url: imageUrl,
         },
       ]);
 
@@ -2661,6 +2713,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
       setWriteContent("");
       setWritePassword("");
       if (!user) setWriteAuthor("");
+      clearWriteImage();
       setView("list");
       fetchPosts();
     } catch (err: any) {
@@ -3734,6 +3787,14 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                               <Icon name="eye" size={13} /> {post.views}
                             </span>
+                            {post.image_url && (
+                              <span
+                                title={t("community.hasImage")}
+                                style={{ display: "inline-flex", alignItems: "center", color: "var(--b-fg-3)" }}
+                              >
+                                <Icon name="camera" size={13} />
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -4017,6 +4078,87 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
               />
             </div>
 
+            {/* Image attachment */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--b-fg-2)" }}>
+                {t("community.formImage")}
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--b-fg-3)" }}>
+                  {t("community.formImageHint")}
+                </span>
+              </label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                onChange={handlePickImage}
+                disabled={submitting}
+                style={{ display: "none" }}
+              />
+              {writeImagePreview ? (
+                <div style={{ position: "relative", width: "fit-content" }}>
+                  <img
+                    src={writeImagePreview}
+                    alt={t("community.formImage")}
+                    style={{
+                      maxWidth: 240,
+                      maxHeight: 240,
+                      borderRadius: 10,
+                      border: "1px solid var(--b-line)",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={clearWriteImage}
+                    disabled={submitting}
+                    title={t("community.formImageRemove")}
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      right: 6,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 999,
+                      border: "none",
+                      background: "rgba(0, 0, 0, 0.6)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: submitting ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <Icon name="x" size={15} stroke={2.2} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={submitting}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "12px 16px",
+                    borderRadius: 10,
+                    border: "1px dashed var(--b-line)",
+                    background: "rgba(255, 255, 255, 0.5)",
+                    color: "var(--b-fg-2)",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    width: "fit-content",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <Icon name="camera" size={16} stroke={2} />
+                  {t("community.formImagePick")}
+                </button>
+              )}
+            </div>
+
             {/* Form actions */}
             <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
               <button
@@ -4158,6 +4300,26 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                     </span>
                   </span>
                 </div>
+              )}
+
+              {/* Attached image */}
+              {activePost.image_url && (
+                <img
+                  src={activePost.image_url}
+                  alt={activePost.title || ""}
+                  loading="lazy"
+                  onClick={() => setZoomedImage(activePost.image_url)}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: 520,
+                    borderRadius: 12,
+                    border: "1px solid var(--b-line)",
+                    objectFit: "contain",
+                    display: "block",
+                    marginBottom: 24,
+                    cursor: "zoom-in",
+                  }}
+                />
               )}
 
               {/* Content text */}
