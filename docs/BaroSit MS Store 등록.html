@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BaroSit — Microsoft Store 버전 업데이트 등록 플레이북</title>
+<style>
+  :root{
+    --sage:#4a6b57; --sage-l:#7a9d86; --bg:#fafaf7; --ink:#1f2a24; --muted:#5c6b62;
+    --card:#ffffff; --border:#e3e6e0; --warn-bg:#fff6e5; --warn-bd:#e8c583;
+    --danger-bg:#fdecec; --danger-bd:#e6a9a9; --ok-bg:#e9f3ec; --ok-bd:#a9cdb5;
+    --code-bg:#f2f4f0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Segoe UI",Roboto,"Apple SD Gothic Neo",sans-serif;
+    line-height:1.65;font-size:16px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:40px 24px 96px}
+  header.title{border-bottom:3px solid var(--sage);padding-bottom:18px;margin-bottom:8px}
+  header.title h1{margin:0 0 6px;font-size:28px;letter-spacing:-.3px}
+  header.title .sub{color:var(--muted);font-size:14.5px}
+  .meta-note{color:var(--muted);font-size:13px;margin:10px 0 34px}
+  h2{margin:44px 0 14px;font-size:21px;border-left:5px solid var(--sage);padding-left:12px}
+  h3{margin:26px 0 10px;font-size:16.5px;color:var(--sage)}
+  p{margin:10px 0}
+  ul,ol{margin:10px 0;padding-left:22px}
+  li{margin:5px 0}
+  code{background:var(--code-bg);padding:1.5px 6px;border-radius:5px;font-size:13.5px;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;word-break:break-word}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+    overflow-x:auto;font-size:13px;font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;line-height:1.5}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .fixed-tbl{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+  .fixed-tbl th,.fixed-tbl td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+  .fixed-tbl th{background:#eef2ec;width:230px;white-space:nowrap}
+  .callout{border-radius:10px;padding:12px 16px;margin:14px 0;font-size:14.5px}
+  .callout.warn{background:var(--warn-bg);border:1px solid var(--warn-bd)}
+  .callout.danger{background:var(--danger-bg);border:1px solid var(--danger-bd)}
+  .callout.ok{background:var(--ok-bg);border:1px solid var(--ok-bd)}
+  .callout.exec{background:#eef3f0;border:1px solid var(--sage-l);border-left:6px solid var(--sage)}
+  .callout.exec h3{margin:0 0 8px;color:var(--sage);font-size:16px}
+  .two-col{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
+  .two-col>div{flex:1;min-width:240px;background:#fff;border:1px solid var(--border);border-radius:9px;padding:12px 14px}
+  .two-col h4{margin:0 0 6px;font-size:14px}
+  .two-col.auto h4{color:var(--sage)} .two-col.manual h4{color:#b5651d}
+  .callout strong{display:inline-block;margin-right:4px}
+  .step{display:flex;gap:14px;align-items:flex-start;margin:18px 0}
+  .step .n{flex:0 0 34px;height:34px;border-radius:50%;background:var(--sage);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;margin-top:2px}
+  .step .body{flex:1;min-width:0}
+  .step .body h3{margin-top:2px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:var(--sage);color:#fff;vertical-align:middle;margin-left:6px}
+  .tag.human{background:#b5651d}
+  .tag.auto{background:var(--sage)}
+  .tag.every{background:#b8442e}
+  .tag.recheck{background:#c98a1e}
+  .tag.fixed{background:#6b7c72}
+  .legend{font-size:13.5px;color:var(--muted);margin:6px 0 0}
+  .legend .tag{margin-left:0;margin-right:4px}
+  .checklist{list-style:none;padding-left:0}
+  .checklist li{padding-left:28px;position:relative}
+  .checklist li::before{content:"☐";position:absolute;left:2px;top:-1px;font-size:17px;color:var(--sage)}
+  hr{border:none;border-top:1px solid var(--border);margin:34px 0}
+  .toc{background:#eef2ec;border-radius:10px;padding:14px 20px;font-size:14.5px}
+  .toc a{color:var(--sage);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="title">
+  <h1>BaroSit — Microsoft Store 버전 업데이트 등록 플레이북</h1>
+  <div class="sub">새 버전을 MS Store(Partner Center)에 제출하는 표준 절차 · <b>Claude Code가 브라우저를 직접 조작해 실행</b>(사람은 파일 업로드·비밀번호만)</div>
+</header>
+<div class="meta-note">
+  최초 작성 2026-07-07 (v0.9.6.0 제출 실작업 기준). 이 문서는 <b>실제로 겪은 함정</b>을 포함합니다.
+  코드 경로·languageid 등은 시점 기준이므로 착수 전 현행 확인 권장.
+</div>
+
+<div class="callout exec">
+  <h3>실행 방식 — Claude Code가 브라우저를 직접 조작해 수행한다</h3>
+  <p style="margin:6px 0">
+    이 문서는 <b>사람에게 시키는 안내서가 아니다.</b> <b>Claude Code가 claude-in-chrome MCP로 Partner Center를 직접 조작해 실행</b>하는 절차다.
+    페이지 이동·클릭·<b>모든 텍스트 입력</b>(설명·기능·키워드)·마켓 확인·인증 취소·저장·최종 제출 — <b>전부 에이전트가 직접 한다.</b>
+    다른 세션의 에이전트도 <b>"가이드만" 하지 말고 실제로 브라우저를 몰아서 작업할 것.</b>
+  </p>
+  <div class="two-col">
+    <div class="auto">
+      <h4>🟢 에이전트가 직접 (자동)</h4>
+      로그인된 Chrome 탭에서 Partner Center 열기 · 제출 열기/인증 취소 · 패키지 저장 클릭 ·
+      3언어 목록 텍스트·키워드 입력 · 스크린샷 삭제 · 언어 추가 · 인증 노트/이메일 자격증명 입력 ·
+      China 제외 확인 · <b>"인증을 위해 제출"</b>(사용자 승인 후)
+    </div>
+    <div class="manual">
+      <h4>🟤 사람 손이 필요 (딱 2가지)</h4>
+      ① <b>파일 업로드</b> — MSIX(~38MB)·스크린샷은 네이티브 파일 선택창이라 자동화 불가 → 담당자가 직접 선택/드래그.<br>
+      ② <b>비밀번호 입력</b> — 안전 정책상 AI는 비번을 어떤 입력창에도 타이핑하지 않음 → 자격증명 비번 값만 담당자가 직접.
+    </div>
+  </div>
+  <p style="margin:8px 0 0;font-size:13.5px;color:var(--muted)">
+    아래 각 섹션 제목의 <span class="tag auto">에이전트</span> = Claude Code가 브라우저 직접 조작,
+    <span class="tag human">사람 직접</span> = 위 2가지 자동화 불가 구간.
+  </p>
+</div>
+
+<div class="toc">
+  <b>목차</b> &nbsp;
+  <a href="#fixed">0. 고정값</a> ·
+  <a href="#pre">1. 사전 검증(재거부 방지)</a> ·
+  <a href="#msix">2. MSIX 빌드·획득</a> ·
+  <a href="#submission">3. 제출 열기</a> ·
+  <a href="#package">4. 패키지 교체</a> ·
+  <a href="#listing">5. 스토어 목록 3언어</a> ·
+  <a href="#shots">6. 스크린샷</a> ·
+  <a href="#notes">7. 인증 노트·자격증명</a> ·
+  <a href="#submit">8. 최종 검증·제출</a> ·
+  <a href="#special">9. 루틴 외 특수 케이스</a> ·
+  <a href="#gotchas">함정 모음</a> ·
+  <a href="#backlog">China 백로그</a>
+</div>
+
+<div class="callout danger">
+  <strong>⚠️ 이 작업의 2대 재거부 방지 포인트</strong> (1차 인증 거부 사유 10.1.2.10 Functionality):
+  <b>① 로그인 후 앱 복귀 실패</b> → loopback 폴백 코드+배포 검증 필수.
+  <b>② China 마켓에서 소셜 로그인 페이지 미도달</b> → China 마켓 제외 유지 확인 필수.
+</div>
+
+<!-- ───────────────── 범위 요약 ───────────────── -->
+<h2 id="scope">버전 업데이트 시 작업 범위 (요약)</h2>
+<p>범프마다 전부 다시 하지 말 것. 새 제출 초안은 지난 게시본을 복사해 오므로, 실제로 손대는 값은 일부다.</p>
+<p class="legend">
+  <span class="tag every">🔁 매 버전</span> 반드시 새로 만들거나 바꿈 &nbsp;·&nbsp;
+  <span class="tag recheck">🔍 재확인</span> 값은 대개 유지되나 매 버전 점검 &nbsp;·&nbsp;
+  <span class="tag fixed">📌 고정</span> 한 번 설정하면 유지(변경 사유 없으면 안 건드림)
+</p>
+<table class="fixed-tbl">
+  <tr><th style="width:auto">섹션</th><th style="width:120px">성격</th><th style="width:auto">버전 업 때 무엇을</th></tr>
+  <tr><td>§0 고정값 (Identity 등)</td><td><span class="tag fixed">📌 고정</span></td><td>절대 변경 금지. 참고만.</td></tr>
+  <tr><td>§1 loopback·브리지 배포</td><td><span class="tag recheck">🔍 재확인</span></td><td>인증 코드 변경 없으면 그대로. 새 빌드에 포함됐는지·라이브 일치만 점검.</td></tr>
+  <tr><td>§2 MSIX 빌드·획득</td><td><span class="tag every">🔁 매 버전</span></td><td>새 버전 = 새 빌드·새 <code>.msix</code> 파일·새 run id. 버전 번호 상승.</td></tr>
+  <tr><td>§3 제출 열기</td><td><span class="tag every">🔁 매 버전</span></td><td>매번 새 제출(또는 인증취소→초안). 절차 자체는 동일.</td></tr>
+  <tr><td>§4 패키지 교체</td><td><span class="tag every">🔁 매 버전</span></td><td>매 버전 새 MSIX 업로드·교체(사람 직접).</td></tr>
+  <tr><td>§5 스토어 목록 텍스트</td><td><span class="tag every">🔁 매 버전</span> / <span class="tag fixed">📌 고정</span></td><td><b>「이 버전의 새로운 기능」만 매 버전(3언어) 갱신.</b> 설명·기능·간단설명·키워드는 유지.</td></tr>
+  <tr><td>§6 스크린샷</td><td><span class="tag fixed">📌 고정</span></td><td><b>UI가 바뀐 경우에만</b> 교체(사람 직접). 아니면 그대로.</td></tr>
+  <tr><td>§7 인증 노트·자격증명</td><td><span class="tag fixed">📌 고정</span></td><td>테스트 지침·계정(<code>reviewer@barosit.com</code>)·게시옵션 모두 유지. 계정/정책 바뀔 때만 수정.</td></tr>
+  <tr><td>§8 China 제외·제출</td><td><span class="tag recheck">🔍 재확인</span> + <span class="tag every">🔁 매 버전</span></td><td>China 제외는 유지되나 <b>매번 재확인</b>. 체크리스트·제출은 매 버전 수행.</td></tr>
+</table>
+<div class="callout ok">
+  <strong>가장 흔한 "루틴 버전 범프" 최소 작업:</strong>
+  §2 새 MSIX 받기 → §3 제출 열기 → §4 패키지 교체 → §5 「이 버전의 새로운 기능」 3언어 갱신 →
+  §1·§8-1 재확인 → §8 제출. (§0·§6·§7·§5나머지는 그대로 넘어옴)
+</div>
+
+<!-- ───────────────── 0 ───────────────── -->
+<h2 id="fixed">0. 고정값 (매 제출 동일) <span class="tag fixed">📌 고정</span></h2>
+<table class="fixed-tbl">
+  <tr><th>Product ID</th><td><code>9NMG33L2THHH</code></td></tr>
+  <tr><th>스토어 공개 URL</th><td><code>https://apps.microsoft.com/detail/9nmg33l2thhh</code></td></tr>
+  <tr><th>Partner Center Identity — Name</th><td><code>GUBED.BaroSit</code></td></tr>
+  <tr><th>Identity — Publisher</th><td><code>CN=F6C23DAA-92F4-4319-806C-7E202637863C</code></td></tr>
+  <tr><th>Identity — PublisherDisplayName</th><td><code>GUBED</code></td></tr>
+  <tr><th>매니페스트 템플릿</th><td><code>windows/AppxManifest.xml</code> (<code>{{VERSION}}</code> 치환, protocol <code>barosit</code> 선언 포함)</td></tr>
+  <tr><th>스토어 목록 languageid</th><td>ko-KR = <code>61</code> · en-US = <code>4</code> · ja-JP = <code>17</code></td></tr>
+  <tr><th>심사 테스트 계정</th><td><code>reviewer@barosit.com</code> (비밀번호는 담당자만 보유)</td></tr>
+</table>
+<p>Identity 3값은 매니페스트와 <b>글자 단위로 일치</b>해야 업로드가 통과한다(예약값). 절대 바꾸지 말 것.</p>
+
+<!-- ───────────────── 1 ───────────────── -->
+<h2 id="pre">1. 사전 검증 — 재거부 방지 <span class="tag recheck">🔍 재확인</span> <span class="tag auto">에이전트</span></h2>
+<p>패키지 만들기 <b>전에</b> 이 두 가지가 새 빌드에 들어있고 배포됐는지 확인한다. 안 되어 있으면 등록해도 재거부된다.</p>
+
+<h3>1-1. loopback 로그인 폴백 (코드)</h3>
+<ul>
+  <li>Rust: <code>src-tauri/src/lib.rs</code> 에 <code>start_auth_loopback</code>/<code>stop_auth_loopback</code> 정의 + <code>generate_handler![]</code>(invoke_handler)에 등록.</li>
+  <li>프론트: <code>src/auth/useAuth.ts</code> 가 <code>invoke("start_auth_loopback")</code> → 브리지 URL에 <code>?port=</code> 부착해 <code>redirectTo</code> 로 전달.</li>
+  <li>브리지 페이지: <code>public/desktop-auth-redirect.html</code> 가 <code>barosit://</code> 먼저 시도 후 실패 시 <code>http://127.0.0.1:&lt;port&gt;/auth-callback</code> 로 최상위 이동(RFC 8252).</li>
+  <li>전부 커밋됨 = 그 태그로 빌드된 MSIX에 포함됨. <code>git diff HEAD -- &lt;파일&gt;</code> 로 미커밋 없음 확인.</li>
+</ul>
+
+<h3>1-2. 브리지 페이지 라이브 배포 확인</h3>
+<pre>curl -sS -L "https://barosit.com/desktop-auth-redirect.html" -o /tmp/b.html   # (샌드박스면 dangerouslyDisableSandbox)
+grep -n "127.0.0.1\|searchParams.get('port')\|location.replace" /tmp/b.html
+diff -q public/desktop-auth-redirect.html /tmp/b.html   # 완전 일치면 최신 배포됨</pre>
+<p>Cloudflare가 <code>.html</code> → 클린URL로 <b>308 리다이렉트</b>(쿼리 보존)하는 것은 정상.</p>
+
+<!-- ───────────────── 2 ───────────────── -->
+<h2 id="msix">2. MSIX 빌드·획득 <span class="tag every">🔁 매 버전</span> <span class="tag auto">에이전트</span></h2>
+<p>Windows 머신·GUI 불필요. GitHub Actions가 굽는다.</p>
+<ol>
+  <li>버전 태그(<code>v*</code>) 푸시하면 <b>"Windows MSIX"</b> 워크플로가 자동 실행(또는 <code>gh workflow run "Windows MSIX"</code> 수동).</li>
+  <li>완료 후 아티팩트 다운로드:
+    <pre>gh run list --workflow="Windows MSIX" -L 3         # run id 확인
+gh run download &lt;run_id&gt; --name barosit-msix --dir ./windows/dist
+ls windows/dist/*.msix                              # → BaroSit_&lt;x.y.z.0&gt;_x64.msix</pre>
+  </li>
+</ol>
+<div class="callout warn">
+  <strong>버전 규칙</strong> MSIX Identity 버전은 <b>4파트, 마지막(revision)=0</b> (예 <code>0.9.6.0</code>). <code>scripts/build-msix.ps1</code>이
+  <code>tauri.conf.json</code>의 <code>x.y.z</code>를 <code>x.y.z.0</code>으로 변환. <b>현재 스토어 게시본보다 높아야</b> 업데이트로 인식된다.
+</div>
+<div class="callout warn">
+  <strong>로컬 경로 주의</strong> <code>windows/dist</code>·<code>windows/layout</code>은 gitignore. 아티팩트는 기본 90일 보관.
+</div>
+
+<!-- ───────────────── 3 ───────────────── -->
+<h2 id="submission">3. 제출 열기 (Partner Center) <span class="tag every">🔁 매 버전</span> <span class="tag auto">에이전트(브라우저)</span></h2>
+<p>Partner Center → Apps and games → <b>BaroSit</b> → 개요.</p>
+<div class="callout danger">
+  <strong>함정</strong> <b>이미 진행 중인 제출(초안/인증 중)이 있으면 "새 제출 만들기" 버튼이 없다.</b>
+  한 번에 하나의 활성 제출만 허용되기 때문. 이번(0.9.6)에도 0.3.3.0이 인증 중이라 버튼이 안 보였다.
+</div>
+<ul>
+  <li><b>인증 중인 구버전이 있는데 그걸 버리고 새 버전으로 갈 경우</b>: 인증 상태 카드의 <b>"인증 취소"</b> → "예" → 제출이 <b>초안</b>으로 바뀜(삭제 아님) → 그 초안을 편집.</li>
+  <li><b>진행 중 제출을 살릴 경우</b>: 통과·게시될 때까지 기다렸다가 그 뒤 새 제출 생성.</li>
+  <li>초안이 된 제출은 지난 게시본 값을 복사해 옴 → 대부분 섹션은 그대로 두고 <b>패키지·목록만</b> 손대면 된다.</li>
+</ul>
+
+<!-- ───────────────── 4 ───────────────── -->
+<h2 id="package">4. 패키지 교체 <span class="tag every">🔁 매 버전</span> <span class="tag human">사람 직접</span></h2>
+<div class="step">
+  <div class="n">!</div>
+  <div class="body">
+    <p><b>파일 업로드는 에이전트가 못 한다.</b> 브라우저 자동화의 file_upload 도구는 (a) <b>세션에 첨부된 파일</b>만 받고 (b) <b>10MB 한도</b>인데, MSIX는 ~38MB. 네이티브 파일 선택창도 자동화 불가. → <b>담당자가 직접</b> 올려야 한다.</p>
+  </div>
+</div>
+<ol>
+  <li>제출 초안 → <b>패키지(Packages)</b> 섹션 진입.</li>
+  <li>드롭영역 <b>"browse your files"</b> 또는 드래그로 <code>windows/dist/BaroSit_&lt;버전&gt;_x64.msix</code> 업로드(미서명 OK, MS가 재서명).</li>
+  <li>새 버전이 더 높으면 구 패키지는 <b>"저장 시 자동 제거"</b> 표시(취소선) → 수동 Remove 불필요.</li>
+  <li><b>Save</b>. 개요에서 패키지가 <b>Validated · 업데이트됨</b>으로 표시되면 성공.</li>
+</ol>
+
+<!-- ───────────────── 5 ───────────────── -->
+<h2 id="listing">5. 스토어 목록 — 영어·한국어·일본어 <span class="tag every">🔁 새기능만</span> <span class="tag fixed">📌 나머지 고정</span> <span class="tag auto">에이전트(텍스트)</span></h2>
+
+<div class="callout ok">
+  <strong>일반 버전 범프에선 대부분 건드릴 필요 없음.</strong> 새 제출 초안은 <b>지난 게시본을 복사</b>해 오므로
+  목록 텍스트·스크린샷은 자동으로 이어진다. <b>버전마다 실제로 바꾸는 값은 「이 버전의 새로운 기능」(릴리스 노트)뿐</b>이고,
+  스크린샷은 <b>UI가 바뀐 경우에만</b> 교체한다. 아래 5-1~5-4 전체 작성은 <b>일회성 정비</b>(이번 0.9.6에서 한국어 목록이
+  비어 있고 일본어가 없어 전면 작성)에 해당 — 한 번 제대로 해두면 다음 버전부터는 생략.
+</div>
+<table class="fixed-tbl">
+  <tr><th>이 버전의 새로운 기능</th><td>✅ <b>매 버전 갱신</b> (3언어) — 이번 릴리스 변경점</td></tr>
+  <tr><th>설명 · 제품 기능 · 간단한 설명 · 키워드</th><td>➖ 유지 (앱 컨셉/기능 변경 시에만 수정)</td></tr>
+  <tr><th>스크린샷</th><td>➖ UI 변경 시에만 교체</td></tr>
+</table>
+
+<p>각 언어별 입력 항목: <b>설명 · 이 버전의 새로운 기능 · 제품 기능(불릿, 최대 20) · 간단한 설명(≤약 270자) · 키워드(최대 7) · 스크린샷</b>. 텍스트는 에이전트가 타이핑, 스크린샷은 사람이(§6). <b>아래는 처음부터/전면 작성이 필요할 때의 절차.</b></p>
+
+<h3>5-1. 카피 소스</h3>
+<p>앱 i18n 마케팅 카피를 재사용하면 톤·번역 품질이 앱과 일치한다: <code>src/i18n/locales/{en,ko,ja}/marketing.json</code> (landing/privacy/features 등), 7자세 라벨은 <code>src/i18n/locales/*/posture.json</code>.</p>
+
+<h3>5-2. 카피 규칙 (사용자 확정)</h3>
+<div class="callout warn">
+  <ul style="margin:2px 0">
+    <li><b>한국어에 외래어 금지</b>: "넛지", "백오프" 쓰지 말 것 → <b>"알림 / 리마인더"</b>로. (영어권엔 "nudge" OK)</li>
+    <li><b>모순 회피</b>: "나쁜 자세를 지적 안 한다"는 앱 동작과 모순. → <b>"나쁜 자세를 짚어주긴 하지만 다그치려는 게 아니라, 한 자세가 오래 이어질 때 가볍게 알려 움직이도록 돕는다"</b> 프레이밍. (en/ja도 동일 반영)</li>
+  </ul>
+</div>
+
+<h3>5-3. 언어 추가 (일본어처럼 매니페스트에 없는 언어)</h3>
+<p>매니페스트 <code>Resources</code>에 선언된 언어(ko-KR, en-US)는 "패키지에서 지원되는 언어"에 자동 등장. 그 외(ja-JP)는 <b>Microsoft Store 목록 → "언어 추가/제거" → "추가 언어 관리"</b>에서 검색·체크 후 저장하면 "추가 언어"로 편집 가능해진다.</p>
+
+<h3>5-4. 키워드</h3>
+<p>최대 7개, 각 ≤40자, 전체 단어수 ≤21. 입력창에 타이핑 후 <b>Enter</b>로 칩 생성. (AI 추천 드롭다운은 일본어에서 이상하게 나올 수 있으니 직접 입력.) 각 언어 편집 후 하단 <b>저장</b>.</p>
+
+<!-- ───────────────── 6 ───────────────── -->
+<h2 id="shots">6. 스크린샷 <span class="tag fixed">📌 고정 (UI 변경 시만)</span> <span class="tag human">사람 직접</span></h2>
+<div class="callout danger">
+  <strong>스크린샷도 사람이 업로드</strong> (파일 업로드 제약 동일). 단 이미지는 보통 &lt;10MB라, 원본을 <b>파일로 저장</b>만 하면 에이전트가 file_upload로 올릴 여지는 있으나 — <b>이번엔 세션 첨부/경로 제약으로 결국 사람이 네이티브 픽커로 올림</b>. 표준은 "사람 직접"으로 잡는다.
+</div>
+<ul>
+  <li>요건: <b>1366×768 이상</b>, PNG, 개당 50MB↓(스토어) / 10MB↓(에이전트 도구 시).</li>
+  <li>맥 창 캡처가 1366폭 미만이면(예 1212px) 확대: <code>sips --resampleWidth 1400 shot.png</code>.</li>
+  <li>언어별로 각각 업로드(같은 이미지 재사용 가능). 데스크톱 탭의 큰 <b>"+"</b> 박스에 드래그/선택.</li>
+  <li>구버전 스크린샷 교체 시: 썸네일 우상단 <b>휴지통 아이콘</b>으로 삭제 후 새로 업로드.</li>
+  <li>업로드되면 각 언어 목록의 빨간 "스크린샷 필요" 경고가 사라지고, 개요의 <b>Store 목록</b>이 <b>업데이트됨</b>이 된다(미완료 → 완료).</li>
+</ul>
+
+<!-- ───────────────── 7 ───────────────── -->
+<h2 id="notes">7. 인증 노트 · 테스트 자격증명 <span class="tag fixed">📌 고정 (설정 후 유지)</span> <span class="tag auto">에이전트+사람</span></h2>
+<p>좌측 <b>추가 정보 → 추가적인 테스트 정보(Additional Testing Info)</b>. 심사자만 봄(고객 비공개).</p>
+
+<h3>7-1. 설명(테스트 지침) — 에이전트 작성 후 "Save description"</h3>
+<p>1차 거부가 로그인이었으므로 핵심 메시지는 <b>"핵심 기능은 로그인 없이 심사 가능"</b>:</p>
+<ul>
+  <li>① 자세 감지는 100% 온디바이스 → 웹캠 허용만 하면 로그인 없이 전 기능 리뷰 가능.</li>
+  <li>② 카메라 권한 필요(첫 실행 시 허용).</li>
+  <li>③ 로그인은 선택(동기화/커뮤니티용). 이전 "브라우저 로그인 후 앱 미복귀" 이슈는 <b>127.0.0.1 loopback 폴백(RFC 8252)</b>으로 수정됨. 검증하려면 아래 자격증명 사용(이메일 로그인).</li>
+</ul>
+
+<h3>7-2. 자격 증명(Credentials)</h3>
+<div class="callout danger">
+  <strong>비밀번호는 에이전트가 입력 금지</strong> — 안전 규칙상 AI는 비밀번호를 어떤 입력창에도 타이핑하지 않는다.
+  <b>이름(라벨)·이메일은 에이전트가</b> 넣고, <b>비밀번호 값은 담당자가 직접</b> 입력한다.
+</div>
+<ul>
+  <li>"새 자격 증명"으로 2개 추가: 이름 <code>Email (ID)</code> / 값 <code>reviewer@barosit.com</code> (에이전트), 이름 <code>Password (email login)</code> / 값 = 비번(사람 직접).</li>
+  <li>추가 직후 "Unable to save" 배너가 뜨면 <b>한 번 더 시도</b>하면 반영되는 경우 있음(이번에 그랬음). 표에 <code>******</code>로 마스킹돼 나오면 저장된 것.</li>
+</ul>
+
+<h3>7-3. 게시 옵션</h3>
+<p><b>제출 옵션(Options)</b>: 기본값 <b>"인증 통과 즉시 게시"</b> 유지. 특정 날짜 예약이 필요하면 여기서.</p>
+
+<!-- ───────────────── 8 ───────────────── -->
+<h2 id="submit">8. 최종 검증 · 제출 <span class="tag recheck">🔍 China 재확인</span> <span class="tag every">🔁 제출</span> <span class="tag auto">에이전트, 제출은 사용자 승인</span></h2>
+<h3>8-1. China 마켓 제외 확인 (필수)</h3>
+<ul>
+  <li><b>가격 책정 및 가용성 → 지역/국가</b>. 라디오가 "전 세계 모든 시장"이어도, <b>"옵션 표시"</b>로 목록을 열어 <b>"중국(ISBN 필수)" 체크가 해제</b>돼 있는지 확인. (검색창에 <code>중국</code>)</li>
+  <li>제외돼 있으면 창을 <b>취소</b>로 닫아(변경 없이) 상태 유지.</li>
+</ul>
+<h3>8-2. 제출 전 체크리스트</h3>
+<ul class="checklist">
+  <li>패키지 = 새 버전(x.y.z.0), Validated·업데이트됨, 구버전 제거됨</li>
+  <li>en·ko·ja 목록 모두 <b>업데이트됨</b>(설명·기능·간단설명·키워드·스크린샷)</li>
+  <li>loopback 코드+브리지 배포 검증 완료(§1)</li>
+  <li>China 마켓 제외 유지</li>
+  <li>인증 노트 + 테스트 자격증명(Email/Password) 등록</li>
+  <li>게시 옵션 = 인증 통과 즉시</li>
+</ul>
+<div class="callout ok">
+  <strong>제출</strong> 개요의 파란 <b>"인증을 위해 제출"</b> 클릭. <b>되돌리기 어려운 공개 액션이므로 사용자 승인 후</b> 실행.
+  누르면 상태가 <b>제출 → 사전 처리 중 → 인증 → 게시 중</b>으로 진행. 인증은 수 시간~최대 3영업일, 통과 시 자동 게시. 필요 시 "인증 취소"로 되돌릴 수 있음.
+</div>
+
+<!-- ───────────────── 9 ───────────────── -->
+<h2 id="special">9. 루틴 외 특수 케이스</h2>
+<p>§1~§8은 "새 버전 패키지 올리기"의 표준 경로. 아래는 그 외에 발생하는 상황들.</p>
+
+<h3>9-A. 새 언어 추가 (예: 스페인어 <code>es</code>) <span class="tag every">🔁 필요 시</span></h3>
+<div class="callout warn">
+  <strong>갈림길</strong> "앱 UI까지 그 언어냐" vs "스토어 페이지만 그 언어냐"를 먼저 결정한다. 이게 재빌드 여부를 가른다.
+</div>
+<table class="fixed-tbl">
+  <tr><th style="width:130px"></th><th style="width:auto">스토어 목록만 <code>es</code></th><th style="width:auto">앱 UI까지 <code>es</code></th></tr>
+  <tr><td>작업</td>
+      <td>Partner Center <b>Microsoft Store 목록 → 언어 추가/제거 → 추가 언어 관리</b>에서 <code>es</code> 검색·체크·저장 → 목록 텍스트 작성</td>
+      <td>① <code>src/i18n/locales/es/*</code> 로케일 추가 + <code>src/i18n/index.ts</code> 등록 &nbsp; ② (권장) <code>windows/AppxManifest.xml</code> <code>&lt;Resources&gt;</code>에 <code>&lt;Resource Language="es-ES" /&gt;</code> 선언 &nbsp; ③ <b>MSIX 재빌드</b> &nbsp; ④ 목록 작성</td></tr>
+  <tr><td>재빌드</td><td>❌ 불필요</td><td>✅ 필요(§2)</td></tr>
+  <tr><td>결과</td><td>스토어 페이지는 <code>es</code>, <b>앱은 영어로 표시</b></td><td>스토어·앱 모두 <code>es</code></td></tr>
+</table>
+<div class="callout ok">
+  <strong>참고 — 일본어가 바로 "스토어 목록만" 케이스였다.</strong> 앱엔 <code>ja</code> 로케일이 있지만 매니페스트
+  <code>&lt;Resources&gt;</code>엔 <code>ko-KR</code>·<code>en-US</code>만 선언돼 있어, <code>ja</code>는 "추가 언어"로 붙여 재빌드 없이 처리했다.
+  스페인어도 같은 패턴이면 재빌드 불필요.
+</div>
+<p><b>추가로 챙길 것:</b></p>
+<ul>
+  <li><b>카피</b>: <code>src/i18n/locales/*/marketing.json</code>에 <code>es</code> 없음 → 번역 필요(앱 로케일을 만들면 그걸 소스로 재사용).</li>
+  <li><b>카피 규칙</b>: §5-2의 원칙(외래어·모순 회피) 동일 적용.</li>
+  <li><b>마켓</b>: 스페인·중남미 등 스페인어권 마켓이 §8-1에서 제외돼 있지 않은지 확인.</li>
+  <li><b>스크린샷</b>: 재사용 가능(§6). es UI로 새로 찍으려면 사람 직접.</li>
+  <li><b>languageid</b>: 추가 후 목록 URL의 <code>languageid</code>를 기록해두면 다음에 바로 접근(현재 ko=61·en=4·ja=17).</li>
+</ul>
+
+<h3>9-B. 그 외 케이스 표</h3>
+<table class="fixed-tbl">
+  <tr><th style="width:230px">케이스</th><th style="width:auto">무엇을 해야 하나</th></tr>
+  <tr><td>무료 → 유료 전환 / 추가기능(IAP)</td><td>가격 책정 변경, 또는 <b>추가 기능 관리</b>로 add-on(별도 제품) 생성. Pro 게이팅 기능은 심사자가 접근 가능하도록 <b>인증 노트에 우회/접근법 명시</b> 필수</td></tr>
+  <tr><td>연령 등급 재설정</td><td>커뮤니티/채팅/UGC 등 콘텐츠 성격 변경 시 <b>IARC 설문 재작성</b>(등급 상승 가능)</td></tr>
+  <tr><td>새 권한/기능 선언</td><td>Properties·Capabilities 변경. 마이크/위치 등 새 <code>DeviceCapability</code> 추가 시 매니페스트 선언 + 정당화 → 심사 강도 ↑</td></tr>
+  <tr><td>새 아키텍처(ARM64)</td><td>현재 x64 전용. ARM64 빌드 추가 시 패키징/매니페스트 멀티 아키텍처 구성</td></tr>
+  <tr><td>Windows 최소 버전 변경</td><td>매니페스트 <code>TargetDeviceFamily</code> MinVersion / MaxVersionTested 조정</td></tr>
+  <tr><td>인증 거부 후 재제출</td><td>인증 보고서 사유 확인 → 코드/목록/노트 수정 → 재제출. (1차 거부 = 로그인·China)</td></tr>
+  <tr><td>단계적 / 비공개 출시</td><td>게시 보류·특정 날짜 예약(제출 옵션), <b>패키지 플라이트</b>(제한 그룹 베타), 비공개 대상 그룹</td></tr>
+  <tr><td>로고 / 브랜드 변경</td><td>매니페스트 Square 로고(44/71/150/310·StoreLogo) + Store 표시 이미지 교체</td></tr>
+  <tr><td>마켓 추가 / 제외</td><td>China 재포함(§백로그) 등. 마켓별 요건 주의(중국 ISBN 필수 등)</td></tr>
+  <tr><td>정책 변경 강제 재제출</td><td>MS 요건 변경 시 기존 앱도 재제출 요구될 수 있음</td></tr>
+  <tr><td>의료 / 과장 주장 리스크</td><td>설명 카피에 <b>임상·의료 효과 주장 금지</b>(자세=거북목 "치료" 등). 정책 위반 거부 유발. 근거 인용 규칙은 자세 근거 문서 참고</td></tr>
+</table>
+
+<!-- ───────────────── Gotchas ───────────────── -->
+<h2 id="gotchas">함정 모음 (이번에 실제로 걸린 것)</h2>
+<ul>
+  <li><b>진행 중 제출 있으면 새 제출 불가</b> → 인증 취소로 초안화.</li>
+  <li><b>MSIX/스크린샷 업로드 자동화 불가</b> → 파일은 담당자가 네이티브 픽커로. (file_upload = 세션 첨부만·10MB 한도)</li>
+  <li><b>채팅에 붙인 이미지엔 디스크 경로가 없다</b> → 담당자가 파일로 저장(예: 바탕화면)해야 에이전트가 위치를 안내/처리 가능.</li>
+  <li><b>맥 스크린샷이 1366폭 미만</b>이면 스토어 최소치 미달 → <code>sips --resampleWidth</code>로 확대.</li>
+  <li><b>영어 기존 목록의 "스크린샷"이 사실 구버전 한국어 다크 UI</b>였음 → 새 버전 UI로 교체 권장.</li>
+  <li><b>자격증명 첫 저장이 "Unable to save"</b> → 재시도로 해결됐음.</li>
+  <li><b>키워드 AI 추천이 일본어에서 프롬프트 유출성 텍스트</b>로 나옴 → 무시하고 직접 입력.</li>
+</ul>
+
+<!-- ───────────────── Backlog ───────────────── -->
+<h2 id="backlog">China 재포함 백로그 (보류 중)</h2>
+<p>이메일 로그인 도입으로 1차 거부(소셜 로그인 미도달)는 해소되지만, 아래 리스크로 <b>0.9.6 제출에선 제외 유지</b> 결정. 재포함하려면 선행 필요:</p>
+<ul>
+  <li><b>중국어(zh) 스토어 목록</b> 추가(현재 없음 → 중국 노출 부적합).</li>
+  <li><b>Supabase(AWS) 중국 도달성</b> 확인 — 이메일 로그인/동기화 경유. 불안정하면 심사 중 로그인 실패 위험.</li>
+  <li><b>폰트 CDN 로컬화</b> — 랜딩/헬퍼 페이지가 <code>cdn.jsdelivr.net</code>(중국 차단)에서 Pretendard 로드. 앱 본체는 시스템폰트 폴백이라 치명적이진 않음.</li>
+  <li>참고: <b>MediaPipe는 로컬 번들</b>(<code>src/pose/detector.ts</code>, <code>${BASE_URL}mediapipe</code>)이라 자세감지는 중국 무관.</li>
+</ul>
+<p class="meta-note">제출 단위로 인증되므로, 중국 특유 문제 하나가 <b>전체 릴리스 거부</b>로 번질 수 있음 → China는 별도 제출로 분리하는 편이 안전.</p>
+
+<footer>
+  BaroSit / Gubed Inc. · Product 9NMG33L2THHH · 내부 운영 문서.
+  갱신 이력은 관련 메모리 <code>barosit-ms-store</code> 참고. 마지막 실작업: 2026-07-07 v0.9.6.0 인증 제출.
+</footer>
+
+</div>
+</body>
+</html>
