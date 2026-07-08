@@ -2115,12 +2115,16 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
   const [writeContent, setWriteContent] = useState("");
   const [writeAuthor, setWriteAuthor] = useState("");
   const [writePassword, setWritePassword] = useState("");
-  const [writeCategory, setWriteCategory] = useState(COMMUNITY_CATEGORIES[0].value);
+  // 기본값은 운영자 전용(블로그/공지)이 아닌 첫 카테고리 — 게스트가 아무 주제도
+  // 안 고른 채 등록해도 유효한 주제가 선택돼 있게 함(운영자 전용 오발 차단 방지).
+  const [writeCategory, setWriteCategory] = useState(
+    COMMUNITY_CATEGORIES.find((c) => !ADMIN_ONLY_CATEGORIES.includes(c.value))!.value,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // 이미지 첨부: 로컬 미리보기(objectURL) + 선택 파일. 업로드는 등록 시점에 수행.
-  const [writeImageFile, setWriteImageFile] = useState<File | null>(null);
-  const [writeImagePreview, setWriteImagePreview] = useState<string | null>(null);
+  // 이미지 첨부(최대 5장): 로컬 미리보기(objectURL)+선택 파일. 업로드는 등록 시점에 수행.
+  const MAX_POST_IMAGES = 5;
+  const [writeImages, setWriteImages] = useState<{ file: File; preview: string }[]>([]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Comment Form States
@@ -2624,36 +2628,54 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     }
   };
 
-  const clearWriteImage = () => {
-    // 로컬 미리보기 objectURL 정리(메모리 누수 방지)
-    setWriteImagePreview((prevUrl) => {
-      if (prevUrl) URL.revokeObjectURL(prevUrl);
-      return null;
+  const clearWriteImages = () => {
+    // 로컬 미리보기 objectURL 전부 정리(메모리 누수 방지)
+    setWriteImages((prev) => {
+      prev.forEach((im) => URL.revokeObjectURL(im.preview));
+      return [];
     });
-    setWriteImageFile(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
+  const removeWriteImageAt = (idx: number) => {
+    setWriteImages((prev) => {
+      const target = prev[idx];
+      if (target) URL.revokeObjectURL(target.preview);
+      return prev.filter((_, i) => i !== idx);
+    });
     if (imageInputRef.current) imageInputRef.current.value = "";
   };
 
   const handlePickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      setErrorMsg(t("community.errImageType"));
-      e.target.value = "";
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // 같은 파일 재선택 허용
+    if (files.length === 0) return;
+
+    const remaining = MAX_POST_IMAGES - writeImages.length;
+    if (remaining <= 0) {
+      setErrorMsg(t("community.errImageMax", { count: MAX_POST_IMAGES }));
       return;
     }
-    // 5MB 상한(버킷 제한과 동일) — 압축 전 원본 기준으로도 1차 차단
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg(t("community.errImageSize"));
-      e.target.value = "";
-      return;
+
+    const accepted: { file: File; preview: string }[] = [];
+    for (const file of files) {
+      if (accepted.length >= remaining) break; // 남은 슬롯까지만
+      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+        setErrorMsg(t("community.errImageType"));
+        continue;
+      }
+      // 5MB 상한(버킷 제한과 동일) — 압축 전 원본 기준으로도 1차 차단
+      if (file.size > 5 * 1024 * 1024) {
+        setErrorMsg(t("community.errImageSize"));
+        continue;
+      }
+      accepted.push({ file, preview: URL.createObjectURL(file) });
     }
-    setErrorMsg(null);
-    setWriteImagePreview((prevUrl) => {
-      if (prevUrl) URL.revokeObjectURL(prevUrl);
-      return URL.createObjectURL(file);
-    });
-    setWriteImageFile(file);
+    if (accepted.length === 0) return;
+    // 초과분이 잘렸으면 안내
+    if (files.length > remaining) setErrorMsg(t("community.errImageMax", { count: MAX_POST_IMAGES }));
+    else setErrorMsg(null);
+    setWriteImages((prev) => [...prev, ...accepted]);
   };
 
   const handleCreatePost = async (e: React.FormEvent) => {
@@ -2679,12 +2701,14 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     setErrorMsg(null);
 
     try {
-      // 이미지가 선택돼 있으면 먼저 압축·업로드 → 실패 시 글 작성 자체를 중단.
-      let imageUrl: string | null = null;
-      if (writeImageFile) {
+      // 이미지가 선택돼 있으면 먼저 압축·업로드(순차) → 실패 시 글 작성 자체를 중단.
+      let imageUrls: string[] = [];
+      if (writeImages.length > 0) {
         try {
-          const { url } = await uploadPostImage(writeImageFile);
-          imageUrl = url;
+          for (const im of writeImages) {
+            const { url } = await uploadPostImage(im.file);
+            imageUrls.push(url);
+          }
         } catch (upErr) {
           console.error("Error uploading post image:", upErr);
           setErrorMsg(t("community.errImageUpload"));
@@ -2702,7 +2726,9 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
           password_hash: hashedPassword,
           user_id: user ? user.id : null,
           category: writeCategory,
-          image_url: imageUrl,
+          // image_url = 첫 장(하위호환/목록 인디케이터), image_urls = 전체
+          image_url: imageUrls[0] ?? null,
+          image_urls: imageUrls.length ? imageUrls : null,
         },
       ]);
 
@@ -2713,7 +2739,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
       setWriteContent("");
       setWritePassword("");
       if (!user) setWriteAuthor("");
-      clearWriteImage();
+      clearWriteImages();
       setView("list");
       fetchPosts();
     } catch (err: any) {
@@ -3787,12 +3813,13 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                               <Icon name="eye" size={13} /> {post.views}
                             </span>
-                            {post.image_url && (
+                            {(post.image_url || post.image_urls?.length) && (
                               <span
                                 title={t("community.hasImage")}
-                                style={{ display: "inline-flex", alignItems: "center", color: "var(--b-fg-3)" }}
+                                style={{ display: "inline-flex", alignItems: "center", gap: 2, color: "var(--b-fg-3)" }}
                               >
                                 <Icon name="camera" size={13} />
+                                {post.image_urls?.length > 1 && <span style={{ fontSize: 11 }}>{post.image_urls.length}</span>}
                               </span>
                             )}
                           </div>
@@ -4090,73 +4117,81 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                 ref={imageInputRef}
                 type="file"
                 accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                multiple
                 onChange={handlePickImage}
                 disabled={submitting}
                 style={{ display: "none" }}
               />
-              {writeImagePreview ? (
-                <div style={{ position: "relative", width: "fit-content" }}>
-                  <img
-                    src={writeImagePreview}
-                    alt={t("community.formImage")}
-                    style={{
-                      maxWidth: 240,
-                      maxHeight: 240,
-                      borderRadius: 10,
-                      border: "1px solid var(--b-line)",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                {writeImages.map((im, idx) => (
+                  <div key={im.preview} style={{ position: "relative", width: "fit-content" }}>
+                    <img
+                      src={im.preview}
+                      alt={t("community.formImage")}
+                      style={{
+                        width: 110,
+                        height: 110,
+                        borderRadius: 10,
+                        border: "1px solid var(--b-line)",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeWriteImageAt(idx)}
+                      disabled={submitting}
+                      title={t("community.formImageRemove")}
+                      style={{
+                        position: "absolute",
+                        top: 5,
+                        right: 5,
+                        width: 26,
+                        height: 26,
+                        borderRadius: 999,
+                        border: "none",
+                        background: "rgba(0, 0, 0, 0.6)",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: submitting ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <Icon name="x" size={14} stroke={2.2} />
+                    </button>
+                  </div>
+                ))}
+                {writeImages.length < MAX_POST_IMAGES && (
                   <button
                     type="button"
-                    onClick={clearWriteImage}
+                    onClick={() => imageInputRef.current?.click()}
                     disabled={submitting}
-                    title={t("community.formImageRemove")}
                     style={{
-                      position: "absolute",
-                      top: 6,
-                      right: 6,
-                      width: 28,
-                      height: 28,
-                      borderRadius: 999,
-                      border: "none",
-                      background: "rgba(0, 0, 0, 0.6)",
-                      color: "#fff",
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
+                      gap: 4,
+                      width: 110,
+                      height: 110,
+                      borderRadius: 10,
+                      border: "1px dashed var(--b-line)",
+                      background: "rgba(255, 255, 255, 0.5)",
+                      color: "var(--b-fg-2)",
+                      fontSize: 13,
+                      fontWeight: 600,
                       cursor: submitting ? "not-allowed" : "pointer",
+                      transition: "all 0.2s ease",
                     }}
                   >
-                    <Icon name="x" size={15} stroke={2.2} />
+                    <Icon name="camera" size={18} stroke={2} />
+                    {writeImages.length === 0
+                      ? t("community.formImagePick")
+                      : `${writeImages.length}/${MAX_POST_IMAGES}`}
                   </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={submitting}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "12px 16px",
-                    borderRadius: 10,
-                    border: "1px dashed var(--b-line)",
-                    background: "rgba(255, 255, 255, 0.5)",
-                    color: "var(--b-fg-2)",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: submitting ? "not-allowed" : "pointer",
-                    width: "fit-content",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <Icon name="camera" size={16} stroke={2} />
-                  {t("community.formImagePick")}
-                </button>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Form actions */}
@@ -4302,25 +4337,46 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                 </div>
               )}
 
-              {/* Attached image */}
-              {activePost.image_url && (
-                <img
-                  src={activePost.image_url}
-                  alt={activePost.title || ""}
-                  loading="lazy"
-                  onClick={() => setZoomedImage(activePost.image_url)}
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: 520,
-                    borderRadius: 12,
-                    border: "1px solid var(--b-line)",
-                    objectFit: "contain",
-                    display: "block",
-                    marginBottom: 24,
-                    cursor: "zoom-in",
-                  }}
-                />
-              )}
+              {/* Attached image(s) — image_urls 우선, 없으면 image_url 폴백 */}
+              {(() => {
+                const imgs: string[] =
+                  activePost.image_urls?.length
+                    ? activePost.image_urls
+                    : activePost.image_url
+                      ? [activePost.image_url]
+                      : [];
+                if (imgs.length === 0) return null;
+                const single = imgs.length === 1;
+                return (
+                  <div
+                    style={{
+                      display: single ? "block" : "grid",
+                      gridTemplateColumns: single ? undefined : "repeat(auto-fill, minmax(160px, 1fr))",
+                      gap: 10,
+                      marginBottom: 24,
+                    }}
+                  >
+                    {imgs.map((url, i) => (
+                      <img
+                        key={url + i}
+                        src={url}
+                        alt={activePost.title || ""}
+                        loading="lazy"
+                        onClick={() => setZoomedImage(url)}
+                        style={{
+                          width: "100%",
+                          maxHeight: single ? 520 : 220,
+                          borderRadius: 12,
+                          border: "1px solid var(--b-line)",
+                          objectFit: single ? "contain" : "cover",
+                          display: "block",
+                          cursor: "zoom-in",
+                        }}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Content text */}
               <p
