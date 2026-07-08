@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:web", "--", "--port", "1431"],
       "port": 1431
+    },
+    {
+      "name": "dist-web-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "1435", "--directory", "dist-web"],
+      "port": 1435
     }
   ]
 }

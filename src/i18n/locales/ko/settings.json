@@ -192,6 +192,7 @@
     "title": "정보",
     "version": "BaroSit · 버전 {{version}}",
     "checkUpdate": "업데이트 확인",
+    "storeManaged": "Microsoft Store에서 업데이트",
     "changelog": "업데이트 내역",
     "privacy": "개인정보 처리방침",
     "terms": "이용약관"

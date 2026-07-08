@@ -21,6 +21,7 @@
     "updateRestart": "更新して再起動",
     "checkFailed": "アップデート確認に失敗: {{msg}}",
     "upToDate": "最新バージョンです",
+    "storeManaged": "Microsoft Store を通じて自動的に更新されます",
     "installFailed": "アップデートのインストールに失敗: {{msg}}"
   },
   "tagline": "今すぐ、正しく座ろう。",

@@ -192,6 +192,7 @@
     "title": "About",
     "version": "BaroSit · version {{version}}",
     "checkUpdate": "Check for updates",
+    "storeManaged": "Updated via Microsoft Store",
     "changelog": "Release notes",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service"

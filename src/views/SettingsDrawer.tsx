@@ -1363,15 +1363,21 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
             }}
           >
             <span>{t("about.version", { version })}</span>
-            {platform.features.autoUpdate && (
-              <button
-                className="b-btn b-btn-quiet"
-                onClick={() => updater.checkNow()}
-                style={{ fontSize: 11, padding: "4px 10px" }}
-              >
-                {t("about.checkUpdate")}
-              </button>
-            )}
+            {platform.features.autoUpdate &&
+              (updater.storeManaged ? (
+                // 스토어(MSIX) 설치본 — 업데이트는 스토어가 담당. 인앱 확인 버튼 숨김.
+                <span style={{ fontSize: 11, color: "var(--b-fg-4)" }}>
+                  {t("about.storeManaged")}
+                </span>
+              ) : (
+                <button
+                  className="b-btn b-btn-quiet"
+                  onClick={() => updater.checkNow()}
+                  style={{ fontSize: 11, padding: "4px 10px" }}
+                >
+                  {t("about.checkUpdate")}
+                </button>
+              ))}
           </div>
           <div
             style={{
