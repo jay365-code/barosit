@@ -27,7 +27,8 @@
 - ✅ **결제 백엔드 P0-1** 구현 — Edge Functions 5종(`billing-issue`/`payment-cancel`/`subscription-manage`/`toss-webhook`/`charge-renewals`) + `_shared`, 마이그레이션 `20260521000009`(app_config)·`20260521000010`(트리거 service_role 허용+customer_key/billing_cycle/멱등), 프론트 결제/환불/해지/카드변경 전부 Edge Function 결선(mock 제거). [supabase/functions/README.md](../supabase/functions/README.md)
 - ✅ **PCI** — ProfileView 자체 카드 입력 위저드(raw 카드 수집) 완전 제거 → 웹 Toss 호스티드 결제창 위임
 - ✅ **결제 백엔드 배포 완료** (2026-07-08 프로덕션 실측): Edge Functions 10종 ACTIVE, pg_cron `daily-billing-dunning-job`·`daily-account-purge-job` 작동, `app_config.launch_mode='staged'`(테스터만 샌드박스 결제), 실결제 파이프라인 작동(Pro 구독 1건 + billing_history 1건). E1~E3 변조내성·C1 보상·환불 7일판정·더닝·admin-refund·서버 결제가드 코드 감사로 확인.
-- ⬜ 남은 블로커(유료 정식): ⏳ **Toss 라이브 승인 → live key 전환**(현재 테스트키) · ⬜ 약관 변호사 검토 · ⬜ 라이브키 후 실카드 E2E QA · ⚠️ **[코드-문서 불일치] 오프라인 14일 유예 캡 미구현** — `src/auth/useEntitlement.ts` 가 오프라인 시 Pro plan 을 무기한 유지(재접속 시 강등). 문서가 주장하는 14일 캡이 코드에 없음 → 유료 전 보완 권장(위험 중, 재접속 시 자동 강등이라 치명적 아님).
+- ⬜ 남은 블로커(유료 정식): ⏳ **Toss 라이브 승인 → live key 전환**(현재 테스트키) · ⬜ 약관 변호사 검토 · ⬜ 라이브키 후 실카드 E2E QA
+- ✅ **오프라인 14일 유예 캡 구현 완료** (2026-07-08): `src/lib/entitlement.ts` `isOfflineGraceExpired()`(단위테스트 9건) + `useEntitlement.ts` 오프라인 폴백에 적용. 마지막 서버 검증 후 14일 초과 오프라인이면 보수적 FREE 강등(해지/환불 계정 무한 PRO 유지 차단). 이전 감사에서 발견된 코드-문서 불일치 해소.
 
 - ✅ macOS 핵심 기능 동작 (자세 7종 + 점수 + 스트레칭 7종 + 위젯 모드 + 장시간 사용성 보호)
 - ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
