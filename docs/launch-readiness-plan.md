@@ -1,5 +1,20 @@
 # BaroSit 서비스 오픈 준비 계획서 (Launch Readiness Plan)
 
+> ## 🔄 현행화 (2026-07-08 · v0.9.7 · 프로덕션 실측)
+>
+> 아래 본문(v0.2.29 기준)은 "결제 백엔드 배포 대기"로 서술돼 있으나, **그 이후 대부분 배포·작동 중**임을 프로덕션에서 직접 확인함:
+> - ✅ **결제 Edge Functions 배포·ACTIVE** — billing-issue·payment-cancel·subscription-manage·toss-webhook·charge-renewals·admin-refund + delete-account·cm-agent-draft·send-inquiry-email (총 10종)
+> - ✅ **pg_cron 등록·작동** — `daily-billing-dunning-job`(charge-renewals)·`daily-account-purge-job`·`daily-db-telemetry-cleanup`·`purge-agent-api-usage`
+> - ✅ **실결제 파이프라인 작동** — active Pro 구독 1건 + `billing_history` 1건 존재
+> - ✅ **런치 모드 = `staged`** (`app_config.launch_mode`) — 테스터만 샌드박스 결제, 일반 사용자는 무료 베타(결제 숨김). 베타는 이미 라이브.
+> - ✅ **웹 자동 배포** — Cloudflare Pages, barosit.com 라이브
+>
+> **남은 진짜 블로커(유료 정식 오픈):** ⏳ Toss 라이브 승인 → `TOSS_SECRET_KEY` live 전환(현재 테스트키) · ⬜ 약관 변호사 검토 · ⬜ 라이브키 전환 후 실카드 E2E QA. (Windows 코드서명은 MS Store 경로로 우회 결정 — [windows-distribution-plan.md](windows-distribution-plan.md))
+>
+> ⚠️ 아래 §0~§7 은 히스토리 보존용 원문. 배포 관련 "⬜/🟢 대기" 표기는 위 현행화로 갈음.
+>
+> ---
+
 > 작성일: 2026-06-04 (갱신: 2026-06-04) · 기준 버전: **v0.2.29** · 분석 방식: 문서 + 코드베이스 정밀 대조 (코드가 진실의 원천)
 >
 > ⚠️ 본 계획서는 **유료 SaaS(PRO 구독) 정식 오픈**을 목표로 하되, **무료 베타를 출시 전략으로 선택 가능**하게 한다(런치 모드 토글, §6.1). "유료 정식"이 완성 목표, "무료 베타"는 그동안 사용자를 받는 경로.

@@ -165,6 +165,15 @@
     <span class="chip stripe">예정: + Stripe</span>
     <span class="chip" style="border-color:rgba(126,176,156,0.4);color:#7eb09c">✅ 본 점검 보완 16건 반영</span>
   </div>
+  <div class="sub" style="margin-top:14px;padding:12px 16px;border:1px solid rgba(212,160,80,0.5);border-radius:10px;background:rgba(212,160,80,0.08)">
+    <strong>🔄 현행화 (2026-07-08 · v0.9.7 코드 감사):</strong> 본 보고서의 보완 항목은 대부분 실제 코드에 반영됨을 확인
+    (E1·E2 로그아웃 캐시 제거, E3 서버 재검증·변조경보, C1 첫청구 보상, 웹훅 S2S·멱등, payment-cancel 7일+미사용 서버 재검증,
+    charge-renewals 더닝 2일·최대3회, admin-refund, billing-issue <code>assertPaymentAllowed</code> 서버 가드).
+    <strong>✅ 오프라인 14일 유예 캡 — 구현 완료(2026-07-08)</strong>: 감사에서 미구현으로 발견됐던 항목을 보완.
+    <code>src/lib/entitlement.ts</code> <code>isOfflineGraceExpired()</code>(단위테스트 9건) + <code>useEntitlement.ts</code>
+    오프라인 폴백에 적용 — 마지막 서버 검증 후 14일 초과 오프라인이면 보수적 FREE 강등.
+    또 배포는 완료됨(Edge Functions·pg_cron ACTIVE) — 본문의 "배포 대기" 서술은 stale.
+  </div>
 </header>
 
 <nav class="toc">

@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { resolveEffectivePlan, isBetaFree } from "../launchMode";
+import { isOfflineGraceExpired } from "../lib/entitlement";
 
 const CACHE_KEY = "barosit:subscription_plan";
 const VERIFIED_AT_KEY = "barosit:plan_verified_at";
@@ -89,14 +90,15 @@ export function useEntitlement(): Entitlement {
           return;
         }
         // 2) 유료 모드: 이 기기에서 과거 서버 검증이 1회라도 성공했다면(=정당히 PRO 였던
-        //    사용자) 재검증이 막혀도 강등하지 않는다 — 데스크톱 Pro 가 차단망·오프라인에서
-        //    끊기지 않게 한다(로그인 자체가 온라인을 요구하므로 정당한 Pro 는 at>0 보장).
-        //    온라인 복구 시 verify() 가 서버값으로 다시 정정(해지/환불은 재검증 때 강등).
-        //    검증 이력이 전혀 없으면(캐시를 신뢰할 수 없음) 보수적으로 FREE.
+        //    사용자) 재검증이 막혀도 유예 기간(14일) 안에는 강등하지 않는다 — 데스크톱 Pro 가
+        //    차단망·오프라인·이동 중에 끊기지 않게 한다. 온라인 복구 시 verify() 가 서버값으로
+        //    다시 정정(해지/환불은 재검증 때 강등).
+        //    ⚠️ 유예 상한: 검증 이력이 없거나(캐시 신뢰 불가) 마지막 검증 후 14일을 초과하면
+        //    보수적으로 FREE 로 강등한다(해지/환불된 계정이 무한정 오프라인으로 PRO 유지 방지).
         try {
           const at = Number(localStorage.getItem(VERIFIED_AT_KEY) || 0);
-          if (!at) apply("free", false);
-          // at > 0 → 마지막 plan(시드/직전 검증값) 유지. 강등 없음.
+          if (isOfflineGraceExpired(at, Date.now())) apply("free", false);
+          // 유예 내 → 마지막 plan(시드/직전 검증값) 유지. 강등 없음.
         } catch {
           /* noop */
         }

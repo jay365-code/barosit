@@ -208,7 +208,7 @@ barosit/
 │   │   ├── smoothing.ts        LandmarkSmoother (이동평균)
 │   │   ├── violationSmoother.ts EMA + 히스테리시스
 │   │   ├── violationTracker.ts 알람 트래킹
-│   │   ├── stretchDetector.ts  스트레칭 4종
+│   │   ├── stretchDetector.ts  스트레칭 7종
 │   │   ├── thresholds.ts       임계값 설정
 │   │   └── eventLog.ts         자세 이벤트 이력
 │   └── views/

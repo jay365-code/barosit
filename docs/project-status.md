@@ -5,7 +5,7 @@
 ## 빠른 요약
 
 **BaroSit** — 데스크톱 자세 모니터링 앱 (Tauri 2 + React + MediaPipe)
-**현재 버전**: v0.9.1 (package.json·tauri.conf·Cargo 일치) — 데스크톱 릴리스 태그(release.yml)
+**현재 버전**: v0.9.7 (package.json·tauri.conf 일치) — 데스크톱 릴리스 태그(release.yml)
 **출시 준비 계획서**: [launch-readiness-plan.md](./launch-readiness-plan.md) ← 서비스 오픈 블로커/전략의 단일 출처
 **완성도 추적(라이브)**: [service-completeness.html](./service-completeness.html) ← 영역별 done/partial/todo 단일 추적 문서 (에이전트 인계용)
 
@@ -26,9 +26,11 @@
 - ✅ **런치 모드 토글** 구현 — `src/launchMode.ts` 하이브리드 플래그(원격 `app_config` > 캐시 > `VITE_LAUNCH_MODE` env > `'paid'`), plan 판정 6곳 중앙화(`resolveEffectivePlan`), AdminDashboard 전환 토글. 베타면 페이월 숨김+전원 PRO 개방
 - ✅ **결제 백엔드 P0-1** 구현 — Edge Functions 5종(`billing-issue`/`payment-cancel`/`subscription-manage`/`toss-webhook`/`charge-renewals`) + `_shared`, 마이그레이션 `20260521000009`(app_config)·`20260521000010`(트리거 service_role 허용+customer_key/billing_cycle/멱등), 프론트 결제/환불/해지/카드변경 전부 Edge Function 결선(mock 제거). [supabase/functions/README.md](../supabase/functions/README.md)
 - ✅ **PCI** — ProfileView 자체 카드 입력 위저드(raw 카드 수집) 완전 제거 → 웹 Toss 호스티드 결제창 위임
-- ⬜ 남은 블로커: 결제 백엔드 **배포**(functions deploy + TOSS_SECRET_KEY + pg_cron + 웹훅 + live key + E2E QA)
+- ✅ **결제 백엔드 배포 완료** (2026-07-08 프로덕션 실측): Edge Functions 10종 ACTIVE, pg_cron `daily-billing-dunning-job`·`daily-account-purge-job` 작동, `app_config.launch_mode='staged'`(테스터만 샌드박스 결제), 실결제 파이프라인 작동(Pro 구독 1건 + billing_history 1건). E1~E3 변조내성·C1 보상·환불 7일판정·더닝·admin-refund·서버 결제가드 코드 감사로 확인.
+- ⬜ 남은 블로커(유료 정식): ⏳ **Toss 라이브 승인 → live key 전환**(현재 테스트키) · ⬜ 약관 변호사 검토 · ⬜ 라이브키 후 실카드 E2E QA
+- ✅ **오프라인 14일 유예 캡 구현 완료** (2026-07-08): `src/lib/entitlement.ts` `isOfflineGraceExpired()`(단위테스트 9건) + `useEntitlement.ts` 오프라인 폴백에 적용. 마지막 서버 검증 후 14일 초과 오프라인이면 보수적 FREE 강등(해지/환불 계정 무한 PRO 유지 차단). 이전 감사에서 발견된 코드-문서 불일치 해소.
 
-- ✅ macOS 핵심 기능 동작 (자세 6종 + 점수 + 스트레칭 7종 + 위젯 모드 + 장시간 사용성 보호)
+- ✅ macOS 핵심 기능 동작 (자세 7종 + 점수 + 스트레칭 7종 + 위젯 모드 + 장시간 사용성 보호)
 - ✅ 웹 풀버전 1차 빌드 동작 (`npm run dev:web` / `npm run build:web`) — 백그라운드/위젯/트레이/LLM 제외
 - ✅ **자동 업데이트** — `tauri-plugin-updater` + GitHub Releases + minisign 서명, v0.1.0 → v0.1.1 풀 시연 검증
 - ✅ **첫 실행 온보딩** + **약관·처리방침 (초안)** + **사용자 프로필 Phase 0**
@@ -80,13 +82,15 @@
 - [x] 마스크 버퍼 재사용 (GC 부담 0)
 - [x] 카메라 자동 재시작 + visibility change 대응
 
-### 자세 6종 판정 (자세 위반 카테고리)
-- [x] 거북목 (face pitch + headSize + z + drop 4신호 합산)
-- [x] 턱 괴임 (pose + hand fingertip 결합)
-- [x] 어깨 기울임 (baseline 대비 delta · 절댓값)
-- [x] 등 구부정 (어깨 너비 + 어깨 y drop)
-- [x] 모니터 거리 과근접 (-zDelta + 귀 너비 비율 확대)
-- [x] 어깨 비대칭 (부호 있는 tilt + 어깨 중점 대비 코 x 오프셋 변화)
+### 자세 7종 판정 (자세 위반 카테고리)
+> 코드 확정(2026-07-08, [src/pose/types.ts](../src/pose/types.ts)): `forward_head·chin_resting·shoulder_tilt·slouching·monitor_too_close·shoulder_asymmetry·head_roll` = **7종**.
+- [x] 거북목 forward_head (face pitch + headSize + z + drop 4신호 합산)
+- [x] 턱 괴임 chin_resting (pose + hand fingertip 결합)
+- [x] 어깨 기울임 shoulder_tilt (baseline 대비 delta · 절댓값)
+- [x] 등 구부정 slouching (어깨 너비 + 어깨 y drop)
+- [x] 모니터 거리 과근접 monitor_too_close (-zDelta + 귀 너비 비율 확대)
+- [x] 어깨 비대칭 shoulder_asymmetry (부호 있는 tilt + 어깨 중점 대비 코 x 오프셋 변화)
+- [x] 머리 좌우 기울임 head_roll (roll 각도 — 7번째 정식 종류)
 
 ### 스트레칭 7종 (보너스)
 - [x] 기지개 overhead (+5) — 팔꿈치 어깨 위 sw*0.20 + 손목/팔꿈치 코보다 위
@@ -198,7 +202,7 @@
 - [x] **풀 시연 검증 완료**: v0.1.0 → v0.1.1 자동 업데이트 흐름(체크 → 배너 → 다운로드 → 서명 검증 → 설치 → relaunch) 정상 동작
 
 ### 첫 실행 온보딩
-- [x] 3 페이지 모달 — 환영 → 작동 원리(자세 6종 안내) → 프라이버시(온디바이스 강조)
+- [x] 3 페이지 모달 — 환영 → 작동 원리(자세 7종 안내) → 프라이버시(온디바이스 강조)
 - [x] `onboarded_v1` localStorage 키 기반 1회 표시
 - [x] 마지막 페이지 "카메라 권한 허용" → `platform.requestPermissionsForMonitoring()`
 - [x] 1페이지에 "건너뛰기" 옵션 (캘리브레이션으로 직행)
@@ -387,7 +391,7 @@
 - [x] **적응형 민감도 보정값 라이브 표시** — 설정 패널에 `postureMultiplier` / `reason` 라이브 표시 (디버그·신뢰 개선)
 
 ### 정합성 확인
-- [ ] **"머리 좌우 기울임" 자세 종류** — MonitorView 자세 빈도 그래프에 7번째 항목이 보임. 정식 6종 외에 추가됐는지, [analyzer.ts](../src/pose/analyzer.ts) / [types.ts](../src/pose/types.ts) 확인 + 문서 일관성 맞추기
+- [x] **"머리 좌우 기울임"(head_roll) 자세 종류** — 확인 완료(2026-07-08): [types.ts](../src/pose/types.ts) 에 `head_roll` 이 **정식 7번째 종류**로 존재. 문서 전반을 "자세 7종"으로 정정함(기획안·project-status).
 
 ### CI / 빌드 정리
 - [ ] **build-windows.yml 중복 트리거 정리** — release.yml 이 Windows 도 빌드하므로 tag push 트리거 제거, `workflow_dispatch` 전용으로 (현재 매 v* push 마다 실패 1건 더 생성)
@@ -437,7 +441,7 @@ Google CDN에서 자동 로드되므로 별도 작업 불필요.
 | 설정 | `src/views/SettingsView.tsx` |
 | 검출 통합 hook | `src/hooks/useMonitoringEngine.ts` |
 | 4모델 검출 | `src/pose/detector.ts` |
-| 자세 6종 판정 | `src/pose/analyzer.ts` |
+| 자세 7종 판정 | `src/pose/analyzer.ts` |
 | 점수 hook | `src/hooks/usePostureScore.ts` |
 | 정기 휴식 / 누적 부하 / 변동성 / 적응형 민감도 | `src/pose/breakTracker.ts`, `src/pose/cumulativeLoadTracker.ts`, `src/pose/variabilityTracker.ts`, `src/pose/adaptiveSensitivity.ts` |
 | 알림 디스패처 (4 카테고리) | `src/alertConfig.ts` |
