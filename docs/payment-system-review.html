@@ -165,6 +165,14 @@
     <span class="chip stripe">예정: + Stripe</span>
     <span class="chip" style="border-color:rgba(126,176,156,0.4);color:#7eb09c">✅ 본 점검 보완 16건 반영</span>
   </div>
+  <div class="sub" style="margin-top:14px;padding:12px 16px;border:1px solid rgba(212,160,80,0.5);border-radius:10px;background:rgba(212,160,80,0.08)">
+    <strong>🔄 현행화 (2026-07-08 · v0.9.7 코드 감사):</strong> 본 보고서의 보완 항목은 대부분 실제 코드에 반영됨을 확인
+    (E1·E2 로그아웃 캐시 제거, E3 서버 재검증·변조경보, C1 첫청구 보상, 웹훅 S2S·멱등, payment-cancel 7일+미사용 서버 재검증,
+    charge-renewals 더닝 2일·최대3회, admin-refund, billing-issue <code>assertPaymentAllowed</code> 서버 가드).
+    <strong>단 1건 불일치 — 오프라인 14일 유예 캡 미구현</strong>: <code>src/auth/useEntitlement.ts</code> 는 오프라인 시
+    마지막 검증 plan 을 <em>무기한</em> 유지(재접속 시 강등). 문서가 주장하는 "14일 초과 시 FREE 강등"은 코드에 없음 → 유료 정식 전 보완 대상.
+    또 배포는 완료됨(Edge Functions·pg_cron ACTIVE) — 본문의 "배포 대기" 서술은 stale.
+  </div>
 </header>
 
 <nav class="toc">
