@@ -31,6 +31,20 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.7 — 2026-07-08
+
+**한국어**
+
+- 커뮤니티 게시글에 이미지를 최대 5장까지 첨부할 수 있습니다.
+- Microsoft Store에서 설치한 경우, 업데이트가 스토어를 통해 매끄럽게 이뤄집니다.
+- 여러 언어로 작성된 글 목록이 각 언어에 맞게 올바로 표시됩니다.
+
+**English**
+
+- You can now attach up to 5 images to a community post.
+- For installs from the Microsoft Store, updates are now handled smoothly through the Store.
+- Multilingual post lists now display correctly for each language.
+
 ## v0.9.6 — 2026-07-03
 
 **한국어**
