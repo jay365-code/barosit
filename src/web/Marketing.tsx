@@ -2320,6 +2320,14 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     try {
       let query = supabase.from("posts").select("*");
 
+      // 다국어 블로그(translation_group_id 있는 그룹)는 현재 UI언어 행만 가져온다.
+      // created_at DESC + limit 로 raw 를 자르는 구조라, 예전엔 원본(anchor)이 번역행보다
+      // 오래되면 커트라인 밖으로 밀려 번역행만 남고 → dedupe 가 다른 언어로 폴백하는
+      // 버그가 있었다(KO 화면에 JA 글 노출). 아예 UI언어 행만 실어 구조적으로 차단한다.
+      // UGC(translation_group_id=null)는 언어 무관하게 항상 포함(작성 언어 그대로 노출).
+      // 전제: 블로그는 지원 언어(ko/en/ja) 모두로 시드된다. 관련: dedupeByGroup(안전망 유지).
+      query = query.or(`translation_group_id.is.null,language.eq.${uiLang}`);
+
       if (searchQuery.trim()) {
         query = query.or(
           `title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,author_name.ilike.%${searchQuery}%`
