@@ -228,8 +228,24 @@ const emitForceBlur = async (payload: ForceBlurEvent): Promise<void> => {
 const onForceBlur = (cb: (p: ForceBlurEvent) => void) =>
   wrapListen<ForceBlurEvent>("force:blur", cb);
 
+// 스토어(MSIX) 설치본 여부 — Rust 커맨드로 1회 조회 후 캐시.
+// 스토어 설치본은 읽기전용 WindowsApps 에 있어 NSIS/MSI 업데이터가 덮어쓸 수 없고,
+// 시도하면 병렬설치(포크)로 앱이 두 벌 생긴다 → 스토어 빌드에서는 GitHub 업데이터를 끈다.
+let msixPackagedCache: Promise<boolean> | null = null;
+const isMsixPackaged = (): Promise<boolean> => {
+  if (!msixPackagedCache) {
+    msixPackagedCache = invoke<boolean>("is_msix_packaged").catch((e) => {
+      console.warn("[barosit][updater] is_msix_packaged failed", e);
+      return false;
+    });
+  }
+  return msixPackagedCache;
+};
+
 const checkForUpdate = async (): Promise<UpdateInfo | null> => {
   try {
+    // 스토어(MSIX) 설치본은 스토어가 업데이트를 담당 — GitHub 업데이터 비활성화.
+    if (await isMsixPackaged()) return null;
     const [updater, app] = await Promise.all([
       import("@tauri-apps/plugin-updater"),
       import("@tauri-apps/api/app"),
@@ -252,6 +268,11 @@ const checkForUpdate = async (): Promise<UpdateInfo | null> => {
 const downloadAndInstallUpdate = async (
   onProgress?: (event: UpdateProgressEvent) => void,
 ): Promise<void> => {
+  // 방어선: checkForUpdate 가 이미 null 을 돌려주므로 여기 도달할 일은 없지만,
+  // 스토어 설치본에서 강제로 호출돼도 포크가 나지 않도록 재차 차단한다.
+  if (await isMsixPackaged()) {
+    throw new Error("store-managed: updates are delivered via Microsoft Store");
+  }
   const updater = await import("@tauri-apps/plugin-updater");
   const update = await updater.check();
   if (!update) throw new Error("no update available");
@@ -330,6 +351,7 @@ export const tauriPlatform: PlatformAPI = {
   emitForceBlur,
   onForceBlur,
   checkForUpdate,
+  isUpdateStoreManaged: isMsixPackaged,
   downloadAndInstallUpdate,
   openBrowser: async (url: string) => {
     await invoke("open_browser", { url });

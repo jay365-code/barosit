@@ -213,6 +213,34 @@ fn system_idle_secs() -> f64 {
     0.0
 }
 
+/// 현재 프로세스가 MSIX(스토어) 패키지 안에서 실행 중인지 여부.
+/// 스토어 설치본은 읽기전용 WindowsApps 에 있어 NSIS/MSI 업데이터로 덮어쓸 수 없고
+/// (덮어쓰기 대신 병렬설치=포크가 발생), 업데이트는 스토어가 담당해야 한다.
+/// → 프런트가 이 값이 true 면 GitHub 자동 업데이터를 비활성화한다.
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn is_msix_packaged() -> bool {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetCurrentPackageFullName(length: *mut u32, name: *mut u16) -> i32;
+    }
+    // 비패키지 프로세스는 APPMODEL_ERROR_NO_PACKAGE 반환. 패키지면
+    // ERROR_INSUFFICIENT_BUFFER(122) 등 다른 코드 → NO_PACKAGE 가 아니면 패키지드.
+    const APPMODEL_ERROR_NO_PACKAGE: i32 = 15700;
+    unsafe {
+        let mut len: u32 = 0;
+        let rc = GetCurrentPackageFullName(&mut len, core::ptr::null_mut());
+        rc != APPMODEL_ERROR_NO_PACKAGE
+    }
+}
+
+/// 비 Windows(=스토어 배포 없음)에서는 항상 false — GitHub 업데이터 유지.
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+fn is_msix_packaged() -> bool {
+    false
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostureAlertPayload {
     pub posture_type: String,
@@ -766,6 +794,7 @@ pub fn run() {
             set_tray_i18n,
             open_browser,
             system_idle_secs,
+            is_msix_packaged,
             start_auth_loopback,
             stop_auth_loopback,
             autostart_is_enabled,

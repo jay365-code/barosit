@@ -21,6 +21,7 @@
     "updateRestart": "업데이트 및 재시작",
     "checkFailed": "업데이트 확인 실패: {{msg}}",
     "upToDate": "최신 버전입니다",
+    "storeManaged": "Microsoft Store를 통해 자동으로 업데이트됩니다",
     "installFailed": "업데이트 설치 실패: {{msg}}"
   },
   "tagline": "바른 자세의 시작, 바로씻",

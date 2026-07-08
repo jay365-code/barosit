@@ -184,6 +184,7 @@ export const webPlatform: PlatformAPI = {
   emitForceBlur: async () => undefined,
   onForceBlur: async () => () => undefined,
   checkForUpdate: async () => null,
+  isUpdateStoreManaged: async () => false,
   downloadAndInstallUpdate: async () => undefined,
   openBrowser: async (url: string) => {
     window.open(url, "_blank");

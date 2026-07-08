@@ -21,6 +21,9 @@ export interface UpdaterState {
   error: string | null;
   /** 일반 정보 안내 메시지 — 에러가 아닌 최신 버전 알림 등 */
   info: string | null;
+  /** 스토어(MSIX) 설치본이라 업데이트를 스토어가 담당 = 인앱 업데이터 비활성.
+   *  true 면 "업데이트 확인" 버튼 대신 스토어 안내를 노출한다. */
+  storeManaged: boolean;
   /** 수동 체크 — 결과는 available 에 반영 */
   checkNow(): Promise<void>;
   /** 사용자가 "적용" 클릭. 다운로드 + 설치 + 재시작까지 한 번에 */
@@ -38,6 +41,19 @@ export function useUpdater(): UpdaterState {
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [storeManaged, setStoreManaged] = useState(false);
+
+  // 스토어(MSIX) 설치본이면 인앱 업데이터를 끄고 UI를 스토어 안내로 바꾼다.
+  useEffect(() => {
+    if (!platform.features.autoUpdate) return;
+    let alive = true;
+    void platform.isUpdateStoreManaged().then((v) => {
+      if (alive) setStoreManaged(v);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const runCheck = async (manual: boolean): Promise<UpdateInfo | null> => {
     if (!platform.features.autoUpdate) return null;
@@ -78,6 +94,11 @@ export function useUpdater(): UpdaterState {
   const checkNow = async (): Promise<void> => {
     setError(null);
     setInfo(null);
+    // 스토어 설치본은 업데이트를 스토어가 담당 — 인앱 확인 대신 안내만 표시.
+    if (storeManaged) {
+      setInfo(i18n.t("app:update.storeManaged"));
+      return;
+    }
     const infoResult = await runCheck(true);
     if (!infoResult && !error) setInfo(i18n.t("app:update.upToDate"));
   };
@@ -125,6 +146,7 @@ export function useUpdater(): UpdaterState {
     progress,
     error,
     info,
+    storeManaged,
     checkNow,
     applyUpdate,
     snooze,

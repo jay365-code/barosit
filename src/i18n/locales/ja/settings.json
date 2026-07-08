@@ -192,6 +192,7 @@
     "title": "情報",
     "version": "BaroSit · バージョン {{version}}",
     "checkUpdate": "アップデートを確認",
+    "storeManaged": "Microsoft Store で更新",
     "changelog": "更新履歴",
     "privacy": "プライバシーポリシー",
     "terms": "利用規約"

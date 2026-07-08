@@ -176,8 +176,12 @@ export interface PlatformAPI {
   onForceBlur(cb: (payload: { active: boolean }) => void): Promise<Unsubscribe>;
   /** 현재 실행 중인 앱의 버전을 반환 */
   getAppVersion(): Promise<string>;
-  /** 새 버전 확인. 없으면 null. 웹은 항상 null. */
+  /** 새 버전 확인. 없으면 null. 웹은 항상 null.
+   *  스토어(MSIX) 설치본에서는 항상 null — 업데이트는 스토어가 담당한다. */
   checkForUpdate(): Promise<UpdateInfo | null>;
+  /** 스토어(MSIX)로 설치돼 업데이트를 스토어가 담당하는가 = GitHub 업데이터 비활성.
+   *  UI가 "스토어에서 업데이트됨" 안내로 분기하는 용도. 웹/맥/직접설치는 false. */
+  isUpdateStoreManaged(): Promise<boolean>;
   /** 업데이트 다운로드 + 설치 + 재시작. 진행 콜백으로 UI 갱신. */
   downloadAndInstallUpdate(
     onProgress?: (event: UpdateProgressEvent) => void,
