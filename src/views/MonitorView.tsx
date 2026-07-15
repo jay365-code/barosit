@@ -1202,7 +1202,10 @@ export function MonitorView({
         const since = Date.now() - lastPresentAtRef.current;
         // BreakTracker 에 absence 신호 계속 전달 — 내부 5분 카운터가 누적되어
         // 짧은 자리비움(<5분)은 secsSeated 동결만, 5분 이상이면 자동 리셋.
-        breakTrackerRef.current.push(
+        // 자리비움도 "움직임(회복)"이므로 미니바 회복 카운터(movementSecs)에 반영한다.
+        // 확정(30초 유예) 후 push 가 부재분을 목표에 적립하는데, 그 결과를 UI 로
+        // 흘려보내지 않으면(setBreakStatus 누락) 카운터가 멈춘 것처럼 보인다.
+        const absBreak1 = breakTrackerRef.current.push(
           Date.now(),
           false,
           false,
@@ -1210,6 +1213,10 @@ export function MonitorView({
           false,
           breakConfigRef.current,
         );
+        setBreakStatus(absBreak1.status);
+        if (absBreak1.completed) {
+          dispatchComplianceReward(`break_${absBreak1.completed}` as NudgeKind);
+        }
         // 윈도우가 가려진 동안의 frame.pose=null 은 브라우저 throttling/video 일시정지
         // 영향일 가능성이 크므로 absence 판정 보류 (마지막 상태 유지).
         if (since > ABSENCE_GRACE_MS && !document.hidden) {
@@ -1335,7 +1342,8 @@ export function MonitorView({
         Date.now() - lastPresentAtRef.current > ABSENCE_GRACE_MS
       ) {
         // 자리비움 지속 — BreakTracker 에 false 신호 전달해 내부 5분 카운터 누적.
-        breakTrackerRef.current.push(
+        // 자리비움 회복분을 미니바 카운터에 반영 (위 pose=null 경로와 동일 취지).
+        const absBreak2 = breakTrackerRef.current.push(
           Date.now(),
           false,
           false,
@@ -1343,6 +1351,10 @@ export function MonitorView({
           false,
           breakConfigRef.current,
         );
+        setBreakStatus(absBreak2.status);
+        if (absBreak2.completed) {
+          dispatchComplianceReward(`break_${absBreak2.completed}` as NudgeKind);
+        }
         if (status !== "paused") {
           setStatus("paused");
           updateStatus("paused").catch(() => undefined);

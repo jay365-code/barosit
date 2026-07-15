@@ -95,6 +95,26 @@ describe("BreakTracker 움직임 목표(30-1)", () => {
     expect(res.status.secsSeated).toBe(0);
   });
 
+  it("알림 후 자리비움(확정)도 움직임 목표에 적립 → 완료 + 리셋", () => {
+    const t = new BreakTracker();
+    const now = seatUntilMicro(t);
+    // 60초 자리비움 — 30초 유예 확정 후 부재분이 목표(60초)에 적립되어 완료.
+    // (자리비움도 '움직임(회복)'이므로 카운트되어야 한다 — UI 반영과 짝을 이룸.)
+    const { res } = advance(t, now, 60, { present: false }, 20);
+    expect(res.completed).toBe("micro");
+    expect(res.status.secsSeated).toBe(0);
+  });
+
+  it("알림 후 짧은 자리비움(목표 미달)은 부재분만큼 적립되되 완료는 안 됨", () => {
+    const t = new BreakTracker();
+    const now = seatUntilMicro(t);
+    // 40초 자리비움 — 확정 시 보류분 소급으로 movementSecs 는 오르지만 60초 미달.
+    const { res } = advance(t, now, 40, { present: false }, 20);
+    expect(res.completed).toBeNull();
+    expect(res.status.stage).toBe("micro");
+    expect(res.status.movementSecs).toBeGreaterThanOrEqual(40);
+  });
+
   it("단계 없을 때는 목표 누적이 0으로 유지", () => {
     const t = new BreakTracker();
     const start = 1000;

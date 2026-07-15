@@ -241,6 +241,8 @@ export function isSideStretch(lm: Landmarks, cameraAngle: CameraAngle): boolean 
 /**
  * 어깨 으쓱 — 양 어깨가 baseline 대비 명확히 위로 올라옴.
  * baseline 필요 (사용자별 평소 어깨 높이 비교).
+ *
+ * @deprecated 오감지로 detectStretch 감지 경로에서 제외됨(2026-07-15). 현재 미호출.
  */
 export function isShoulderShrug(
   lm: Landmarks,
@@ -520,13 +522,13 @@ export function detectStretch(
   if (normalized) {
     const customTemplates = loadCustomTemplates();
     const adminTemplates = loadAdminTemplates();
+    // shoulder_shrug 는 오감지로 감지 제외(2026-07-15).
     const kinds: StretchKind[] = [
       "behind_head",
       "overhead",
       "forward_fold",
       "side",
       "cross_body",
-      "shoulder_shrug",
       "neck_side",
     ];
 
@@ -564,7 +566,7 @@ export function detectStretch(
   if (isSideStretch(lm, currentAngle)) return "side";
   if (isCrossBody(lm, currentAngle)) return "cross_body";
   if (isNeckSide(lm, face, baseline)) return "neck_side";
-  if (isShoulderShrug(lm, baseline)) return "shoulder_shrug";
+  // shoulder_shrug 는 오감지로 감지 제외(2026-07-15).
   return null;
 }
 
