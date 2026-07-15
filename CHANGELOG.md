@@ -35,11 +35,15 @@
 
 **한국어**
 
-- 앱의 전반적인 안정성과 사용 경험을 개선했습니다.
+- 자리를 비운 동안에도 휴식·움직임 시간이 미니바에 올바르게 반영되도록 개선했습니다.
+- 자세를 살짝 고쳐 앉는 동작이 '어깨 으쓱' 스트레칭으로 잘못 집계되던 문제를 바로잡아 스트레칭 점수가 더 정확해졌습니다.
+- 인터넷 연결이 없어도 최대 14일간 정상적으로 이용할 수 있도록 오프라인 이용 기간을 정비했습니다.
 
 **English**
 
-- Improved overall app stability and user experience.
+- Rest and movement time now updates correctly in the mini bar even while you're away from your seat.
+- Fixed slight posture adjustments being miscounted as a "shoulder shrug" stretch, so your stretch score is more accurate.
+- Refined the offline access window so the app keeps working for up to 14 days without an internet connection.
 
 ## v0.9.7 — 2026-07-08
 
