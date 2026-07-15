@@ -370,6 +370,37 @@ export function useMonitoringEngine(opts: {
     return () => window.clearTimeout(id);
   }, [stretchToast]);
 
+  // 자리비움 회복분을 위젯 미니바(40/60s)에 반영. 정상 흐름의 widget_state 발행은
+  // 자리비움 early-return 앞이라 도달하지 못하므로, 여기서 직접: (1) 1분 목표를
+  // 채웠으면(completed) 보상 지급, (2) 마지막 위젯 상태에 breakStatus 만 갱신해
+  // 3fps throttle 로 재발행. 이게 없으면 자리비움 중 카운터가 멈춘 것처럼 보인다.
+  const reflectAbsenceBreak = (
+    r: ReturnType<BreakTracker["push"]>,
+  ): void => {
+    if (r.completed) {
+      dispatchComplianceReward(`break_${r.completed}` as NudgeKind);
+    }
+    const now = Date.now();
+    if (now - lastWidgetPublishAtRef.current <= 330) return;
+    lastWidgetPublishAtRef.current = now;
+    lastPublishedStatusRef.current = "paused";
+    try {
+      const raw = localStorage.getItem("widget_state");
+      if (!raw) return;
+      const prev = JSON.parse(raw) as WidgetState;
+      const next: WidgetState = {
+        ...prev,
+        status: "paused",
+        away: true,
+        breakStatus: r.status,
+      };
+      localStorage.setItem("widget_state", JSON.stringify(next));
+      publishWidgetState(next).catch(() => undefined);
+    } catch {
+      /* noop */
+    }
+  };
+
   const loopParams = usePerformanceProfile(opts.visible);
   const { error: detectorError, retry: detectorRetry } = usePoseLoop({
     videoRef,
@@ -478,7 +509,8 @@ export function useMonitoringEngine(opts: {
         const since = Date.now() - lastPresentAtRef.current;
         // BreakTracker 에 absence 신호 계속 전달 — 내부 5분 카운터가 누적되어
         // 짧은 자리비움(<5분)은 secsSeated 동결만, 5분 이상이면 자동 리셋.
-        breakTrackerRef.current.push(
+        // 자리비움도 "움직임(회복)"이므로 미니바 회복 카운터에 반영한다.
+        const absBreak1 = breakTrackerRef.current.push(
           Date.now(),
           false,
           false,
@@ -486,6 +518,7 @@ export function useMonitoringEngine(opts: {
           false,
           breakConfigRef.current,
         );
+        reflectAbsenceBreak(absBreak1);
         // 윈도우가 가려진 동안의 frame.pose=null 은 브라우저 throttling 영향일
         // 가능성이 크므로 absence 판정 보류 (마지막 상태 유지).
         if (since > ABSENCE_GRACE_MS && !document.hidden) {
@@ -572,7 +605,8 @@ export function useMonitoringEngine(opts: {
         Date.now() - lastPresentAtRef.current > ABSENCE_GRACE_MS
       ) {
         // 자리비움 지속 — BreakTracker 에 false 신호 전달해 내부 5분 카운터 누적.
-        breakTrackerRef.current.push(
+        // 자리비움 회복분을 미니바 카운터에 반영 (위 pose=null 경로와 동일 취지).
+        const absBreak2 = breakTrackerRef.current.push(
           Date.now(),
           false,
           false,
@@ -580,6 +614,7 @@ export function useMonitoringEngine(opts: {
           false,
           breakConfigRef.current,
         );
+        reflectAbsenceBreak(absBreak2);
         // 변동성·JITAI·누적·준수 트래커에 자리비움 신호 전달. 이 블록은 곧 early
         // return 하므로 아래 정상 흐름의 각 push 에 도달하지 못한다 — 여기서 직접
         // 처리하지 않으면 복귀 후 오발사/오기록/부하오염이 발생한다.

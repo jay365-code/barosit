@@ -16,12 +16,12 @@ import {
 } from "../pose/stretchDetector";
 import type { DetectionFrame, Landmarks, Landmark } from "../pose/types";
 
+// shoulder_shrug 는 오감지로 감지 제외(detectStretch 참조).
 const STRETCH_IDS: StretchKind[] = [
   "overhead",
   "behind_head",
   "cross_body",
   "side",
-  "shoulder_shrug",
   "neck_side",
   "forward_fold",
 ];
