@@ -13,6 +13,8 @@ import { UserCalibrationView } from "./views/UserCalibrationView";
 import { AlertOverlay } from "./components/AlertOverlay";
 import { UpdateNotice } from "./components/UpdateNotice";
 import { useUpdater } from "./updater";
+import { useUpdateGate } from "./updateGate";
+import { UpdateRequiredGate } from "./components/UpdateRequiredGate";
 import { IS_WEB } from "./platform";
 import { useMemoryReloadGuard } from "./hooks/useMemoryReloadGuard";
 import { loadSnapshot, clearSnapshot } from "./lib/viewportSnapshot";
@@ -229,6 +231,7 @@ export default function App() {
     () => localStorage.getItem(ONBOARDED_KEY) !== "1",
   );
   const updater = useUpdater();
+  const updateGate = useUpdateGate();
   const [detailedReportOpen, setDetailedReportOpen] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -611,6 +614,19 @@ export default function App() {
     setOnboardingOpen(false);
     trackUsage("onboarding_completed", { scope: "once" });
   };
+
+  // 강제 업데이트 게이트 (1차) — 구버전이면 다른 모든 화면보다 우선해 앱을 덮는다.
+  // fail-open 이라 blocked 는 "원격 설정으로 구버전임을 확인했을 때"만 true.
+  if (updateGate.blocked) {
+    return (
+      <ErrorBoundary>
+        <UpdateRequiredGate
+          requiredVersion={updateGate.requiredVersion}
+          updater={updater}
+        />
+      </ErrorBoundary>
+    );
+  }
 
   if (currentHash === "#/admin") {
     if (!authLoaded) {

@@ -24,6 +24,14 @@
     "storeManaged": "Updates are delivered automatically through the Microsoft Store",
     "installFailed": "Update install failed: {{msg}}"
   },
+  "updateRequired": {
+    "title": "Update required",
+    "body": "Please update to the latest version to keep using the app.",
+    "version": "Minimum required version: {{version}}",
+    "cta": "Update now",
+    "downloading": "Downloading… {{pct}}%",
+    "manual": "Download manually"
+  },
   "tagline": "Sit right, right now.",
   "taglineSub": "A healthier posture habit, every day.",
   "feedbackNudge": {
