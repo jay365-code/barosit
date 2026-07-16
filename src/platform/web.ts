@@ -27,25 +27,22 @@ const STATUS_COLOR: Record<PostureStatus, string> = {
 
 const BASE_TITLE = "BaroSit";
 
-let faviconLink: HTMLLinkElement | null = null;
-function getFavicon(): HTMLLinkElement {
-  if (faviconLink) return faviconLink;
-  const existing = document.querySelector<HTMLLinkElement>(
-    "link[rel~='icon']",
+// index.html 은 SVG + PNG 폴백 등 여러 개의 <link rel="icon"> 을 싣는다.
+// 상태색 파비콘을 특정 한 개만 덮어쓰면, 브라우저가 다른 정적 아이콘을
+// 골라 상태색(초록/노랑/빨강)이 안 먹을 수 있으므로 모든 icon 링크를 갱신한다.
+// (apple-touch-icon 은 rel~='icon' 에 매칭되지 않아 브랜드 로고로 유지된다.)
+function getFaviconLinks(): HTMLLinkElement[] {
+  const links = Array.from(
+    document.querySelectorAll<HTMLLinkElement>("link[rel~='icon']"),
   );
-  if (existing) {
-    faviconLink = existing;
-  } else {
-    const link = document.createElement("link");
-    link.rel = "icon";
-    document.head.appendChild(link);
-    faviconLink = link;
-  }
-  return faviconLink;
+  if (links.length > 0) return links;
+  const link = document.createElement("link");
+  link.rel = "icon";
+  document.head.appendChild(link);
+  return [link];
 }
 
 function paintFavicon(color: string): void {
-  const link = getFavicon();
   const canvas = document.createElement("canvas");
   canvas.width = 32;
   canvas.height = 32;
@@ -55,7 +52,8 @@ function paintFavicon(color: string): void {
   ctx.beginPath();
   ctx.arc(16, 16, 14, 0, Math.PI * 2);
   ctx.fill();
-  link.href = canvas.toDataURL("image/png");
+  const url = canvas.toDataURL("image/png");
+  for (const link of getFaviconLinks()) link.href = url;
 }
 
 const showPostureAlert = async (payload: AlertPayload): Promise<void> => {
