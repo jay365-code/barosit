@@ -24,6 +24,14 @@
     "storeManaged": "Microsoft Store를 통해 자동으로 업데이트됩니다",
     "installFailed": "업데이트 설치 실패: {{msg}}"
   },
+  "updateRequired": {
+    "title": "업데이트가 필요합니다",
+    "body": "계속 이용하려면 최신 버전으로 업데이트하세요.",
+    "version": "최소 요구 버전: {{version}}",
+    "cta": "지금 업데이트",
+    "downloading": "다운로드 중… {{pct}}%",
+    "manual": "수동으로 다운로드"
+  },
   "tagline": "바른 자세의 시작, 바로씻",
   "taglineSub": "건강한 자세 습관을 매일.",
   "feedbackNudge": {
