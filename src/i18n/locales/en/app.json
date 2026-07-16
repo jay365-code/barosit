@@ -30,6 +30,8 @@
     "version": "Minimum required version: {{version}}",
     "cta": "Update now",
     "downloading": "Downloading… {{pct}}%",
+    "storeBody": "Please update to the latest version in the Microsoft Store, then reopen the app.",
+    "storeCta": "Open Microsoft Store",
     "manual": "Download manually"
   },
   "tagline": "Sit right, right now.",

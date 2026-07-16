@@ -30,6 +30,8 @@
     "version": "最低必要バージョン: {{version}}",
     "cta": "今すぐ更新",
     "downloading": "ダウンロード中… {{pct}}%",
+    "storeBody": "Microsoft Store で最新バージョンに更新してから、アプリを再度開いてください。",
+    "storeCta": "Microsoft Store を開く",
     "manual": "手動でダウンロード"
   },
   "tagline": "今すぐ、正しく座ろう。",
