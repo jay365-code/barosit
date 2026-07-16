@@ -367,6 +367,47 @@ export class BreakTracker {
     };
   }
 
+  /**
+   * 카메라가 꺼진 자리비움(idle-suspend) 구간을 복귀 시 일괄 정산.
+   *
+   * useIdleSuspend 가 "얼굴 없음 + OS 입력 장시간 없음"으로 카메라를 끄면 onFrame·
+   * push 가 멈춰, 그 사이 이석이 움직임 목표/리셋에 반영되지 못한다(가장 좋은 휴식인
+   * 자리 뜨기가 인정 안 되던 문제). 복귀 시 그 공백을 신뢰 가능한 부재로 인정 —
+   * suspend 조건 자체가 카메라보다 확실한 휴식 증거라 카메라 없이도 정산 가능.
+   * push 의 dt>30 갭 드롭에 걸려 그냥 버려지던 구간을 여기서 명시적으로 되살린다.
+   *
+   * @param awaySecs 카메라 OFF 지속 시간(초).
+   * @returns completed: 이 정산으로 움직임 목표를 채워 단계를 완료했으면 그 단계.
+   */
+  creditAbsence(now: number, awaySecs: number): { completed: BreakStage | null } {
+    // dt 연속성 — 복귀 첫 push 가 이 갭을 다시 세지 않도록 기준 시각을 당긴다.
+    this.lastPushAt = now;
+    if (awaySecs <= 0) return { completed: null };
+
+    this.secsAbsent += awaySecs;
+    this.absenceConfirmed = true;
+    this.diag.secsAbsent += awaySecs;
+    this.secsResting = 0;
+    this.secsStanding = 0;
+
+    // 5분 이상 이석 → 시계 리셋 (push 의 ABSENCE_RESET_SECS 기준과 동일).
+    if (this.secsAbsent >= ABSENCE_RESET_SECS) {
+      this.reset();
+      return { completed: null };
+    }
+    // 알림 단계가 떠 있으면 움직임 목표에 적립 — 채우면 완료(+리셋+보상).
+    if (this.stage !== "none") {
+      this.movementSecs += awaySecs;
+      if (this.movementSecs >= this.goalSecs) {
+        const completed = this.stage;
+        this.reset();
+        return { completed };
+      }
+    }
+    this.saveNow();
+    return { completed: null };
+  }
+
   reset(): void {
     this.secsSeated = 0;
     this.secsAbsent = 0;

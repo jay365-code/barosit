@@ -939,12 +939,30 @@ export function MonitorView({
   // 값에 고정된다. 명시적으로 자리비움(paused)으로 표시해 "잘 앉아 있어요"로 남지 않게.
   // 재개 시엔 heartbeat 를 갱신해 정지 기간의 stale 타임스탬프로 watchdog 가 즉시
   // reload 하는 레이스를 방지(검출 루프가 재개되면 frame 이 status 를 다시 설정).
+  // idle-suspend 로 카메라가 꺼진 구간의 시작 시각. 복귀 시 그 길이만큼을
+  // breakTracker 에 이석으로 정산해, 카메라 OFF 로 push 가 멈춰 자리 뜨기가
+  // 회복(40/60s)·리셋에 반영 안 되던 문제를 보정한다.
+  const suspendEnteredAtRef = useRef<number | null>(null);
   useEffect(() => {
     if (idleSuspended) {
+      suspendEnteredAtRef.current = Date.now();
       setStatus("paused");
       updateStatus("paused").catch(() => undefined);
       onStatusChange?.("paused");
     } else {
+      // 복귀 — 카메라 OFF 동안의 이석을 신뢰 가능한 부재로 일괄 정산.
+      if (suspendEnteredAtRef.current != null) {
+        const awaySecs = (Date.now() - suspendEnteredAtRef.current) / 1000;
+        suspendEnteredAtRef.current = null;
+        const { completed } = breakTrackerRef.current.creditAbsence(
+          Date.now(),
+          awaySecs,
+        );
+        setBreakStatus(breakTrackerRef.current.snapshot());
+        if (completed) {
+          dispatchComplianceReward(`break_${completed}` as NudgeKind);
+        }
+      }
       monitorHeartbeat.tick();
     }
   }, [idleSuspended, monitorHeartbeat, onStatusChange]);
