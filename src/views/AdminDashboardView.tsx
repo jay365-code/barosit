@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../auth/supabase";
 import { getLaunchMode, setLaunchModeRemote, isPreviewAsUser, setPreviewAsUser, type LaunchMode } from "../launchMode";
+import { getMinSupportedVersion, setMinSupportedVersion } from "../updateGate";
 import { Icon } from "../components/Icon";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -205,6 +206,11 @@ export function AdminDashboardView({ onClose }: Props) {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   // 피드백 카테고리 필터 (전체/버그/제안/기타)
   const [feedbackCatFilter, setFeedbackCatFilter] = useState<"all" | "bug" | "idea" | "other">("all");
+
+  // 강제 업데이트 게이트 상태 (app_config.min_supported_version)
+  const [minVersion, setMinVersion] = useState<string | null>(null);
+  const [minVersionInput, setMinVersionInput] = useState("");
+  const [minVersionBusy, setMinVersionBusy] = useState(false);
 
   // 시스템 관리 상태
   const [cleanLog, setCleanLog] = useState<string[]>([]);
@@ -823,6 +829,66 @@ export function AdminDashboardView({ onClose }: Props) {
       window.alert(`런치 모드가 [${label}] 로 전환되었습니다.`);
     } catch (e: any) {
       window.alert("전환 실패 (어드민 권한 필요): " + (e?.message || e));
+    }
+  };
+
+  // 강제 업데이트 게이트 — 현재 min_supported_version 로드 (시스템 탭 진입 시).
+  useEffect(() => {
+    if (activeTab !== "system") return;
+    let alive = true;
+    void getMinSupportedVersion().then((v) => {
+      if (!alive) return;
+      setMinVersion(v);
+      setMinVersionInput(v ?? "");
+    });
+    return () => {
+      alive = false;
+    };
+  }, [activeTab]);
+
+  const handleSetMinVersion = async () => {
+    const v = minVersionInput.trim();
+    if (!v) {
+      window.alert("버전을 입력하세요 (예: 0.9.11).");
+      return;
+    }
+    if (!/^\d+\.\d+\.\d+/.test(v)) {
+      window.alert("버전 형식이 올바르지 않습니다 (예: 0.9.11).");
+      return;
+    }
+    if (
+      !window.confirm(
+        `강제 업데이트 차단을 [${v}] 로 설정할까요?\n` +
+          `이 버전 미만의 v0.9.10+ 사용자는 업데이트 전까지 앱을 이용할 수 없습니다.\n` +
+          `※ 반드시 ${v} 릴리스가 이미 배포돼 있어야 합니다(사용자가 받을 수 있도록).`,
+      )
+    )
+      return;
+    setMinVersionBusy(true);
+    try {
+      await setMinSupportedVersion(v);
+      setMinVersion(v);
+      window.alert(`강제 업데이트 차단이 [${v}] 로 설정되었습니다.`);
+    } catch (e: any) {
+      window.alert("설정 실패 (어드민 권한 필요): " + (e?.message || e));
+    } finally {
+      setMinVersionBusy(false);
+    }
+  };
+
+  const handleClearMinVersion = async () => {
+    if (!window.confirm("강제 업데이트 차단을 해제할까요? (아무도 차단되지 않습니다)"))
+      return;
+    setMinVersionBusy(true);
+    try {
+      await setMinSupportedVersion(null);
+      setMinVersion(null);
+      setMinVersionInput("");
+      window.alert("강제 업데이트 차단이 해제되었습니다.");
+    } catch (e: any) {
+      window.alert("해제 실패 (어드민 권한 필요): " + (e?.message || e));
+    } finally {
+      setMinVersionBusy(false);
     }
   };
 
@@ -2427,6 +2493,61 @@ export function AdminDashboardView({ onClose }: Props) {
                 {/* 4. 시스템 제어판 탭 */}
                 {activeTab === "system" && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                    {/* 강제 업데이트 게이트 (min_supported_version) */}
+                    <div style={{ gridColumn: "1 / -1", background: "rgba(224, 108, 108, 0.05)", border: "1px solid rgba(224, 108, 108, 0.25)", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span>⛔</span>
+                        강제 업데이트 게이트
+                      </div>
+                      <p style={{ fontSize: 12, opacity: 0.65, lineHeight: 1.6 }}>
+                        여기 설정한 버전 <strong>미만</strong>의 사용자는 업데이트하기 전까지 앱을 이용할 수 없습니다. 긴급 장애 버전을 빠르게 걷어낼 때 사용합니다.
+                        <br />· 대상은 <strong>게이트가 포함된 v0.9.10 이상</strong> 사용자입니다(그 이하는 강제 불가).
+                        <br />· 반영: 사용자 앱이 다음 재평가(≤30분) 또는 재시작 시 차단.
+                        <br />· <strong style={{ color: "#e0a86c" }}>먼저 그 버전을 릴리스</strong>한 뒤 설정하세요 — 안 그러면 사용자가 받을 게 없습니다.
+                        <br />현재 상태: {minVersion
+                          ? <strong style={{ color: "#e06c6c" }}>차단 켜짐 — {minVersion} 미만 차단</strong>
+                          : <strong style={{ color: "#5b8c7a" }}>꺼짐 (아무도 차단 안 됨)</strong>}
+                      </p>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <input
+                          value={minVersionInput}
+                          onChange={(e) => setMinVersionInput(e.target.value)}
+                          placeholder="예: 0.9.11"
+                          disabled={minVersionBusy}
+                          style={{
+                            flex: "0 0 160px", background: "rgba(0,0,0,0.3)", color: "#fff",
+                            border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
+                            padding: "10px 12px", fontSize: 13,
+                          }}
+                        />
+                        <button
+                          onClick={handleSetMinVersion}
+                          disabled={minVersionBusy}
+                          style={{
+                            background: "#e06c6c", color: "#1a1a1a",
+                            border: "none", borderRadius: 8, padding: "10px 16px",
+                            fontSize: 12, fontWeight: 700, cursor: minVersionBusy ? "default" : "pointer",
+                            opacity: minVersionBusy ? 0.6 : 1,
+                          }}
+                        >
+                          차단 설정/변경
+                        </button>
+                        <button
+                          onClick={handleClearMinVersion}
+                          disabled={minVersionBusy || !minVersion}
+                          style={{
+                            background: "rgba(255,255,255,0.06)", color: "#fff",
+                            border: "none", borderRadius: 8, padding: "10px 16px",
+                            fontSize: 12, fontWeight: 700,
+                            cursor: minVersionBusy || !minVersion ? "default" : "pointer",
+                            opacity: minVersionBusy || !minVersion ? 0.4 : 1,
+                          }}
+                        >
+                          차단 해제
+                        </button>
+                      </div>
+                    </div>
+
                     {/* 런치 모드 토글 (베타무료 ↔ 유료정식) */}
                     <div style={{ gridColumn: "1 / -1", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>

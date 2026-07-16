@@ -46,16 +46,19 @@
 - i18n: `app.updateRequired.*` (ko/en/ja).
 
 ### 운영법 — 긴급 차단 켜기/끄기
-Supabase `app_config` 테이블(키-값)에 행 하나:
 
+**방법 1 (권장): 관리자 대시보드** — `#/admin` → 시스템 제어판 탭 → "⛔ 강제 업데이트
+게이트" 카드. 버전 입력(예: `0.9.11`) → [차단 설정/변경], [차단 해제]. 확인
+다이얼로그·형식 검사 포함. (`src/updateGate.ts` 의 `getMinSupportedVersion` /
+`setMinSupportedVersion`, `app_config` 쓰기는 `is_admin()` RLS 로 보호.)
+
+**방법 2: Supabase SQL** (UI 못 쓸 때)
 ```sql
--- 0.9.10 미만을 전부 차단 (0.9.9 장애 → 0.9.10 배포 후)
-insert into app_config (key, value) values ('min_supported_version', '0.9.10')
+-- 0.9.11 미만 전부 차단
+insert into app_config (key, value) values ('min_supported_version', '0.9.11')
   on conflict (key) do update set value = excluded.value;
-
--- 해제 (평상시로 복귀)
+-- 해제
 delete from app_config where key = 'min_supported_version';
--- 또는 value 를 '0.0.0' 으로 낮춰도 됨.
 ```
 
 - 값이 없으면(기본) 게이트 비활성 = 아무도 안 막힘.

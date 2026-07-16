@@ -72,3 +72,43 @@ export function useUpdateGate(): UpdateGateState {
 
   return state;
 }
+
+// ── 관리자 설정 (app_config.min_supported_version 읽기/쓰기) ────────────────
+// is_admin() RLS 로 보호됨. 강제 업데이트 게이트를 켜고/끄는 운영 레버.
+// 실사용자를 차단하는 프로덕션 동작이므로 호출부에서 확인 다이얼로그 필수.
+
+/** 현재 설정된 최소 지원 버전. 값 없으면 null (게이트 꺼짐). */
+export async function getMinSupportedVersion(): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", CONFIG_KEY)
+      .maybeSingle();
+    if (error || !data?.value) return null;
+    return String(data.value);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 최소 지원 버전 설정. version 이 null/빈값이면 행을 삭제(게이트 해제).
+ * v0.9.10 이상 사용자 중 이 버전 미만은 다음 재평가(≤30분)/재시작 시 차단된다.
+ */
+export async function setMinSupportedVersion(version: string | null): Promise<void> {
+  const v = version?.trim();
+  if (!v) {
+    const { error } = await supabase
+      .from("app_config")
+      .delete()
+      .eq("key", CONFIG_KEY);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from("app_config").upsert(
+    { key: CONFIG_KEY, value: v, updated_at: new Date().toISOString() },
+    { onConflict: "key" },
+  );
+  if (error) throw error;
+}
