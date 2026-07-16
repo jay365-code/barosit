@@ -31,6 +31,16 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.10 — 2026-07-16
+
+**한국어**
+
+- 중요한 업데이트가 있을 때 최신 버전을 놓치지 않고 계속 이용하실 수 있도록 업데이트 안내를 개선했습니다.
+
+**English**
+
+- Improved update handling so you don't miss important updates and can keep using the latest version.
+
 ## v0.9.9 — 2026-07-16
 
 **한국어**
