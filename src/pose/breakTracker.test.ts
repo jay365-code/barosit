@@ -262,3 +262,55 @@ describe("BreakTracker 영속화", () => {
     expect(localStorage.getItem("break_tracker_state_v1")).toBeNull();
   });
 });
+
+describe("BreakTracker.creditAbsence (idle-suspend 이석 정산)", () => {
+  it("알림 후 60초 이석 정산 → 완료 + 착석시계 리셋", () => {
+    const t = new BreakTracker();
+    const now = seatUntilMicro(t);
+    // 카메라 OFF 로 push 가 멈춘 60초 이석을 복귀 시 일괄 정산.
+    const { completed } = t.creditAbsence(now + 1000, 60);
+    expect(completed).toBe("micro");
+    expect(t.snapshot().secsSeated).toBe(0);
+    expect(t.snapshot().stage).toBe("none");
+  });
+
+  it("알림 후 40초 이석 → 미완료, 부재분만큼 movementSecs 적립", () => {
+    const t = new BreakTracker();
+    const now = seatUntilMicro(t);
+    const { completed } = t.creditAbsence(now + 1000, 40);
+    expect(completed).toBeNull();
+    expect(t.snapshot().stage).toBe("micro");
+    expect(t.snapshot().movementSecs).toBeGreaterThanOrEqual(40);
+  });
+
+  it("5분 이상 이석 정산 → 시계 리셋 (완료 아님)", () => {
+    const t = new BreakTracker();
+    const now = seatUntilMicro(t);
+    const { completed } = t.creditAbsence(now + 1000, 5 * 60 + 10);
+    expect(completed).toBeNull();
+    expect(t.snapshot().secsSeated).toBe(0);
+    expect(t.snapshot().stage).toBe("none");
+  });
+
+  it("단계 없을 때(알림 전) 정산은 완료 없음 — 부재만 누적", () => {
+    const t = new BreakTracker();
+    const start = 1000;
+    t.push(start, true, false, false, false, cfg);
+    const { now } = advance(t, start, 10 * 60, { present: true }, 60); // 10분 착석 (micro 전)
+    const seatedBefore = t.snapshot().secsSeated;
+    const { completed } = t.creditAbsence(now + 1000, 60);
+    expect(completed).toBeNull();
+    expect(t.snapshot().stage).toBe("none");
+    expect(t.snapshot().secsSeated).toBeCloseTo(seatedBefore, 5); // 리셋 안 됨(<5분)
+  });
+
+  it("awaySecs<=0 은 무해 (no-op)", () => {
+    const t = new BreakTracker();
+    const now = seatUntilMicro(t);
+    const before = t.snapshot();
+    const { completed } = t.creditAbsence(now + 1000, 0);
+    expect(completed).toBeNull();
+    expect(t.snapshot().secsSeated).toBeCloseTo(before.secsSeated, 5);
+    expect(t.snapshot().stage).toBe(before.stage);
+  });
+});

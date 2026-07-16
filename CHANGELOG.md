@@ -31,6 +31,16 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.9 — 2026-07-16
+
+**한국어**
+
+- 자리를 비우고 쉰 시간이 휴식으로 제대로 인정되도록 개선했습니다 — 배터리 절약으로 카메라가 꺼져 있던 동안 쉰 시간도 자리로 돌아오면 반영됩니다.
+
+**English**
+
+- Time spent resting away from your desk is now credited properly — including breaks taken while the camera was off to save battery, counted once you return.
+
 ## v0.9.8 — 2026-07-15
 
 **한국어**
