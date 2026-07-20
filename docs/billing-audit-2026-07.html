@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaroSit 결제 라이프사이클 점검 — 2026-07-20</title>
+<style>
+  :root{
+    --bg:#fbfaf8; --surface:#fff; --line:#e6e2dc; --ink:#1f2a24; --fg2:#4a5750; --fg3:#7d8a83;
+    --sig:#2f6b4f; --sig-bg:#eef5f0;
+    --p0:#b3261e; --p0-bg:#fdeceb; --p1:#a8630a; --p1-bg:#fdf3e4; --p2:#3a6b8a; --p2-bg:#eef4f8;
+    --ok:#2f6b4f; --ok-bg:#eef5f0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141816; --surface:#1b201d; --line:#2e3833; --ink:#e8ede9; --fg2:#b3c0b8; --fg3:#8b9a92;
+      --sig:#7fbf9c; --sig-bg:#1d2a23;
+      --p0:#f2867d; --p0-bg:#2c1c1b; --p1:#e0aa5e; --p1-bg:#2a2318; --p2:#8fc0dd; --p2-bg:#1a242b;
+      --ok:#7fbf9c; --ok-bg:#1d2a23;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;
+    line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:48px 24px 96px}
+  header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:32px}
+  h1{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px}
+  .meta{color:var(--fg3);font-size:13px}
+  h2{font-size:20px;font-weight:700;letter-spacing:-.015em;margin:44px 0 14px;padding-top:8px}
+  h3{font-size:15px;font-weight:700;margin:26px 0 8px}
+  p{margin:10px 0}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;
+    background:var(--sig-bg);color:var(--sig);padding:1px 5px;border-radius:4px}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.55}
+  pre code{background:none;color:var(--ink);padding:0}
+  .summary{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:20px 0}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:16px 0}
+  .card.p0{border-left:4px solid var(--p0)}
+  .card.p1{border-left:4px solid var(--p1)}
+  .card.p2{border-left:4px solid var(--p2)}
+  .card.mine{border-left:4px solid var(--fg3)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;vertical-align:middle;margin-right:8px}
+  .t-p0{background:var(--p0-bg);color:var(--p0)}
+  .t-p1{background:var(--p1-bg);color:var(--p1)}
+  .t-p2{background:var(--p2-bg);color:var(--p2)}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-v{background:var(--ok-bg);color:var(--ok)}
+  .t-c{background:var(--p2-bg);color:var(--p2)}
+  .card h3{margin-top:0}
+  .tblwrap{overflow-x:auto;margin:14px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--sig-bg);color:var(--sig);font-weight:700;font-size:13px}
+  ul,ol{margin:10px 0;padding-left:22px}
+  li{margin:5px 0}
+  .fp{color:var(--fg3);font-size:13px;margin-top:10px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--fg2);margin-top:10px}
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--fg3);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>BaroSit 결제 라이프사이클 점검</h1>
+  <div class="meta">2026-07-20 · 주식회사 구비드 · 대상: 구독 · 정기결제 · 해지 · 환불 · 웹훅</div>
+</header>
+
+<div class="summary">
+  <strong>한 줄 요약 —</strong> 정기결제 배치가 등록된 적이 없어 갱신이 한 번도 실행되지 않았고,
+  결제 원장(<code>billing_history</code>)은 사용자가 직접 수정할 수 있는 상태다.
+  이 둘이 다른 모든 항목의 전제를 무너뜨린다.
+  <div class="legend">
+    <span><span class="tag t-v">실측</span>프로덕션 DB·스키마에서 직접 확인</span>
+    <span><span class="tag t-c">코드</span>소스 확인, 런타임 미검증</span>
+  </div>
+</div>
+
+<h2>P0 — 즉시 조치</h2>
+
+<div class="card p0">
+  <h3><span class="tag t-p0">P0-1</span><span class="tag t-v">실측</span>사용자가 결제 원장을 직접 수정할 수 있음</h3>
+  <p>프로덕션 원격 스키마에서 확인한 실제 정책이다.</p>
+<pre><code>CREATE POLICY "Users can update their own billing history"
+  ON public.billing_history FOR UPDATE TO authenticated
+  USING ((auth.uid() = user_id));          -- WITH CHECK 없음
+
+CREATE POLICY "Users can insert their own billing history"
+  ON public.billing_history FOR INSERT TO authenticated
+  WITH CHECK ((auth.uid() = user_id));</code></pre>
+  <p><code>user_subscriptions</code> 에는 <code>check_subscription_tampering</code> 트리거가 있으나
+  <code>billing_history</code> 에는 대응물이 없다. 로그인 사용자가 anon 키만으로
+  <code>PATCH /rest/v1/billing_history</code> 를 호출해 자기 결제 행을 조작할 수 있다.</p>
+  <ul>
+    <li><code>status</code> 를 <code>refunded</code> → <code>completed</code> 로 되돌려 <strong>재환불</strong></li>
+    <li><code>created_at</code> 만 최근으로 바꾸면 7일 청약철회 창이 리셋된다. 미사용 판정도 조작된 시각 이후만 세므로 <strong>1년 쓴 연간 구독도 전액 환불</strong></li>
+    <li><code>amount</code> 를 키워 환불액 팽창</li>
+  </ul>
+  <p>결과적으로 <code>payment-cancel</code> 의 자격 판정이 전부 우회된다.</p>
+  <p class="fp"><strong>조치</strong> — INSERT/UPDATE 정책 철회. 원장 쓰기는 Edge Function 의 service_role 로만 이루어지고(클라이언트에는 <code>.select()</code> 경로만 존재) service_role 은 RLS 를 우회하므로 정상 흐름에 영향 없음. SELECT 는 유지.</p>
+</div>
+
+<div class="card p0">
+  <h3><span class="tag t-p0">P0-2</span><span class="tag t-v">실측</span>정기결제가 한 번도 실행된 적 없음</h3>
+  <p><code>20260521000010_payment_backend.sql:48~</code> 의 <code>cron.schedule</code> 블록이 전부 주석이다.
+  "service_role key 노출 방지를 위해 마이그레이션에 하드코딩하지 않음 — SQL Editor 에서 1회 실행"
+  구조인데 그 실행이 누락됐다.</p>
+  <p>같은 레포의 <code>20260630000001_account_purge_cron.sql:11</code> 은
+  <code>DO $$ … EXECUTE</code> 로 실제 등록된다. 패턴은 있으나 결제에만 적용되지 않았다.</p>
+  <p>행동 증거 — 어드민 계정 구독:</p>
+<pre><code>current_period_end : 2026-06-28   (21일 경과)
+status             : active       ← 강등 안 됨
+dunning_attempts   : 0            ← 재시도 흔적 없음
+updated_at         : 2026-05-28   ← 결제 이후 아무도 건드리지 않음</code></pre>
+  <p>대상 선정 쿼리(<code>charge-renewals:30-34</code>)는 정상이다. <strong>호출자가 없을 뿐이다.</strong>
+  pg_cron·pg_net 확장은 설치되어 있고, 결제 마이그레이션 13종도 전부 원격 적용 확인.</p>
+</div>
+
+<div class="card p0">
+  <h3><span class="tag t-p0">P0-3</span><span class="tag t-c">코드</span>만료돼도 PRO 가 유지됨 · 무료 PRO 경로 3종</h3>
+<pre><code>// launchMode.ts:231 (수정 전)
+const ok = row.status === "active"           // ← 기간 미검사
+        || row.status === "grace_period"
+        || (row.status === "canceled" &amp;&amp; periodValid);</code></pre>
+  <p><code>status='active'</code> 면 <code>current_period_end</code> 를 아예 보지 않는다.
+  크론을 켜도 이 함수를 고치지 않으면 남는다.</p>
+  <div class="tblwrap"><table>
+    <tr><th>경로</th><th>내용</th></tr>
+    <tr><td>만료 + 크론 부재</td><td>위 P0-2 와 결합. 현재 실제로 발생 중</td></tr>
+    <tr><td>카드 삭제</td><td><code>billing_key</code> 가 NULL 이면 <code>charge-renewals:53</code> 이 skip → 강등 로직에 영원히 도달 못 함</td></tr>
+    <tr><td>resume 반복</td><td><code>subscription-manage:34</code> 가 <code>status</code> 를 안 봄. <code>grace_period</code> 사용자가 resume 하면 유예가 7일씩 무한 연장</td></tr>
+  </table></div>
+</div>
+
+<h2>P1 — 금전 사고 가능</h2>
+
+<div class="card p1">
+  <h3><span class="tag t-p1">P1</span><span class="tag t-c">코드</span>청구·환불 정합성</h3>
+  <div class="tblwrap"><table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>이중 출금</td><td><code>makeOrderId</code> 가 매번 새 값. 토스에서 결제는 됐는데 응답이 유실되면 2일 뒤 새 orderId 로 재청구. <code>order_id</code> UNIQUE 인덱스는 무력 — 결정적 orderId 또는 청구 전 조회 필요</td></tr>
+    <tr><td>환불 보상 부재</td><td>토스 취소 성공 후 DB UPDATE 3개가 에러 무검증·비트랜잭션. 실패 시 "돈은 나갔는데 PRO 유지" 또는 "원장이 completed 로 남아 재환불 가능". <code>billing-issue</code> 에는 보상 트랜잭션이 있으나 환불 경로엔 미이식</td></tr>
+    <tr><td>환불 race</td><td>행 잠금·CAS·멱등키 없음. 동시 요청 시 부분환불 두 건이 각각 승인될 수 있음</td></tr>
+    <tr><td>admin-refund 상한</td><td><code>Math.min(amount, target.amount)</code> — 이미 환불된 금액을 빼지 않음. <code>partially_refunded</code> 도 차단 대상에서 누락</td></tr>
+    <tr><td>연 결제자에게 월 요금</td><td><code>billing_cycle</code> 이 NULL 이면 <code>charge-renewals:72</code> 가 조용히 monthly 로 청구. fail-silent</td></tr>
+    <tr><td>앵커 드리프트</td><td>갱신 기간을 <code>new Date()</code> 기준으로 계산. 이전 <code>current_period_end</code> 기준이 아니라 지연이 영구 누적</td></tr>
+    <tr><td>월말 오버플로</td><td><code>setMonth(+1)</code> 로 1/31 → 3/3</td></tr>
+    <tr><td>유예 7일 ≠ 7일</td><td>안내 메일엔 7일, 실제는 2일 간격 3회 = <strong>4일</strong>에 강등</td></tr>
+    <tr><td>charge-renewals 무방비</td><td><code>config.toml</code> 에 항목 없고 본문에도 role 검사 없음. 로그인한 사용자면 배치를 임의 실행 가능</td></tr>
+  </table></div>
+</div>
+
+<h2>이번 환불 개편이 만든/활성화한 문제</h2>
+
+<div class="card mine">
+  <h3>자체 지적</h3>
+  <ol>
+    <li><strong>dryRun 기본값이 파괴적</strong> — <code>req.json().catch(() =&gt; ({dryRun:false}))</code> 로 본문 파싱 실패 시 실환불 실행</li>
+    <li><strong><code>refunded_amount</code> 덮어쓰기</strong> — <code>payment-cancel</code> 은 대입, <code>admin-refund</code> 는 누적. 어드민 부분환불 후 사용자 셀프 환불 시 누적액 소실</li>
+    <li><strong>웹훅이 부분환불 상태를 파괴</strong> — <code>toss-webhook:60</code> 매핑이 <code>DONE→completed</code>, <code>CANCELED→refunded</code>, <em>그 외 전부 <code>pending</code></em>. 부분취소 상태가 매핑에 없어 <code>partially_refunded</code> 행을 <code>pending</code> 으로 덮어쓰면 어느 필터에도 안 걸리는 고아 상태가 됨</li>
+    <li><strong><code>partially_refunded</code> 를 읽는 코드 0건</strong> — UI(<code>Marketing.tsx:6839</code>)도 <code>completed</code> 만 찾아 부분환불 이력이 사용자에게 안 보임</li>
+    <li><strong>부분 환불 후 latest 이동</strong> — <code>completed</code> 만 조회하면 이전 주기 결제가 환불 후보가 됨</li>
+  </ol>
+  <p class="fp"><code>payment-cancel</code> v9 는 배포되어 있으나 프로덕션에 연간 결제 건이 0건이라 해당 경로에 아직 도달 불가 — 실질 노출은 없음.</p>
+</div>
+
+<h2>이상 없음으로 확인된 것</h2>
+
+<div class="card">
+  <ul>
+    <li><span class="tag t-ok">OK</span><code>user_subscriptions.user_id</code> UNIQUE — 중복 구독 행 구조적으로 불가 (5행 = 5명)</li>
+    <li><span class="tag t-ok">OK</span><code>billing_history.order_id</code> 부분 UNIQUE 인덱스 — 원장 중복 적재 차단</li>
+    <li><span class="tag t-ok">OK</span>결제 마이그레이션 13종 전부 원격 적용</li>
+    <li><span class="tag t-ok">OK</span>pg_cron · pg_net 확장 설치됨</li>
+    <li><span class="tag t-ok">OK</span><code>charge-renewals</code> 대상 선정 쿼리 정상</li>
+    <li><span class="tag t-ok">OK</span>cancel 후 청구 건너뛰기 및 만료 시 FREE 정리 경로 존재</li>
+    <li><span class="tag t-ok">OK</span>웹훅이 미보유 orderId 를 토스 조회 전에 컷 — S2S 증폭 방지</li>
+    <li><span class="tag t-ok">OK</span><code>billing-issue</code> 의 보상 트랜잭션(청구 후 DB 실패 시 되돌림)</li>
+  </ul>
+</div>
+
+<h2>조치 순서</h2>
+
+<div class="tblwrap"><table>
+  <tr><th>#</th><th>항목</th><th>상태</th></tr>
+  <tr><td>1</td><td><code>billing_history</code> RLS INSERT/UPDATE 정책 철회</td><td>마이그레이션 작성 완료 · 미적용</td></tr>
+  <tr><td>2</td><td><code>resolveEffectivePlan</code> 에 만료 검사 추가</td><td>수정 완료 · 미배포</td></tr>
+  <tr><td>3</td><td>결제 cron 등록</td><td>미착수 — service_role key 취급 방식 결정 필요</td></tr>
+  <tr><td>4</td><td>dryRun 안전 기본값 · <code>refunded_amount</code> 누적 통일 · 부분환불 상한</td><td>수정 완료 · 미배포</td></tr>
+  <tr><td>5</td><td>웹훅 부분취소 매핑 및 환불 상태 보호</td><td>미착수</td></tr>
+  <tr><td>6</td><td>resume / 카드삭제 좀비 경로 차단</td><td>미착수</td></tr>
+  <tr><td>7</td><td>결정적 orderId · 환불 보상 트랜잭션</td><td>미착수</td></tr>
+</table></div>
+
+<h2>미확정 — 토스 문서·샌드박스 확인 필요</h2>
+<ul>
+  <li>부분취소 시 토스가 반환하는 실제 상태 문자열 (웹훅 매핑 수정의 전제)</li>
+  <li>취소가능잔액 초과 요청 시 토스의 거부 동작 (이중환불 실손해 여부가 여기 달림)</li>
+  <li>부분취소 후 <code>getPaymentByOrderId</code> 의 <code>totalAmount</code> 반환값</li>
+  <li>프로덕션 <code>cron.job</code> 직접 조회 — PostgREST 가 <code>cron</code> 스키마를 노출하지 않고 <code>pg_dump</code> 는 확장 소유 테이블을 제외하므로 미확인. SQL Editor 에서 <code>select * from cron.job;</code> 로 확정 가능</li>
+</ul>
+
+<footer>
+  점검 범위: <code>supabase/functions/</code> (billing-issue · charge-renewals · subscription-manage · payment-cancel · admin-refund · toss-webhook · _shared),
+  <code>supabase/migrations/</code>, <code>src/launchMode.ts</code>, <code>src/web/Marketing.tsx</code>, <code>src/views/ProfileView.tsx</code>,
+  프로덕션 원격 스키마 및 결제·구독 데이터.
+</footer>
+
+</div>
+</body>
+</html>

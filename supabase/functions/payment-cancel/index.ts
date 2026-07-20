@@ -32,7 +32,18 @@ serve(async (req) => {
     const user = await getUser(req, supabase);
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { dryRun } = await req.json().catch(() => ({ dryRun: false }));
+    // 본문 파싱 실패를 dryRun=false 로 흘리면 미리보기 의도의 요청이 실환불로
+    // 실행될 수 있다. 빈 본문만 실행으로 보고, 깨진 본문은 거부한다.
+    const rawBody = await req.text();
+    let body: { dryRun?: boolean } = {};
+    if (rawBody.trim()) {
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return json({ error: "요청 본문을 해석할 수 없습니다." }, 400);
+      }
+    }
+    const dryRun = body.dryRun === true;
     // dryRun 은 자격 미충족을 오류가 아니라 판정 결과로 돌려준다(프론트가 사유를 그려야 함).
     const ineligible = (reason: string) =>
       dryRun ? json({ dryRun: true, eligible: false, reason }) : json({ error: reason }, 400);
@@ -43,7 +54,9 @@ serve(async (req) => {
       .select("*")
       .eq("user_id", user.id)
       .eq("kind", "payment")
-      .eq("status", "completed")
+      // 부분 환불된 건도 후보에 남긴다. completed 만 보면 부분 환불 직후 latest 가
+      // 이전 주기 결제로 밀려나 엉뚱한 건이 환불 대상이 된다.
+      .in("status", ["completed", "partially_refunded"])
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -65,6 +78,12 @@ serve(async (req) => {
     //    (b) 일할 환불 대상 주기(연간) → 이용일수 상당액·위약금 공제 후 잔액 환불
     //    (c) 그 외(월간)              → 구독 해지 안내
     const paidAmount = Number(latest.amount);
+    // 이미 환불된 금액(어드민 부분 환불 포함)을 뺀 잔여가 환불 가능 상한이다.
+    const alreadyRefunded = Number(latest.refunded_amount ?? 0);
+    const refundable = paidAmount - alreadyRefunded;
+    if (refundable <= 0) {
+      return ineligible("이미 전액 환불된 결제입니다.");
+    }
     const cycle = latest.billing_cycle as BillingCycle | null;
     let refundAmount: number;
     let cancelReason: string;
@@ -73,17 +92,19 @@ serve(async (req) => {
 
     if (withinWindow && unused) {
       mode = "withdrawal";
-      refundAmount = paidAmount;
+      refundAmount = refundable;
       cancelReason = "청약철회 — 결제 7일 이내 미사용 전액 환불";
     } else if (cycle && PRORATED_REFUND_CYCLES.includes(cycle)) {
       const b = proratedRefund(paidAmount, latest.created_at);
-      if (b.refund <= 0) {
+      // 산정액이 잔여 환불가능액을 넘지 않도록 상한을 건다.
+      const amount = Math.min(b.refund, refundable);
+      if (amount <= 0) {
         return ineligible(
           "이용 기간에 해당하는 금액이 결제 금액을 초과하여 환불할 잔액이 없습니다. 구독 해지를 이용하세요.",
         );
       }
       mode = "prorated";
-      refundAmount = b.refund;
+      refundAmount = amount;
       breakdown = { daysUsed: b.daysUsed, usedAmount: b.usedAmount, penalty: b.penalty };
       cancelReason = `중도 해지 — 이용 ${b.daysUsed}일 상당액 및 위약금 공제 후 환불`;
     } else {
@@ -91,7 +112,9 @@ serve(async (req) => {
         "환불 가능 기간(7일)이 지났거나 이용 이력이 있습니다. 구독 해지를 이용하시면 이미 결제한 이용 기간 만료까지 정상 이용하실 수 있습니다.",
       );
     }
-    const isFullRefund = refundAmount >= paidAmount;
+    // 누적 환불액 기준으로 전액 여부를 판정한다(admin-refund 와 같은 의미).
+    const totalRefunded = alreadyRefunded + refundAmount;
+    const isFullRefund = totalRefunded >= paidAmount;
 
     // 3-1. dryRun — 여기서 반드시 빠져나간다.
     //      아래로는 토스 취소·구독 강등·원장 갱신 등 되돌릴 수 없는 부수효과만 남는다.
@@ -128,7 +151,9 @@ serve(async (req) => {
     // 6. 원장 환불 처리 (전액=refunded / 부분=partially_refunded)
     await supabase.from("billing_history").update({
       status: isFullRefund ? "refunded" : "partially_refunded",
-      refunded_amount: refundAmount,
+      // 누적. admin-refund 와 의미를 통일한다(예전에는 여기서 덮어써서 어드민이
+      // 먼저 부분 환불한 금액이 원장에서 사라졌다).
+      refunded_amount: totalRefunded,
       refunded_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq("id", latest.id);

@@ -46,8 +46,17 @@ describe("resolveEffectivePlan (paid 모드 — 기본)", () => {
     expect(await resolve({ plan_id: "free", status: "active" })).toBe("free");
   });
 
-  it("pro + active → pro", async () => {
-    expect(await resolve({ plan_id: "pro", status: "active" })).toBe("pro");
+  it("pro + active + 기간 남음 → pro", async () => {
+    expect(await resolve({ plan_id: "pro", status: "active", current_period_end: future })).toBe("pro");
+  });
+
+  // 정기청구 배치가 멈추면 만료 구독이 active 로 남는다. status 만 믿으면 무기한 PRO 가 된다.
+  it("pro + active + 기간 만료 → free", async () => {
+    expect(await resolve({ plan_id: "pro", status: "active", current_period_end: past })).toBe("free");
+  });
+
+  it("pro + active + 기간 정보 없음 → free (보수적)", async () => {
+    expect(await resolve({ plan_id: "pro", status: "active" })).toBe("free");
   });
 
   it("pro + grace_period → pro (유예 중 혜택 유지)", async () => {
@@ -70,8 +79,8 @@ describe("resolveEffectivePlan (paid 모드 — 기본)", () => {
     expect(await resolve({ plan_id: "pro", status: "none" })).toBe("free");
   });
 
-  it("pro_yearly (startsWith pro) + active → pro", async () => {
-    expect(await resolve({ plan_id: "pro_yearly", status: "active" })).toBe("pro");
+  it("pro_yearly (startsWith pro) + active + 기간 남음 → pro", async () => {
+    expect(await resolve({ plan_id: "pro_yearly", status: "active", current_period_end: future })).toBe("pro");
   });
 });
 
@@ -115,7 +124,13 @@ describe("staged 모드 (per-user 테스터)", () => {
     expect(mod.isBetaFree()).toBe(false);
     expect(mod.getEffectiveLaunchMode()).toBe("paid");
     expect(mod.resolveEffectivePlan({ plan_id: "free", status: "active" })).toBe("free");
-    expect(mod.resolveEffectivePlan({ plan_id: "pro", status: "active" })).toBe("pro");
+    expect(
+      mod.resolveEffectivePlan({
+        plan_id: "pro",
+        status: "active",
+        current_period_end: new Date(Date.now() + 86400000).toISOString(),
+      }),
+    ).toBe("pro");
   });
 
   it("어드민도 테스터로 간주", async () => {
