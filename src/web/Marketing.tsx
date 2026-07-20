@@ -4,10 +4,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import privacyMd from "../../docs/privacy.md?raw";
 import termsMd from "../../docs/terms.md?raw";
+import refundMd from "../../docs/refund.md?raw";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, LAUNCH_MODE_CHANGED_EVENT } from "../launchMode";
 import { priceFor } from "../lib/pricing";
+import type { RefundQuote } from "../lib/refund";
 import { interpolateLegalTemplate } from "../lib/legal";
 import { uploadPostImage, ACCEPTED_IMAGE_TYPES } from "../lib/uploadPostImage";
 import i18n from "../i18n";
@@ -312,6 +314,9 @@ function Footer() {
           </a>
           <a href="#/terms" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.terms")}
+          </a>
+          <a href="#/refund" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
+            {t("footer.refund")}
           </a>
           <a href="/community" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.community")}
@@ -1520,21 +1525,32 @@ function ResetPassword() {
 
 // ───────── Legal (Privacy / Terms) ─────────
 
-const LEGAL_SOURCE: Record<"privacy" | "terms", string> = {
+type LegalKind = "privacy" | "terms" | "refund";
+
+const LEGAL_SOURCE: Record<LegalKind, string> = {
   privacy: privacyMd,
   terms: termsMd,
+  refund: refundMd,
 };
 
-// 법적 문서 제목은 footer.privacy / footer.terms 키 재사용
-const LEGAL_TITLE_KEY: Record<"privacy" | "terms", string> = {
+// 법적 문서 제목은 footer.privacy / footer.terms / footer.refund 키 재사용
+const LEGAL_TITLE_KEY: Record<LegalKind, string> = {
   privacy: "footer.privacy",
   terms: "footer.terms",
+  refund: "footer.refund",
 };
 
-function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
+// 하단 "다른 문서 보기" 링크 대상
+const LEGAL_OTHER: Record<LegalKind, LegalKind> = {
+  privacy: "terms",
+  terms: "refund",
+  refund: "terms",
+};
+
+function LegalPage({ kind }: { kind: LegalKind }) {
   const { t, i18n } = useTranslation("marketing");
   const md = useMemo(() => interpolateLegalTemplate(LEGAL_SOURCE[kind]), [kind]);
-  const otherKind = kind === "privacy" ? "terms" : "privacy";
+  const otherKind = LEGAL_OTHER[kind];
   // 법적 본문은 한국어 정본만 유지 — ko 외 언어에서는 상단 안내 배너 표시
   const showLangNotice = i18n.language !== "ko";
   return (
@@ -6790,7 +6806,8 @@ function PlanTab({
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [latestPayment, setLatestPayment] = useState<any>(null);
-  const [isRefundable, setIsRefundable] = useState(false);
+  // payment-cancel dryRun 결과. null 이면 환불 불가(구독 해지만 가능).
+  const [refundQuote, setRefundQuote] = useState<RefundQuote | null>(null);
 
   useEffect(() => {
     const fetchHistoryAndRefundStatus = async () => {
@@ -6811,34 +6828,16 @@ function PlanTab({
           const lastPay = history.find(r => r.kind === "payment" && r.status === "completed");
           if (lastPay) {
             setLatestPayment(lastPay);
-            
-            // 결제한 지 7일 이내인지 판단
-            const isWithin7Days = new Date().getTime() - new Date(lastPay.created_at).getTime() <= 7 * 24 * 60 * 60 * 1000;
-            if (isWithin7Days) {
-              // posture_events와 daily_scores에 결제 시각 이후 기록이 존재하는지 판별
-              const { count: eventCount } = await supabase
-                .from("posture_events")
-                .select("*", { count: "exact", head: true })
-                .eq("user_id", user.id)
-                .gte("created_at", lastPay.created_at);
 
-              const { count: scoreCount } = await supabase
-                .from("daily_scores")
-                .select("*", { count: "exact", head: true })
-                .eq("user_id", user.id)
-                .gte("created_at", lastPay.created_at);
-
-              if ((eventCount === 0 || eventCount === null) && (scoreCount === 0 || scoreCount === null)) {
-                setIsRefundable(true);
-              } else {
-                setIsRefundable(false);
-              }
-            } else {
-              setIsRefundable(false);
-            }
+            // 환불 자격·예상 금액은 서버(payment-cancel dryRun)가 단일 판정한다.
+            // 클라이언트에서 7일 여부나 환불액을 다시 계산하면 실제 환불액과 어긋난다.
+            const { data: q } = await supabase.functions.invoke("payment-cancel", {
+              body: { dryRun: true },
+            });
+            setRefundQuote(q?.eligible ? q : null);
           } else {
             setLatestPayment(null);
-            setIsRefundable(false);
+            setRefundQuote(null);
           }
         }
       } catch (err) {
@@ -6996,12 +6995,22 @@ function PlanTab({
   };
 
   const handleImmediateRefund = async () => {
-    if (!user || !latestPayment) return;
-    const confirmRefund = window.confirm(t("web.refundConfirm"));
-    if (!confirmRefund) return;
+    if (!user || !latestPayment || !refundQuote) return;
+    // 견적은 서버가 준 값을 그대로 보여준다(클라이언트 재계산 금지).
+    const won = (n: number) => n.toLocaleString(i18n.language);
+    const detail = refundQuote.mode === "prorated"
+      ? t("web.refundBreakdown", {
+          paid: won(refundQuote.paidAmount),
+          days: refundQuote.daysUsed,
+          used: won(refundQuote.usedAmount),
+          penalty: won(refundQuote.penalty),
+          refund: won(refundQuote.refund),
+        })
+      : t("web.refundBreakdownFull", { refund: won(refundQuote.refund) });
+    if (!window.confirm(`${detail}\n\n${t("web.refundConfirm")}`)) return;
 
     try {
-      // 서버에서 7일/미사용 재검증 + 실제 Toss 취소 + FREE 강등 + 원장 환불 처리
+      // 서버에서 자격 재검증 + 실제 Toss 취소 + FREE 강등 + 원장 환불 처리
       const { data, error } = await supabase.functions.invoke("payment-cancel", { body: {} });
       if (error || !data?.success) {
         throw new Error(data?.error || error?.message || "환불 처리 실패");
@@ -7149,7 +7158,7 @@ function PlanTab({
                 <button onClick={handleMockNotice} className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
                   {isYearly ? t("web.changeToMonthly") : t("web.changeToYearly")}
                 </button>
-                {isRefundable && latestPayment && (
+                {refundQuote && latestPayment && (
                   <button
                     onClick={handleImmediateRefund}
                     className="b-btn b-btn-quiet"
@@ -7737,6 +7746,7 @@ export type MarketingRoute =
   | "profile"
   | "privacy"
   | "terms"
+  | "refund"
   | "community"
   | "changelog"
   | "roadmap"
@@ -7854,6 +7864,7 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   if (h === "profile" || h === "account") return "profile";
   if (h === "privacy") return "privacy";
   if (h === "terms") return "terms";
+  if (h === "refund" || h === "refund-policy") return "refund";
   if (h === "changelog" || h === "release" || h === "releases") return "changelog";
   if (h === "roadmap") return "roadmap";
   if (h === "community" || h === "contact" || h === "support") return "community";
@@ -7886,6 +7897,8 @@ function routeBody(route: MarketingRoute, initialPostId?: string | null) {
       return <LegalPage kind="privacy" />;
     case "terms":
       return <LegalPage kind="terms" />;
+    case "refund":
+      return <LegalPage kind="refund" />;
     case "changelog":
       return <ChangelogPage />;
     case "roadmap":

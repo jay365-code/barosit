@@ -89,3 +89,51 @@ export async function getPaymentByOrderId(orderId: string): Promise<any | null> 
 
 export const PRICE = { monthly: 4900, yearly: 36000 } as const;
 export type BillingCycle = keyof typeof PRICE;
+
+// ───────── 중도 환불 산식 (콘텐츠이용자보호지침 준거) ─────────
+//
+//   잔여대금 = 결제금액 − (이용일수 × 정가 일할단가)
+//   환불액   = 잔여대금 − 위약금(잔여대금의 PENALTY_RATE)
+//
+// 일할단가는 월간 "정가" 기준으로 산정한다. 연간 구독을 중도 해지하면 장기 약정
+// 할인은 소급 소멸하고 단기(월간) 요율이 적용되기 때문이다. 값을 상수로 박지 않고
+// PRICE 에서 유도하므로 요금 개편 시 자동으로 따라간다.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DAYS_PER_MONTH = 30;
+const PENALTY_RATE = 0.1;
+
+// 일할 중도 환불을 제공하는 결제 주기.
+// 월간은 7일·미사용 전액환불만 제공한다(공정위 OTT 약관 시정 기준과 동일).
+export const PRORATED_REFUND_CYCLES: readonly BillingCycle[] = ["yearly"];
+
+export interface RefundBreakdown {
+  daysUsed: number;
+  usedAmount: number;   // 이용일수 상당액 (정가 일할)
+  penalty: number;      // 위약금
+  refund: number;       // 실제 환불액 (원 단위 절사)
+}
+
+export function proratedRefund(
+  paidAmount: number,
+  paidAt: string | Date,
+  now: Date = new Date(),
+): RefundBreakdown {
+  const dailyListPrice = PRICE.monthly / DAYS_PER_MONTH;
+  const elapsed = now.getTime() - new Date(paidAt).getTime();
+  // 이용 당일도 1일로 계산한다.
+  const daysUsed = Math.max(1, Math.ceil(elapsed / DAY_MS));
+  const usedAmount = daysUsed * dailyListPrice;
+  const remaining = paidAmount - usedAmount;
+
+  if (remaining <= 0) {
+    return { daysUsed, usedAmount: paidAmount, penalty: 0, refund: 0 };
+  }
+  // 위약금은 "잔여대금의 10% 이내"이므로 올림하지 않는다(내림해야 상한을 넘지 않음).
+  const penalty = Math.floor(remaining * PENALTY_RATE);
+  return {
+    daysUsed,
+    usedAmount: Math.round(usedAmount),
+    penalty,
+    refund: Math.floor(remaining - penalty),
+  };
+}

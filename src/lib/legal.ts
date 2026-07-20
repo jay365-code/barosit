@@ -12,6 +12,7 @@ export const LEGAL_METADATA = {
   PRIVACY_OFFICER: "이종현 (대표)",
   REFUND_WINDOW: "7일",
   CONTACT_EMAIL: "support@barosit.com",
+  CONTACT_PHONE: "010-8635-0058",
   RELEASE_DATE: "2026년 5월 21일",
 };
 

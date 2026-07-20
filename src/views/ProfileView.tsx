@@ -19,6 +19,7 @@ import {
   pullProfileFromServer,
   pullSettingsFromServer,
 } from "../lib/syncService";
+import type { RefundQuote } from "../lib/refund";
 import {
   loadProfile,
   saveProfile,
@@ -66,6 +67,8 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   const [subPlan, setSubPlan] = useState<"free" | "pro">("free");
   const [subStatus, setSubStatus] = useState<string>("active");
   const [subUpdatedAt, setSubUpdatedAt] = useState<string | null>(null);
+  // payment-cancel dryRun 결과. null 이면 환불 불가(구독 해지만 가능).
+  const [refundQuote, setRefundQuote] = useState<RefundQuote | null>(null);
   const [subPeriodEnd, setSubPeriodEnd] = useState<string | null>(null);
   
   // 결제 관련 추가 상태
@@ -299,12 +302,24 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
   // 환불 요청 (안전한 우회 방식)
   const handleRefund = async () => {
-    if (!window.confirm(t("refundConfirm"))) return;
-    
+    if (!refundQuote) return;
+    // 견적은 서버가 준 값을 그대로 보여준다(클라이언트 재계산 금지).
+    const won = (n: number) => n.toLocaleString();
+    const detail = refundQuote.mode === "prorated"
+      ? t("refundBreakdown", {
+          paid: won(refundQuote.paidAmount),
+          days: refundQuote.daysUsed,
+          used: won(refundQuote.usedAmount),
+          penalty: won(refundQuote.penalty),
+          refund: won(refundQuote.refund),
+        })
+      : t("refundBreakdownFull", { refund: won(refundQuote.refund) });
+    if (!window.confirm(`${detail}\n\n${t("refundConfirm")}`)) return;
+
     try {
       if (!session?.user) return;
 
-      // 서버에서 7일/미사용 재검증 + 실제 Toss 취소 + FREE 강등 + 원장 환불
+      // 서버에서 자격 재검증 + 실제 Toss 취소 + FREE 강등 + 원장 환불
       const { data, error } = await supabase.functions.invoke("payment-cancel", { body: {} });
       if (error || !data?.success) {
         throw new Error(data?.error || error?.message || "환불 처리 실패");
@@ -463,12 +478,20 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     }
   };
 
-  const isRefundable = () => {
-    if (!subUpdatedAt) return false;
-    const diffTime = Math.abs(new Date().getTime() - new Date(subUpdatedAt).getTime());
-    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-    return diffDays <= 7;
-  };
+  // 환불 자격·예상 금액은 서버(payment-cancel dryRun)가 단일 판정한다.
+  // 클라이언트에서 기간이나 금액을 다시 계산하면 실제 환불액과 어긋난다.
+  useEffect(() => {
+    if (!session?.user || subPlan !== "pro" || subStatus !== "active") {
+      setRefundQuote(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.functions.invoke("payment-cancel", { body: { dryRun: true } });
+      if (alive) setRefundQuote(data?.eligible ? data : null);
+    })();
+    return () => { alive = false; };
+  }, [session?.user?.id, subPlan, subStatus, subUpdatedAt]);
 
   const update = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) =>
     setProfile((p) => ({ ...p, [k]: v }));
@@ -934,7 +957,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
                       {subStatus === "active" && (
                         <>
-                          {isRefundable() ? (
+                          {refundQuote ? (
                             <button
                               type="button"
                               className="b-btn"
