@@ -26,7 +26,7 @@
   "cardFormClose": "Close card registration",
   "cardFormChange": "Change payment card",
   "cardDelete": "Delete payment method",
-  "refundBtn": "Request instant refund within 7 days",
+  "refundBtn": "Request refund",
   "cancelSubBtn": "Cancel subscription (schedule end)",
   "restoreSubBtn": "Restore subscription (undo cancel)",
   "freePlanDesc": "You're on the web-only free plan. Try the desktop app, where the camera sensor keeps running without pausing even when you minimize or hide the window!",
@@ -74,7 +74,7 @@
     "kbLogo": "💳 KB Kookmin",
     "shinhanName": "Shinhan"
   },
-  "refundConfirm": "Are you sure you want to request an instant refund?\nReview begins immediately, and within 3 business days your plan will switch to FREE.",
+  "refundConfirm": "Request a refund?\nOnce the refund completes, your plan switches from PRO to FREE and premium features such as background monitoring become unavailable.",
   "refundSuccess": "Your refund request was safely received. After admin approval, the refund and subscription reclaim will complete within 3 days.",
   "refundError": "An error occurred while requesting the refund. Please contact support.",
   "cancelConfirm": "Are you sure you want to cancel your subscription?\nEven after canceling, you can keep using it until this month's commitment expiry.",
@@ -146,7 +146,7 @@
     "resume": "Keep my subscription (undo cancellation)",
     "changeToMonthly": "Switch to monthly (≈ $3.3/mo)",
     "changeToYearly": "Switch to yearly (≈ $24/yr)",
-    "immediateRefund": "Immediate refund & cancel",
+    "immediateRefund": "Request refund",
     "cancelPlan": "Cancel plan",
     "usageThisMonth": "This month's usage",
     "usageThisMonthPro": "This month's usage (PRO features)",
@@ -167,7 +167,7 @@
     "statusRefunded": "Refunded",
     "statusPaid": "Paid",
     "refundNoticeTitle": "Refund & auto-billing notice",
-    "refundNoticePre": "If it's within 7 days of payment AND you have no service usage history (desktop app monitoring), you can request an immediate 100% self-service full refund. If 7 days have passed or you've used monitoring even once, only auto-renewal cancellation is supported. For exceptional refunds due to payment errors, send your payment details to ",
+    "refundNoticePre": "If it is within 7 days of payment and you have no service usage history, we refund the full amount. Otherwise, annual plans are refunded after deducting the amount for days used and a penalty, while monthly plans can be cancelled and used until the paid period ends. The estimated refund is shown before you confirm. For exceptional refunds such as payment errors, contact ",
     "refundNoticePost": " and we'll review and process each one manually and promptly.",
     "chipFree": "Current plan · FREE",
     "freePlanName": "Free basic plan",
@@ -184,10 +184,12 @@
     "resumeConfirm": "Withdraw your cancellation request and keep your PRO subscription?\nAs before, billing and renewal will run automatically on the expiry date.",
     "resumeSuccess": "Your cancellation request was withdrawn successfully. Your PRO subscription continues!",
     "resumeError": "An error occurred while resuming the subscription.",
-    "refundConfirm": "Are you sure you want to cancel payment immediately and request a full refund?\n\nOnce the refund completes, you'll be immediately downgraded from PRO to FREE, and background monitoring and all premium benefits become unavailable.",
+    "refundConfirm": "Request a refund?\n\nOnce the refund completes, you are immediately switched from PRO to FREE, and background monitoring and all premium benefits become unavailable.",
     "refundSuccess": "Your immediate refund and payment cancellation are complete. Thank you for using BaroSit.",
     "refundError": "A problem occurred while processing the refund. Please contact support (support@barosit.com) and we'll check and help promptly.",
-    "mockNotice": "Payment integration is currently in integrated mock-test mode.\nBilling-cycle changes are handled manually, immediately, and safely via support (support@barosit.com). Email us and we'll help promptly!"
+    "mockNotice": "Payment integration is currently in integrated mock-test mode.\nBilling-cycle changes are handled manually, immediately, and safely via support (support@barosit.com). Email us and we'll help promptly!",
+    "refundBreakdown": "[Estimated refund]\n\nAmount paid: KRW {{paid}}\nDays used ({{days}}): -KRW {{used}}\nPenalty: -KRW {{penalty}}\n──────────────\nRefund: KRW {{refund}}",
+    "refundBreakdownFull": "[Estimated refund]\n\nYou qualify for a cooling-off withdrawal, so the full amount of KRW {{refund}} will be refunded."
   },
   "appleLogin": "Sign in with Apple",
   "emailLogin": "Sign in with email",
@@ -196,5 +198,7 @@
   "emailLoginGoing": "Signing in…",
   "emailLoginSubmit": "Sign in",
   "emailSignupLink": "Sign up by email",
-  "emailForgotLink": "Forgot password"
+  "emailForgotLink": "Forgot password",
+  "refundBreakdown": "[Estimated refund]\n\nAmount paid: KRW {{paid}}\nDays used ({{days}}): -KRW {{used}}\nPenalty: -KRW {{penalty}}\n──────────────\nRefund: KRW {{refund}}",
+  "refundBreakdownFull": "[Estimated refund]\n\nYou qualify for a cooling-off withdrawal, so the full amount of KRW {{refund}} will be refunded."
 }

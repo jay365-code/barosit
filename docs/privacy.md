@@ -22,7 +22,7 @@ BaroSit(이하 "본 서비스")은 사용자의 자세 건강을 도와드리기
 | 사업자등록번호 | {{ BUSINESS_NUMBER }} |
 | 통신판매업신고 | {{ MAIL_ORDER_NUMBER }} |
 | 주소 | {{ ADDRESS }} |
-| 연락처 | {{ CONTACT_EMAIL }} |
+| 연락처 | {{ CONTACT_EMAIL }} / {{ CONTACT_PHONE }} |
 
 ## 2. 핵심 원칙 — 온디바이스 처리
 
