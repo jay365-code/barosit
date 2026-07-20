@@ -228,8 +228,12 @@ export function resolveEffectivePlan(row: SubscriptionRow | null | undefined): "
   const periodValid =
     !!row.current_period_end && new Date(row.current_period_end) > new Date();
 
+  // active 도 기간을 검사한다. 예전에는 status 만 보고 PRO 를 내줬는데, 정기청구
+  // 배치가 멈추면 만료된 구독이 무기한 PRO 로 남는다(프로덕션에서 21일간 발생).
+  // 정상 청구되면 current_period_end 가 미래로 갱신되므로 구독자에겐 영향이 없다.
+  // grace_period 는 결제 실패 유예 중이라 기간이 지나 있는 게 정상이므로 제외한다.
   const ok =
-    row.status === "active" ||
+    (row.status === "active" && periodValid) ||
     row.status === "grace_period" ||
     (row.status === "canceled" && periodValid);
 

@@ -19,6 +19,15 @@ export async function getUser(req: Request, supabase: SupabaseClient) {
   return data.user;
 }
 
+// pg_cron 등 서버 내부에서만 불려야 하는 함수를 보호한다.
+// verify_jwt 기본값은 "유효한 JWT면 통과"라 로그인한 아무 사용자나 배치를 실행할 수
+// 있었다. 호출자의 Bearer 가 service_role 키와 일치할 때만 허용한다.
+export function isServiceRole(req: Request): boolean {
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!key) return false;
+  return (req.headers.get("Authorization") ?? "") === `Bearer ${key}`;
+}
+
 // 비식별 주문번호 생성 (timestamp 는 인자로 받아 결정성 유지)
 export function makeOrderId(prefix = "order"): string {
   return `${prefix}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;

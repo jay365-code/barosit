@@ -52,7 +52,15 @@ export const trackPaymentEvent = (
   console.log(`[Analytics]`, JSON.stringify(payload, null, 2));
 };
 
-const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+// 폴백 없음 — 미설정이 조용히 남의 상점 키로 흐르지 않도록 즉시 드러낸다(Marketing.tsx 주석 참조).
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY ?? "";
+
+function tossClient(lib: (key: string) => any) {
+  if (!TOSS_CLIENT_KEY) {
+    throw new Error("결제 설정이 완료되지 않았습니다. 관리자에게 문의해 주세요. (VITE_TOSS_CLIENT_KEY 미설정)");
+  }
+  return lib(TOSS_CLIENT_KEY);
+}
 
 interface Props {
   onClose: () => void;
@@ -292,7 +300,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
 
     try {
       const TossPaymentsLib = await loadTossPayments();
-      const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
+      const toss = tossClient(TossPaymentsLib);
       
       // 정기결제 customerKey 는 user 당 안정적(결정적)이어야 한다(§11 M2) — 매번
       // 랜덤이면 카드 변경 시 Toss 측 고객-빌링키 연결이 분기돼 추적이 어렵다.

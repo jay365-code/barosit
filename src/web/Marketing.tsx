@@ -5754,7 +5754,18 @@ function loadTossPayments(): Promise<any> {
   });
 }
 
-const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+// 폴백을 두지 않는다. 예전에는 토스 문서의 공용 샘플 키를 폴백으로 썼는데, 환경변수가
+// 비면 조용히 남의 상점 키로 결제를 시도해 빌링키 발급 단계에서야 실패했다. 더 위험한 건
+// 라이브 전환 후 환경변수를 빠뜨리면 테스트 키로 결제가 흘러 매출이 실제로 잡히지 않는
+// 것이다. 미설정은 즉시 드러나야 한다.
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY ?? "";
+
+function tossClient(lib: (key: string) => any) {
+  if (!TOSS_CLIENT_KEY) {
+    throw new Error("결제 설정이 완료되지 않았습니다. 관리자에게 문의해 주세요. (VITE_TOSS_CLIENT_KEY 미설정)");
+  }
+  return lib(TOSS_CLIENT_KEY);
+}
 
 function Pricing() {
   const { t } = useTranslation("pricing");
@@ -5982,7 +5993,7 @@ function Pricing() {
 
     try {
       const TossPaymentsLib = await loadTossPayments();
-      const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
+      const toss = tossClient(TossPaymentsLib);
 
       // user 당 안정적 customerKey (§11 M2)
       const customerKey = activeUser
@@ -6909,7 +6920,7 @@ function PlanTab({
     if (!user) return;
     try {
       const TossPaymentsLib = await loadTossPayments();
-      const toss = TossPaymentsLib(TOSS_CLIENT_KEY);
+      const toss = tossClient(TossPaymentsLib);
       
       const customerKey = `cust-${user.id}`; // user 당 안정적 (§11 M2)
       
