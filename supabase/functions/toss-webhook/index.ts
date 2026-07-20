@@ -57,17 +57,43 @@ serve(async (req) => {
 
     // 기존 원장 행을 멱등하게 동기화 (행은 우리 결제 핸들러가 먼저 적재).
     // user_id NOT NULL 이라 신규 insert 는 하지 않고 update 만 — 누락 시 0행.
-    const status = ledger.status === "DONE" ? "completed"
-      : ledger.status === "CANCELED" ? "refunded"
-      : "pending";
+    //
+    // 예전에는 DONE/CANCELED 외 전부 pending 으로 뭉갰다. 그래서 부분 취소
+    // (PARTIAL_CANCELED) 웹훅이 도착하면 우리가 partially_refunded 로 기록한 행을
+    // pending 으로 덮어써, payment-cancel 의 조회 필터에서도 admin-refund 의 재환불
+    // 차단에서도 빠지는 고아 상태가 됐다. 상태를 하나씩 명시적으로 매핑한다.
+    const STATUS_MAP: Record<string, string> = {
+      DONE: "completed",
+      CANCELED: "refunded",
+      PARTIAL_CANCELED: "partially_refunded",
+      ABORTED: "failed",
+      EXPIRED: "failed",
+      READY: "pending",
+      IN_PROGRESS: "pending",
+      WAITING_FOR_DEPOSIT: "pending",
+    };
+    const status = STATUS_MAP[ledger.status] ?? "pending";
+    if (!(ledger.status in STATUS_MAP)) {
+      console.warn("webhook: 알 수 없는 Toss status", ledger.status, "→ pending", orderId);
+    }
+
+    // totalAmount 는 취소 후에도 결제 원금 그대로다(토스 문서 확인). balanceAmount 가
+    // 남은 취소가능액이므로 그 차이가 누적 환불액이다. 취소 상태일 때만 반영한다.
+    const patch: Record<string, unknown> = {
+      payment_key: ledger.paymentKey ?? null,
+      amount: ledger.totalAmount ?? 0,
+      status,
+      updated_at: new Date().toISOString(),
+    };
+    if (status === "refunded" || status === "partially_refunded") {
+      const total = Number(ledger.totalAmount ?? 0);
+      const balance = Number(ledger.balanceAmount ?? total);
+      patch.refunded_amount = Math.max(0, total - balance);
+      patch.refunded_at = new Date().toISOString();
+    }
 
     const { data: updated } = await supabase.from("billing_history")
-      .update({
-        payment_key: ledger.paymentKey ?? null,
-        amount: ledger.totalAmount ?? 0,
-        status,
-        updated_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq("order_id", orderId)
       .select("id");
 
