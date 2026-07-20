@@ -54,7 +54,21 @@ serve(async (req) => {
         continue;
       }
 
-      if (!sub.billing_key || !sub.customer_key) { results.skipped++; continue; }
+      // 결제수단이 없으면 청구할 수 없다. 예전에는 skip 만 하고 넘어갔는데, 만기가
+      // 지난 구독이 매 배치 skip 되며 강등 로직에 영원히 도달하지 못했다. 사용자가
+      // 프로필에서 카드를 삭제하면 billing_key 만 NULL 이 되고 plan_id 는 pro 로
+      // 남으므로, 카드 삭제 = 영구 무료 PRO 가 됐다. 만기가 지난 건은 정리한다.
+      if (!sub.billing_key || !sub.customer_key) {
+        await supabase.from("user_subscriptions").update({
+          plan_id: "free", status: "none",
+          billing_key: null, customer_key: null,
+          current_period_end: null, grace_period_until: null,
+          billing_cycle: null,
+          updated_at: new Date().toISOString(),
+        }).eq("user_id", sub.user_id);
+        results.cleaned++;
+        continue;
+      }
 
       // 더닝 재시도 최소 간격(2일) 가드 — grace 중 매일 재청구 방지(§11 M3).
       if (sub.status === "grace_period" && sub.last_dunning_at) {
@@ -73,7 +87,37 @@ serve(async (req) => {
         continue;
       }
 
-      const cycle: BillingCycle = sub.billing_cycle === "yearly" ? "yearly" : "monthly";
+      // 주기 판정. 예전에는 NULL 을 조용히 monthly 로 떨어뜨려, billing_cycle 이 비어
+      // 있는 연간 구독자에게 월 요금만 청구됐다(fail-silent 수익 누수). NULL 이면
+      // 원장의 최근 결제 주기로 복구하고, 그것도 없으면 청구하지 않고 알린다.
+      let cycle: BillingCycle | null =
+        sub.billing_cycle === "yearly" ? "yearly" : sub.billing_cycle === "monthly" ? "monthly" : null;
+      if (!cycle) {
+        const { data: lastPay } = await supabase
+          .from("billing_history")
+          .select("billing_cycle")
+          .eq("user_id", sub.user_id).eq("kind", "payment")
+          .not("billing_cycle", "is", null)
+          .order("created_at", { ascending: false }).limit(1);
+        const recovered = lastPay?.[0]?.billing_cycle;
+        cycle = recovered === "yearly" ? "yearly" : recovered === "monthly" ? "monthly" : null;
+        if (cycle) {
+          // 다음 배치부터 다시 조회하지 않도록 구독 행을 보정한다.
+          await supabase.from("user_subscriptions")
+            .update({ billing_cycle: cycle, updated_at: new Date().toISOString() })
+            .eq("user_id", sub.user_id);
+        }
+      }
+      if (!cycle) {
+        console.error("charge-renewals: billing_cycle 판정 불가 user", sub.user_id);
+        await supabase.from("admin_notifications").insert({
+          event_type: "billing_cycle_missing", severity: "warning",
+          message: `결제 주기를 판정할 수 없어 청구를 건너뜀: user ${sub.user_id}`,
+          payload: { user_id: sub.user_id },
+        });
+        results.skipped++;
+        continue;
+      }
       const amount = PRICE[cycle];
       const orderId = makeOrderId("renew");
 
