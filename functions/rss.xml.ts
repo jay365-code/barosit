@@ -1,7 +1,7 @@
 // Cloudflare Pages Function — 블로그 RSS 피드(/rss.xml).
 // 네이버 서치어드바이저는 사이트맵보다 RSS 제출 시 수집 주기가 짧아, 신규 글 발견용으로 별도 제공.
 // UGC 잡담이 섞이면 피드 품질이 떨어지므로 운영자 콘텐츠(공지·블로그)만 싣는다.
-import { Env, SITE, supabaseCreds, escapeXml, stripMarkdown, truncate } from "./_shared/ssr";
+import { Env, SITE, supabaseCreds, escapeXml, stripMarkdown } from "./_shared/ssr";
 
 const EDITORIAL_CATEGORIES = ["📣 공지", "📝 블로그"];
 
@@ -53,9 +53,10 @@ async function build(context: { env: Env; request: Request }) {
     rows = [];
   }
 
+  // 전문을 싣는 만큼 항목 수로 총량을 묶는다(네이버는 본문 크기에 따라 제출을 제한할 수 있음).
   const posts = rows
     .filter((r) => r.category !== null && EDITORIAL_CATEGORIES.includes(r.category))
-    .slice(0, 50);
+    .slice(0, 30);
 
   const items = posts
     .map((p) => {
@@ -68,7 +69,8 @@ async function build(context: { env: Env; request: Request }) {
         `      <guid isPermaLink="true">${escapeXml(link)}</guid>\n` +
         (pub ? `      <pubDate>${pub}</pubDate>\n` : "") +
         (p.category ? `      <category>${escapeXml(p.category)}</category>\n` : "") +
-        `      <description>${escapeXml(truncate(stripMarkdown(p.content || ""), 300))}</description>\n` +
+        // 네이버 RSS 도움말: 본문 전체 제공 권장(요약만 넣으면 도입부만 색인된다).
+        `      <description>${escapeXml(stripMarkdown(p.content || ""))}</description>\n` +
         `    </item>`
       );
     })
