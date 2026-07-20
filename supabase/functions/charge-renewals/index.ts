@@ -9,7 +9,7 @@
 // 빌링키/customerKey 는 암호화 저장(§ crypto)되어 청구 전 복호화한다.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
-import { adminClient, makeOrderId } from "../_shared/admin.ts";
+import { adminClient, makeOrderId, isServiceRole } from "../_shared/admin.ts";
 import { chargeBilling, PRICE, type BillingCycle } from "../_shared/toss.ts";
 import { sendUserEmail, tplPaymentFailed, tplDowngraded } from "../_shared/email.ts";
 import { decryptSecret } from "../_shared/crypto.ts";
@@ -22,6 +22,10 @@ const MAX_DUNNING_ATTEMPTS = 3;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // 청구 배치는 pg_cron 전용이다. verify_jwt 만으로는 로그인한 아무 사용자나
+  // 임의 시점에 전체 만기 구독의 청구·더닝을 강제 실행할 수 있었다.
+  if (!isServiceRole(req)) return json({ error: "Forbidden" }, 403);
 
   try {
     const supabase = adminClient();
