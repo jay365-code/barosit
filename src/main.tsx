@@ -25,7 +25,18 @@ reconcileProfileCache();
 if (typeof window !== "undefined") {
   const params = new URLSearchParams(window.location.search);
   const redirectRoute = params.get("redirect_route");
-  if (redirectRoute === "pricing") {
+  // 데스크톱 앱이 결제를 웹으로 위임하며 연 경우(from=desktop). 브라우저는 앱과
+  // 세션을 공유하지 않아 대개 로그아웃 상태이고, 비로그인은 테스터 판정이 안 돼
+  // 베타 가드가 #/pricing 을 #/landing 으로 되돌린다. 그래서 앱은 #/login 으로
+  // 열고, 여기서 로그인 후 목적지를 심어 둔다(Login 이 읽어 복귀).
+  // 이미 로그인된 브라우저면 Login 이 즉시 이 값을 읽어 요금제로 통과시킨다.
+  if (redirectRoute === "pricing" && params.get("from") === "desktop") {
+    try {
+      localStorage.setItem("barosit:auth_redirect", "#/pricing");
+    } catch {
+      /* localStorage 비활성 — 로그인 후 랜딩으로 떨어질 뿐, 치명적이지 않음 */
+    }
+  } else if (redirectRoute === "pricing") {
     window.location.hash = "#/pricing";
   } else if (redirectRoute === "app") {
     window.location.hash = "#/app";

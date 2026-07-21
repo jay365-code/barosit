@@ -88,7 +88,7 @@
   },
   "krwNote": "",
   "externalWaiting": "브라우저에서 결제를 진행해 주세요",
-  "externalWaitingDesc": "결제가 완료되면 이 화면이 자동으로 PRO로 바뀝니다. 브라우저 창이 열리지 않았다면 아래 버튼을 눌러주세요.",
+  "externalWaitingDesc": "브라우저에서 앱과 같은 계정으로 로그인한 뒤 결제를 진행해 주세요. 완료되면 이 화면이 자동으로 PRO로 바뀝니다.",
   "externalReopen": "결제 페이지 다시 열기",
   "externalOpenFailed": "브라우저를 열지 못했습니다. 직접 접속해 주세요: {{url}}"
 }

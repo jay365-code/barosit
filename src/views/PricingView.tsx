@@ -25,14 +25,24 @@ import { IS_WEB } from "../platform";
 // origin 의 http 여부로 판별하면 안 된다. Tauri v2 의 앱 origin 은 macOS 가
 // tauri://localhost 지만 Windows 는 http://tauri.localhost 라, http 검사로는
 // Windows 프로덕션 앱이 개발로 오인돼 열 수 없는 주소가 만들어진다.
-function webPricingUrl(): string {
+// 목적지는 #/pricing 이 아니라 #/login 이다. 브라우저는 앱과 세션을 공유하지
+// 않아 대개 로그아웃 상태인데, 비로그인은 테스터로 판정될 수 없어 베타 가드가
+// #/pricing 을 #/landing 으로 돌려보낸다(Marketing.tsx 의 checkRedirect).
+// from=desktop 을 보고 main.tsx 가 barosit:auth_redirect 에 #/pricing 을 심어
+// 두므로, 로그인을 마치면 요금제로 이어진다. 이미 로그인된 브라우저라면
+// Login 컴포넌트가 즉시 같은 값을 읽어 통과시킨다.
+function webPricingBase(): string {
   const explicit = import.meta.env.VITE_WEB_ORIGIN as string | undefined;
-  if (explicit) return `${explicit.replace(/\/$/, "")}/#/pricing`;
+  if (explicit) return explicit.replace(/\/$/, "");
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   if (import.meta.env.DEV && /^https?:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(origin)) {
-    return `${origin}/#/pricing`;
+    return origin;
   }
-  return "https://barosit.com/#/pricing";
+  return "https://barosit.com";
+}
+
+function webPricingUrl(): string {
+  return `${webPricingBase()}/?redirect_route=pricing&from=desktop#/login`;
 }
 
 // 토스페이먼츠 SDK 동적 로더
