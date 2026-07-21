@@ -4,7 +4,12 @@
 
 ## 1. 환경변수 / 시크릿 위치별 정리
 
-### 1.1. 프론트엔드 빌드 (`.env.local` / Cloudflare Pages 환경변수) — `VITE_` 접두사만 번들에 포함
+### 1.1. 프론트엔드 빌드 (`.env.local` / Cloudflare Pages 환경변수 / **GitHub Secrets**) — `VITE_` 접두사만 번들에 포함
+
+> ⚠️ 주입 지점이 **세 곳**이다. 로컬은 `.env.local`, 웹은 Cloudflare Pages 환경변수,
+> **데스크톱 앱은 GitHub Secrets**(`release.yml`·`windows-msix.yml`). 웹만 설정하고
+> GitHub Secrets 를 빠뜨리면 웹은 정상인데 앱에서만 결제가 죽는다 — v0.9.13 까지 실제로 그랬다.
+> 폴백이 없는 `VITE_TOSS_CLIENT_KEY` 만 증상이 드러나고, 나머지는 소스 폴백으로 조용히 넘어간다.
 | 키 | 값 | 비고 |
 |---|---|---|
 | `VITE_SUPABASE_URL` | `https://<ref>.supabase.co` | anon key 와 함께 public 노출 OK |
@@ -30,6 +35,7 @@
 ### 1.4. GitHub Secrets (릴리스 CI — `release.yml`)
 | 키 | 용도 | 상태 |
 |---|---|---|
+| `VITE_TOSS_CLIENT_KEY` | **데스크톱 앱 빌드타임 주입** — 없으면 앱에서 결제 진입이 즉시 실패 | ⬜ 등록 필요 |
 | `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` | 자동 업데이트 minisign 서명 | ✅ 등록됨 |
 | `APPLE_CERTIFICATE` / `_PASSWORD` / `APPLE_SIGNING_IDENTITY` / `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` | macOS 코드서명·공증 | ✅ 등록됨 |
 | (선택) Windows 코드서명 인증서 | SmartScreen 회피 | ⬜ 인증서 구매 후 |

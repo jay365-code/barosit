@@ -37,8 +37,23 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      # release.yml 과 같은 이유 — build-msix.ps1 이 `npm run tauri build` 로 프론트를
+      # 다시 빌드하므로, 여기서도 VITE_* 를 넘기지 않으면 결제가 죽은 MSIX 가 나온다.
+      - name: Verify frontend build secrets
+        shell: bash
+        env:
+          VITE_TOSS_CLIENT_KEY: ${{ secrets.VITE_TOSS_CLIENT_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VITE_TOSS_CLIENT_KEY:-}" ]; then
+            echo "::error::VITE_TOSS_CLIENT_KEY secret 이 없습니다. 이대로 빌드하면 결제가 동작하지 않는 MSIX 가 만들어집니다."
+            exit 1
+          fi
+
       - name: Build MSIX
         shell: pwsh
+        env:
+          VITE_TOSS_CLIENT_KEY: ${{ secrets.VITE_TOSS_CLIENT_KEY }}
         run: pwsh scripts/build-msix.ps1
 
       - name: Upload MSIX artifact

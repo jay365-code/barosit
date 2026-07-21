@@ -109,10 +109,34 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
+      # 프론트엔드 빌드타임 주입값 검증 — Vite 는 import.meta.env.VITE_* 를 빌드 시점에
+      # 치환하므로, 여기 없으면 앱에 빈 문자열이 박힌 채로 서명·공증까지 통과해 배포된다.
+      # v0.9.13 까지 실제로 그렇게 나갔고, 데스크톱 앱에서 결제 진입이 즉시 실패했다.
+      # (웹은 Cloudflare Pages 환경변수로 주입돼 정상이었어서 증상이 앱에만 나타났다.)
+      - name: Verify frontend build secrets
+        shell: bash
+        env:
+          VITE_TOSS_CLIENT_KEY: ${{ secrets.VITE_TOSS_CLIENT_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VITE_TOSS_CLIENT_KEY:-}" ]; then
+            echo "::error::VITE_TOSS_CLIENT_KEY secret 이 없습니다. 이대로 빌드하면 결제가 동작하지 않는 앱이 배포됩니다. Settings → Secrets → Actions 에 등록 후 다시 실행하세요."
+            exit 1
+          fi
+          case "$VITE_TOSS_CLIENT_KEY" in
+            test_ck_*) echo "::warning title=테스트 결제키::테스트 클라이언트 키(test_ck_)로 빌드합니다. 실결제가 필요하면 live_ck_ 로 교체하세요." ;;
+            live_ck_*) echo "라이브 클라이언트 키로 빌드합니다." ;;
+            *) echo "::error::VITE_TOSS_CLIENT_KEY 형식이 올바르지 않습니다 (test_ck_ / live_ck_ 로 시작해야 함)."; exit 1 ;;
+          esac
+
       - name: Build, sign, and publish to GitHub Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 프론트엔드 빌드타임 주입 — 없으면 결제 진입이 즉시 실패한다(폴백 없음, 의도적).
+          # Toss "클라이언트" 키는 공개되어도 되는 값이라 웹 번들에도 그대로 실린다.
+          # Secret 키(TOSS_SECRET_KEY)는 절대 여기 두지 않는다 — Edge Function 전용.
+          VITE_TOSS_CLIENT_KEY: ${{ secrets.VITE_TOSS_CLIENT_KEY }}
           # 자동 업데이트(minisign) 서명 — Apple 코드서명과 별개
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
