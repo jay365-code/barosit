@@ -136,7 +136,7 @@ serve(async (req) => {
     //    권리액의 두 배가 나갈 수 있었다. 읽은 시점의 status/refunded_amount 를
     //    조건에 걸어 갱신하고, 0행이면 다른 요청이 이미 선점한 것이므로 중단한다.
     const claimStatus = isFullRefund ? "refunded" : "partially_refunded";
-    const { data: claimed } = await supabase.from("billing_history")
+    const claim = supabase.from("billing_history")
       .update({
         status: claimStatus,
         // 누적. admin-refund 와 의미를 통일한다(예전에는 여기서 덮어써서 어드민이
@@ -146,9 +146,18 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       })
       .eq("id", latest.id)
-      .eq("status", latest.status)
-      .eq("refunded_amount", alreadyRefunded)
-      .select("id");
+      .eq("status", latest.status);
+
+    // refunded_amount 가 NULL 인 행(=환불 이력 없는 신규 결제)을 0 과 비교하면 SQL 에서
+    // 매칭되지 않는다. 그대로 두면 CAS 가 항상 0행을 반환해 정상 환불이 전부 409 로
+    // 막힌다 — 실제로 심사용 테스트 결제의 청약철회가 이 이유로 실패했다.
+    // 마이그레이션에서 DEFAULT 0 + 백필을 했지만, 과거 행이나 다른 경로로 NULL 이
+    // 들어와도 깨지지 않도록 여기서도 NULL 을 0 으로 취급한다.
+    const { data: claimed } = await (
+      alreadyRefunded === 0
+        ? claim.or("refunded_amount.is.null,refunded_amount.eq.0")
+        : claim.eq("refunded_amount", alreadyRefunded)
+    ).select("id");
 
     if (!claimed || claimed.length === 0) {
       return json({ error: "환불이 이미 처리 중이거나 완료되었습니다." }, 409);
