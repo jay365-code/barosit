@@ -343,9 +343,9 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
     <div className="b-overlay" style={{ backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", padding: "16px" }}>
       <style>{`
         .pricing-modal {
-          background: rgba(21, 24, 26, 0.95);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 30px 100px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+          background: var(--b-elev);
+          border: 1px solid var(--b-line-2);
+          box-shadow: var(--b-shadow-modal);
           width: 100%;
           max-width: 780px;
           border-radius: 24px;
@@ -372,7 +372,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           position: absolute;
           top: 20px;
           right: 20px;
-          background: rgba(255, 255, 255, 0.05);
+          background: var(--b-surface-2);
           border: none;
           color: var(--b-fg-2);
           width: 32px;
@@ -386,7 +386,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           z-index: 10;
         }
         .pricing-close-btn:hover {
-          background: rgba(255, 255, 255, 0.12);
+          background: var(--b-line-3);
           color: var(--b-fg-1);
         }
 
@@ -399,7 +399,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           font-weight: 800;
           margin: 0 0 8px;
           letter-spacing: -0.02em;
-          background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.7) 100%);
+          background: linear-gradient(135deg, var(--b-fg-1) 30%, var(--b-fg-2) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
@@ -416,8 +416,8 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           margin-bottom: 32px;
         }
         .pricing-cycle-bar {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: var(--b-surface-2);
+          border: 1px solid var(--b-line);
           padding: 4px;
           border-radius: 999px;
           display: flex;
@@ -439,8 +439,8 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           gap: 6px;
         }
         .pricing-cycle-btn.active {
-          background: rgba(126, 176, 156, 0.15);
-          color: #7eb09c;
+          background: var(--b-sig-soft);
+          color: var(--b-sig-deep);
         }
         .pricing-save-badge {
           background: #e08866;
@@ -467,8 +467,8 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
         }
 
         .pricing-plan-card {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--b-surface-2);
+          border: 1px solid var(--b-line);
           border-radius: 20px;
           padding: 28px 24px;
           display: flex;
@@ -478,18 +478,18 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
         }
         .pricing-plan-card:hover {
           transform: translateY(-2px);
-          border-color: rgba(255, 255, 255, 0.08);
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+          border-color: var(--b-line-2);
+          box-shadow: var(--b-shadow-card);
         }
 
         .pricing-plan-card.pro-card {
-          background: linear-gradient(180deg, rgba(126, 176, 156, 0.06) 0%, rgba(21, 24, 26, 0.4) 100%);
-          border-color: rgba(126, 176, 156, 0.35);
+          background: linear-gradient(180deg, var(--b-sig-bg) 0%, var(--b-surface-2) 100%);
+          border-color: var(--b-sig-soft);
           box-shadow: 0 0 30px rgba(126, 176, 156, 0.05);
         }
         .pricing-plan-card.pro-card:hover {
-          border-color: rgba(126, 176, 156, 0.6);
-          box-shadow: 0 0 40px rgba(126, 176, 156, 0.12), 0 8px 30px rgba(0, 0, 0, 0.4);
+          border-color: var(--b-sig);
+          box-shadow: 0 0 40px rgba(126, 176, 156, 0.12), var(--b-shadow-card);
         }
 
         .pro-badge {
@@ -514,7 +514,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           margin: 0 0 8px;
         }
         .pro-card .pricing-plan-name {
-          color: #7eb09c;
+          color: var(--b-sig-deep);
         }
 
         .pricing-plan-price {
@@ -557,16 +557,16 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
         }
 
         .free-btn {
-          background: rgba(255, 255, 255, 0.05);
+          background: var(--b-surface);
           color: var(--b-fg-2);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid var(--b-line-2);
         }
         .free-btn:hover {
-          background: rgba(255, 255, 255, 0.09);
+          background: var(--b-elev);
           color: var(--b-fg-1);
         }
         .free-btn.current {
-          background: rgba(255, 255, 255, 0.03);
+          background: var(--b-line);
           color: var(--b-fg-4);
           cursor: default;
           border-color: transparent;
@@ -582,9 +582,9 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           box-shadow: 0 6px 20px rgba(91, 140, 122, 0.35);
         }
         .pro-btn.current {
-          background: rgba(126, 176, 156, 0.1);
-          color: #7eb09c;
-          border: 1px solid rgba(126, 176, 156, 0.2);
+          background: var(--b-sig-bg);
+          color: var(--b-sig-deep);
+          border: 1px solid var(--b-sig-soft);
           cursor: default;
           box-shadow: none;
         }
@@ -613,12 +613,12 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           flex-shrink: 0;
           margin-top: 1px;
         }
-        .bullet-icon.check { color: #7eb09c; }
+        .bullet-icon.check { color: var(--b-sig); }
         .bullet-icon.x { color: var(--b-warn, #e08866); }
 
         /* Detail Table Link */
         .pricing-legal-footer {
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          border-top: 1px solid var(--b-line);
           padding-top: 16px;
           display: flex;
           justify-content: space-between;
@@ -627,7 +627,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           color: var(--b-fg-4);
         }
         .pricing-legal-footer a {
-          color: #7eb09c;
+          color: var(--b-sig-deep);
           text-decoration: underline;
           cursor: pointer;
         }
@@ -636,7 +636,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
         .checkout-loading-overlay {
           position: absolute;
           inset: 0;
-          background: rgba(15, 18, 20, 0.95);
+          background: var(--b-elev);
           z-index: 20;
           display: flex;
           flex-direction: column;
@@ -647,8 +647,8 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
         .spinner {
           width: 48px;
           height: 48px;
-          border: 3px solid rgba(126, 176, 156, 0.1);
-          border-top-color: #7eb09c;
+          border: 3px solid var(--b-sig-soft);
+          border-top-color: var(--b-sig);
           border-radius: 50%;
           animation: spin 1s infinite linear;
         }
@@ -669,12 +669,12 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           width: 64px;
           height: 64px;
           border-radius: 50%;
-          background: rgba(126, 176, 156, 0.1);
-          border: 2px solid #7eb09c;
+          background: var(--b-sig-bg);
+          border: 2px solid var(--b-sig);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #7eb09c;
+          color: var(--b-sig-deep);
           margin-bottom: 20px;
           font-size: 32px;
           animation: successPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
@@ -688,7 +688,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           font-size: 20px;
           font-weight: 800;
           margin: 0 0 12px;
-          color: #fff;
+          color: var(--b-fg-1);
         }
         .success-desc {
           font-size: 13px;
@@ -708,8 +708,8 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           margin-bottom: 24px;
         }
         .download-box {
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: var(--b-surface-2);
+          border: 1px solid var(--b-line);
           border-radius: 16px;
           padding: 20px 16px;
           display: flex;
@@ -719,8 +719,8 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           transition: background 0.2s, border-color 0.2s, transform 0.15s;
         }
         .download-box:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(126, 176, 156, 0.4);
+          background: var(--b-surface);
+          border-color: var(--b-sig);
           transform: translateY(-2px);
         }
         .download-box:active {
@@ -730,11 +730,11 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           font-size: 13px;
           font-weight: 700;
           margin: 10px 0 4px;
-          color: #fff;
+          color: var(--b-fg-1);
         }
         .download-btn-label {
           font-size: 11px;
-          color: #7eb09c;
+          color: var(--b-sig-deep);
           font-weight: 600;
         }
 
@@ -779,7 +779,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           <div className="checkout-loading-overlay">
             <div className="spinner" />
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "#fff" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--b-fg-1)" }}>
                 {t("approving")}
               </div>
               <div style={{ fontSize: 12, color: "var(--b-fg-3)" }}>
@@ -873,7 +873,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                   <div className="pricing-plan-price">
                     {billingCycle === "yearly" ? (
                       <>
-                        <span className="amount" style={{ color: "#7eb09c" }}>{t("pro.yearAmount")}</span>
+                        <span className="amount" style={{ color: "var(--b-sig-deep)" }}>{t("pro.yearAmount")}</span>
                         <span className="unit" style={{ marginLeft: 4 }}>{t("pro.yearUnit")}</span>
                       </>
                     ) : (
@@ -960,7 +960,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                   className="download-box"
                   onClick={() => alert(t("macSoon"))}
                 >
-                  <Icon name="sparkle" size={28} style={{ color: "#7eb09c" }} />
+                  <Icon name="sparkle" size={28} style={{ color: "var(--b-sig)" }} />
                   <span className="download-os-name">{t("macOnly")}</span>
                   <span className="download-btn-label">Tauri 2 App (.dmg)</span>
                 </a>
@@ -968,7 +968,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                   className="download-box"
                   onClick={() => alert(t("winSoon"))}
                 >
-                  <Icon name="cpu" size={28} style={{ color: "#7eb09c" }} />
+                  <Icon name="cpu" size={28} style={{ color: "var(--b-sig)" }} />
                   <span className="download-os-name">{t("winOnly")}</span>
                   <span className="download-btn-label">Tauri 2 App (.exe)</span>
                 </a>
