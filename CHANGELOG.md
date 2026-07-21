@@ -31,6 +31,20 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.14 — 2026-07-21
+
+**한국어**
+
+- 결제 후 완료·승인 대기 화면이 정상적으로 표시됩니다.
+- 앱에서 결제가 되지 않던 문제를 수정했습니다.
+- 심사 환경에서 결제가 차단되던 문제를 해결했습니다.
+
+**English**
+
+- The payment confirmation and approval screens now display correctly after checkout.
+- Fixed an issue where in-app payments could not be completed.
+- Resolved an issue that prevented payments from going through in review environments.
+
 ## v0.9.13 — 2026-07-21
 
 **한국어**
