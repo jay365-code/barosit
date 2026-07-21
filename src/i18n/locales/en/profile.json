@@ -184,7 +184,13 @@
     "refundError": "A problem occurred while processing the refund. Please contact support (support@barosit.com) and we'll check and help promptly.",
     "mockNotice": "Payment integration is currently in integrated mock-test mode.\nBilling-cycle changes are handled manually, immediately, and safely via support (support@barosit.com). Email us and we'll help promptly!",
     "refundBreakdown": "[Estimated refund]\n\nAmount paid: KRW {{paid}}\nDays used ({{days}}): -KRW {{used}}\nPenalty: -KRW {{penalty}}\n──────────────\nRefund: KRW {{refund}}",
-    "refundBreakdownFull": "[Estimated refund]\n\nYou qualify for a cooling-off withdrawal, so the full amount of KRW {{refund}} will be refunded."
+    "refundBreakdownFull": "[Estimated refund]\n\nYou qualify for a cooling-off withdrawal, so the full amount of KRW {{refund}} will be refunded.",
+    "paymentMethod": "Payment method on file",
+    "deleteCard": "Remove payment method",
+    "deleteCardNeedsCancel": "To remove your payment method, cancel your subscription below first. You'll keep access until the current period ends.",
+    "deleteCardConfirm": "Remove the payment method on file?\n\nAutomatic recurring billing will stop. You'll need to add a payment method again to resubscribe.",
+    "deleteCardDone": "Payment method removed.",
+    "deleteCardError": "Something went wrong while removing the payment method. Please contact support."
   },
   "appleLogin": "Sign in with Apple",
   "emailLogin": "Sign in with email",

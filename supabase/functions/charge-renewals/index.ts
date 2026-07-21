@@ -50,7 +50,7 @@ serve(async (req) => {
       if (sub.status === "canceled") {
         await supabase.from("user_subscriptions").update({
           plan_id: "free", status: "none",
-          billing_key: null, customer_key: null,
+          billing_key: null, customer_key: null, card_info: null,
           current_period_end: null, grace_period_until: null,
           updated_at: new Date().toISOString(),
         }).eq("user_id", sub.user_id);
@@ -65,7 +65,7 @@ serve(async (req) => {
       if (!sub.billing_key || !sub.customer_key) {
         await supabase.from("user_subscriptions").update({
           plan_id: "free", status: "none",
-          billing_key: null, customer_key: null,
+          billing_key: null, customer_key: null, card_info: null,
           current_period_end: null, grace_period_until: null,
           billing_cycle: null,
           updated_at: new Date().toISOString(),
@@ -212,7 +212,7 @@ serve(async (req) => {
           // 유예 만료 또는 최대 재시도(3회) 초과 → FREE 강등 + 빌링키 비활성화 (§11 M3)
           await supabase.from("user_subscriptions").update({
             plan_id: "free", status: "none",
-            billing_key: null, customer_key: null,
+            billing_key: null, customer_key: null, card_info: null,
             current_period_end: null, grace_period_until: null,
             dunning_attempts: attempts,
             last_dunning_at: nowIsoTs,

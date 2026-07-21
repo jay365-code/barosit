@@ -6819,12 +6819,22 @@ function PlanTab({
   const [latestPayment, setLatestPayment] = useState<any>(null);
   // payment-cancel dryRun 결과. null 이면 환불 불가(구독 해지만 가능).
   const [refundQuote, setRefundQuote] = useState<RefundQuote | null>(null);
+  // 등록된 결제수단(카드사·마스킹 번호). raw 카드 데이터는 우리가 보관하지 않는다.
+  const [cardInfo, setCardInfo] = useState<any>(null);
 
   useEffect(() => {
     const fetchHistoryAndRefundStatus = async () => {
       if (!user) return;
       try {
         setLoadingHistory(true);
+        // 등록된 결제수단 — 정기결제를 위해 빌링키를 보관하므로 이용자가 무엇이
+        // 등록돼 있는지 확인할 수 있어야 한다.
+        const { data: subRow } = await supabase
+          .from("user_subscriptions")
+          .select("card_info")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        setCardInfo(subRow?.card_info ?? null);
         // 결제 내역 조회
         const { data: history, error } = await supabase
           .from("billing_history")
@@ -7036,6 +7046,27 @@ function PlanTab({
     }
   };
 
+  // 결제수단 삭제 — 서버(subscription-manage)가 자격을 판정한다.
+  // 활성 구독 중에는 거절되고(cancel_required) 해지 안내를 띄운다. "구독 중인데
+  // 결제수단 없음"은 정합적이지 않은 상태라, 넷플릭스·스포티파이 등도 동일하게
+  // 마지막 결제수단 삭제는 해지 후에만 허용한다. 교체는 언제든 가능하다.
+  const handleDeleteCard = async () => {
+    if (!window.confirm(t("web.deleteCardConfirm"))) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("subscription-manage", {
+        body: { action: "delete_card" },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || t("web.deleteCardError"));
+      }
+      setCardInfo(null);
+      window.alert(t("web.deleteCardDone"));
+      onUpdateSubscription();
+    } catch (err: any) {
+      window.alert(err?.message || t("web.deleteCardError"));
+    }
+  };
+
   // 모의 테스트 결제 수단 / 주기 변경 알림
   const handleMockNotice = () => {
     window.alert(t("web.mockNotice"));
@@ -7150,6 +7181,44 @@ function PlanTab({
               <button onClick={handleUpdatePaymentCard} className="b-btn b-btn-ghost">{t("web.changeCard")}</button>
             )}
           </div>
+
+          {/* 등록된 결제수단 — 정기결제를 위해 빌링키를 보관하므로 조회·변경·삭제 경로를 모두 제공한다. */}
+          {cardInfo && (
+            <div
+              style={{
+                marginTop: 14,
+                paddingTop: 14,
+                borderTop: "1px solid var(--b-line)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--b-fg-3)", letterSpacing: "0.04em", marginBottom: 4 }}>
+                  {t("web.paymentMethod")}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                  {cardInfo.company ?? cardInfo.brand} {cardInfo.number}
+                </div>
+              </div>
+              {subStatus === "active" ? (
+                <div style={{ fontSize: 12, color: "var(--b-fg-3)", maxWidth: 420 }}>
+                  {t("web.deleteCardNeedsCancel")}
+                </div>
+              ) : (
+                <button
+                  onClick={handleDeleteCard}
+                  className="b-btn b-btn-quiet"
+                  style={{ color: "var(--b-warn)" }}
+                >
+                  {t("web.deleteCard")}
+                </button>
+              )}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, marginTop: 18, alignItems: "center" }}>
             {isCanceled ? (
               <button
