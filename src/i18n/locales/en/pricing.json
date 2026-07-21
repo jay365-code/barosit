@@ -8,7 +8,7 @@
   "macSoon": "The Tauri macOS download (.dmg) is being prepared.",
   "winSoon": "The Tauri Windows download (.exe) is being prepared.",
   "approving": "Approving payment",
-  "approvingDesc": "Securely approving your mock payment request...",
+  "approvingDesc": "Securely approving your payment. This will only take a moment...",
   "title": "Start sitting right — BaroSit plans",
   "subtitle": "From a quick try in your web browser to a dedicated desktop app, choose what fits you",
   "monthly": "Monthly",
@@ -41,7 +41,7 @@
     "feat4": "Precision posture calendar analysis and detailed hourly charts",
     "feat5": "Settings sync across all your PCs/laptops"
   },
-  "demoNote": "* This is a mock-payment demo; no real charge is made.",
+  "demoNote": "* Prices include VAT and renew automatically until you cancel.",
   "refundNote": "Refundable within 7 days of payment • ",
   "refundLink": "See refund policy",
   "successHeadline": "Your PRO subscription is complete!",
@@ -53,7 +53,7 @@
   "web": {
     "paymentProcessError": "Payment failed: {{error}}",
     "successHeadline": "Your PRO subscription has started!",
-    "successDesc": "Your mock payment completed successfully. Now enjoy all of BaroSit PRO's powerful benefits without limits — background monitoring, native notifications, the desktop mini widget, and more!",
+    "successDesc": "Your payment completed successfully. Now enjoy all of BaroSit PRO — background monitoring, native alerts, and the desktop mini widget, with no limits!",
     "downloadLabel": "Download the desktop app",
     "downloadCta": "Download the PRO build now",
     "goMain": "Go to main page",

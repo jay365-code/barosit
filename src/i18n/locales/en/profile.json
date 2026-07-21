@@ -182,7 +182,6 @@
     "refundConfirm": "Request a refund?\n\nOnce the refund completes, you are immediately switched from PRO to FREE, and background monitoring and all premium benefits become unavailable.",
     "refundSuccess": "Your immediate refund and payment cancellation are complete. Thank you for using BaroSit.",
     "refundError": "A problem occurred while processing the refund. Please contact support (support@barosit.com) and we'll check and help promptly.",
-    "mockNotice": "Payment integration is currently in integrated mock-test mode.\nBilling-cycle changes are handled manually, immediately, and safely via support (support@barosit.com). Email us and we'll help promptly!",
     "refundBreakdown": "[Estimated refund]\n\nAmount paid: KRW {{paid}}\nDays used ({{days}}): -KRW {{used}}\nPenalty: -KRW {{penalty}}\n──────────────\nRefund: KRW {{refund}}",
     "refundBreakdownFull": "[Estimated refund]\n\nYou qualify for a cooling-off withdrawal, so the full amount of KRW {{refund}} will be refunded.",
     "paymentMethod": "Payment method on file",
