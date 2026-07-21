@@ -171,3 +171,61 @@ describe("staged 모드 (per-user 테스터)", () => {
     expect(mod.getEffectiveLaunchMode()).toBe("paid");
   });
 });
+
+// 부팅 판정 게이트 — 심사자가 #/pricing 에서 튕기던 경합의 회귀 방지.
+// 원격 런치모드·테스터 여부를 읽기 전의 isBetaFree() 는 잠정값이므로, 그 값으로
+// 리다이렉트하면 staged 의 테스터가 가격 페이지에서 쫓겨난다.
+describe("whenLaunchResolved (부팅 판정 게이트)", () => {
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* noop */ }
+    vi.resetModules();
+    h.state.session = null;
+    h.state.profile = null;
+  });
+
+  it("두 조회가 모두 끝나기 전에는 확정되지 않는다", async () => {
+    const mod = await import("./launchMode");
+    expect(mod.isLaunchResolved()).toBe(false);
+
+    await mod.refreshLaunchMode();
+    expect(mod.isLaunchResolved()).toBe(false);   // 테스터 판정이 아직
+
+    await mod.refreshTesterStatus();
+    expect(mod.isLaunchResolved()).toBe(true);
+  });
+
+  it("확정 후 whenLaunchResolved 는 즉시 resolve 된다", async () => {
+    const mod = await import("./launchMode");
+    await mod.refreshLaunchMode();
+    await mod.refreshTesterStatus();
+
+    let settled = false;
+    await mod.whenLaunchResolved().then(() => { settled = true; });
+    expect(settled).toBe(true);
+  });
+
+  it("확정 시점에는 테스터 판정이 이미 반영돼 있다 (튕김 방지의 핵심)", async () => {
+    localStorage.setItem("barosit:launch_mode", "staged");
+    h.state.session = { user: { id: "reviewer" } };
+    h.state.profile = { is_admin: false, is_beta_tester: true };
+
+    const mod = await import("./launchMode");
+    // 부팅 직후 잠정값: 테스터 미판정이라 beta_free 로 보인다 = 이때 튕기면 버그
+    expect(mod.isBetaFree()).toBe(true);
+    expect(mod.isLaunchResolved()).toBe(false);
+
+    await mod.refreshLaunchMode();
+    await mod.refreshTesterStatus();
+    await mod.whenLaunchResolved();
+
+    expect(mod.isLaunchResolved()).toBe(true);
+    expect(mod.isBetaFree()).toBe(false);   // 게이트 통과 후엔 테스터로 확정
+  });
+
+  it("비로그인이어도 판정은 완료된다 (early-return 경로)", async () => {
+    const mod = await import("./launchMode");
+    await mod.refreshLaunchMode();
+    await mod.refreshTesterStatus();   // session 없음 → early return
+    expect(mod.isLaunchResolved()).toBe(true);
+  });
+});

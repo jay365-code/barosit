@@ -135,6 +135,45 @@ function setTester(next: boolean): void {
   if (currentMode === "staged") emitChange();
 }
 
+// ── 부팅 판정 게이트 ──────────────────────────────────────────────
+// 부팅 직후에는 원격 런치모드(app_config)도 테스터 여부(profiles)도 아직 안 읽혔다.
+// 그 사이 isBetaFree() 는 "캐시/env + isTesterFlag=false" 라는 잠정값을 돌려주는데,
+// 이걸 확정값으로 믿고 화면을 전환하면 테스터가 가격 페이지에서 튕긴다.
+// (실제로 심사자용 URL 직접 진입과 결제 완료 복귀가 이 경합으로 둘 다 깨졌다.)
+// 되돌릴 수 없는 전환(리다이렉트)을 하는 쪽은 whenLaunchResolved() 를 기다린다.
+let modeResolved = false;
+let testerResolved = false;
+let launchResolved = false;
+let launchWaiters: Array<() => void> = [];
+
+function markResolved(): void {
+  if (launchResolved) return;
+  launchResolved = true;
+  const waiters = launchWaiters;
+  launchWaiters = [];
+  waiters.forEach((w) => w());
+}
+
+function maybeResolve(): void {
+  if (modeResolved && testerResolved) markResolved();
+}
+
+// 네트워크가 죽어 둘 중 하나가 영영 안 끝나도 화면이 멈추면 안 된다.
+// 일정 시간이 지나면 현재 잠정값으로 확정(fail-open)한다.
+const RESOLVE_TIMEOUT_MS = 3000;
+if (typeof window !== "undefined") {
+  setTimeout(markResolved, RESOLVE_TIMEOUT_MS);
+}
+
+export function isLaunchResolved(): boolean {
+  return launchResolved;
+}
+
+export function whenLaunchResolved(): Promise<void> {
+  if (launchResolved) return Promise.resolve();
+  return new Promise((resolve) => launchWaiters.push(resolve));
+}
+
 // 부팅 시 1회 호출. 원격값을 읽어 모드를 갱신한다. 실패해도 조용히 캐시/env 유지.
 export async function refreshLaunchMode(): Promise<LaunchMode> {
   try {
@@ -149,6 +188,8 @@ export async function refreshLaunchMode(): Promise<LaunchMode> {
   } catch {
     /* 네트워크/RLS 실패 → 캐시/env 유지 */
   }
+  modeResolved = true;
+  maybeResolve();
   return currentMode;
 }
 
@@ -171,6 +212,10 @@ export async function refreshTesterStatus(): Promise<boolean> {
     }
   } catch {
     /* 조회 실패 → 현재 값 유지 */
+  } finally {
+    // 비로그인 early-return 경로도 "판정 완료"다. finally 로 모든 경로를 덮는다.
+    testerResolved = true;
+    maybeResolve();
   }
   return isTesterFlag;
 }

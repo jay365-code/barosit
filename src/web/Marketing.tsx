@@ -7,7 +7,7 @@ import termsMd from "../../docs/terms.md?raw";
 import refundMd from "../../docs/refund.md?raw";
 import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
-import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, LAUNCH_MODE_CHANGED_EVENT } from "../launchMode";
+import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, isLaunchResolved, whenLaunchResolved, LAUNCH_MODE_CHANGED_EVENT } from "../launchMode";
 import { priceFor } from "../lib/pricing";
 import type { RefundQuote } from "../lib/refund";
 import { interpolateLegalTemplate } from "../lib/legal";
@@ -7952,16 +7952,26 @@ export function Marketing({ route, initialPostId }: { route: MarketingRoute; ini
     refreshTesterStatus();
   }, []);
 
-  // 무료 베타 기간에는 가격 페이지 접근 시 메인 홈으로 리다이렉트
+  // 무료 베타 기간에는 가격 페이지 접근 시 메인 홈으로 리다이렉트.
+  //
+  // 단, 부팅 판정이 끝나기 전에는 절대 튕기지 않는다. 원격 런치모드와 테스터 여부를
+  // 읽어오기 전의 isBetaFree() 는 잠정값이라, staged 의 테스터를 비테스터로 오인해
+  // 가격 페이지에서 내쫓았다. 그 결과 ① 심사자가 #/pricing URL 로 직접 들어오면
+  // 랜딩으로 튕기고 ② 토스 결제 후 successUrl 복귀도 랜딩으로 밀려 결제 완료
+  // 화면이 통째로 사라졌다(결제·DB 반영은 정상인데 사용자에겐 아무 일도 안 일어난
+  // 것처럼 보임). 두 증상의 뿌리가 같아 게이트 하나로 막는다.
   useEffect(() => {
+    let cancelled = false;
     const checkRedirect = () => {
+      if (cancelled || !isLaunchResolved()) return;
       if (route === "pricing" && isBetaFree()) {
         window.location.hash = "#/landing";
       }
     };
-    checkRedirect();
+    void whenLaunchResolved().then(checkRedirect);
     window.addEventListener(LAUNCH_MODE_CHANGED_EVENT, checkRedirect);
     return () => {
+      cancelled = true;
       window.removeEventListener(LAUNCH_MODE_CHANGED_EVENT, checkRedirect);
     };
   }, [route]);
