@@ -1428,6 +1428,7 @@ export function AdminDashboardView({ onClose }: Props) {
                             <option value="refund_requested">환불 요청 (refund)</option>
                             <option value="payment_failed">결제 실패 (failed)</option>
                             <option value="tampering_detected">보안 변조 감지 (tampering)</option>
+                            <option value="plan_cache_mismatch">플랜 캐시 불일치 (mismatch)</option>
                             <option value="system_error">장애/시스템 오류 (error)</option>
                           </select>
                         </div>
