@@ -20,6 +20,7 @@ import {
   pullSettingsFromServer,
 } from "../lib/syncService";
 import type { RefundQuote } from "../lib/refund";
+import { reportPlanMismatch } from "../lib/planMismatch";
 import {
   loadProfile,
   saveProfile,
@@ -234,23 +235,9 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
           // [보안 위변조 감지] DB 플랜은 free인데 로컬 캐시가 pro인 경우
           if (actualPlan === "free" && localPlan === "pro") {
-            console.warn("Security Warning: Subscription plan tampering detected!");
+            await reportPlanMismatch(supabase, session.user, "프로필");
 
-            // 1. 즉각 admin_notifications 테이블에 critical 경보 적재
-            await supabase.from("admin_notifications").insert({
-              event_type: "tampering_detected",
-              severity: "critical",
-              message: `보안 침해 감지: 사용자 ${session.user.email} 님이 로컬 요금제 캐시를 PRO로 불법 변조한 정황이 포착되어, 시스템이 즉각 권한을 격하하고 로그를 기록했습니다.`,
-              payload: {
-                user_id: session.user.id,
-                email: session.user.email,
-                local_plan: "pro",
-                db_plan: "free",
-                detected_at: new Date().toISOString()
-              }
-            });
-
-            // 2. 강제 롤백 처리
+            // 강제 롤백 처리
             localStorage.setItem("barosit:subscription_plan", "free");
             setSubPlan("free");
             window.dispatchEvent(new Event("barosit:subscription-changed"));

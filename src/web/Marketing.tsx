@@ -9,6 +9,7 @@ import { supabase } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, isLaunchResolved, whenLaunchResolved, LAUNCH_MODE_CHANGED_EVENT } from "../launchMode";
 import { priceFor } from "../lib/pricing";
+import { reportPlanMismatch } from "../lib/planMismatch";
 import type { RefundQuote } from "../lib/refund";
 import { interpolateLegalTemplate } from "../lib/legal";
 import { uploadPostImage, ACCEPTED_IMAGE_TYPES } from "../lib/uploadPostImage";
@@ -5810,23 +5811,9 @@ function Pricing() {
 
           // [보안강화] DB 분석 상태 기준 로컬스토리지를 강제 Overwrite 및 위변조 감지
           if (actualPlan === "free" && localPlan === "pro") {
-            console.warn("Security Warning: Subscription plan tampering detected in Marketing Pricing!");
-            
-            // 1. admin_notifications 테이블에 critical 경보 적재
-            await supabase.from("admin_notifications").insert({
-              event_type: "tampering_detected",
-              severity: "critical",
-              message: `보안 침해 감지 (마케팅): 사용자 ${userObj.email} 님이 요금제 진입 시 로컬 요금제 캐시를 PRO로 불법 변조한 정황이 포착되어, 시스템이 권한을 격하하고 로그를 기록했습니다.`,
-              payload: {
-                user_id: userObj.id,
-                email: userObj.email,
-                local_plan: "pro",
-                db_plan: "free",
-                detected_at: new Date().toISOString()
-              }
-            });
+            await reportPlanMismatch(supabase, userObj, "요금제 진입");
 
-            // 2. 강제 롤백
+            // 강제 롤백
             localStorage.setItem("barosit:subscription_plan", "free");
             setCurrentPlan("free");
             window.dispatchEvent(new Event("barosit:subscription-changed"));

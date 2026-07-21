@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { resolveEffectivePlan, isBetaFree } from "../launchMode";
+import { reportPlanMismatch } from "../lib/planMismatch";
 import { isOfflineGraceExpired } from "../lib/entitlement";
 
 const CACHE_KEY = "barosit:subscription_plan";
@@ -68,18 +69,10 @@ export function useEntitlement(): Entitlement {
 
         const effective = resolveEffectivePlan(data); // 베타 모드면 pro
 
-        // 변조 감지: 캐시는 PRO 인데 서버 실효 플랜은 FREE → 격하 + critical 경보
+        // 캐시는 PRO 인데 서버 실효 플랜은 FREE → 강등 + 보고.
+        // 보고 등급·문구 판정은 reportPlanMismatch 가 결제 이력을 보고 정한다.
         if (effective === "free" && readCache() === "pro") {
-          try {
-            await supabase.from("admin_notifications").insert({
-              event_type: "tampering_detected",
-              severity: "critical",
-              message: `권한 변조 감지(모니터링 게이트): user ${session.user.email ?? session.user.id} 로컬 캐시 PRO ↔ 서버 FREE. 자동 강등 처리.`,
-              payload: { user_id: session.user.id, cached: "pro", server: "free", at: new Date().toISOString() },
-            });
-          } catch {
-            /* 경보 적재 실패는 강등을 막지 않는다 */
-          }
+          await reportPlanMismatch(supabase, session.user, "모니터링 게이트");
         }
         apply(effective, true);
       } catch {

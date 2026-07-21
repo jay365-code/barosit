@@ -204,7 +204,7 @@
     "category": "Billing",
     "title": "권한 변조 내성 (localStorage 조작 → 서버 재검증 강등)",
     "method": "FREE 계정으로 로그인한 상태에서 devtools 콘솔로 localStorage['barosit:subscription_plan']='pro' 로 강제 설정하고 barosit:subscription-changed 이벤트를 발화시킨 뒤, 잠시 후 모니터링/권한이 유지되는지 관찰합니다.",
-    "expected": "useEntitlement 의 서버 재검증으로 수 초~검증주기 내에 FREE 로 자동 강등되고, admin_notifications 에 tampering_detected(critical) 경보가 적재되어야 합니다. (§7 E3-②)",
+    "expected": "useEntitlement 의 서버 재검증으로 수 초~검증주기 내에 FREE 로 자동 강등되고, admin_notifications 에 plan_cache_mismatch 경보가 적재되어야 합니다(결제 이력 있으면 info, 없으면 warning). (§7 E3-②)",
     "platforms": [
       "Web",
       "Mac",
@@ -327,7 +327,7 @@
     "category": "Billing",
     "title": "[정적] 서버 검증 entitlement 훅 와이어링 (E3-②)",
     "method": "useEntitlement 의 서버 재검증·변조 강등 로직과 게이트의 훅 사용을 확인합니다.",
-    "expected": "src/auth/useEntitlement.ts 가 user_subscriptions 재조회 + tampering_detected 경보를 포함하고, MonitorView·useMonitoringEngine 가 useEntitlement() 의 plan 을 사용해야 합니다(localStorage 직접 신뢰 금지).",
+    "expected": "src/auth/useEntitlement.ts 가 user_subscriptions 재조회 + reportPlanMismatch(plan_cache_mismatch) 경보를 포함하고, MonitorView·useMonitoringEngine 가 useEntitlement() 의 plan 을 사용해야 합니다(localStorage 직접 신뢰 금지).",
     "platforms": [
       "Web",
       "Mac",
