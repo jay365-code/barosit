@@ -86,5 +86,9 @@
     "proCtaStart": "Start Pro",
     "recommend": "Recommended"
   },
-  "krwNote": "Foreign prices are approximate, based on exchange rates as of Jun 4, 2026 (≈ ₩1,500 / $1). You're billed in Korean won (KRW): ₩4,900/mo or ₩36,000/yr."
+  "krwNote": "Foreign prices are approximate, based on exchange rates as of Jun 4, 2026 (≈ ₩1,500 / $1). You're billed in Korean won (KRW): ₩4,900/mo or ₩36,000/yr.",
+  "externalWaiting": "Complete your payment in the browser",
+  "externalWaitingDesc": "This screen will switch to PRO automatically once payment goes through. If no browser window opened, use the button below.",
+  "externalReopen": "Reopen payment page",
+  "externalOpenFailed": "Couldn't open the browser. Please visit this address directly: {{url}}"
 }

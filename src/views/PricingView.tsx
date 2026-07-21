@@ -6,6 +6,17 @@ import { supabase } from "../auth/supabase";
 import { resolveEffectivePlan, isBetaFree, whenLaunchResolved } from "../launchMode";
 import { priceFor } from "../lib/pricing";
 import { reportPlanMismatch } from "../lib/planMismatch";
+import { IS_WEB } from "../platform";
+
+// 데스크톱 결제는 웹으로 위임한다.
+// 토스의 requestBillingAuth 는 현재 웹뷰를 결제 페이지로 "이동"시키는데, Tauri 에서는
+// window.location.origin 이 tauri://localhost 라 successUrl 이 외부에서 도달 불가능한
+// 주소가 된다. 카드 입력을 마쳐도 토스가 되돌려보낼 곳이 없어 웹뷰가 앱 진입점으로
+// 튕기고 authKey 가 유실된다(실제 증상: "토스 페이지에서 앱 메인 화면으로 튕김").
+// 로그인이 쓰는 브리지(desktop-auth-redirect.html + 딥링크)와 같은 구조를 결제에도
+// 만드는 것이 정석이나, 돈이 얽힌 경로라 먼저 외부 브라우저 위임으로 막는다.
+const WEB_PRICING_BASE =
+  (import.meta.env.VITE_WEB_ORIGIN as string | undefined) ?? "https://barosit.com";
 
 // 토스페이먼츠 SDK 동적 로더
 function loadTossPayments(): Promise<any> {
@@ -75,7 +86,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
   const [currentPlan, setCurrentPlan] = useState<"free" | "pro">("free");
   
   // 결제 진행 상태: "idle" | "select_method" | "checkout" | "success"
-  const [paymentState, setPaymentState] = useState<"idle" | "select_method" | "checkout" | "success" | "fail">("idle");
+  const [paymentState, setPaymentState] = useState<"idle" | "select_method" | "checkout" | "success" | "fail" | "awaiting_external">("idle");
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; color: string; delay: number }[]>([]);
 
   useEffect(() => {
@@ -261,9 +272,75 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
       return;
     }
 
+    // 데스크톱은 앱 웹뷰에서 결제를 완료할 수 없다(위 WEB_PRICING_BASE 주석 참조).
+    // 외부 브라우저로 웹 요금제 페이지를 열고, 여기서는 플랜 전환을 기다린다.
+    if (!IS_WEB) {
+      try {
+        const { openUrl } = await import("@tauri-apps/plugin-opener");
+        await openUrl(`${WEB_PRICING_BASE}/#/pricing`);
+        setPaymentState("awaiting_external");
+      } catch (err: any) {
+        console.error("[Pricing] 외부 브라우저 열기 실패:", err);
+        alert(t("externalOpenFailed", { url: `${WEB_PRICING_BASE}/#/pricing` }));
+      }
+      return;
+    }
+
     // 중간 선택 단계 없이 바로 토스 통합 결제창 요청 실행
     await handleTossPayment("카드");
   };
+
+  // 외부 브라우저 결제 대기 중 플랜 전환 감지.
+  // useEntitlement 는 focus/주기 재검증으로 앱 전역 권한을 이미 갱신하지만(10분 주기),
+  // 이 모달의 currentPlan 은 별도 상태라 여기서 따로 확인해야 "바로" 전환된다.
+  // 3초 폴링 + focus — 창을 다시 앱으로 돌리는 순간 반영되고, 앱을 계속 보고 있어도
+  // 몇 초 안에 잡힌다. 10분이면 자동 종료해 무한 폴링을 막는다.
+  useEffect(() => {
+    if (paymentState !== "awaiting_external" || !currentUser) return;
+    let stopped = false;
+    const startedAt = Date.now();
+
+    const check = async () => {
+      if (stopped) return;
+      try {
+        const { data, error } = await supabase
+          .from("user_subscriptions")
+          .select("plan_id, status, current_period_end")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+        if (error || !data) return;
+        if (resolveEffectivePlan(data) !== "pro") return;
+
+        stopped = true;
+        localStorage.setItem("barosit:subscription_plan", "pro");
+        setCurrentPlan("pro");
+        setPaymentState("idle");
+        triggerConfetti();
+        onPlanUpdated?.("pro");
+        // 앱 전역(useEntitlement·App·Profile)에 즉시 반영
+        window.dispatchEvent(new Event("barosit:subscription-changed"));
+        trackPaymentEvent("checkout_completed", { billingCycle, via: "external_browser" });
+      } catch {
+        /* 네트워크 일시 실패 — 다음 주기에 재시도 */
+      }
+    };
+
+    void check();
+    const id = window.setInterval(() => {
+      if (Date.now() - startedAt > 10 * 60 * 1000) {
+        window.clearInterval(id);
+        return;
+      }
+      void check();
+    }, 3000);
+    const onFocus = () => { void check(); };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [paymentState, currentUser, billingCycle]);
 
   // 실제 토스페이먼츠 카드 등록 및 빌링 요청 실행
   const handleTossPayment = async (
@@ -780,7 +857,43 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           </div>
         )}
 
-
+        {/* 1-2. 데스크톱 — 외부 브라우저 결제 대기 */}
+        {paymentState === "awaiting_external" && (
+          <div className="checkout-loading-overlay">
+            <div className="spinner" />
+            <div style={{ textAlign: "center", maxWidth: 380 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--b-fg-1)" }}>
+                {t("externalWaiting")}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--b-fg-3)", lineHeight: 1.6 }}>
+                {t("externalWaitingDesc")}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="b-btn b-btn-primary"
+                style={{ padding: "8px 18px", borderRadius: 10, fontSize: 13 }}
+                onClick={async () => {
+                  try {
+                    const { openUrl } = await import("@tauri-apps/plugin-opener");
+                    await openUrl(`${WEB_PRICING_BASE}/#/pricing`);
+                  } catch { /* noop */ }
+                }}
+              >
+                {t("externalReopen")}
+              </button>
+              <button
+                type="button"
+                className="b-btn"
+                style={{ padding: "8px 18px", borderRadius: 10, fontSize: 13 }}
+                onClick={() => setPaymentState("idle")}
+              >
+                {i18n.t("common:cancel")}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="pricing-inner-scroll b-scroll">
           {paymentState !== "success" ? (
