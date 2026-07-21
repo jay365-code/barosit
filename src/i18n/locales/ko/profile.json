@@ -184,7 +184,13 @@
     "refundError": "환불 처리 중 문제가 발생했습니다. 고객센터(support@barosit.com)로 문의주시면 신속히 확인하여 도와드리겠습니다.",
     "mockNotice": "현재 결제 연동은 통합 모의 테스트 상태입니다.\n결제 주기 전환은 고객센터(support@barosit.com)를 통해 수동으로 즉시 안전하게 처리해 드리고 있습니다. 메일 주시면 신속히 도와드리겠습니다!",
     "refundBreakdown": "[예상 환불액 안내]\n\n결제금액: {{paid}}원\n이용 {{days}}일 상당액: -{{used}}원\n위약금: -{{penalty}}원\n──────────────\n환불 예정액: {{refund}}원",
-    "refundBreakdownFull": "[예상 환불액 안내]\n\n청약철회 요건을 충족하여 결제금액 {{refund}}원 전액이 환불됩니다."
+    "refundBreakdownFull": "[예상 환불액 안내]\n\n청약철회 요건을 충족하여 결제금액 {{refund}}원 전액이 환불됩니다.",
+    "paymentMethod": "등록된 결제수단",
+    "deleteCard": "결제수단 삭제",
+    "deleteCardNeedsCancel": "결제수단을 삭제하려면 먼저 아래에서 구독을 해지해 주세요. 해지 후에도 이용 기간 만료까지는 그대로 이용하실 수 있습니다.",
+    "deleteCardConfirm": "등록된 결제수단을 삭제할까요?\n\n삭제하면 자동 정기결제가 더 이상 진행되지 않습니다. 다시 이용하시려면 결제수단을 새로 등록해야 합니다.",
+    "deleteCardDone": "결제수단이 삭제되었습니다.",
+    "deleteCardError": "결제수단 삭제 중 오류가 발생했습니다. 고객센터에 문의해 주세요."
   },
   "appleLogin": "Apple 로그인",
   "emailLogin": "이메일로 로그인",

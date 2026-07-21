@@ -441,32 +441,17 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     try {
       if (!session?.user) return;
 
-      // 1. Supabase DB user_subscriptions 갱신 (billing_key, card_info를 null로 설정)
-      const { error: subError } = await supabase
-        .from("user_subscriptions")
-        .update({
-          billing_key: null,
-          card_info: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", session.user.id);
-
-      if (subError) throw subError;
-
-      // 2. 관리자 알림 전송 (보안 및 감사용)
-      await supabase.from("admin_notifications").insert({
-        event_type: "cancellation",
-        severity: "info",
-        message: `결제 수단 삭제: 사용자 ${session.user.email} 님이 등록된 결제 카드 정보를 완전히 삭제했습니다.`,
-        payload: {
-          user_id: session.user.id,
-          email: session.user.email,
-          action: "delete_payment_method",
-          deleted_at: new Date().toISOString()
-        }
+      // 구독 행 쓰기는 전부 service_role Edge Function 경유다. 예전에는 여기서
+      // 클라이언트가 직접 UPDATE 했는데, 그걸 허용하던 RLS 정책이 동시에
+      // current_period_end 위조(=영구 PRO)도 열어두고 있었다. 정책을 철회하면서
+      // 삭제 경로도 서버로 옮겼다. 자격 판정(활성 구독 중 삭제 거절)도 서버가 한다.
+      const { data, error } = await supabase.functions.invoke("subscription-manage", {
+        body: { action: "delete_card" },
       });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "결제수단 삭제에 실패했습니다.");
+      }
 
-      // 3. 상태 갱신
       setCardInfo(null);
       alert(t("cardDeleteSuccess"));
       
