@@ -13,7 +13,7 @@ import { AdminTemplateView } from "./AdminTemplateView";
 import { platform } from "../platform";
 import { supabase, extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
-import { resolveEffectivePlan, isBetaFree } from "../launchMode";
+import { resolveEffectivePlan, isBetaFree, whenLaunchResolved } from "../launchMode";
 import {
   syncProfileToServer,
   pullProfileFromServer,
@@ -203,6 +203,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         let actualPlan: "free" | "pro" = "free";
+        // 런치 판정(원격 모드 + 테스터 여부)이 끝나기 전에는 staged 가 beta_free 로
+        // 해석돼 resolveEffectivePlan 이 무조건 pro 를 돌려준다. 그 값을 캐시에 쓰면
+        // 심사자(테스터) 화면에서 "현재 이용 중인 플랜"으로 굳어 결제 버튼이 막힌다.
+        await whenLaunchResolved();
 
         if (session?.user) {
           const { data, error } = await supabase

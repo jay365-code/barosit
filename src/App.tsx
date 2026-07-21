@@ -23,7 +23,7 @@ import {
   type LegalDocKind,
 } from "./components/LegalDocument";
 import { loadBaseline } from "./pose/calibration";
-import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, LAUNCH_MODE_CHANGED_EVENT } from "./launchMode";
+import { resolveEffectivePlan, isBetaFree, refreshLaunchMode, refreshTesterStatus, whenLaunchResolved, LAUNCH_MODE_CHANGED_EVENT } from "./launchMode";
 import type { CalibrationBaseline, PostureStatus } from "./pose/types";
 import {
   hideMainWindow,
@@ -448,6 +448,9 @@ export default function App() {
             .maybeSingle();
           setIsAdmin(!!profData?.is_admin);
 
+          // 런치 판정(원격 모드 + 테스터 여부)이 끝나기 전에는 staged 가 beta_free 로
+          // 해석돼 resolveEffectivePlan 이 무조건 pro 를 돌려준다.
+          await whenLaunchResolved();
           const { data, error } = await supabase
             .from("user_subscriptions")
             .select("plan_id, status, current_period_end, grace_period_until")

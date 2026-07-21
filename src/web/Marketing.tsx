@@ -5418,6 +5418,10 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
   useEffect(() => {
     const checkPlan = async () => {
       const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
+      // 런치 판정(원격 모드 + 테스터 여부)이 끝나기 전에는 staged 가 beta_free 로
+      // 해석돼 resolveEffectivePlan 이 무조건 pro 를 돌려준다. 그 값을 캐시에 쓰면
+      // 심사자(테스터) 화면에서 "현재 이용 중인 플랜"으로 굳어 결제 버튼이 막힌다.
+      await whenLaunchResolved();
       if (localPlan) {
         setUserPlan(localPlan);
       }
@@ -5789,6 +5793,10 @@ function Pricing() {
         const { data: { session } } = await supabase.auth.getSession();
         const userObj = session?.user || null;
         let actualPlan: "free" | "pro" = "free";
+        // 런치 판정(원격 모드 + 테스터 여부)이 끝나기 전에는 staged 가 beta_free 로
+        // 해석돼 resolveEffectivePlan 이 무조건 pro 를 돌려준다. 그 값을 캐시에 쓰면
+        // 심사자(테스터) 화면에서 "현재 이용 중인 플랜"으로 굳어 결제 버튼이 막힌다.
+        await whenLaunchResolved();
 
         if (userObj) {
           setCurrentUser(userObj);
@@ -6087,7 +6095,7 @@ function Pricing() {
           font-size: 28px;
           font-weight: 800;
           margin: 0 0 12px;
-          color: #fff;
+          color: var(--b-fg-1);
         }
         .success-desc {
           font-size: 15px;
@@ -7512,6 +7520,10 @@ function Profile() {
   const fetchSub = async () => {
     if (!user) return;
     try {
+      // 런치 판정(원격 모드 + 테스터 여부)이 끝나기 전에는 staged 가 beta_free 로
+      // 해석돼 resolveEffectivePlan 이 무조건 pro 를 돌려준다. 그 값을 캐시에 쓰면
+      // 심사자(테스터) 화면에서 "현재 이용 중인 플랜"으로 굳어 결제 버튼이 막힌다.
+      await whenLaunchResolved();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select("plan_id, status, current_period_end")
