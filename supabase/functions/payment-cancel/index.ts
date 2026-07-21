@@ -130,15 +130,56 @@ serve(async (req) => {
       });
     }
 
-    // 4. 실제 Toss 결제 취소 (전액 또는 부분)
-    const cancelResult = await cancelPayment(
-      latest.payment_key,
-      cancelReason,
-      refundAmount,
-    );
+    // 4. 원장 선점 (CAS) — Toss 호출보다 먼저 한다.
+    //    행 잠금도 멱등키도 없어서, 동시 요청 두 건이 같은 latest 를 읽고 둘 다
+    //    cancelPayment 를 호출하면 합계가 결제액 이하인 한 토스가 둘 다 승인해
+    //    권리액의 두 배가 나갈 수 있었다. 읽은 시점의 status/refunded_amount 를
+    //    조건에 걸어 갱신하고, 0행이면 다른 요청이 이미 선점한 것이므로 중단한다.
+    const claimStatus = isFullRefund ? "refunded" : "partially_refunded";
+    const { data: claimed } = await supabase.from("billing_history")
+      .update({
+        status: claimStatus,
+        // 누적. admin-refund 와 의미를 통일한다(예전에는 여기서 덮어써서 어드민이
+        // 먼저 부분 환불한 금액이 원장에서 사라졌다).
+        refunded_amount: totalRefunded,
+        refunded_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", latest.id)
+      .eq("status", latest.status)
+      .eq("refunded_amount", alreadyRefunded)
+      .select("id");
 
-    // 5. 구독 FREE 강등 (service_role → 트리거 통과)
-    await supabase.from("user_subscriptions").update({
+    if (!claimed || claimed.length === 0) {
+      return json({ error: "환불이 이미 처리 중이거나 완료되었습니다." }, 409);
+    }
+
+    // 5. 실제 Toss 결제 취소 (전액 또는 부분)
+    let cancelResult;
+    try {
+      cancelResult = await cancelPayment(latest.payment_key, cancelReason, refundAmount);
+    } catch (cancelErr: any) {
+      // 보상 — 선점만 해놓고 실제 취소가 실패하면 원장을 되돌린다. 되돌리지 않으면
+      // 환불되지 않은 결제가 refunded 로 남아 사용자가 재신청할 수 없게 된다.
+      // (billing-issue 에는 같은 패턴의 보상이 있었는데 환불 경로엔 없었다.)
+      await supabase.from("billing_history").update({
+        status: latest.status,
+        refunded_amount: alreadyRefunded,
+        refunded_at: latest.refunded_at ?? null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", latest.id);
+      await supabase.from("admin_notifications").insert({
+        event_type: "refund_failed", severity: "warning",
+        message: `환불 취소 실패로 원장을 되돌림: user ${user.id}, order ${latest.order_id}. ${cancelErr?.message ?? ""}`,
+        payload: { user_id: user.id, order_id: latest.order_id, amount: refundAmount },
+      });
+      throw cancelErr;
+    }
+
+    // 6. 구독 FREE 강등 (service_role → 트리거 통과)
+    //    여기서 실패하면 돈은 환불됐는데 PRO 가 유지된다. 환불은 이미 성사됐으므로
+    //    되돌리지 않고 수동 개입 티켓을 남긴다.
+    const { error: subErr } = await supabase.from("user_subscriptions").update({
       plan_id: "free",
       status: "none",
       billing_key: null,
@@ -148,15 +189,14 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     }).eq("user_id", user.id);
 
-    // 6. 원장 환불 처리 (전액=refunded / 부분=partially_refunded)
-    await supabase.from("billing_history").update({
-      status: isFullRefund ? "refunded" : "partially_refunded",
-      // 누적. admin-refund 와 의미를 통일한다(예전에는 여기서 덮어써서 어드민이
-      // 먼저 부분 환불한 금액이 원장에서 사라졌다).
-      refunded_amount: totalRefunded,
-      refunded_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", latest.id);
+    if (subErr) {
+      console.error("payment-cancel: 환불 후 구독 강등 실패", user.id, subErr.message);
+      await supabase.from("admin_notifications").insert({
+        event_type: "refund_downgrade_failed", severity: "critical",
+        message: `환불은 완료됐으나 구독 강등에 실패: user ${user.id}. 수동 확인 필요. ${subErr.message}`,
+        payload: { user_id: user.id, order_id: latest.order_id, refunded: refundAmount },
+      });
+    }
 
     // 환불 완료 안내 메일 (§11 H2) — 발송 실패해도 환불 결과엔 영향 없음
     const m = tplRefunded(refundAmount, isFullRefund);

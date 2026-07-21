@@ -7,6 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, getUser, makeOrderId } from "../_shared/admin.ts";
 import { issueBillingKey, chargeBilling, cancelPayment, PRICE, type BillingCycle } from "../_shared/toss.ts";
+import { nextPeriodEnd } from "../_shared/period.ts";
 import { encryptSecret } from "../_shared/crypto.ts";
 import { assertPaymentAllowed, PaymentBlockedError } from "../_shared/launch.ts";
 
@@ -89,9 +90,9 @@ serve(async (req) => {
     //   첫 청구는 이미 성공(카드에서 실제 출금)했으므로, 이 DB 쓰기가 실패하면
     //   "돈은 빠졌는데 PRO 활성화 안 됨" 상태가 된다. 이를 막기 위해 실패 시
     //   방금 청구한 결제를 즉시 취소(보상 트랜잭션)하고 원장에 환불로 남긴다(§7 C1).
-    const periodEnd = new Date();
-    if (cycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-    else periodEnd.setMonth(periodEnd.getMonth() + 1);
+    // 최초 결제이므로 앵커 없이 now 기준. 말일 클램프는 공유 로직에 있다
+    // (1/31 결제 시 예전엔 3/3 이 됐다).
+    const periodEnd = nextPeriodEnd(null, cycle);
 
     try {
       const { error: subErr } = await supabase.from("user_subscriptions").upsert({

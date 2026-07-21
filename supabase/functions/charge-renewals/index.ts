@@ -3,22 +3,26 @@
 //
 // 대상: status in ('active','grace_period','canceled') 이고 current_period_end <= now()
 //  - active   : 청구 성공 → 기간 연장 / 실패 → grace_period + 유예 7일 시작
-//  - grace    : 2일 간격으로 최대 3회 재청구. 성공 → active 복귀 /
-//               유예 7일 초과 또는 3회 초과 실패 → FREE 강등
+//  - grace    : 2일 간격 재청구. 성공 → active 복귀 / 유예 7일 초과 또는
+//               최대 시도(유예기간÷간격) 초과 실패 → FREE 강등
 //  - canceled : 청구하지 않고 만료 시 FREE 정리 (§7 H1)
 // 빌링키/customerKey 는 암호화 저장(§ crypto)되어 청구 전 복호화한다.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, makeOrderId, isServiceRole } from "../_shared/admin.ts";
-import { chargeBilling, PRICE, type BillingCycle } from "../_shared/toss.ts";
+import { chargeBilling, getPaymentByOrderId, PRICE, type BillingCycle } from "../_shared/toss.ts";
 import { sendUserEmail, tplPaymentFailed, tplDowngraded } from "../_shared/email.ts";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { nextPeriodEnd } from "../_shared/period.ts";
 
 const GRACE_DAYS = 7;
 // 더닝(재시도) 제어 (§11 M3): 최소 재시도 간격 2일 + 최대 시도 횟수 3회.
 // 이전엔 grace 구독이 매일 재청구돼 카드사 위험신호가 될 수 있었다.
 const DUNNING_INTERVAL_MS = 2 * 24 * 60 * 60 * 1000;
-const MAX_DUNNING_ATTEMPTS = 3;
+// 유예 GRACE_DAYS(7일) 동안 DUNNING_INTERVAL_MS(2일) 간격으로 재시도하므로 실제
+// 가능한 시도 횟수는 4회다. 예전 값(3)이면 안내 메일에 적은 7일보다 3일 먼저
+// 잘려서, 카드 교체하러 온 사용자가 이미 강등돼 있었다.
+const MAX_DUNNING_ATTEMPTS = Math.floor((GRACE_DAYS * 24 * 60 * 60 * 1000) / DUNNING_INTERVAL_MS);
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -130,9 +134,7 @@ serve(async (req) => {
           orderName: `BaroSit PRO ${cycle === "yearly" ? "연간" : "월간"} 정기결제`,
         });
 
-        const periodEnd = new Date();
-        if (cycle === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-        else periodEnd.setMonth(periodEnd.getMonth() + 1);
+        const periodEnd = nextPeriodEnd(sub.current_period_end, cycle);
 
         await supabase.from("user_subscriptions").update({
           status: "active",
@@ -151,6 +153,33 @@ serve(async (req) => {
         });
         results.charged++;
       } catch (chargeErr: any) {
+        // 응답 유실 방어 — chargeBilling 은 네트워크 타임아웃도 예외로 던진다.
+        // 토스에서는 승인됐는데 응답만 유실된 경우, 실패로 처리하면 다음 더닝에서
+        // 새 orderId 로 다시 청구해 이중 출금이 된다(order_id UNIQUE 인덱스는
+        // orderId 가 다르므로 막지 못한다). 실패 처리 전에 PG 원장을 조회해
+        // 실제 승인 여부를 확인한다.
+        const settled = await getPaymentByOrderId(orderId).catch(() => null);
+        if (settled?.status === "DONE") {
+          console.warn("charge-renewals: 응답 유실이나 승인 확인됨 —", orderId);
+          const periodEnd = nextPeriodEnd(sub.current_period_end, cycle);
+          await supabase.from("user_subscriptions").update({
+            status: "active",
+            current_period_end: periodEnd.toISOString(),
+            grace_period_until: null,
+            dunning_attempts: 0,
+            last_dunning_at: null,
+            updated_at: new Date().toISOString(),
+          }).eq("user_id", sub.user_id);
+          await supabase.from("billing_history").insert({
+            user_id: sub.user_id, kind: "payment", order_id: orderId,
+            payment_key: settled.paymentKey, amount, plan: "pro",
+            billing_cycle: cycle, status: "completed", cash_receipt_issued: false,
+            created_at: new Date().toISOString(),
+          });
+          results.charged++;
+          continue;
+        }
+
         // 결제 실패 → 더닝
         const attempts = (sub.dunning_attempts ?? 0) + 1;
         const firstGrace = sub.grace_period_until ?? null;
