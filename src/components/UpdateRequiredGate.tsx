@@ -48,7 +48,7 @@ export function UpdateRequiredGate({ requiredVersion, updater }: Props) {
         }}
       >
         <div style={{ fontSize: 40 }}>⬆️</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: "var(--b-fg, #fff)" }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: "var(--b-fg-1, #fff)" }}>
           {t("updateRequired.title")}
         </div>
         <div style={{ fontSize: 14, lineHeight: 1.6, color: "var(--b-fg-2, #b8bec9)" }}>
@@ -92,7 +92,7 @@ export function UpdateRequiredGate({ requiredVersion, updater }: Props) {
                   style={{
                     height: 8,
                     borderRadius: 999,
-                    background: "var(--b-bg-3, #23262d)",
+                    background: "var(--b-surface-2)",
                     overflow: "hidden",
                   }}
                 >
@@ -129,7 +129,7 @@ export function UpdateRequiredGate({ requiredVersion, updater }: Props) {
             )}
 
             {error && (
-              <div style={{ fontSize: 12, color: "var(--b-danger, #e06c6c)", maxWidth: 360 }}>
+              <div style={{ fontSize: 12, color: "var(--b-warn-deep)", maxWidth: 360 }}>
                 {error}
               </div>
             )}

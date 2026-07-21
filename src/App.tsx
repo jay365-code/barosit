@@ -82,7 +82,7 @@ class ErrorBoundary extends Component<
             alignItems: "center",
             justifyContent: "center",
             background: "var(--b-bg, #1a1a1a)",
-            color: "var(--b-fg, #fff)",
+            color: "var(--b-fg-1, #fff)",
             padding: 40,
             textAlign: "center",
             gap: 16,

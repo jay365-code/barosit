@@ -3293,13 +3293,13 @@ export function MonitorView({
                       left: "50%",
                       transform: "translateX(-50%)",
                       width: 280,
-                      background: "rgba(18, 18, 24, 0.95)",
+                      background: "var(--b-elev)",
                       backdropFilter: "blur(12px)",
                       WebkitBackdropFilter: "blur(12px)",
-                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      border: "1px solid var(--b-line-2)",
                       borderRadius: 12,
                       padding: "12px 14px",
-                      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
+                      boxShadow: "var(--b-shadow-elev)",
                       zIndex: 100,
                       display: "flex",
                       flexDirection: "column",
@@ -3316,11 +3316,11 @@ export function MonitorView({
                     {c.scientificGround && (
                       <div
                         style={{
-                          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                          borderTop: "1px solid var(--b-line)",
                           paddingTop: 6,
                           marginTop: 2,
                           fontSize: 9,
-                          color: "var(--b-sig)",
+                          color: "var(--b-sig-deep)",
                           lineHeight: 1.4,
                           fontWeight: 500,
                         }}
@@ -4025,13 +4025,13 @@ export function MonitorView({
                           left: hoveredLinePoint.x,
                           top: hoveredLinePoint.y - 12,
                           transform: "translateX(-50%) translateY(-100%)",
-                          background: "rgba(20, 20, 26, 0.96)",
+                          background: "var(--b-elev)",
                           backdropFilter: "blur(12px)",
                           WebkitBackdropFilter: "blur(12px)",
-                          border: "1px solid rgba(255, 255, 255, 0.16)",
+                          border: "1px solid var(--b-line-3)",
                           borderRadius: 12,
                           padding: "12px 16px",
-                          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+                          boxShadow: "var(--b-shadow-elev)",
                           zIndex: 10000,
                           pointerEvents: "none",
                           whiteSpace: "nowrap",
@@ -4041,12 +4041,12 @@ export function MonitorView({
                           animation: "b-fade-in 0.15s ease",
                         }}
                       >
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-1)", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: 4, marginBottom: 2 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--b-fg-1)", borderBottom: "1px solid var(--b-line)", paddingBottom: 4, marginBottom: 2 }}>
                           ⏰ {hoveredLinePoint.hour}:00 ~ {hoveredLinePoint.hour + 1}:00
                         </div>
                         <div style={{ fontSize: 12.5, color: "var(--b-fg-2)", display: "flex", justifyContent: "space-between", gap: 15 }}>
                           <span>{t("monitor:report.tooltipScore")}</span>
-                          <strong style={{ color: "var(--b-sig)", fontSize: 13 }}>
+                          <strong style={{ color: "var(--b-sig-deep)", fontSize: 13 }}>
                             {t("monitor:report.points", { n: hoveredLinePoint.score })}
                             <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--b-fg-3)", marginLeft: 5 }}>
                               ({(() => {
@@ -4455,7 +4455,7 @@ export function MonitorView({
                           cursor: "pointer",
                           padding: "4px 8px",
                           borderRadius: 6,
-                          background: calendarOpen ? "var(--b-surface-3)" : "transparent",
+                          background: calendarOpen ? "var(--b-surface-2)" : "transparent",
                           border: "1px dashed var(--b-line)",
                           display: "inline-flex",
                           alignItems: "center",
@@ -4468,7 +4468,7 @@ export function MonitorView({
                           e.currentTarget.style.border = "1px solid var(--b-line)";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = calendarOpen ? "var(--b-surface-3)" : "transparent";
+                          e.currentTarget.style.background = calendarOpen ? "var(--b-surface-2)" : "transparent";
                           e.currentTarget.style.border = calendarOpen ? "1px solid var(--b-line)" : "1px dashed var(--b-line)";
                         }}
                       >
@@ -4543,13 +4543,13 @@ export function MonitorView({
                         right: 16,
                         zIndex: 9000,
                         width: 280,
-                        background: "rgba(15, 17, 19, 0.85)",
+                        background: "var(--b-elev)",
                         backdropFilter: "blur(16px)",
                         WebkitBackdropFilter: "blur(16px)",
                         border: "1px solid var(--b-line)",
                         borderRadius: 16,
                         padding: 16,
-                        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
+                        boxShadow: "var(--b-shadow-elev)",
                         display: "flex",
                         flexDirection: "column",
                         gap: 12,
@@ -4669,7 +4669,7 @@ export function MonitorView({
 
                             const vSecs = getViolationSecsForDate(year, month, day);
 
-                            let densityBg = "rgba(255, 255, 255, 0.04)";
+                            let densityBg = "var(--b-surface-2)";
                             if (vSecs > 0) {
                               if (vSecs <= 30) densityBg = "rgba(234, 88, 12, 0.25)";
                               else if (vSecs <= 120) densityBg = "rgba(234, 88, 12, 0.5)";
@@ -4705,9 +4705,9 @@ export function MonitorView({
                                   fontWeight: 600,
                                   cursor: isFuture ? "not-allowed" : "pointer",
                                   opacity: isFuture ? 0.25 : 1,
-                                  background: isSelected ? "var(--b-theme)" : densityBg,
-                                  color: isSelected ? "var(--b-theme-fg)" : isToday ? "#7eb09c" : "var(--b-fg-1)",
-                                  border: isSelected ? "1px solid var(--b-theme)" : isToday ? "1px solid #7eb09c" : "1px solid transparent",
+                                  background: isSelected ? "var(--b-sig-deep)" : densityBg,
+                                  color: isSelected ? "var(--b-bg)" : isToday ? "var(--b-sig-deep)" : "var(--b-fg-1)",
+                                  border: isSelected ? "1px solid var(--b-sig-deep)" : isToday ? "1px solid var(--b-sig)" : "1px solid transparent",
                                   transition: "all 0.15s ease",
                                 }}
                                 onMouseEnter={(e) => {
@@ -4715,7 +4715,7 @@ export function MonitorView({
                                   e.currentTarget.style.transform = "scale(1.1)";
                                   e.currentTarget.style.zIndex = "10";
                                   if (!isSelected) {
-                                    e.currentTarget.style.border = "1px solid rgba(255, 255, 255, 0.2)";
+                                    e.currentTarget.style.border = "1px solid var(--b-line-3)";
                                   }
                                 }}
                                 onMouseLeave={(e) => {
@@ -5017,12 +5017,12 @@ export function MonitorView({
                         left: hoveredHeatmapCell.x,
                         top: hoveredHeatmapCell.y,
                         transform: "translate(-50%, -100%)",
-                        background: "rgba(18, 18, 24, 0.95)",
+                        background: "var(--b-elev)",
                         backdropFilter: "blur(8px)",
-                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        border: "1px solid var(--b-line-2)",
                         borderRadius: 8,
                         padding: "6px 10px",
-                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4)",
+                        boxShadow: "var(--b-shadow-card)",
                         zIndex: 200,
                         pointerEvents: "none",
                         display: "flex",

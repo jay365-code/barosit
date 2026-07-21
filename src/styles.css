@@ -744,7 +744,7 @@ html.is-tauri-transparent .b-toast-in {
   align-items: center;
   justify-content: center;
 }
-.b-legal-close:hover { background: var(--b-surface-2); color: var(--b-fg); }
+.b-legal-close:hover { background: var(--b-surface-2); color: var(--b-fg-1); }
 .b-legal-body {
   flex: 1;
   overflow-y: auto;
@@ -755,8 +755,8 @@ html.is-tauri-transparent .b-toast-in {
 }
 .b-legal-body h1 { font-size: 20px; font-weight: 700; margin: 24px 0 16px; }
 .b-legal-body h1:first-child { margin-top: 0; }
-.b-legal-body h2 { font-size: 16px; font-weight: 700; margin: 22px 0 10px; color: var(--b-fg); }
-.b-legal-body h3 { font-size: 14px; font-weight: 700; margin: 18px 0 8px; color: var(--b-fg); }
+.b-legal-body h2 { font-size: 16px; font-weight: 700; margin: 22px 0 10px; color: var(--b-fg-1); }
+.b-legal-body h3 { font-size: 14px; font-weight: 700; margin: 18px 0 8px; color: var(--b-fg-1); }
 .b-legal-body p  { margin: 8px 0 12px; }
 .b-legal-body ul, .b-legal-body ol { padding-left: 22px; margin: 8px 0 12px; }
 .b-legal-body li { margin: 4px 0; }
@@ -796,7 +796,7 @@ html.is-tauri-transparent .b-toast-in {
   border-top: 1px solid var(--b-line);
   margin: 20px 0;
 }
-.b-legal-body strong { color: var(--b-fg); }
+.b-legal-body strong { color: var(--b-fg-1); }
 
 /* ─── 프로필 페이지 (Phase 0) ──────────────────────────────────── */
 .profile-view {
@@ -849,7 +849,7 @@ html.is-tauri-transparent .b-toast-in {
   gap: 8px;
   font-size: 13px;
   font-weight: 700;
-  color: var(--b-fg);
+  color: var(--b-fg-1);
 }
 .profile-card-sub {
   margin: 0;
@@ -882,7 +882,7 @@ html.is-tauri-transparent .b-toast-in {
   border: 1px solid var(--b-line);
   border-radius: 10px;
   background: var(--b-bg);
-  color: var(--b-fg);
+  color: var(--b-fg-1);
   font-size: 14px;
   font-family: inherit;
 }
