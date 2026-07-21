@@ -55,3 +55,8 @@ windows/dist/
 # node_modules 복사 + 1회 다운로드로 재생성(~54MB). git 에는 안 올림.
 public/mediapipe/
 .dev.vars
+
+# 블로그 시드 아카이브 — 마이그레이션 파이프라인에서 제외한 발행 완료분.
+# 글은 이미 프로덕션 DB 에 있고 db push 로 다시 보낼 일이 없다. 파일은 근거 인용과
+# 편집 판단 주석 때문에 로컬 참고용으로만 남긴다.
+supabase/seeds/blog-archive/
