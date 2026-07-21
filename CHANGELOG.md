@@ -42,7 +42,6 @@
 
 - The payment confirmation and approval screens now display correctly after checkout.
 - Fixed an issue where in-app payments could not be completed.
-- Resolved an issue that prevented payments from going through in review environments.
 
 ## v0.9.13 — 2026-07-21
 
