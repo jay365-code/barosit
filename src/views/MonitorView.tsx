@@ -3539,7 +3539,10 @@ export function MonitorView({
               </button>
             </div>
 
-            {true ? ( // 임시 잠금 해제 (무료 플랜에서도 체험 가능)
+            {/* 요금제에 PRO 혜택으로 명시한 기능이라 게이트를 되돌린다. 한동안
+                `{true ?` 로 잠금이 풀려 있어 FREE 도 그대로 열렸는데, 버튼에는
+                👑 이 붙어 있어 광고와 실제가 어긋났다(결제 심사 점검에서 발견). */}
+            {subPlan === "pro" ? (
               /* PRO User Contents */
               <div style={{ padding: 24, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 20 }} className="b-scroll">
                 

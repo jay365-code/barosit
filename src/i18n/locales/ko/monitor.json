@@ -183,7 +183,7 @@
     "cameraError": "카메라 오류: {{error}}",
     "proTitle": "PRO 정밀 자세 분석 리포트",
     "proTitleTrial": "PRO 정밀 자세 분석 리포트 (체험 모드)",
-    "aiClinical": "AI 자세 임상 가이드라인",
+    "aiClinical": "오늘의 자세 패턴 요약",
     "mins": "{{m}}분",
     "hours": "{{h}}시간",
     "hoursMins": "{{h}}시간 {{m}}분",

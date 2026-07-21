@@ -183,7 +183,7 @@
     "cameraError": "Camera error: {{error}}",
     "proTitle": "PRO precision posture report",
     "proTitleTrial": "PRO precision posture report (trial mode)",
-    "aiClinical": "AI posture clinical guideline",
+    "aiClinical": "Today's posture pattern",
     "mins": "{{m}} min",
     "hours": "{{h}} h",
     "hoursMins": "{{h}} h {{m}} min",

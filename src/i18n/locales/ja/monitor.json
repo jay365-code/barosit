@@ -183,7 +183,7 @@
     "cameraError": "カメラエラー: {{error}}",
     "proTitle": "PRO精密姿勢分析レポート",
     "proTitleTrial": "PRO精密姿勢分析レポート（体験モード）",
-    "aiClinical": "AI姿勢臨床ガイドライン",
+    "aiClinical": "今日の姿勢パターン",
     "mins": "{{m}}分",
     "hours": "{{h}}時間",
     "hoursMins": "{{h}}時間{{m}}分",

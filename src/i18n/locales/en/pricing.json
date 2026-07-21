@@ -32,14 +32,14 @@
     "yearUnit": "≈ $2.0/mo · ₩36,000 (KRW)",
     "monthAmount": "≈ $3.3/mo",
     "monthUnit": "/ billed monthly · ₩4,900 (KRW)",
-    "tagline": "The ultimate desktop companion with effortless background monitoring and AI coaching",
+    "tagline": "The desktop companion that quietly keeps an eye on your posture in the background",
     "ctaCurrent": "Your professional plan",
     "ctaStart": "Start Professional",
     "feat1": "Full background monitoring (Tauri app)",
-    "feat2": "OS-native push notifications & system-tray emoji status",
+    "feat2": "OS-native notifications & system-tray status",
     "feat3": "Mini desktop widget mode in the corner of your screen",
-    "feat4": "90-day precision posture calendar analysis and detailed hourly charts",
-    "feat5": "Real-time multi-device sync across all your PCs/laptops"
+    "feat4": "Precision posture calendar analysis and detailed hourly charts",
+    "feat5": "Settings sync across all your PCs/laptops"
   },
   "demoNote": "* This is a mock-payment demo; no real charge is made.",
   "refundNote": "Refundable within 7 days of payment • ",
@@ -77,10 +77,10 @@
     "proFeats": [
       "Everything in Free included",
       "Full background monitoring (Tauri app)",
-      "OS-native push notifications & tray emoji status",
+      "OS-native push notifications & tray status",
       "Mini desktop widget mode in the corner of your screen",
-      "90-day precision posture calendar analysis and charts",
-      "Real-time multi-device settings & history sync"
+      "Precision posture calendar analysis and charts",
+      "Multi-device settings sync"
     ],
     "proCtaCurrent": "Your current plan",
     "proCtaStart": "Start Pro",
