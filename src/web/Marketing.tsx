@@ -6115,8 +6115,8 @@ function Pricing() {
           margin-bottom: 32px;
         }
         .download-box {
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: var(--b-surface-2);
+          border: 1px solid var(--b-line);
           border-radius: 16px;
           padding: 24px 16px;
           display: flex;
@@ -6128,8 +6128,8 @@ function Pricing() {
           transition: background 0.2s, border-color 0.2s, transform 0.15s;
         }
         .download-box:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(126, 176, 156, 0.4);
+          background: var(--b-surface);
+          border-color: var(--b-sig);
           transform: translateY(-2px);
         }
         .download-box:active {
@@ -6139,11 +6139,11 @@ function Pricing() {
           font-size: 14px;
           font-weight: 700;
           margin: 12px 0 4px;
-          color: #fff;
+          color: var(--b-fg-1);
         }
         .download-btn-label {
           font-size: 12px;
-          color: #7eb09c;
+          color: var(--b-sig-deep);
           font-weight: 600;
         }
 
@@ -6179,7 +6179,7 @@ function Pricing() {
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: "#fff" }}>
               {t("approving")}
             </div>
-            <div style={{ fontSize: 13, color: "var(--b-fg-3)" }}>
+            <div style={{ fontSize: 13, color: "rgba(255, 255, 255, 0.6)" }}>
               {t("approvingDesc")}
             </div>
           </div>
