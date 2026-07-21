@@ -32,13 +32,16 @@ serve(async (req) => {
 
     const { data: sub } = await supabase
       .from("user_subscriptions")
-      .select("plan_id, status, current_period_end, billing_key")
+      .select("plan_id, status, current_period_end, billing_key, card_info")
       .eq("user_id", user.id)
       .maybeSingle();
 
     // 결제수단 삭제는 PRO 가 아니어도(해지 후 FREE 로 내려온 뒤에도) 가능해야 한다.
     if (action === "delete_card") {
-      if (!sub || !sub.billing_key) {
+      // billing_key 든 card_info 든 하나라도 남아 있으면 지울 수 있어야 한다.
+      // 과거 강등 경로가 billing_key 만 지워 card_info 가 남은 행이 존재하는데,
+      // billing_key 만 보고 판정하면 그 유령 카드를 영영 못 지운다.
+      if (!sub || (!sub.billing_key && !sub.card_info)) {
         return json({ error: "등록된 결제수단이 없습니다." }, 400);
       }
       // 활성 구독 중에는 삭제를 막는다. "구독 중인데 결제수단 없음"은 정합적이지 않은

@@ -193,6 +193,11 @@ serve(async (req) => {
       status: "none",
       billing_key: null,
       customer_key: null,
+      // card_info 도 함께 지운다. 예전에는 빌링키만 지워서 "결제할 수 없는 카드가
+      // 화면에는 등록돼 보이는" 유령 상태가 남았다(웹 구독 관리가 card_info 를
+      // 표시하므로 그대로 노출된다). billing_cycle 도 FREE 에는 의미가 없다.
+      card_info: null,
+      billing_cycle: null,
       current_period_end: null,
       grace_period_until: null,
       updated_at: new Date().toISOString(),
