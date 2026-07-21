@@ -25,16 +25,56 @@ serve(async (req) => {
     const user = await getUser(req, supabase);
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { action } = await req.json();
-    if (action !== "cancel" && action !== "resume" && action !== "delete_card") {
-      return json({ error: "action must be 'cancel', 'resume' or 'delete_card'" }, 400);
+    const { action, cycle } = await req.json();
+    const ACTIONS = ["cancel", "resume", "delete_card", "schedule_cycle", "cancel_cycle_change"];
+    if (!ACTIONS.includes(action)) {
+      return json({ error: `action must be one of ${ACTIONS.join(", ")}` }, 400);
     }
 
     const { data: sub } = await supabase
       .from("user_subscriptions")
-      .select("plan_id, status, current_period_end, billing_key, card_info")
+      .select("plan_id, status, current_period_end, billing_key, card_info, billing_cycle, pending_billing_cycle")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // 주기 전환 예약 — 즉시 청구·환불 없이 "다음 결제일부터" 적용한다.
+    // charge-renewals 가 갱신 시 pending_billing_cycle 을 소비한다.
+    if (action === "schedule_cycle") {
+      if (cycle !== "monthly" && cycle !== "yearly") {
+        return json({ error: "cycle must be 'monthly' or 'yearly'" }, 400);
+      }
+      if (!sub || sub.plan_id !== "pro") {
+        return json({ error: "PRO 구독 중에만 주기를 변경할 수 있습니다." }, 400);
+      }
+      // 해지 예약 상태면 갱신 자체가 없어 예약이 영원히 소비되지 않는다.
+      if (sub.status === "canceled") {
+        return json({ error: "해지 예약 중에는 주기를 변경할 수 없습니다. 먼저 해지를 철회해 주세요." }, 400);
+      }
+      // 현재 주기와 같으면 예약이 아니라 철회다 — 남겨두면 갱신 때 무의미한 분기를 탄다.
+      const next = sub.billing_cycle === cycle ? null : cycle;
+      const { error: schedErr } = await supabase
+        .from("user_subscriptions")
+        .update({ pending_billing_cycle: next, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+      if (schedErr) throw new Error(`주기 예약 실패: ${schedErr.message}`);
+
+      return json({
+        success: true,
+        action: "schedule_cycle",
+        pendingBillingCycle: next,
+        effectiveAt: sub.current_period_end ?? null,
+      });
+    }
+
+    // 예약 철회 — 다음 갱신도 현재 주기 그대로 간다.
+    if (action === "cancel_cycle_change") {
+      const { error: clrErr } = await supabase
+        .from("user_subscriptions")
+        .update({ pending_billing_cycle: null, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+      if (clrErr) throw new Error(`주기 예약 철회 실패: ${clrErr.message}`);
+      return json({ success: true, action: "cancel_cycle_change", pendingBillingCycle: null });
+    }
 
     // 결제수단 삭제는 PRO 가 아니어도(해지 후 FREE 로 내려온 뒤에도) 가능해야 한다.
     if (action === "delete_card") {
@@ -98,6 +138,9 @@ serve(async (req) => {
     const nextStatus = action === "cancel" ? "canceled" : "active";
     const { error } = await supabase.from("user_subscriptions").update({
       status: nextStatus,
+      // 해지하면 갱신이 없으므로 주기 예약은 소비될 일이 없다. 남겨두면 나중에
+      // 해지를 철회했을 때 사용자가 잊은 예약이 되살아나 예상치 못한 금액이 청구된다.
+      ...(action === "cancel" ? { pending_billing_cycle: null } : {}),
       updated_at: new Date().toISOString(),
     }).eq("user_id", user.id);
     if (error) throw new Error(error.message);

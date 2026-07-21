@@ -190,7 +190,14 @@
     "deleteCardNeedsCancel": "결제수단을 삭제하려면 먼저 아래에서 구독을 해지해 주세요. 해지 후에도 이용 기간 만료까지는 그대로 이용하실 수 있습니다.",
     "deleteCardConfirm": "등록된 결제수단을 삭제할까요?\n\n삭제하면 자동 정기결제가 더 이상 진행되지 않습니다. 다시 이용하시려면 결제수단을 새로 등록해야 합니다.",
     "deleteCardDone": "결제수단이 삭제되었습니다.",
-    "deleteCardError": "결제수단 삭제 중 오류가 발생했습니다. 고객센터에 문의해 주세요."
+    "deleteCardError": "결제수단 삭제 중 오류가 발생했습니다. 고객센터에 문의해 주세요.",
+    "scheduleYearlyConfirm": "연간 요금제로 전환하시겠어요?\n\n지금 청구되는 금액은 없습니다. {{date}}(다음 결제일)부터 연 36,000원으로 전환되며, 그 전까지는 현재 월간 요금제 그대로 이용하실 수 있습니다.\n전환 예약은 다음 결제일 전까지 언제든 취소할 수 있습니다.",
+    "scheduleYearlyDone": "연간 전환이 예약되었습니다. {{date}}부터 연 36,000원으로 청구됩니다.",
+    "scheduleYearlyError": "요청을 처리하지 못했습니다: {{error}}",
+    "cancelCycleChange": "연간 전환 예약 취소",
+    "cancelCycleChangeConfirm": "연간 전환 예약을 취소할까요?\n취소하면 다음 결제일에도 현재 월간 요금제로 계속 청구됩니다.",
+    "cancelCycleChangeDone": "연간 전환 예약이 취소되었습니다.",
+    "pendingYearlyNotice": "📅 {{date}}(다음 결제일)부터 연간 요금제(연 36,000원)로 전환됩니다. 그 전까지는 현재 월간 요금제 그대로 이용하실 수 있습니다."
   },
   "appleLogin": "Apple 로그인",
   "emailLogin": "이메일로 로그인",

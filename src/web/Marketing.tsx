@@ -6810,15 +6810,17 @@ function AccountTab({
 
 function PlanTab({
   subPlan,
-  planId,
   subStatus,
   periodEnd,
+  billingCycle,
+  pendingCycle,
   onUpdateSubscription,
 }: {
   subPlan: "free" | "pro";
-  planId: "pro_monthly" | "pro_yearly" | "pro" | "free";
   subStatus: "active" | "canceled" | "none";
   periodEnd: string | null;
+  billingCycle: "monthly" | "yearly" | null;
+  pendingCycle: "monthly" | "yearly" | null;
   onUpdateSubscription: () => void;
 }) {
   const { t, i18n } = useTranslation("profile");
@@ -7077,8 +7079,40 @@ function PlanTab({
   };
 
   // 모의 테스트 결제 수단 / 주기 변경 알림
-  const handleMockNotice = () => {
-    window.alert(t("web.mockNotice"));
+  // 주기 전환 예약 — 즉시 청구·환불 없이 다음 결제일부터 연간으로 바뀐다.
+  // 즉시 전환은 잔여 기간 비례정산이 필요한데 토스 빌링키가 이를 대신해 주지 않고
+  // 국내 환불 규정과도 얽혀, 지연 적용으로 정산 자체를 없앴다.
+  const handleScheduleYearly = async () => {
+    if (!user) return;
+    const formattedDate = periodEnd
+      ? new Date(periodEnd).toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric" })
+      : t("web.nextBillingFallback");
+    if (!window.confirm(t("web.scheduleYearlyConfirm", { date: formattedDate }))) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("subscription-manage", {
+        body: { action: "schedule_cycle", cycle: "yearly" },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "failed");
+      window.alert(t("web.scheduleYearlyDone", { date: formattedDate }));
+      onUpdateSubscription();
+    } catch (e: any) {
+      window.alert(t("web.scheduleYearlyError", { error: e?.message || String(e) }));
+    }
+  };
+
+  const handleCancelCycleChange = async () => {
+    if (!user) return;
+    if (!window.confirm(t("web.cancelCycleChangeConfirm"))) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("subscription-manage", {
+        body: { action: "cancel_cycle_change" },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "failed");
+      window.alert(t("web.cancelCycleChangeDone"));
+      onUpdateSubscription();
+    } catch (e: any) {
+      window.alert(t("web.scheduleYearlyError", { error: e?.message || String(e) }));
+    }
   };
 
   // 베타 무료 기간: 결제/구독 관리 UI 자체를 비노출하고 안내로 대체
@@ -7106,7 +7140,10 @@ function PlanTab({
       day: "numeric",
     }) : t("web.dateFallback");
 
-    const isYearly = planId === "pro_yearly";
+    // 주기는 billing_cycle 이 유일한 근거다. plan_id 는 'pro' 뿐이라 예전 판정
+    // (planId === 'pro_yearly')은 항상 false 였다 — 연간 구독자에게도 월 요금이 표시됐다.
+    // billing_cycle 이 비어 있는 과거 행은 월간으로 본다(청구 로직의 폴백과 동일 방향).
+    const isYearly = billingCycle === "yearly";
     const planPriceText = isYearly ? t("web.priceYear") : t("web.priceMonth");
     const planPeriodText = isCanceled
       ? t("web.periodCanceled", { date: formattedDate })
@@ -7228,6 +7265,24 @@ function PlanTab({
               )}
             </div>
           )}
+          {/* 전환 예약 상태 표시 — 예약해 놓고 잊으면 다음 결제일에 예상 못 한
+              금액이 청구된다. 적용 날짜를 명시하는 것이 분쟁 예방의 핵심이다. */}
+          {pendingCycle === "yearly" && !isCanceled && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: "var(--b-sig-bg)",
+                border: "1px solid var(--b-sig-soft)",
+                color: "var(--b-fg-2)",
+                fontSize: 13,
+                lineHeight: 1.6,
+              }}
+            >
+              {t("web.pendingYearlyNotice", { date: formattedDate })}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, marginTop: 18, alignItems: "center" }}>
             {isCanceled ? (
               <button
@@ -7244,9 +7299,20 @@ function PlanTab({
               </button>
             ) : (
               <>
-                <button onClick={handleMockNotice} className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
-                  {isYearly ? t("web.changeToMonthly") : t("web.changeToYearly")}
-                </button>
+                {/* 주기 전환은 월간 → 연간 한 방향만 지원한다. 연간에서 월간으로
+                    내려가는 수요는 드물고, 해지 후 재가입이 같은 결과를 낸다.
+                    이미 연간이거나 전환을 예약한 상태면 버튼을 감춘다 — 남겨두면
+                    누를 수 없거나 아무 일도 안 하는 죽은 버튼이 된다. */}
+                {!isYearly && !pendingCycle && (
+                  <button onClick={handleScheduleYearly} className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
+                    {t("web.changeToYearly")}
+                  </button>
+                )}
+                {pendingCycle === "yearly" && (
+                  <button onClick={handleCancelCycleChange} className="b-btn b-btn-ghost" style={{ color: "var(--b-fg-3)" }}>
+                    {t("web.cancelCycleChange")}
+                  </button>
+                )}
                 {refundQuote && latestPayment && (
                   <button
                     onClick={handleImmediateRefund}
@@ -7521,7 +7587,9 @@ function Profile() {
   const { user, loading, configured, signOut } = useAuth();
   const [tab, setTab] = useState<"account" | "plan">("account");
   const [subPlan, setSubPlan] = useState<"free" | "pro">("free");
-  const [planId, setPlanId] = useState<"pro_monthly" | "pro_yearly" | "pro" | "free">("free");
+  // 실제 결제 주기와 전환 예약. plan_id 로는 주기를 알 수 없다(항상 'pro').
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly" | null>(null);
+  const [pendingCycle, setPendingCycle] = useState<"monthly" | "yearly" | null>(null);
   const [subStatus, setSubStatus] = useState<"active" | "canceled" | "none">("none");
   const [periodEnd, setPeriodEnd] = useState<string | null>(null);
 
@@ -7540,20 +7608,23 @@ function Profile() {
       await whenLaunchResolved();
       const { data, error } = await supabase
         .from("user_subscriptions")
-        .select("plan_id, status, current_period_end")
+        .select("plan_id, status, current_period_end, billing_cycle, pending_billing_cycle")
         .eq("user_id", user.id)
         .maybeSingle();
       if (!error && data) {
         const verifiedPlan = resolveEffectivePlan(data);
         setSubPlan(verifiedPlan);
-        setPlanId((data.plan_id as any) || "free");
         setSubStatus(data.status as any);
         setPeriodEnd(data.current_period_end);
+        // 실제 주기는 billing_cycle 에만 있다. plan_id 는 'pro'/'free' 뿐이라
+        // 예전의 planId==='pro_yearly' 판정은 항상 false 였고, 연간 구독자에게도
+        // 월 요금과 "연간으로 변경" 이 표시됐다.
+        setBillingCycle((data.billing_cycle as any) ?? null);
+        setPendingCycle((data.pending_billing_cycle as any) ?? null);
         localStorage.setItem("barosit:subscription_plan", verifiedPlan);
         return;
       } else if (!error && !data) {
         setSubPlan("free");
-        setPlanId("free");
         setSubStatus("none");
         setPeriodEnd(null);
         localStorage.setItem("barosit:subscription_plan", "free");
@@ -7561,7 +7632,6 @@ function Profile() {
       }
       const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
       setSubPlan(localPlan || "free");
-      setPlanId(localPlan === "pro" ? "pro" : "free");
       setSubStatus(localPlan === "pro" ? "active" : "none");
       setPeriodEnd(null);
     } catch (err) {
@@ -7576,7 +7646,6 @@ function Profile() {
     const handleSubChanged = () => {
       const p = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
       setSubPlan(p || "free");
-      setPlanId(p === "pro" ? "pro" : "free");
       setSubStatus(p === "pro" ? "active" : "none");
       setPeriodEnd(null);
     };
@@ -7764,7 +7833,8 @@ function Profile() {
           {tab === "plan" && (
             <PlanTab 
               subPlan={subPlan} 
-              planId={planId}
+              billingCycle={billingCycle}
+              pendingCycle={pendingCycle}
               subStatus={subStatus} 
               periodEnd={periodEnd} 
               onUpdateSubscription={fetchSub} 

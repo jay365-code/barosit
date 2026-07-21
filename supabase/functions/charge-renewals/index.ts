@@ -37,7 +37,7 @@ serve(async (req) => {
 
     const { data: due } = await supabase
       .from("user_subscriptions")
-      .select("user_id, billing_key, customer_key, billing_cycle, current_period_end, status, grace_period_until, dunning_attempts, last_dunning_at")
+      .select("user_id, billing_key, customer_key, billing_cycle, pending_billing_cycle, current_period_end, status, grace_period_until, dunning_attempts, last_dunning_at")
       .in("status", ["active", "grace_period", "canceled"])
       .lte("current_period_end", nowIso);
 
@@ -112,6 +112,19 @@ serve(async (req) => {
             .eq("user_id", sub.user_id);
         }
       }
+      // 주기 전환 예약 소비 — 사용자가 "다음 결제일부터 연간" 을 예약했다면 이번
+      // 청구부터 그 주기로 간다. 즉시 전환이 아니라 여기서 적용하는 이유는
+      // 잔여 기간 비례정산·부분환불을 피하기 위해서다(20260721060000 주석 참조).
+      // 실제 청구가 성공한 뒤에 소비 처리한다 — 아래 성공 분기에서 billing_cycle 을
+      // 갱신하고 pending 을 비운다. 여기서 미리 비우면 청구 실패 시 예약이 증발한다.
+      const pending = sub.pending_billing_cycle;
+      const pendingCycle: BillingCycle | null =
+        pending === "yearly" ? "yearly" : pending === "monthly" ? "monthly" : null;
+      if (pendingCycle && pendingCycle !== cycle) {
+        console.log(`charge-renewals: 주기 전환 적용 ${cycle} → ${pendingCycle} (user ${sub.user_id})`);
+        cycle = pendingCycle;
+      }
+
       if (!cycle) {
         console.error("charge-renewals: billing_cycle 판정 불가 user", sub.user_id);
         await supabase.from("admin_notifications").insert({
@@ -142,6 +155,9 @@ serve(async (req) => {
           grace_period_until: null,
           dunning_attempts: 0,
           last_dunning_at: null,
+          // 예약된 주기로 청구했으므로 이제 이게 현재 주기다. 예약은 소비 완료.
+          billing_cycle: cycle,
+          pending_billing_cycle: null,
           updated_at: new Date().toISOString(),
         }).eq("user_id", sub.user_id);
 
@@ -168,6 +184,10 @@ serve(async (req) => {
             grace_period_until: null,
             dunning_attempts: 0,
             last_dunning_at: null,
+            // 정상 성공 분기와 동일하게 예약을 소비한다 — 여기서 빠뜨리면 승인은
+            // 됐는데 예약이 남아 다음 갱신에 같은 전환이 또 적용된다.
+            billing_cycle: cycle,
+            pending_billing_cycle: null,
             updated_at: new Date().toISOString(),
           }).eq("user_id", sub.user_id);
           await supabase.from("billing_history").insert({

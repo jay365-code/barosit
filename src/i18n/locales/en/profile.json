@@ -190,7 +190,14 @@
     "deleteCardNeedsCancel": "To remove your payment method, cancel your subscription below first. You'll keep access until the current period ends.",
     "deleteCardConfirm": "Remove the payment method on file?\n\nAutomatic recurring billing will stop. You'll need to add a payment method again to resubscribe.",
     "deleteCardDone": "Payment method removed.",
-    "deleteCardError": "Something went wrong while removing the payment method. Please contact support."
+    "deleteCardError": "Something went wrong while removing the payment method. Please contact support.",
+    "scheduleYearlyConfirm": "Switch to the annual plan?\n\nNothing is charged now. From {{date}} (your next billing date) you'll be charged 36,000 KRW per year, and until then you stay on your current monthly plan.\nYou can cancel this scheduled change any time before that date.",
+    "scheduleYearlyDone": "Annual switch scheduled. You'll be charged 36,000 KRW per year starting {{date}}.",
+    "scheduleYearlyError": "Couldn't complete the request: {{error}}",
+    "cancelCycleChange": "Cancel scheduled annual switch",
+    "cancelCycleChangeConfirm": "Cancel the scheduled switch to annual?\nYour next billing will stay on the current monthly plan.",
+    "cancelCycleChangeDone": "The scheduled annual switch has been cancelled.",
+    "pendingYearlyNotice": "📅 Your plan switches to annual (36,000 KRW/year) on {{date}}, your next billing date. Until then you stay on your current monthly plan."
   },
   "appleLogin": "Sign in with Apple",
   "emailLogin": "Sign in with email",
