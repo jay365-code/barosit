@@ -389,7 +389,7 @@ barosit.com</div>
   <details><summary style="cursor:pointer;color:var(--muted);font-size:13px;">기존 문제 배경(해결 전)</summary>
     <p>① <strong>해시 라우팅</strong>(<code>#/community</code>) → 크롤러 색인 불가. ② <strong>개별 글에 URL이 아예 없음</strong> — 글 클릭은 <code>setView("detail")</code>+<code>activePost</code>(React 상태)로만 동작, 특정 글을 링크조차 못 함(공유 카드·색인·AI 인용 0). 이게 커뮤니티 마케팅의 가장 큰 막힘이었음.</p>
   </details>
-  <p>커뮤니티의 SEO 가치는 <strong>글 하나하나가 롱테일 검색어("바로싯 점수가 자꾸 변해요")를 잡는 크롤 가능한 페이지</strong>가 되는 것(레딧·스택오버플로우 원리). 또 AEO 원리("AI는 자사 키워드보다 <em>남들이 뭐라 하는가</em>를 신뢰") = 커뮤니티 글이 크롤 가능해야 성립. <strong>이게 커뮤니티 마케팅의 가장 큰 막힘.</strong></p>
+  <p>커뮤니티의 SEO 가치는 <strong>글 하나하나가 롱테일 검색어("바로씻 점수가 자꾸 변해요")를 잡는 크롤 가능한 페이지</strong>가 되는 것(레딧·스택오버플로우 원리). 또 AEO 원리("AI는 자사 키워드보다 <em>남들이 뭐라 하는가</em>를 신뢰") = 커뮤니티 글이 크롤 가능해야 성립. <strong>이게 커뮤니티 마케팅의 가장 큰 막힘.</strong></p>
   <h3>해결 아키텍처 (엣지 SSR — UGC는 빌드타임 정적생성 불가)</h3>
   <ol>
     <li><strong>글마다 영구 path URL</strong> — <code>/community/p/&lt;id&gt;</code>(또는 <code>/community/&lt;슬러그&gt;-&lt;id&gt;</code>). 공유·canonical·색인의 기본 단위. 클라 라우터가 pathname도 읽도록 + Cloudflare SPA fallback(<code>_redirects</code>/<code>_routes.json</code>).</li>
