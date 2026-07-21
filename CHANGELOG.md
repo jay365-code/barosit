@@ -31,6 +31,28 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.13 — 2026-07-21
+
+**한국어**
+
+- 결제수단 목록 조회 및 삭제 기능을 웹에서 직접 사용할 수 있습니다.
+- 구독을 해지한 후 이전 카드 정보가 사라지지 않고 남아 보이던 문제를 수정했습니다.
+- 환불 요청이 오류로 막히던 문제를 수정하고, 연간 구독 중도 해지 시 환불을 받을 수 있습니다.
+- 라이트 테마에서 요금제 안내 팝업의 내용이 보이지 않던 문제와 달력·툴팁 표시 오류를 수정했습니다.
+- 구독 관리 화면에 잘못 표시되던 사용 통계를 바로잡았습니다.
+- 브라우저 탭 아이콘이 일부 환경에서 깨지거나 충돌하던 문제를 수정했습니다.
+- 보안을 개선했습니다.
+
+**English**
+
+- You can now view and remove your saved payment methods directly on the web.
+- Fixed an issue where a previous card remained visible after canceling a subscription.
+- Refund requests are no longer blocked by an error, and mid-term refunds are now available for annual subscriptions.
+- Fixed the plan details popup showing no text in light theme, along with calendar and tooltip display errors.
+- Corrected inaccurate usage statistics shown on the subscription management screen.
+- Fixed browser tab icon rendering issues that caused broken or conflicting icons in some environments.
+- Improved security.
+
 ## v0.9.12 — 2026-07-16
 
 **한국어**
