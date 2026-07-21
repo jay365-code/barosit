@@ -229,3 +229,35 @@ describe("whenLaunchResolved (부팅 판정 게이트)", () => {
     expect(mod.isLaunchResolved()).toBe(true);
   });
 });
+
+// 플랜 계산도 게이트를 기다려야 하는 이유 — 심사자 결제 차단 회귀 방지.
+// staged 의 테스터에게 판정 전 resolveEffectivePlan 을 부르면 beta_free 로 해석돼
+// 무료 사용자에게도 pro 가 나온다. 그 값이 캐시에 굳으면 요금제 화면이
+// "현재 이용 중인 플랜"으로 잠겨 결제 버튼을 누를 수 없다.
+describe("resolveEffectivePlan × 부팅 판정 게이트", () => {
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* noop */ }
+    vi.resetModules();
+    h.state.session = null;
+    h.state.profile = null;
+  });
+
+  it("판정 전에는 free 구독이 pro 로 잘못 계산되고, 게이트 통과 후 free 로 바로잡힌다", async () => {
+    localStorage.setItem("barosit:launch_mode", "staged");
+    h.state.session = { user: { id: "reviewer" } };
+    h.state.profile = { is_admin: false, is_beta_tester: true };
+
+    const mod = await import("./launchMode");
+    const freeRow = { plan_id: "free", status: "none", current_period_end: null };
+
+    // 판정 전: staged → beta_free 로 해석 → pro (이 값을 쓰면 결제가 막힌다)
+    expect(mod.resolveEffectivePlan(freeRow)).toBe("pro");
+
+    await mod.refreshLaunchMode();
+    await mod.refreshTesterStatus();
+    await mod.whenLaunchResolved();
+
+    // 게이트 통과 후: 테스터 → paid 로 해석 → free (결제 버튼이 열린다)
+    expect(mod.resolveEffectivePlan(freeRow)).toBe("free");
+  });
+});
