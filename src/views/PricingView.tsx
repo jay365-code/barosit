@@ -15,8 +15,25 @@ import { IS_WEB } from "../platform";
 // 튕기고 authKey 가 유실된다(실제 증상: "토스 페이지에서 앱 메인 화면으로 튕김").
 // 로그인이 쓰는 브리지(desktop-auth-redirect.html + 딥링크)와 같은 구조를 결제에도
 // 만드는 것이 정석이나, 돈이 얽힌 경로라 먼저 외부 브라우저 위임으로 막는다.
-const WEB_PRICING_BASE =
-  (import.meta.env.VITE_WEB_ORIGIN as string | undefined) ?? "https://barosit.com";
+// 어느 웹을 열지는 실행 환경으로 정한다 — 로컬 개발 중에 프로덕션 웹이 열리면
+// 실계정·실상점에 결제가 붙어버린다.
+//   1) VITE_WEB_ORIGIN 이 있으면 그대로 (스테이징 등 명시 지정)
+//   2) 개발 빌드면 현재 origin — `tauri dev` 는 devUrl(http://localhost:1420) 을
+//      그대로 쓴다. 같은 주소를 브라우저로 열면 __TAURI_INTERNALS__ 가 없어
+//      웹 모드로 렌더된다.
+//   3) 그 외 → 프로덕션 웹
+// origin 의 http 여부로 판별하면 안 된다. Tauri v2 의 앱 origin 은 macOS 가
+// tauri://localhost 지만 Windows 는 http://tauri.localhost 라, http 검사로는
+// Windows 프로덕션 앱이 개발로 오인돼 열 수 없는 주소가 만들어진다.
+function webPricingUrl(): string {
+  const explicit = import.meta.env.VITE_WEB_ORIGIN as string | undefined;
+  if (explicit) return `${explicit.replace(/\/$/, "")}/#/pricing`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  if (import.meta.env.DEV && /^https?:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(origin)) {
+    return `${origin}/#/pricing`;
+  }
+  return "https://barosit.com/#/pricing";
+}
 
 // 토스페이먼츠 SDK 동적 로더
 function loadTossPayments(): Promise<any> {
@@ -272,16 +289,16 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
       return;
     }
 
-    // 데스크톱은 앱 웹뷰에서 결제를 완료할 수 없다(위 WEB_PRICING_BASE 주석 참조).
+    // 데스크톱은 앱 웹뷰에서 결제를 완료할 수 없다(위 webPricingUrl 주석 참조).
     // 외부 브라우저로 웹 요금제 페이지를 열고, 여기서는 플랜 전환을 기다린다.
     if (!IS_WEB) {
       try {
         const { openUrl } = await import("@tauri-apps/plugin-opener");
-        await openUrl(`${WEB_PRICING_BASE}/#/pricing`);
+        await openUrl(`${webPricingUrl()}`);
         setPaymentState("awaiting_external");
       } catch (err: any) {
         console.error("[Pricing] 외부 브라우저 열기 실패:", err);
-        alert(t("externalOpenFailed", { url: `${WEB_PRICING_BASE}/#/pricing` }));
+        alert(t("externalOpenFailed", { url: `${webPricingUrl()}` }));
       }
       return;
     }
@@ -877,7 +894,7 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
                 onClick={async () => {
                   try {
                     const { openUrl } = await import("@tauri-apps/plugin-opener");
-                    await openUrl(`${WEB_PRICING_BASE}/#/pricing`);
+                    await openUrl(`${webPricingUrl()}`);
                   } catch { /* noop */ }
                 }}
               >
