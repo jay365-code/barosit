@@ -5765,6 +5765,10 @@ function loadTossPayments(): Promise<any> {
 // 것이다. 미설정은 즉시 드러나야 한다.
 const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY ?? "";
 
+// 이미 처리한 결제 인증키. 컴포넌트 재마운트(StrictMode 포함)를 넘어 살아남아야
+// 하므로 모듈 스코프에 둔다. authKey 는 결제 시도당 유일해 중복 실행 판별에 쓸 수 있다.
+const consumedAuthKeys = new Set<string>();
+
 function tossClient(lib: (key: string) => any) {
   if (!TOSS_CLIENT_KEY) {
     throw new Error("결제 설정이 완료되지 않았습니다. 관리자에게 문의해 주세요. (VITE_TOSS_CLIENT_KEY 미설정)");
@@ -5855,10 +5859,20 @@ function Pricing() {
           const paymentStatus = params.get("payment");
           const authKey = params.get("authKey");
           if (paymentStatus === "success") {
+            // 이중청구 방어 — 이 핸들러는 effect 안에 있어 StrictMode(개발)나
+            // 재마운트로 두 번 실행될 수 있다. params 는 setTimeout 클로저가 이미
+            // 캡처했으므로 URL 을 지워도 두 번째 실행을 막지 못한다. authKey 는
+            // 결제 시도당 유일하므로 이를 모듈 스코프에 기록해 재실행을 차단한다.
+            // (서버에도 동일 authKey 선점 가드가 있다 — 이건 그 앞단의 1차 방어)
+            if (authKey && consumedAuthKeys.has(authKey)) {
+              return;
+            }
+            if (authKey) consumedAuthKeys.add(authKey);
+
             setPaymentState("checkout");
             const cycleParam = params.get("cycle") as "monthly" | "yearly" || "monthly";
             const finalAmount = priceFor(cycleParam);
-            
+
             setTimeout(async () => {
               const cleanUrl = window.location.origin + window.location.pathname + "#/pricing";
               try {

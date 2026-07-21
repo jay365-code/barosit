@@ -94,6 +94,9 @@ export const trackPaymentEvent = (
 // 폴백 없음 — 미설정이 조용히 남의 상점 키로 흐르지 않도록 즉시 드러낸다(Marketing.tsx 주석 참조).
 const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY ?? "";
 
+// 이미 처리한 결제 인증키 — 재마운트(StrictMode 포함)를 넘어 살아남도록 모듈 스코프.
+const consumedAuthKeys = new Set<string>();
+
 function tossClient(lib: (key: string) => any) {
   if (!TOSS_CLIENT_KEY) {
     throw new Error("결제 설정이 완료되지 않았습니다. 관리자에게 문의해 주세요. (VITE_TOSS_CLIENT_KEY 미설정)");
@@ -189,6 +192,13 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
           const paymentStatus = params.get("payment");
           const authKey = params.get("authKey");
           if (paymentStatus === "success") {
+            // 이중청구 방어 — Marketing.tsx 와 동일한 이유(effect 재실행). 서버의
+            // authKey 선점 가드 앞단 1차 방어다.
+            if (authKey && consumedAuthKeys.has(authKey)) {
+              return;
+            }
+            if (authKey) consumedAuthKeys.add(authKey);
+
             setPaymentState("checkout");
             const cycleParam = params.get("cycle") as "monthly" | "yearly" || "monthly";
             const finalAmount = priceFor(cycleParam);
@@ -347,6 +357,11 @@ export function PricingView({ onClose, onPlanUpdated }: Props) {
         // 앱 전역(useEntitlement·App·Profile)에 즉시 반영
         window.dispatchEvent(new Event("barosit:subscription-changed"));
         trackPaymentEvent("checkout_completed", { billingCycle, via: "external_browser" });
+
+        // 결제가 끝났으면 요금제 화면은 목적을 다했다. 바뀐 플랜을 계속 보여주는
+        // 것보다 메인으로 돌아가는 편이 자연스럽다. 다만 즉시 닫으면 성공했는지
+        // 알 수 없으므로, 축하 연출을 잠깐 보여준 뒤 닫는다.
+        window.setTimeout(() => onClose(), 1600);
       } catch {
         /* 네트워크 일시 실패 — 다음 주기에 재시도 */
       }
