@@ -31,6 +31,32 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.13 — 2026-07-21
+
+**한국어**
+
+- 밝은 테마에서 요금제 창과 리포트의 달력·그래프 설명이 보이지 않던 문제를 고쳤습니다.
+- 리포트 달력에서 선택한 날짜가 표시되지 않던 문제를 고쳤습니다.
+- 연간 구독을 중도에 해지하고 환불받을 수 있습니다.
+- 웹에서 등록된 결제 수단을 확인하고 삭제할 수 있습니다.
+- 구독을 해지한 뒤에도 결제 수단이 남아 보이던 문제를 고쳤습니다.
+- 환불이 처리되지 않거나 결제가 중복될 수 있던 문제를 고쳤습니다.
+- 구독 관리 화면에 실제와 다르게 표시되던 사용량 정보를 없애고, 요금제 안내 문구를 실제 제공 기능에 맞게 정정했습니다.
+- 결제 처리의 안정성과 보안을 개선했습니다.
+- 블로그 글이 추가되고 RSS 구독을 지원합니다. 브라우저 탭 아이콘이 불안정하던 문제도 고쳤습니다.
+
+**English**
+
+- Fixed the pricing dialog and the report's calendar and chart tooltips being unreadable in the light theme.
+- Fixed the selected date not being highlighted in the report calendar.
+- You can now cancel an annual subscription partway through and receive a refund.
+- You can now view and remove your saved payment methods on the web.
+- Fixed a payment method still appearing after a subscription was cancelled.
+- Fixed refunds not going through, and a case where a payment could be charged twice.
+- Removed usage figures that did not match reality on the subscription screen, and corrected the plan descriptions to match what is actually offered.
+- Improved the reliability and security of payment processing.
+- Added new blog posts and RSS subscription support, and fixed unstable browser tab icons.
+
 ## v0.9.12 — 2026-07-16
 
 **한국어**
