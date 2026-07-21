@@ -7193,55 +7193,6 @@ function PlanTab({
           </div>
         </div>
 
-        <div
-          style={{
-            padding: 24,
-            borderRadius: 14,
-            background: "var(--b-surface)",
-            border: "1px solid var(--b-line)",
-            marginBottom: 14,
-          }}
-        >
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>{t("web.usageThisMonth")}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            {[
-              { k: t("web.usageMonitorTime"), v: "128h", s: t("web.usageMonitorDelta") },
-              { k: t("web.usageActiveDays"), v: t("web.usageDaysValue"), s: t("web.usageActiveSub") },
-              { k: t("web.usageAvgScore"), v: "78", s: t("web.usageScoreDelta") },
-            ].map((u, i) => (
-              <div key={i}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "var(--b-fg-3)",
-                    letterSpacing: "0.04em",
-                    marginBottom: 6,
-                  }}
-                >
-                  {u.k}
-                </div>
-                <div
-                  className="b-num"
-                  style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.022em" }}
-                >
-                  {u.v}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--b-sig)",
-                    fontWeight: 600,
-                    marginTop: 2,
-                  }}
-                >
-                  {u.s}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <div style={{ padding: "0 4px" }}>
           <div
             style={{
