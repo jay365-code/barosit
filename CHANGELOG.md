@@ -31,6 +31,22 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.15 — 2026-07-24
+
+**한국어**
+
+- 월간 구독을 앱에서도 연간 결제로 전환 예약할 수 있습니다(다음 결제일부터 적용).
+- 데스크톱 로그인이 간혹 응답 없이 멈추던 문제를 수정했습니다.
+- 결제 실패 후 유예 기간이 안내된 7일보다 일찍 종료되던 문제를 수정했습니다.
+- 보안을 개선했습니다.
+
+**English**
+
+- You can now schedule a switch from monthly to yearly billing in the desktop app (applied from your next billing date).
+- Fixed an issue where desktop login could occasionally hang without responding.
+- Fixed an issue where the grace period after a failed payment could end earlier than the stated 7 days.
+- Improved security.
+
 ## v0.9.14 — 2026-07-21
 
 **한국어**
