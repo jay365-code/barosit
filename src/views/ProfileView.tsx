@@ -71,7 +71,11 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   // payment-cancel dryRun 결과. null 이면 환불 불가(구독 해지만 가능).
   const [refundQuote, setRefundQuote] = useState<RefundQuote | null>(null);
   const [subPeriodEnd, setSubPeriodEnd] = useState<string | null>(null);
-  
+  // 결제 주기 + 주기 전환 예약(월→연). 웹 프로필과 동등한 기능 — 백엔드는
+  // subscription-manage 의 schedule_cycle / cancel_cycle_change 를 공유한다.
+  const [subBillingCycle, setSubBillingCycle] = useState<"monthly" | "yearly" | null>(null);
+  const [pendingCycle, setPendingCycle] = useState<"monthly" | "yearly" | null>(null);
+
   // 결제 관련 추가 상태
   const [cardInfo, setCardInfo] = useState<any>(null);
   const [gracePeriodUntil, setGracePeriodUntil] = useState<string | null>(null);
@@ -211,7 +215,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
         if (session?.user) {
           const { data, error } = await supabase
             .from("user_subscriptions")
-            .select("plan_id, status, current_period_end, updated_at, card_info, grace_period_until")
+            .select("plan_id, status, current_period_end, updated_at, card_info, grace_period_until, billing_cycle, pending_billing_cycle")
             .eq("user_id", session.user.id)
             .maybeSingle();
 
@@ -222,6 +226,8 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
             setSubPeriodEnd(data.current_period_end);
             setCardInfo(data.card_info);
             setGracePeriodUntil(data.grace_period_until);
+            setSubBillingCycle((data.billing_cycle as "monthly" | "yearly") ?? null);
+            setPendingCycle((data.pending_billing_cycle as "monthly" | "yearly") ?? null);
           } else {
             const localPlan = localStorage.getItem("barosit:subscription_plan") as "free" | "pro";
             actualPlan = isBetaFree() ? "pro" : (localPlan || "free");
@@ -255,6 +261,8 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
           setSubPlan("free");
           setCardInfo(null);
           setGracePeriodUntil(null);
+          setSubBillingCycle(null);
+          setPendingCycle(null);
           setDeletionScheduledAt(null);
         }
       } catch (err) {
@@ -369,6 +377,45 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     } catch (err) {
       console.error("Resume failed:", err);
       alert(t("restoreError"));
+    }
+  };
+
+  // 주기 전환 예약 (월 → 연) — 즉시 청구·환불 없이 다음 결제일부터 연간으로 바뀐다.
+  // 즉시 전환은 잔여 기간 비례정산이 필요한데 토스 빌링키가 대신해 주지 않고 국내
+  // 환불 규정과도 얽혀, 지연 적용으로 정산 자체를 없앴다(웹 프로필과 동일 경로).
+  const handleScheduleYearly = async () => {
+    if (!session?.user) return;
+    const formattedDate = subPeriodEnd
+      ? new Date(subPeriodEnd).toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric" })
+      : t("web.nextBillingFallback");
+    if (!window.confirm(t("web.scheduleYearlyConfirm", { date: formattedDate }))) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("subscription-manage", {
+        body: { action: "schedule_cycle", cycle: "yearly" },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "failed");
+      setPendingCycle("yearly");
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
+      alert(t("web.scheduleYearlyDone", { date: formattedDate }));
+    } catch (e: any) {
+      alert(t("web.scheduleYearlyError", { error: e?.message || String(e) }));
+    }
+  };
+
+  // 주기 전환 예약 철회 — 다음 갱신도 현재 월간 그대로 간다.
+  const handleCancelCycleChange = async () => {
+    if (!session?.user) return;
+    if (!window.confirm(t("web.cancelCycleChangeConfirm"))) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("subscription-manage", {
+        body: { action: "cancel_cycle_change" },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "failed");
+      setPendingCycle(null);
+      window.dispatchEvent(new Event("barosit:subscription-changed"));
+      alert(t("web.cancelCycleChangeDone"));
+    } catch (e: any) {
+      alert(t("web.scheduleYearlyError", { error: e?.message || String(e) }));
     }
   };
 
@@ -896,6 +943,27 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       )}
                     </div>
 
+                    {/* 주기 전환 예약 안내 — 예약해 놓고 잊으면 다음 결제일에 예상 못 한
+                        금액이 청구된다. 적용 날짜를 명시하는 것이 분쟁 예방의 핵심이다. */}
+                    {pendingCycle === "yearly" && subStatus !== "canceled" && (
+                      <div style={{
+                        marginBottom: "12px",
+                        padding: "10px 14px",
+                        borderRadius: "10px",
+                        background: "rgba(126, 176, 156, 0.1)",
+                        border: "1px solid rgba(126, 176, 156, 0.3)",
+                        color: "var(--b-fg-2)",
+                        fontSize: "12px",
+                        lineHeight: 1.6
+                      }}>
+                        {t("web.pendingYearlyNotice", {
+                          date: subPeriodEnd
+                            ? new Date(subPeriodEnd).toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric" })
+                            : t("web.nextBillingFallback"),
+                        })}
+                      </div>
+                    )}
+
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                       <button
                         type="button"
@@ -928,6 +996,43 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                           onClick={handleDeleteCardInfo}
                         >
                           {t("cardDelete")}
+                        </button>
+                      )}
+
+                      {/* 주기 전환은 월 → 연 한 방향만. 이미 연간이거나 전환을 예약한
+                          상태면 버튼을 감춘다 — 남겨두면 눌러도 아무 일 없는 죽은 버튼이 된다. */}
+                      {subStatus === "active" && subBillingCycle !== "yearly" && !pendingCycle && (
+                        <button
+                          type="button"
+                          className="b-btn b-btn-ghost"
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: "11px",
+                            height: "auto",
+                            color: "var(--b-fg-2)",
+                            border: "1px solid rgba(126, 176, 156, 0.3)",
+                            background: "rgba(126, 176, 156, 0.04)"
+                          }}
+                          onClick={handleScheduleYearly}
+                        >
+                          {t("web.changeToYearly")}
+                        </button>
+                      )}
+
+                      {pendingCycle === "yearly" && subStatus !== "canceled" && (
+                        <button
+                          type="button"
+                          className="b-btn b-btn-ghost"
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: "11px",
+                            height: "auto",
+                            color: "var(--b-fg-3)",
+                            border: "1px solid rgba(255, 255, 255, 0.1)"
+                          }}
+                          onClick={handleCancelCycleChange}
+                        >
+                          {t("web.cancelCycleChange")}
                         </button>
                       )}
 

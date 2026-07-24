@@ -19,10 +19,11 @@ const GRACE_DAYS = 7;
 // 더닝(재시도) 제어 (§11 M3): 최소 재시도 간격 2일 + 최대 시도 횟수 3회.
 // 이전엔 grace 구독이 매일 재청구돼 카드사 위험신호가 될 수 있었다.
 const DUNNING_INTERVAL_MS = 2 * 24 * 60 * 60 * 1000;
-// 유예 GRACE_DAYS(7일) 동안 DUNNING_INTERVAL_MS(2일) 간격으로 재시도하므로 실제
-// 가능한 시도 횟수는 4회다. 예전 값(3)이면 안내 메일에 적은 7일보다 3일 먼저
-// 잘려서, 카드 교체하러 온 사용자가 이미 강등돼 있었다.
-const MAX_DUNNING_ATTEMPTS = Math.floor((GRACE_DAYS * 24 * 60 * 60 * 1000) / DUNNING_INTERVAL_MS);
+// 유예 GRACE_DAYS(7일) 동안 DUNNING_INTERVAL_MS(2일) 간격으로 재시도하면 시도는
+// day0/2/4/6 의 4회 일어난다(첫 실패 = active→grace 전환도 1회로 센다). 예전 값(3)이면
+// 안내 메일에 적은 7일보다 3일 먼저(4일차에) 잘려서, 카드 교체하러 온 사용자가 이미
+// 강등돼 있었다. floor(7/2)=3 은 그 예전 값과 같으므로 +1 해서 4로 맞춘다.
+const MAX_DUNNING_ATTEMPTS = Math.floor((GRACE_DAYS * 24 * 60 * 60 * 1000) / DUNNING_INTERVAL_MS) + 1;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
