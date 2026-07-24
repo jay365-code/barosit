@@ -36,6 +36,15 @@ if (typeof window !== "undefined") {
     } catch {
       /* localStorage 비활성 — 로그인 후 랜딩으로 떨어질 뿐, 치명적이지 않음 */
     }
+  } else if (redirectRoute === "profile" && params.get("from") === "desktop") {
+    // 데스크톱 "카드 변경" 위임 — 브라우저는 로그아웃 상태라 #/profile 로 바로
+    // 보내면 보호 라우트 가드가 #/landing 으로 되돌린다. 로그인 후 목적지를 심어
+    // 두면 Login 이 읽어 #/profile(카드 관리)로 잇는다(pricing 과 동일 패턴).
+    try {
+      localStorage.setItem("barosit:auth_redirect", "#/profile");
+    } catch {
+      /* localStorage 비활성 — 로그인 후 랜딩으로 떨어질 뿐, 치명적이지 않음 */
+    }
   } else if (redirectRoute === "pricing") {
     window.location.hash = "#/pricing";
   } else if (redirectRoute === "app") {
@@ -228,10 +237,12 @@ if (isWidget) {
     </React.StrictMode>,
   );
 } else {
-  import("./App").then(({ default: App }) => {
+  import("./App").then(async ({ default: App }) => {
+    const { DialogHost } = await import("./lib/dialog");
     root.render(
       <React.StrictMode>
         <App />
+        <DialogHost />
       </React.StrictMode>,
     );
   });
