@@ -31,6 +31,18 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.16 — 2026-07-24
+
+**한국어**
+
+- 앱에서 구독 취소·결제수단 삭제·연간 요금제 전환 버튼이 눌러도 반응하지 않던 문제를 수정했습니다.
+- 결제 카드 변경 시 요금제 페이지로 넘어가던 문제를 수정해, 이제 카드 변경 화면으로 바로 이동합니다.
+
+**English**
+
+- Fixed subscription management buttons (cancel, remove payment method, switch to yearly) that did not respond when tapped in the app.
+- Fixed "change payment card" so it now opens the card management screen instead of the plan page.
+
 ## v0.9.15 — 2026-07-24
 
 **한국어**
