@@ -6,6 +6,7 @@ import {
   type ThresholdMap,
 } from "../pose/thresholds";
 import type { PostureType } from "../pose/types";
+import { confirmDialog } from "../lib/dialog";
 import {
   isCoachingEnabled,
   loadApiKey,
@@ -61,7 +62,7 @@ export function SettingsView() {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       "데이터를 불러오면 현재 점수·이력·기준 자세·설정이 백업 파일 내용으로 덮어써집니다. 진행할까요?",
     );
     if (!ok) return;

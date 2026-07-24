@@ -11,6 +11,7 @@ import i18n from "../i18n";
 import { Icon } from "../components/Icon";
 import { AdminTemplateView } from "./AdminTemplateView";
 import { platform } from "../platform";
+import { confirmDialog, alertDialog } from "../lib/dialog";
 import { supabase, extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import { resolveEffectivePlan, isBetaFree, whenLaunchResolved } from "../launchMode";
@@ -161,12 +162,12 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       if (provider === "google") {
         signInWithGoogle().catch((err) => {
           console.error("Auto-trigger Google failed:", err);
-          alert(err.message || err);
+          void alertDialog(err.message || err);
         });
       } else if (provider === "kakao") {
         signInWithKakao().catch((err) => {
           console.error("Auto-trigger Kakao failed:", err);
-          alert(err.message || err);
+          void alertDialog(err.message || err);
         });
       }
     }
@@ -313,7 +314,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
           refund: won(refundQuote.refund),
         })
       : t("refundBreakdownFull", { refund: won(refundQuote.refund) });
-    if (!window.confirm(`${detail}\n\n${t("refundConfirm")}`)) return;
+    if (!await confirmDialog(`${detail}\n\n${t("refundConfirm")}`)) return;
 
     try {
       if (!session?.user) return;
@@ -328,16 +329,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       setSubStatus("none");
       setCardInfo(null);
       window.dispatchEvent(new Event("barosit:subscription-changed"));
-      alert(t("refundSuccess"));
+      void alertDialog(t("refundSuccess"));
     } catch (err: any) {
       console.error("Refund request failed:", err);
-      alert(err?.message || t("refundError"));
+      void alertDialog(err?.message || t("refundError"));
     }
   };
 
   // 구독 취소 (해지 예약)
   const handleCancelSubscription = async () => {
-    if (!window.confirm(t("cancelConfirm"))) return;
+    if (!await confirmDialog(t("cancelConfirm"))) return;
 
     try {
       if (!session?.user) return;
@@ -352,10 +353,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
       setSubStatus("canceled");
       window.dispatchEvent(new Event("barosit:subscription-changed"));
-      alert(t("cancelSuccess"));
+      void alertDialog(t("cancelSuccess"));
     } catch (err) {
       console.error("Cancellation failed:", err);
-      alert(t("cancelError"));
+      void alertDialog(t("cancelError"));
     }
   };
 
@@ -373,10 +374,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
 
       setSubStatus("active");
       window.dispatchEvent(new Event("barosit:subscription-changed"));
-      alert(t("restoreSuccess"));
+      void alertDialog(t("restoreSuccess"));
     } catch (err) {
       console.error("Resume failed:", err);
-      alert(t("restoreError"));
+      void alertDialog(t("restoreError"));
     }
   };
 
@@ -388,7 +389,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
     const formattedDate = subPeriodEnd
       ? new Date(subPeriodEnd).toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric" })
       : t("web.nextBillingFallback");
-    if (!window.confirm(t("web.scheduleYearlyConfirm", { date: formattedDate }))) return;
+    if (!await confirmDialog(t("web.scheduleYearlyConfirm", { date: formattedDate }))) return;
     try {
       const { data, error } = await supabase.functions.invoke("subscription-manage", {
         body: { action: "schedule_cycle", cycle: "yearly" },
@@ -396,16 +397,16 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       if (error || !data?.success) throw new Error(data?.error || error?.message || "failed");
       setPendingCycle("yearly");
       window.dispatchEvent(new Event("barosit:subscription-changed"));
-      alert(t("web.scheduleYearlyDone", { date: formattedDate }));
+      void alertDialog(t("web.scheduleYearlyDone", { date: formattedDate }));
     } catch (e: any) {
-      alert(t("web.scheduleYearlyError", { error: e?.message || String(e) }));
+      void alertDialog(t("web.scheduleYearlyError", { error: e?.message || String(e) }));
     }
   };
 
   // 주기 전환 예약 철회 — 다음 갱신도 현재 월간 그대로 간다.
   const handleCancelCycleChange = async () => {
     if (!session?.user) return;
-    if (!window.confirm(t("web.cancelCycleChangeConfirm"))) return;
+    if (!await confirmDialog(t("web.cancelCycleChangeConfirm"))) return;
     try {
       const { data, error } = await supabase.functions.invoke("subscription-manage", {
         body: { action: "cancel_cycle_change" },
@@ -413,9 +414,9 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       if (error || !data?.success) throw new Error(data?.error || error?.message || "failed");
       setPendingCycle(null);
       window.dispatchEvent(new Event("barosit:subscription-changed"));
-      alert(t("web.cancelCycleChangeDone"));
+      void alertDialog(t("web.cancelCycleChangeDone"));
     } catch (e: any) {
-      alert(t("web.scheduleYearlyError", { error: e?.message || String(e) }));
+      void alertDialog(t("web.scheduleYearlyError", { error: e?.message || String(e) }));
     }
   };
 
@@ -434,10 +435,10 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       setDeleteConfirmOpen(false);
       setDeleteAck(false);
       const when = data.scheduled_at ? new Date(data.scheduled_at).toLocaleDateString() : "";
-      alert(t("deleteSuccess", { date: when }));
+      void alertDialog(t("deleteSuccess", { date: when }));
     } catch (err: any) {
       console.error("Account deletion request failed:", err);
-      alert(t("deleteError"));
+      void alertDialog(t("deleteError"));
     } finally {
       setDeleteBusy(false);
     }
@@ -455,26 +456,35 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
         throw new Error(data?.error || error?.message || "탈퇴 취소 실패");
       }
       setDeletionScheduledAt(null);
-      alert(t("deleteUndoSuccess"));
+      void alertDialog(t("deleteUndoSuccess"));
     } catch (err: any) {
       console.error("Account deletion cancel failed:", err);
-      alert(t("deleteUndoError"));
+      void alertDialog(t("deleteUndoError"));
     } finally {
       setDeleteBusy(false);
     }
   };
 
   // 결제수단 등록/변경은 웹의 Toss 호스티드 결제창에서만 진행 (PCI 범위 최소화).
-  // 데스크톱/웹 모두 기본 브라우저로 결제 관리 페이지를 연다. raw 카드 데이터는
-  // 우리 앱이 절대 수집하지 않는다.
+  // 데스크톱은 웹과 세션을 공유하지 않으므로 로그인 브리지(#/login)를 거쳐 웹
+  // 프로필(#/profile)로 보낸다 — 거기서 "카드 변경"으로 Toss 카드창을 띄운다.
+  // 예전에는 #/pricing(신규 구독 요금제 화면)으로 보내 카드 변경에 이르지 못했다.
+  // main.tsx 가 redirect_route=profile&from=desktop 을 보고 로그인 후 #/profile 로 잇는다.
   const handleOpenWebBilling = () => {
-    platform.openBrowser("https://barosit.com/#/pricing");
+    const explicit = import.meta.env.VITE_WEB_ORIGIN as string | undefined;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const base = explicit
+      ? explicit.replace(/\/$/, "")
+      : import.meta.env.DEV && /^https?:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(origin)
+        ? origin
+        : "https://barosit.com";
+    platform.openBrowser(`${base}/?redirect_route=profile&from=desktop#/login`);
     setCardFormOpen(false);
   };
 
   // 결제 정보 삭제
   const handleDeleteCardInfo = async () => {
-    if (!window.confirm(t("cardDeleteConfirm"))) return;
+    if (!await confirmDialog(t("cardDeleteConfirm"))) return;
 
     try {
       if (!session?.user) return;
@@ -491,13 +501,13 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
       }
 
       setCardInfo(null);
-      alert(t("cardDeleteSuccess"));
+      void alertDialog(t("cardDeleteSuccess"));
       
       // 상태 변경 알림
       window.dispatchEvent(new Event("barosit:subscription-changed"));
     } catch (err: any) {
       console.error("Failed to delete card info:", err);
-      alert(t("cardDeleteError", { error: err.message || err }));
+      void alertDialog(t("cardDeleteError", { error: err.message || err }));
     }
   };
 
@@ -619,7 +629,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       localStorage.setItem("barosit:auth_redirect", "#/app");
                       await signInWithGoogle();
                     } catch (err: any) {
-                      alert(err.message || err);
+                      void alertDialog(err.message || err);
                     } finally {
                       setLoginLoading(false);
                     }
@@ -650,7 +660,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       localStorage.setItem("barosit:auth_redirect", "#/app");
                       await signInWithKakao();
                     } catch (err: any) {
-                      alert(err.message || err);
+                      void alertDialog(err.message || err);
                     } finally {
                       setLoginLoading(false);
                     }
@@ -684,7 +694,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                     localStorage.setItem("barosit:auth_redirect", "#/app");
                     await signInWithApple();
                   } catch (err: any) {
-                    alert(err.message || err);
+                    void alertDialog(err.message || err);
                   } finally {
                     setLoginLoading(false);
                   }

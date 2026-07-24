@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { confirmDialog } from "../lib/dialog";
 import { Icon } from "../components/Icon";
 import { loadLang, saveLang } from "../i18n/lang";
 import { SUPPORTED_LANGS, type Lang } from "../i18n";
@@ -289,8 +290,8 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
   };
 
 
-  const clearEvents = () => {
-    if (window.confirm(t("data.clearConfirm"))) {
+  const clearEvents = async () => {
+    if (await confirmDialog(t("data.clearConfirm"))) {
       localStorage.removeItem("posture_events");
     }
   };
@@ -309,7 +310,7 @@ export function SettingsDrawer({ onClose, updater, onShowLegal, onOpenStretchCal
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    const ok = window.confirm(t("data.importConfirm"));
+    const ok = await confirmDialog(t("data.importConfirm"));
     if (!ok) return;
     try {
       await importData(f);

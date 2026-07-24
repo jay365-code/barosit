@@ -4,6 +4,7 @@ import { getLaunchMode, setLaunchModeRemote, isPreviewAsUser, setPreviewAsUser, 
 import { getMinSupportedVersion, setMinSupportedVersion } from "../updateGate";
 import { Icon } from "../components/Icon";
 import ReactMarkdown from "react-markdown";
+import { confirmDialog, alertDialog } from "../lib/dialog";
 import remarkGfm from "remark-gfm";
 import { AdminTemplateView } from "./AdminTemplateView";
 
@@ -450,7 +451,7 @@ export function AdminDashboardView({ onClose }: Props) {
       if (error) throw error;
       setClientErrors(prev => prev.map(e => (e.id === err.id ? { ...e, resolved: next } : e)));
     } catch (e: any) {
-      alert("에러 상태 변경 실패: " + e.message);
+      void alertDialog("에러 상태 변경 실패: " + e.message);
     }
   };
 
@@ -461,7 +462,7 @@ export function AdminDashboardView({ onClose }: Props) {
       if (error) throw error;
       setClientErrors(prev => prev.filter(e => e.id !== id));
     } catch (e: any) {
-      alert("에러 삭제 실패: " + e.message);
+      void alertDialog("에러 삭제 실패: " + e.message);
     }
   };
 
@@ -478,7 +479,7 @@ export function AdminDashboardView({ onClose }: Props) {
         prev.map(n => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n))
       );
     } catch (err: any) {
-      alert("알림 읽음 처리 실패: " + err.message);
+      void alertDialog("알림 읽음 처리 실패: " + err.message);
     }
   };
 
@@ -499,7 +500,7 @@ export function AdminDashboardView({ onClose }: Props) {
         prev.map(n => (unreadIds.includes(n.id) ? { ...n, read_at: new Date().toISOString() } : n))
       );
     } catch (err: any) {
-      alert("알림 일괄 읽음 처리 실패: " + err.message);
+      void alertDialog("알림 일괄 읽음 처리 실패: " + err.message);
     }
   };
 
@@ -511,7 +512,7 @@ export function AdminDashboardView({ onClose }: Props) {
       if (error) throw error;
       setNotifications(prev => prev.filter(n => n.id !== id));
     } catch (err: any) {
-      alert("알림 삭제 실패: " + err.message);
+      void alertDialog("알림 삭제 실패: " + err.message);
     }
   };
 
@@ -532,9 +533,9 @@ export function AdminDashboardView({ onClose }: Props) {
       // 상태 즉시 리로드
       const { data: updatedSubs } = await supabase.from("user_subscriptions").select("*");
       setSubscriptions(updatedSubs || []);
-      alert("구독 요금제 플랜이 정상 수정되었습니다!");
+      void alertDialog("구독 요금제 플랜이 정상 수정되었습니다!");
     } catch (err: any) {
-      alert("플랜 수정 실패: " + err.message);
+      void alertDialog("플랜 수정 실패: " + err.message);
     }
   };
 
@@ -548,9 +549,9 @@ export function AdminDashboardView({ onClose }: Props) {
       setPosts(prev => prev.filter(p => p.id !== postId));
       setComments(prev => prev.filter(c => c.post_id !== postId));
       if (selectedPost?.id === postId) setSelectedPost(null);
-      alert("게시물이 성공적으로 삭제되었습니다.");
+      void alertDialog("게시물이 성공적으로 삭제되었습니다.");
     } catch (err: any) {
-      alert("게시물 삭제 실패: " + err.message);
+      void alertDialog("게시물 삭제 실패: " + err.message);
     }
   };
 
@@ -563,7 +564,7 @@ export function AdminDashboardView({ onClose }: Props) {
       
       setComments(prev => prev.filter(c => c.id !== commentId));
     } catch (err: any) {
-      alert("댓글 삭제 실패: " + err.message);
+      void alertDialog("댓글 삭제 실패: " + err.message);
     }
   };
 
@@ -592,7 +593,7 @@ export function AdminDashboardView({ onClose }: Props) {
       }
       setNewCommentText("");
     } catch (err: any) {
-      alert("답변 등록 실패: " + err.message);
+      void alertDialog("답변 등록 실패: " + err.message);
     }
   };
 
@@ -600,7 +601,7 @@ export function AdminDashboardView({ onClose }: Props) {
   const handleApproveDraft = async (draft: AiDraftData) => {
     const body = (editingBody.trim() || draft.draft_body || "").trim();
     if (!draft.post_id || !body) {
-      alert("게시할 본문이 비어있거나 대상 글이 없습니다.");
+      void alertDialog("게시할 본문이 비어있거나 대상 글이 없습니다.");
       return;
     }
     setReviewBusy(true);
@@ -633,7 +634,7 @@ export function AdminDashboardView({ onClose }: Props) {
       setSelectedDraft(null);
       setEditingBody("");
     } catch (err: any) {
-      alert("승인/게시 실패: " + err.message);
+      void alertDialog("승인/게시 실패: " + err.message);
     } finally {
       setReviewBusy(false);
     }
@@ -677,7 +678,7 @@ export function AdminDashboardView({ onClose }: Props) {
       setSelectedDraft(null);
       setEditingBody("");
     } catch (err: any) {
-      alert("처리 실패: " + err.message);
+      void alertDialog("처리 실패: " + err.message);
     } finally {
       setReviewBusy(false);
     }
@@ -735,7 +736,7 @@ export function AdminDashboardView({ onClose }: Props) {
   };
 
   const handleDeleteRelease = async (id: string) => {
-    if (!window.confirm("정말로 이 업데이트 내역을 영구히 삭제하시겠습니까?")) return;
+    if (!await confirmDialog("정말로 이 업데이트 내역을 영구히 삭제하시겠습니까?")) return;
 
     setSavingRelease(true);
     try {
@@ -787,21 +788,21 @@ export function AdminDashboardView({ onClose }: Props) {
       if (error) throw error;
       setFeatureRequests(prev => prev.map(fr => (fr.id === id ? { ...fr, ...patch } : fr)));
     } catch (err: any) {
-      alert("기능 요청 업데이트 실패: " + err.message);
+      void alertDialog("기능 요청 업데이트 실패: " + err.message);
     } finally {
       setFrBusy(false);
     }
   };
 
   const handleDeleteFeatureRequest = async (id: string) => {
-    if (!window.confirm("이 기능 요청 클러스터를 삭제할까요? 연결된 제안 글 링크도 함께 삭제됩니다(글 자체는 유지).")) return;
+    if (!await confirmDialog("이 기능 요청 클러스터를 삭제할까요? 연결된 제안 글 링크도 함께 삭제됩니다(글 자체는 유지).")) return;
     setFrBusy(true);
     try {
       const { error } = await supabase.from("feature_requests").delete().eq("id", id);
       if (error) throw error;
       setFeatureRequests(prev => prev.filter(fr => fr.id !== id));
     } catch (err: any) {
-      alert("삭제 실패: " + err.message);
+      void alertDialog("삭제 실패: " + err.message);
     } finally {
       setFrBusy(false);
     }
@@ -822,13 +823,13 @@ export function AdminDashboardView({ onClose }: Props) {
         : mode === "paid"
         ? "\n전환 시 비구독자는 즉시 FREE 로 강등됩니다."
         : "";
-    if (!window.confirm(`런치 모드를 [${label}] 로 전환할까요?\n모든 사용자에게 즉시 적용됩니다.${extra}`)) return;
+    if (!await confirmDialog(`런치 모드를 [${label}] 로 전환할까요?\n모든 사용자에게 즉시 적용됩니다.${extra}`)) return;
     try {
       await setLaunchModeRemote(mode);
       setLaunchModeState(mode);
-      window.alert(`런치 모드가 [${label}] 로 전환되었습니다.`);
+      void alertDialog(`런치 모드가 [${label}] 로 전환되었습니다.`);
     } catch (e: any) {
-      window.alert("전환 실패 (어드민 권한 필요): " + (e?.message || e));
+      void alertDialog("전환 실패 (어드민 권한 필요): " + (e?.message || e));
     }
   };
 
@@ -849,15 +850,15 @@ export function AdminDashboardView({ onClose }: Props) {
   const handleSetMinVersion = async () => {
     const v = minVersionInput.trim();
     if (!v) {
-      window.alert("버전을 입력하세요 (예: 0.9.11).");
+      void alertDialog("버전을 입력하세요 (예: 0.9.11).");
       return;
     }
     if (!/^\d+\.\d+\.\d+/.test(v)) {
-      window.alert("버전 형식이 올바르지 않습니다 (예: 0.9.11).");
+      void alertDialog("버전 형식이 올바르지 않습니다 (예: 0.9.11).");
       return;
     }
     if (
-      !window.confirm(
+      !await confirmDialog(
         `강제 업데이트 차단을 [${v}] 로 설정할까요?\n` +
           `이 버전 미만의 v0.9.10+ 사용자는 업데이트 전까지 앱을 이용할 수 없습니다.\n` +
           `※ 반드시 ${v} 릴리스가 이미 배포돼 있어야 합니다(사용자가 받을 수 있도록).`,
@@ -868,25 +869,25 @@ export function AdminDashboardView({ onClose }: Props) {
     try {
       await setMinSupportedVersion(v);
       setMinVersion(v);
-      window.alert(`강제 업데이트 차단이 [${v}] 로 설정되었습니다.`);
+      void alertDialog(`강제 업데이트 차단이 [${v}] 로 설정되었습니다.`);
     } catch (e: any) {
-      window.alert("설정 실패 (어드민 권한 필요): " + (e?.message || e));
+      void alertDialog("설정 실패 (어드민 권한 필요): " + (e?.message || e));
     } finally {
       setMinVersionBusy(false);
     }
   };
 
   const handleClearMinVersion = async () => {
-    if (!window.confirm("강제 업데이트 차단을 해제할까요? (아무도 차단되지 않습니다)"))
+    if (!await confirmDialog("강제 업데이트 차단을 해제할까요? (아무도 차단되지 않습니다)"))
       return;
     setMinVersionBusy(true);
     try {
       await setMinSupportedVersion(null);
       setMinVersion(null);
       setMinVersionInput("");
-      window.alert("강제 업데이트 차단이 해제되었습니다.");
+      void alertDialog("강제 업데이트 차단이 해제되었습니다.");
     } catch (e: any) {
-      window.alert("해제 실패 (어드민 권한 필요): " + (e?.message || e));
+      void alertDialog("해제 실패 (어드민 권한 필요): " + (e?.message || e));
     } finally {
       setMinVersionBusy(false);
     }
@@ -902,18 +903,18 @@ export function AdminDashboardView({ onClose }: Props) {
       if (error) throw error;
       setProfiles(prev => prev.map(p => (p.id === userId ? { ...p, is_beta_tester: next } : p)));
     } catch (e: any) {
-      window.alert("테스터 설정 실패: " + (e?.message || e));
+      void alertDialog("테스터 설정 실패: " + (e?.message || e));
     }
   };
 
   // 관리자 강제 환불 (admin-refund Edge Function 호출, §11 M4-c)
   const handleAdminRefund = async () => {
     const orderId = refundOrderId.trim();
-    if (!orderId) { window.alert("환불할 결제의 orderId 를 입력하세요."); return; }
+    if (!orderId) { void alertDialog("환불할 결제의 orderId 를 입력하세요."); return; }
     const amt = refundAmount.trim() ? Number(refundAmount.trim()) : undefined;
-    if (amt !== undefined && (!Number.isFinite(amt) || amt <= 0)) { window.alert("환불 금액이 올바르지 않습니다."); return; }
+    if (amt !== undefined && (!Number.isFinite(amt) || amt <= 0)) { void alertDialog("환불 금액이 올바르지 않습니다."); return; }
     const label = amt ? `${amt.toLocaleString()}원 부분 환불` : "전액 환불";
-    if (!window.confirm(`주문 ${orderId} 을 [${label}]${refundDowngrade ? " + FREE 강등" : ""} 처리할까요?`)) return;
+    if (!await confirmDialog(`주문 ${orderId} 을 [${label}]${refundDowngrade ? " + FREE 강등" : ""} 처리할까요?`)) return;
     setRefundBusy(true);
     setRefundResult(null);
     try {
