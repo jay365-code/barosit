@@ -2983,17 +2983,16 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
       const hashed = await hashPassword(passwordInput);
 
       if (passwordModal.type === "post_delete") {
-        // Delete post matching id and password_hash
-        const { data, error } = await supabase
-          .from("posts")
-          .delete()
-          .eq("id", passwordModal.targetId)
-          .eq("password_hash", hashed)
-          .select();
+        // 게스트 글 삭제: SECURITY DEFINER RPC 가 서버에서 password_hash 대조.
+        // (public delete 정책이 제거돼 직접 DELETE 는 더 이상 불가)
+        const { data, error } = await supabase.rpc("delete_guest_post", {
+          p_post_id: passwordModal.targetId,
+          p_password_hash: hashed,
+        });
 
         if (error) throw error;
 
-        if (!data || data.length === 0) {
+        if (!data) {
           setPasswordModal((prev) => ({
             ...prev,
             error: t("community.errPwWrongPost"),
@@ -3007,17 +3006,15 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
         setActivePost(null);
         fetchPosts();
       } else {
-        // Delete comment matching id and password_hash
-        const { data, error } = await supabase
-          .from("comments")
-          .delete()
-          .eq("id", passwordModal.targetId)
-          .eq("password_hash", hashed)
-          .select();
+        // 게스트 댓글 삭제: 동일하게 RPC 로 서버측 비밀번호 검증.
+        const { data, error } = await supabase.rpc("delete_guest_comment", {
+          p_comment_id: passwordModal.targetId,
+          p_password_hash: hashed,
+        });
 
         if (error) throw error;
 
-        if (!data || data.length === 0) {
+        if (!data) {
           setPasswordModal((prev) => ({
             ...prev,
             error: t("community.errPwWrongComment"),
@@ -3139,8 +3136,8 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
               <Icon name="edit" size={13} />
             </button>
           )}
-          {/* 운영자(Aria) 공식 답변은 일반 사용자가 삭제할 수 없다(어드민 대시보드에서만 관리). */}
-          {!comment.is_agent && (
+          {/* 게스트 댓글(비밀번호 삭제) 또는 본인(회원) 댓글에만 노출. 운영자(Aria) 답변은 어드민 대시보드에서만 관리. */}
+          {!comment.is_agent && (!comment.user_id || (user && comment.user_id === user.id)) && (
             <button
               onClick={() => handleCommentDeleteClick(comment)}
               style={{
@@ -4465,7 +4462,8 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                   })()}
                 </div>
 
-                {/* Delete Trigger */}
+                {/* Delete Trigger — 게스트 글(비밀번호 삭제) 또는 본인(회원) 글에만 노출. 운영자(Aria/Ethan) 글은 어드민 대시보드에서만 관리. */}
+                {!activePost.is_agent && (!activePost.user_id || (user && activePost.user_id === user.id)) && (
                 <button
                   onClick={handlePostDeleteClick}
                   style={{
@@ -4494,6 +4492,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                   <Icon name="trash" size={13} />
                   <span>{t("community.deletePost")}</span>
                 </button>
+                )}
               </div>
             </div>
 
