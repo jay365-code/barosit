@@ -105,7 +105,13 @@
 }
 
 /* Manual dark override — wins over OS-light too */
-:root[data-theme="dark"] {
+/* .b-force-dark: 서브트리의 테마 토큰을 :root 테마와 무관하게 다크로 고정한다.
+   어드민 화면(AdminDashboardView·AdminTemplateView)은 하드코딩 다크 배경 +
+   흰색 오버레이로 다크 전용 설계됐는데, 텍스트만 var(--b-fg-*) 를 섞어 써서
+   라이트 모드에서 다크 텍스트가 다크 배경에 묻혀 사라졌다. 여기에 감싸면 토큰이
+   전부 다크로 해석돼 텍스트가 다시 밝아진다. 커스텀 프로퍼티는 :root 가 아니어도
+   후손에 상속되므로 클래스만으로 서브트리 스코핑이 성립한다. */
+:root[data-theme="dark"], .b-force-dark {
   color-scheme: dark;
   --b-sig: #7eb09c;
   --b-sig-deep: #a3cdbb;

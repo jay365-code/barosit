@@ -491,7 +491,7 @@ export function AdminTemplateView() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 8 }}>
+    <div className="b-force-dark" style={{ display: "flex", flexDirection: "column", gap: 24, padding: 8 }}>
       {/* 최상단 알림 배너 */}
       {successMsg && (
         <div

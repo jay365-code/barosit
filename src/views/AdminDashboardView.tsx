@@ -1087,6 +1087,7 @@ export function AdminDashboardView({ onClose }: Props) {
 
   return (
     <div
+      className="b-force-dark"
       style={{
         width: "100vw",
         height: "100vh",
