@@ -10,6 +10,7 @@
     "notConfigured": "Can't sign in because Supabase isn't configured.",
     "noAuthUrl": "Couldn't generate the authentication URL.",
     "loginTimeout": "Login timed out. Please try again.",
+    "loginExpired": "The sign-in attempt expired. Please sign in again.",
     "noCode": "The authentication response has no code parameter.",
     "invalidEmail": "Please enter a valid email address."
   },

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { IS_AUTH_CONFIGURED, authRedirectUrl, supabase } from "./supabase";
+import { isExpiredFlowError, isStaleExchangeError } from "./oauthErrorClassify";
 import i18n from "../i18n";
 
 export interface AuthState {
@@ -211,20 +212,8 @@ export function useAuth() {
       const STALE_URL_THRESHOLD_MS = 200;
       const sessionStartTime = Date.now();
 
-      // PKCE 검증 단계 stale 에러 패턴 — supabase 가 *throw* 또는 *error
-      // 반환* 양쪽 모두 같은 메시지 형태이므로 catch 와 if (exchangeErr) 양
-      // 분기에서 모두 검사합니다.
-      const STALE_ERROR_PATTERNS = [
-        "code verifier",
-        "code challenge",
-        "flow state",
-        "invalid_grant",
-      ];
-      const isStaleExchangeError = (msg: string | undefined): boolean => {
-        if (!msg) return false;
-        const lower = msg.toLowerCase();
-        return STALE_ERROR_PATTERNS.some((p) => lower.includes(p));
-      };
+      // stale(재대기) / expired(확정 실패) 분류는 oauthErrorClassify.ts 참고
+      // — 반드시 expired 를 먼저 검사 (만료 메시지가 stale 패턴에도 매치됨).
 
       console.log(
         `[useAuth] OAuth start — provider=${provider} startTime=${sessionStartTime}`,
@@ -244,9 +233,34 @@ export function useAuth() {
       const timeoutId = window.setTimeout(() => {
         if (settled) return;
         settled = true;
+        clearStaleDeadline();
         unlisten?.();
         rejectSession(new Error(i18n.t("errors:auth.loginTimeout")));
       }, 5 * 60 * 1000);
+
+      // N2: 보조 데드라인 — callback 이 stale 로 *삼켜진* 뒤 일정 시간 내에
+      // 정상 callback 이 오지 않으면 실패 확정. K2/M1 의 silent 재대기가
+      // "5분 무반응"으로 방치되는 것을 막는다. 30초인 이유: 이중 클릭
+      // 시나리오(첫 시도의 stale code 도착 → 두 번째 Google 인증은 아직
+      // 진행 중)에서 사용자가 인증을 마칠 여유는 주되, 확정 실패(code 소비됨
+      // /verifier 소실)는 5분보다 훨씬 빨리 피드백하기 위한 절충.
+      let staleDeadlineId: number | null = null;
+      const clearStaleDeadline = () => {
+        if (staleDeadlineId !== null) {
+          window.clearTimeout(staleDeadlineId);
+          staleDeadlineId = null;
+        }
+      };
+      const armStaleDeadline = () => {
+        if (settled || staleDeadlineId !== null) return;
+        staleDeadlineId = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeoutId);
+          unlisten?.();
+          rejectSession(new Error(i18n.t("errors:auth.loginExpired")));
+        }, 30_000);
+      };
 
       const handler = async (urls: string[]) => {
         // 한 이벤트에 여러 URL 이 올 수 있음 — barosit://auth-callback 만 필터.
@@ -285,11 +299,13 @@ export function useAuth() {
 
           const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeErr) {
-            // K2: stale 패턴 에러 — 조용히 다음 callback 대기.
-            if (isStaleExchangeError(exchangeErr.message)) {
+            // K2: stale 패턴 에러 — 조용히 다음 callback 대기 (N1: flow state
+            // *만료* 는 확정 실패라 제외 → throw 로 내려보냄).
+            if (!isExpiredFlowError(exchangeErr) && isStaleExchangeError(exchangeErr.message)) {
               console.warn(
                 `[useAuth] Stale exchange error — waiting for next callback: ${exchangeErr.message}`,
               );
+              armStaleDeadline();
               return;
             }
             throw exchangeErr;
@@ -298,6 +314,7 @@ export function useAuth() {
           // 여기서부터 *진짜 성공*. settled lock 후 진행.
           settled = true;
           window.clearTimeout(timeoutId);
+          clearStaleDeadline();
           unlisten?.();
           console.log(`[useAuth] OAuth exchange succeeded`);
 
@@ -342,21 +359,30 @@ export function useAuth() {
           // M1: supabase 가 *throw* 한 PKCE 검증 에러도 stale 패턴이면 *조용히
           // 재대기*. v0.2.17 의 K2 는 if (exchangeErr) 분기에서만 검사해
           // throw 경로를 놓쳤습니다. 진짜 실패만 alert 으로 노출.
-          if (isStaleExchangeError(errMsg)) {
+          // (N1: flow state *만료* 는 재대기 제외 — 아래 확정 실패로 처리.)
+          if (!isExpiredFlowError(err) && isStaleExchangeError(errMsg)) {
             console.warn(
               `[useAuth] Stale exchange error (throw) — waiting for next callback: ${errMsg}`,
             );
+            armStaleDeadline();
             return;
           }
 
           // 진짜 실패 — settled lock + cleanup 후 reject.
           settled = true;
           window.clearTimeout(timeoutId);
+          clearStaleDeadline();
           unlisten?.();
           console.error(`[useAuth] OAuth exchange failed: ${errMsg}`);
           // 에러 객체 전체도 디버깅용 로깅 (M2)
           console.error(`[useAuth] OAuth exchange error object:`, err);
-          rejectSession(err instanceof Error ? err : new Error(errMsg));
+          // N1: GoTrue 의 만료 메시지("invalid flow state, flow state has
+          // expired")는 그대로 노출하면 의미 전달이 안 됨 — 재시도 안내로 치환.
+          rejectSession(
+            isExpiredFlowError(err)
+              ? new Error(i18n.t("errors:auth.loginExpired"))
+              : err instanceof Error ? err : new Error(errMsg),
+          );
         }
       };
 
