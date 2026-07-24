@@ -20,6 +20,7 @@ import {
   type BillingCycle,
 } from "../_shared/toss.ts";
 import { sendUserEmail, tplRefunded } from "../_shared/email.ts";
+import { logSubEvent } from "../_shared/events.ts";
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
@@ -211,6 +212,19 @@ serve(async (req) => {
         payload: { user_id: user.id, order_id: latest.order_id, refunded: refundAmount },
       });
     }
+
+    // 환불(+FREE 강등)을 사용자 타임라인에 기록. mode: withdrawal(청약철회) | prorated(중도해지)
+    await logSubEvent(supabase, {
+      userId: user.id,
+      type: "refunded",
+      detail: {
+        mode,
+        refund: refundAmount,
+        full: isFullRefund,
+        cycle: cycle ?? null,
+        ...(mode === "prorated" ? breakdown : {}),
+      },
+    });
 
     // 환불 완료 안내 메일 (§11 H2) — 발송 실패해도 환불 결과엔 영향 없음
     const m = tplRefunded(refundAmount, isFullRefund);

@@ -6825,6 +6825,7 @@ function PlanTab({
   const { t, i18n } = useTranslation("profile");
   const { user } = useAuth();
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
+  const [subEvents, setSubEvents] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [latestPayment, setLatestPayment] = useState<any>(null);
   // payment-cancel dryRun 결과. null 이면 환불 불가(구독 해지만 가능).
@@ -6845,6 +6846,14 @@ function PlanTab({
           .eq("user_id", user.id)
           .maybeSingle();
         setCardInfo(subRow?.card_info ?? null);
+        // 구독 이력 이벤트 조회 — RLS 가 본인의 visibility='user' 이벤트로 제한한다.
+        const { data: events } = await supabase
+          .from("subscription_events")
+          .select("id, event_type, actor, detail, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        setSubEvents(events ?? []);
         // 결제 내역 조회
         const { data: history, error } = await supabase
           .from("billing_history")
@@ -7410,6 +7419,65 @@ function PlanTab({
             })
           )}
         </div>
+
+        {subEvents.length > 0 && (
+          <div style={{ marginTop: 28 }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                color: "var(--b-fg-3)",
+                letterSpacing: "0.08em",
+                marginBottom: 10,
+              }}
+            >
+              {t("web.subEventsTitle")}
+            </div>
+            {subEvents.map((ev, i) => {
+              const dateStr = new Date(ev.created_at)
+                .toLocaleDateString(i18n.language, { year: "numeric", month: "2-digit", day: "2-digit" })
+                .replace(/\. /g, ".")
+                .replace(/\.$/, "");
+              const d = ev.detail || {};
+              const cyc = (c: string) =>
+                c === "yearly" ? t("web.cycleYearly") : c === "monthly" ? t("web.cycleMonthly") : c;
+              // 라벨 — 알 수 없는 타입이면 키 대신 원문을 그대로 노출하지 않도록 폴백.
+              const label = t(`web.subEvt_${ev.event_type}`, {
+                from: cyc(d.from),
+                to: cyc(d.to ?? d.cycle),
+                defaultValue: ev.event_type,
+              });
+              const actorTag =
+                ev.actor === "admin"
+                  ? t("web.subEvtBy_admin")
+                  : ev.actor === "system"
+                  ? t("web.subEvtBy_system")
+                  : "";
+              return (
+                <div
+                  key={ev.id || i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "12px 4px",
+                    borderBottom: "1px solid var(--b-line)",
+                  }}
+                >
+                  <span className="b-num" style={{ fontSize: 13, color: "var(--b-fg-2)", minWidth: 92 }}>
+                    {dateStr}
+                  </span>
+                  <span style={{ fontSize: 13, color: "var(--b-fg-1)", marginLeft: 12 }}>{label}</span>
+                  {actorTag && (
+                    <span style={{ fontSize: 11, color: "var(--b-fg-3)", marginLeft: "auto", paddingLeft: 10 }}>
+                      {actorTag}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div
           style={{

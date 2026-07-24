@@ -14,6 +14,7 @@ import { chargeBilling, getPaymentByOrderId, PRICE, type BillingCycle } from "..
 import { sendUserEmail, tplPaymentFailed, tplDowngraded } from "../_shared/email.ts";
 import { decryptSecret } from "../_shared/crypto.ts";
 import { nextPeriodEnd } from "../_shared/period.ts";
+import { logSubEvent } from "../_shared/events.ts";
 
 const GRACE_DAYS = 7;
 // 더닝(재시도) 제어 (§11 M3): 최소 재시도 간격 2일 + 최대 시도 횟수 3회.
@@ -55,6 +56,10 @@ serve(async (req) => {
           current_period_end: null, grace_period_until: null,
           updated_at: new Date().toISOString(),
         }).eq("user_id", sub.user_id);
+        await logSubEvent(supabase, {
+          userId: sub.user_id, type: "downgraded", actor: "system",
+          detail: { reason: "canceled_expired" },
+        });
         results.cleaned++;
         continue;
       }
@@ -71,6 +76,10 @@ serve(async (req) => {
           billing_cycle: null,
           updated_at: new Date().toISOString(),
         }).eq("user_id", sub.user_id);
+        await logSubEvent(supabase, {
+          userId: sub.user_id, type: "downgraded", actor: "system",
+          detail: { reason: "no_payment_method" },
+        });
         results.cleaned++;
         continue;
       }
@@ -121,10 +130,13 @@ serve(async (req) => {
       const pending = sub.pending_billing_cycle;
       const pendingCycle: BillingCycle | null =
         pending === "yearly" ? "yearly" : pending === "monthly" ? "monthly" : null;
+      // 예약된 주기가 이번 청구에서 실제로 적용됐는지 — 이벤트 detail 에 기록한다.
+      const cycleBeforePending = cycle;
       if (pendingCycle && pendingCycle !== cycle) {
         console.log(`charge-renewals: 주기 전환 적용 ${cycle} → ${pendingCycle} (user ${sub.user_id})`);
         cycle = pendingCycle;
       }
+      const cycleChanged = cycle !== cycleBeforePending;
 
       if (!cycle) {
         console.error("charge-renewals: billing_cycle 판정 불가 user", sub.user_id);
@@ -168,6 +180,13 @@ serve(async (req) => {
           billing_cycle: cycle, status: "completed", cash_receipt_issued: false,
           created_at: new Date().toISOString(),
         });
+        await logSubEvent(supabase, {
+          userId: sub.user_id, type: "renewed", actor: "system",
+          detail: {
+            cycle, amount,
+            ...(cycleChanged ? { cycle_changed: true, from: cycleBeforePending, to: cycle } : {}),
+          },
+        });
         results.charged++;
       } catch (chargeErr: any) {
         // 응답 유실 방어 — chargeBilling 은 네트워크 타임아웃도 예외로 던진다.
@@ -196,6 +215,13 @@ serve(async (req) => {
             payment_key: settled.paymentKey, amount, plan: "pro",
             billing_cycle: cycle, status: "completed", cash_receipt_issued: false,
             created_at: new Date().toISOString(),
+          });
+          await logSubEvent(supabase, {
+            userId: sub.user_id, type: "renewed", actor: "system",
+            detail: {
+              cycle, amount,
+              ...(cycleChanged ? { cycle_changed: true, from: cycleBeforePending, to: cycle } : {}),
+            },
           });
           results.charged++;
           continue;
@@ -228,6 +254,10 @@ serve(async (req) => {
           // 결제 실패 + 카드 갱신 유도 메일 (§11 H2)
           const m = tplPaymentFailed(graceUntil.toISOString());
           await sendUserEmail(userEmail, m.subject, m.html);
+          await logSubEvent(supabase, {
+            userId: sub.user_id, type: "payment_failed", actor: "system",
+            detail: { attempts, grace_until: graceUntil.toISOString(), cycle },
+          });
           results.graced++;
         } else if (graceExpired || attempts >= MAX_DUNNING_ATTEMPTS) {
           // 유예 만료 또는 최대 재시도(3회) 초과 → FREE 강등 + 빌링키 비활성화 (§11 M3)
@@ -242,6 +272,10 @@ serve(async (req) => {
           // FREE 강등 안내 메일
           const m = tplDowngraded();
           await sendUserEmail(userEmail, m.subject, m.html);
+          await logSubEvent(supabase, {
+            userId: sub.user_id, type: "downgraded", actor: "system",
+            detail: { reason: "dunning_exhausted", attempts },
+          });
           results.downgraded++;
         } else {
           // 유예 중 재시도 실패 (아직 7일·최대횟수 전) — 다음 간격까지 대기

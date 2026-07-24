@@ -10,6 +10,7 @@ import { issueBillingKey, chargeBilling, cancelPayment, PRICE, type BillingCycle
 import { nextPeriodEnd } from "../_shared/period.ts";
 import { encryptSecret } from "../_shared/crypto.ts";
 import { assertPaymentAllowed, PaymentBlockedError } from "../_shared/launch.ts";
+import { logSubEvent } from "../_shared/events.ts";
 
 // authKey 에서 결정적 orderId 를 만든다. 같은 결제 시도(=같은 authKey)의 중복
 // 호출이 반드시 같은 orderId 를 갖게 하는 것이 목적 — 토스가 동일 orderId 재결제를
@@ -82,6 +83,11 @@ serve(async (req) => {
         status: "completed",
         cash_receipt_issued: false,
         created_at: new Date().toISOString(),
+      });
+      await logSubEvent(supabase, {
+        userId: user.id,
+        type: "card_updated",
+        detail: { company: cardInfoOnly.company, number: cardInfoOnly.number },
       });
 
       return json({ success: true, mode: "update_card", card: cardInfoOnly });
@@ -174,6 +180,12 @@ serve(async (req) => {
         created_at: new Date().toISOString(),
       }).eq("order_id", orderId);
       if (histErr) throw new Error(`원장 적재 실패: ${histErr.message}`);
+
+      await logSubEvent(supabase, {
+        userId: user.id,
+        type: "subscribed",
+        detail: { cycle, amount, effective_until: periodEnd.toISOString() },
+      });
     } catch (dbErr: any) {
       // 보상: 방금 성공한 첫 청구를 전액 취소해 사용자 손실을 0 으로 되돌린다.
       let compensated = false;

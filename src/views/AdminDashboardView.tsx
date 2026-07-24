@@ -170,7 +170,7 @@ interface Props {
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "qna" | "ai_review" | "roadmap" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "billing" | "qna" | "ai_review" | "roadmap" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
@@ -189,6 +189,12 @@ export function AdminDashboardView({ onClose }: Props) {
   // 데이터 상태
   const [profiles, setProfiles] = useState<UserProfileData[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionData[]>([]);
+  // 구독 라이프사이클 이벤트(전체 사용자) — RLS 의 admin 정책이 내부(admin) 이벤트까지 허용한다.
+  const [subEvents, setSubEvents] = useState<any[]>([]);
+  const [subEvtInternalOnly, setSubEvtInternalOnly] = useState(false);
+  const [subEvtUserQuery, setSubEvtUserQuery] = useState(""); // 사용자 이름/ID 검색
+  const [subEvtFrom, setSubEvtFrom] = useState(""); // 기간 시작(YYYY-MM-DD)
+  const [subEvtTo, setSubEvtTo] = useState(""); // 기간 끝(YYYY-MM-DD)
   const [events, setEvents] = useState<PostureEventData[]>([]);
   const [dailyScores, setDailyScores] = useState<DailyScoreData[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -247,7 +253,14 @@ export function AdminDashboardView({ onClose }: Props) {
       
       // 2. 구독 정보 조회
       const { data: subData } = await supabase.from("user_subscriptions").select("*");
-      
+
+      // 2-1. 구독 라이프사이클 이벤트(전체) — admin RLS 로 내부 이벤트까지 조회. 최신 300건.
+      const { data: subEvtData } = await supabase
+        .from("subscription_events")
+        .select("id, user_id, event_type, visibility, actor, detail, created_at")
+        .order("created_at", { ascending: false })
+        .limit(300);
+
       // 3. 최근 원시 이벤트 조회 (최대 1000건 제한으로 부하 예방)
       const { data: evtData } = await supabase.from("posture_events").select("*").order("occurred_at", { ascending: false }).limit(1000);
       
@@ -326,6 +339,7 @@ export function AdminDashboardView({ onClose }: Props) {
 
       setProfiles(profData || []);
       setSubscriptions(subData || []);
+      setSubEvents(subEvtData || []);
       setEvents(evtData || []);
       setDailyScores(scoreData || []);
       setPosts(postData || []);
@@ -1239,6 +1253,7 @@ export function AdminDashboardView({ onClose }: Props) {
             {[
               { id: "dashboard", label: "실시간 대시보드", icon: "target" as const },
               { id: "users", label: "가입자 관리", icon: "shield" as const },
+              { id: "billing", label: "구독 이력", icon: "bell" as const },
               { id: "qna", label: "커뮤니티 관리", icon: "info" as const },
               { id: "ai_review", label: "AI 응답 검수", icon: "sparkle" as const },
               { id: "roadmap", label: "기능 요청 로드맵", icon: "target" as const },
@@ -2193,6 +2208,124 @@ export function AdminDashboardView({ onClose }: Props) {
                     </table>
                   </div>
                 )}
+
+                {/* 2-1. 구독 이력 탭 — 전체 사용자의 구독 라이프사이클 이벤트(내부 포함) */}
+                {activeTab === "billing" && (() => {
+                  const LABEL: Record<string, string> = {
+                    subscribed: "구독 시작", renewed: "정기 결제 갱신", canceled: "해지 예약",
+                    resumed: "해지 철회", cycle_change_scheduled: "주기 변경 예약",
+                    cycle_change_canceled: "주기 변경 예약 취소", cycle_changed: "주기 변경 적용",
+                    card_updated: "결제수단 변경", card_removed: "결제수단 삭제",
+                    refunded: "환불", payment_failed: "결제 실패", downgraded: "무료 강등",
+                  };
+                  const ACTOR: Record<string, string> = { user: "사용자", system: "자동(배치)", admin: "관리자" };
+                  const cyc = (c: string) => (c === "yearly" ? "연간" : c === "monthly" ? "월간" : c || "");
+                  const won = (n: any) => (n != null ? `${Number(n).toLocaleString()}원` : "");
+                  const summarize = (t: string, d: any): string => {
+                    d = d || {};
+                    if (t === "cycle_change_scheduled" || t === "cycle_changed") return `${cyc(d.from) || "?"} → ${cyc(d.to) || cyc(d.cycle) || "?"}`;
+                    if (t === "subscribed" || t === "renewed") return [cyc(d.cycle), won(d.amount), d.cycle_changed ? `전환 ${cyc(d.from)}→${cyc(d.to)}` : ""].filter(Boolean).join(" · ");
+                    if (t === "refunded") return [{ withdrawal: "청약철회", prorated: "중도해지", admin: "관리자" }[d.mode as string] || d.mode || "", won(d.refund), d.full ? "전액" : ""].filter(Boolean).join(" · ");
+                    if (t === "payment_failed") return [`시도 ${d.attempts ?? "?"}회`, d.grace_until ? `유예 ${new Date(d.grace_until).toLocaleDateString()}` : ""].filter(Boolean).join(" · ");
+                    if (t === "downgraded") return ({ canceled_expired: "해지 만료", no_payment_method: "결제수단 없음", dunning_exhausted: "재청구 소진", admin_refund: "관리자 환불" } as any)[d.reason] || d.reason || "";
+                    if (t === "canceled") return d.effective_at ? `만료 ${new Date(d.effective_at).toLocaleDateString()}` : "";
+                    return "";
+                  };
+                  const q = subEvtUserQuery.trim().toLowerCase();
+                  const fromT = subEvtFrom ? new Date(`${subEvtFrom}T00:00:00`).getTime() : null;
+                  const toT = subEvtTo ? new Date(`${subEvtTo}T23:59:59`).getTime() : null;
+                  const rows = subEvents.filter(e => {
+                    if (subEvtInternalOnly && e.visibility !== "admin") return false;
+                    if (fromT != null || toT != null) {
+                      const t = new Date(e.created_at).getTime();
+                      if (fromT != null && t < fromT) return false;
+                      if (toT != null && t > toT) return false;
+                    }
+                    if (q) {
+                      const name = (profiles.find(p => p.id === e.user_id)?.name || "").toLowerCase();
+                      if (!name.includes(q) && !String(e.user_id).toLowerCase().includes(q)) return false;
+                    }
+                    return true;
+                  });
+                  const inputStyle: React.CSSProperties = { background: "#222", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", borderRadius: 6, padding: "5px 8px", fontSize: 12 };
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>구독 라이프사이클 이력 <span style={{ fontSize: 12, opacity: 0.5, fontWeight: 400 }}>· 전체 사용자 (최신 300)</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "12px 14px", background: "rgba(255,255,255,0.02)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.85 }}>
+                          <span>사용자</span>
+                          <input
+                            type="text"
+                            value={subEvtUserQuery}
+                            onChange={e => setSubEvtUserQuery(e.target.value)}
+                            placeholder="이름 또는 ID"
+                            style={{ ...inputStyle, width: 160 }}
+                          />
+                        </label>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.85 }}>
+                          <span>기간</span>
+                          <input type="date" value={subEvtFrom} onChange={e => setSubEvtFrom(e.target.value)} style={inputStyle} />
+                          <span style={{ opacity: 0.5 }}>~</span>
+                          <input type="date" value={subEvtTo} onChange={e => setSubEvtTo(e.target.value)} style={inputStyle} />
+                        </label>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.85, cursor: "pointer" }}>
+                          <input type="checkbox" checked={subEvtInternalOnly} onChange={e => setSubEvtInternalOnly(e.target.checked)} />
+                          내부(admin) 이벤트만
+                        </label>
+                        {(subEvtUserQuery || subEvtFrom || subEvtTo || subEvtInternalOnly) && (
+                          <button
+                            onClick={() => { setSubEvtUserQuery(""); setSubEvtFrom(""); setSubEvtTo(""); setSubEvtInternalOnly(false); }}
+                            style={{ ...inputStyle, cursor: "pointer", opacity: 0.8 }}
+                          >
+                            필터 초기화
+                          </button>
+                        )}
+                        <span style={{ marginLeft: "auto", fontSize: 12, opacity: 0.55 }}>{rows.length}건</span>
+                      </div>
+                      {rows.length === 0 ? (
+                        <div style={{ padding: "32px 0", textAlign: "center", opacity: 0.4, fontSize: 13 }}>표시할 구독 이벤트가 없습니다.</div>
+                      ) : (
+                        <table style={{ width: "100%", borderCollapse: "collapse", background: "rgba(255,255,255,0.01)", borderRadius: 12, overflow: "hidden" }}>
+                          <thead>
+                            <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", fontSize: 13, textAlign: "left" }}>
+                              <th style={{ padding: "12px 16px" }}>일시</th>
+                              <th style={{ padding: "12px 16px" }}>사용자</th>
+                              <th style={{ padding: "12px 16px" }}>이벤트</th>
+                              <th style={{ padding: "12px 16px" }}>상세</th>
+                              <th style={{ padding: "12px 16px" }}>노출</th>
+                              <th style={{ padding: "12px 16px" }}>처리</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(ev => {
+                              const prof = profiles.find(p => p.id === ev.user_id);
+                              const isRefundish = ev.event_type === "refunded" || ev.event_type === "downgraded" || ev.event_type === "payment_failed";
+                              return (
+                                <tr key={ev.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: 13 }}>
+                                  <td style={{ padding: "12px 16px", opacity: 0.7, whiteSpace: "nowrap" }}>{new Date(ev.created_at).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+                                  <td style={{ padding: "12px 16px" }}>
+                                    <div style={{ fontWeight: 600 }}>{prof?.name || "사용자"}</div>
+                                    <div style={{ fontSize: 10, opacity: 0.35 }}>{ev.user_id.slice(0, 8)}</div>
+                                  </td>
+                                  <td style={{ padding: "12px 16px" }}>
+                                    <span style={{ color: isRefundish ? "#c95c5c" : "#7eb09c", fontWeight: 600 }}>{LABEL[ev.event_type] || ev.event_type}</span>
+                                  </td>
+                                  <td style={{ padding: "12px 16px", opacity: 0.85 }}>{summarize(ev.event_type, ev.detail)}</td>
+                                  <td style={{ padding: "12px 16px" }}>
+                                    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: ev.visibility === "admin" ? "rgba(217,167,82,0.15)" : "rgba(91,140,122,0.15)", color: ev.visibility === "admin" ? "#d9a752" : "#5b8c7a" }}>
+                                      {ev.visibility === "admin" ? "내부" : "노출"}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: "12px 16px", opacity: 0.6, fontSize: 12 }}>{ACTOR[ev.actor] || ev.actor}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* 3. 커뮤니티 관리 탭 */}
                 {activeTab === "qna" && (

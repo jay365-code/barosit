@@ -15,6 +15,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, getUser } from "../_shared/admin.ts";
 import { sendUserEmail, tplCanceled } from "../_shared/email.ts";
+import { logSubEvent } from "../_shared/events.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -58,6 +59,15 @@ serve(async (req) => {
         .eq("user_id", user.id);
       if (schedErr) throw new Error(`주기 예약 실패: ${schedErr.message}`);
 
+      // 예약을 새로 걸었는지(next) 현재 주기와 같아 정리했는지(null)를 구분해 기록.
+      await logSubEvent(supabase, {
+        userId: user.id,
+        type: next ? "cycle_change_scheduled" : "cycle_change_canceled",
+        detail: next
+          ? { from: sub.billing_cycle, to: next, effective_at: sub.current_period_end ?? null }
+          : {},
+      });
+
       return json({
         success: true,
         action: "schedule_cycle",
@@ -73,6 +83,7 @@ serve(async (req) => {
         .update({ pending_billing_cycle: null, updated_at: new Date().toISOString() })
         .eq("user_id", user.id);
       if (clrErr) throw new Error(`주기 예약 철회 실패: ${clrErr.message}`);
+      await logSubEvent(supabase, { userId: user.id, type: "cycle_change_canceled" });
       return json({ success: true, action: "cancel_cycle_change", pendingBillingCycle: null });
     }
 
@@ -109,6 +120,7 @@ serve(async (req) => {
         message: `결제수단 삭제: 사용자 ${user.email} 님이 등록된 결제 카드를 삭제했습니다.`,
         payload: { user_id: user.id, email: user.email, action: "delete_payment_method" },
       });
+      await logSubEvent(supabase, { userId: user.id, type: "card_removed" });
 
       return json({ success: true, action: "delete_card" });
     }
@@ -144,6 +156,12 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     }).eq("user_id", user.id);
     if (error) throw new Error(error.message);
+
+    await logSubEvent(supabase, {
+      userId: user.id,
+      type: action === "cancel" ? "canceled" : "resumed",
+      detail: action === "cancel" ? { effective_at: sub.current_period_end ?? null } : {},
+    });
 
     // 해지 예약 접수 안내 메일 (§11 H2) — 발송 실패해도 처리 결과엔 영향 없음
     if (action === "cancel") {

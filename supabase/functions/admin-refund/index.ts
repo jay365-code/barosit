@@ -12,6 +12,7 @@ import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, getUser } from "../_shared/admin.ts";
 import { cancelPayment } from "../_shared/toss.ts";
 import { sendUserEmail, tplRefunded } from "../_shared/email.ts";
+import { logSubEvent } from "../_shared/events.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -85,6 +86,18 @@ serve(async (req) => {
       message: `관리자 강제 환불: ${isFull ? "전액" : "부분"} ${refundAmount}원 (대상 user ${target.user_id}, order ${target.order_id}). 집행 admin: ${user.email ?? user.id}.`,
       payload: { admin_id: user.id, user_id: target.user_id, order_id: target.order_id, refund_amount: refundAmount, full: isFull, downgrade: !!downgrade },
     });
+
+    // 대상 사용자 타임라인에도 환불(및 강등)을 남긴다 — actor=admin.
+    await logSubEvent(supabase, {
+      userId: target.user_id, type: "refunded", actor: "admin",
+      detail: { mode: "admin", refund: refundAmount, full: isFull, order_id: target.order_id },
+    });
+    if (downgrade) {
+      await logSubEvent(supabase, {
+        userId: target.user_id, type: "downgraded", actor: "admin",
+        detail: { reason: "admin_refund" },
+      });
+    }
 
     return json({
       success: true,
