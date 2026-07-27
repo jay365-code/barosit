@@ -18,6 +18,8 @@ interface UserProfileData {
   is_beta_tester?: boolean;
   created_at: string;
   email?: string;
+  /** 소셜 로그인이 준 프로필 사진(auth.users 메타데이터). profiles.avatar 가 비었을 때의 폴백. */
+  social_avatar_url?: string;
 }
 
 interface AdminNotificationData {
@@ -104,14 +106,18 @@ interface DailyScoreData {
  * 구글 CDN 은 리퍼러가 붙으면 403 을 주므로 no-referrer 를 강제한다. 이미지가 깨지면
  * 이모지로 되돌린다 — 소셜 아바타 URL 은 만료되기도 한다.
  */
-function UserAvatarCell({ avatar }: { avatar?: string | null }) {
+function UserAvatarCell({ avatar, socialUrl }: { avatar?: string | null; socialUrl?: string | null }) {
   const [broken, setBroken] = useState(false);
-  const isUrl = !!avatar && /^https?:\/\//i.test(avatar);
+  const ownUrl = avatar && /^https?:\/\//i.test(avatar) ? avatar : null;
+  // 사용자가 앱에서 고른 이모지가 있으면 그게 본인의 선택이므로 소셜 사진보다 우선한다.
+  // profiles.avatar 가 비어 있을 때만 소셜 사진으로 채운다.
+  const emoji = !ownUrl && avatar ? avatar : null;
+  const url = ownUrl ?? (emoji ? null : socialUrl ?? null);
 
-  if (isUrl && !broken) {
+  if (url && !broken) {
     return (
       <img
-        src={avatar as string}
+        src={url}
         alt=""
         referrerPolicy="no-referrer"
         onError={() => setBroken(true)}
@@ -120,9 +126,7 @@ function UserAvatarCell({ avatar }: { avatar?: string | null }) {
     );
   }
   return (
-    <div style={{ fontSize: 20, width: 28, textAlign: "center", flexShrink: 0 }}>
-      {isUrl ? "😊" : avatar || "😊"}
-    </div>
+    <div style={{ fontSize: 20, width: 28, textAlign: "center", flexShrink: 0 }}>{emoji || "😊"}</div>
   );
 }
 
@@ -299,10 +303,15 @@ export function AdminDashboardView({ onClose }: Props) {
       // 이메일은 auth.users 에만 있어 어드민 전용 RPC 로 따로 읽는다(profiles 에 복제하면
       // 사용자가 이메일을 바꿨을 때 어긋난다). 실패해도 목록 자체는 보여야 하므로 삼킨다.
       const { data: profData } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-      const { data: emailRows, error: emailErr } = await supabase.rpc("admin_list_user_emails");
-      if (emailErr) console.warn("[admin] 가입 이메일 조회 실패:", emailErr.message);
+      const { data: identityRows, error: identityErr } = await supabase.rpc("admin_list_user_identities");
+      if (identityErr) console.warn("[admin] 가입 이메일·아바타 조회 실패:", identityErr.message);
+      type IdentityRow = { id: string; email: string | null; avatar_url: string | null };
+      const rows = (identityRows as IdentityRow[] | null) ?? [];
       const emailById = new Map<string, string>(
-        (emailRows as { id: string; email: string | null }[] | null)?.flatMap(r => (r.email ? [[r.id, r.email] as [string, string]] : [])) ?? [],
+        rows.flatMap(r => (r.email ? [[r.id, r.email] as [string, string]] : [])),
+      );
+      const socialAvatarById = new Map<string, string>(
+        rows.flatMap(r => (r.avatar_url ? [[r.id, r.avatar_url] as [string, string]] : [])),
       );
 
       // 2. 구독 정보 조회
@@ -398,7 +407,13 @@ export function AdminDashboardView({ onClose }: Props) {
       }
       setFeatureRequests(frData);
 
-      setProfiles((profData || []).map((p: UserProfileData) => ({ ...p, email: emailById.get(p.id) })));
+      setProfiles(
+        (profData || []).map((p: UserProfileData) => ({
+          ...p,
+          email: emailById.get(p.id),
+          social_avatar_url: socialAvatarById.get(p.id),
+        })),
+      );
       setSubscriptions(subData || []);
       setSubEvents(subEvtData || []);
       setPayments(payData || []);
@@ -2276,7 +2291,7 @@ export function AdminDashboardView({ onClose }: Props) {
                           return (
                             <tr key={user.id} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)", fontSize: 13 }}>
                               <td style={{ padding: 16, display: "flex", alignItems: "center", gap: 12 }}>
-                                <UserAvatarCell avatar={user.avatar} />
+                                <UserAvatarCell avatar={user.avatar} socialUrl={user.social_avatar_url} />
                                 <div>
                                   <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
                                     {user.name || "사용자"}
