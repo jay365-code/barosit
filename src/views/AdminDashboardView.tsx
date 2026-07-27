@@ -269,9 +269,16 @@ export function AdminDashboardView({ onClose }: Props) {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. 프로필 목록 조회
+      // 1. 프로필 목록 조회 + 가입 이메일 병합.
+      // 이메일은 auth.users 에만 있어 어드민 전용 RPC 로 따로 읽는다(profiles 에 복제하면
+      // 사용자가 이메일을 바꿨을 때 어긋난다). 실패해도 목록 자체는 보여야 하므로 삼킨다.
       const { data: profData } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-      
+      const { data: emailRows, error: emailErr } = await supabase.rpc("admin_list_user_emails");
+      if (emailErr) console.warn("[admin] 가입 이메일 조회 실패:", emailErr.message);
+      const emailById = new Map<string, string>(
+        (emailRows as { id: string; email: string | null }[] | null)?.flatMap(r => (r.email ? [[r.id, r.email] as [string, string]] : [])) ?? [],
+      );
+
       // 2. 구독 정보 조회
       const { data: subData } = await supabase.from("user_subscriptions").select("*");
 
@@ -365,7 +372,7 @@ export function AdminDashboardView({ onClose }: Props) {
       }
       setFeatureRequests(frData);
 
-      setProfiles(profData || []);
+      setProfiles((profData || []).map((p: UserProfileData) => ({ ...p, email: emailById.get(p.id) })));
       setSubscriptions(subData || []);
       setSubEvents(subEvtData || []);
       setPayments(payData || []);
@@ -2251,7 +2258,10 @@ export function AdminDashboardView({ onClose }: Props) {
                                       </span>
                                     )}
                                   </div>
-                                  <div style={{ fontSize: 11, opacity: 0.4 }}>{user.id}</div>
+                                  <div style={{ fontSize: 12, opacity: 0.75, userSelect: "text" }}>
+                                    {user.email || <span style={{ opacity: 0.5 }}>이메일 없음</span>}
+                                  </div>
+                                  <div style={{ fontSize: 10, opacity: 0.35, userSelect: "text" }}>{user.id}</div>
                                 </div>
                               </td>
                               <td style={{ padding: 16 }}>
