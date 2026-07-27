@@ -7,11 +7,15 @@ import { applyThemeMode, watchOsTheme } from "./themeConfig";
 import { reconcileProfileCache } from "./userProfile";
 import { initErrorReporting } from "./lib/errorReporting";
 import { initUsageAnalytics } from "./lib/usageAnalytics";
+import { captureAcquisition } from "./lib/acquisition";
 
 // 전역 에러/크래시 자동 리포트 (OPS-1) — 모든 진입점(앱·위젯·알림·마케팅) 공통.
 initErrorReporting();
 // 익명 사용 분석(활성화 퍼널/재방문) — 앱 버전 캐시 준비.
 initUsageAnalytics();
+// 유입 출처 캡처(first-touch). 아래 redirect_route 처리보다 먼저 — utm_* 만 걷어내고
+// redirect_route·from 은 보존하므로 결제 복귀 플로우에는 영향이 없다.
+captureAcquisition();
 
 // 사용자가 명시 선택한 테마(localStorage)를 가장 먼저 적용해 깜빡임 방지
 applyThemeMode();

@@ -17,6 +17,7 @@ import i18n from "../i18n";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
+import { trackUsage } from "../lib/usageAnalytics";
 import {
   pickSubSlogan,
 } from "../slogans";
@@ -505,6 +506,10 @@ function Landing() {
   // 히어로 서브 슬로건: ko는 시간대 로테이션 말장난 유지, en/ja는 정적 카피.
   const subSlogan =
     i18n.language === "ko" ? pickSubSlogan() : t("landing.hero.sub");
+  // 유입 채널별 퍼널의 첫 단계. 출처(acq_*)는 trackUsage 가 자동으로 얹는다.
+  useEffect(() => {
+    trackUsage("landing_view", { scope: "daily" });
+  }, []);
   return (
     <div style={{ background: "var(--b-bg)" }}>
       <TopNav />
@@ -574,6 +579,7 @@ function Landing() {
             href="#/app"
             className="b-btn b-btn-primary"
             style={{ height: 48, padding: "0 22px", fontSize: 14, textDecoration: "none" }}
+            onClick={() => trackUsage("landing_cta_clicked", { props: { target: "web", slot: "hero" } })}
           >
             <Icon name="arrow-r" size={14} /> {t("landing.cta.webStart")}
           </a>
@@ -581,6 +587,7 @@ function Landing() {
             href="#/download"
             className="b-btn b-btn-ghost"
             style={{ height: 48, padding: "0 22px", fontSize: 14, textDecoration: "none" }}
+            onClick={() => trackUsage("landing_cta_clicked", { props: { target: "download", slot: "hero" } })}
           >
             {t("landing.cta.downloadApp")}
           </a>
@@ -1051,6 +1058,7 @@ function Landing() {
               alignItems: "center",
               justifyContent: "center",
             }}
+            onClick={() => trackUsage("landing_cta_clicked", { props: { target: "download", slot: "final" } })}
           >
             <Icon name="arrow-r" size={14} style={{ marginRight: 6 }} />
             {t("landing.final.downloadApp")}
