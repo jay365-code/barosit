@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../auth/supabase";
 import { getLaunchMode, setLaunchModeRemote, isPreviewAsUser, setPreviewAsUser, type LaunchMode } from "../launchMode";
 import { getMinSupportedVersion, setMinSupportedVersion } from "../updateGate";
+import { isLifetimeComp, LIFETIME_PERIOD_END } from "../lib/lifetimeComp";
 import { Icon } from "../components/Icon";
 import ReactMarkdown from "react-markdown";
 import { confirmDialog, alertDialog } from "../lib/dialog";
@@ -93,22 +94,10 @@ interface DailyScoreData {
   stretch_count: number;
 }
 
-// 평생 무료(무상 제공) 계정의 구독 만료일. 실질적으로 만료되지 않으면서도
-// current_period_end 를 요구하는 등급 판정(resolveEffectivePlan)을 통과시키는 값.
-const LIFETIME_PERIOD_END = "2099-01-01T00:00:00.000Z";
-
-// 평생 무료로 지정된 계정인가. 만료일 문자열 포맷은 DB 반환값에 따라 달라질 수 있어
-// (타임존 표기 등) 정확한 일치 대신 연도로 판정한다.
 // 등급 드롭다운에서 평생 무료를 나타내는 값. plan_id-status 조합이 아니라 별도 값인 것은
 // 평생 무료가 만료일까지 함께 쓰는 별개 조작이기 때문(handleToggleLifetime 로 분기).
 const LIFETIME_SELECT_VALUE = "pro-lifetime";
 const PLAN_SELECT_VALUES = ["free-active", "pro-active", "premium-active", "free-inactive"];
-
-export function isLifetimeComp(sub: { plan_id?: string; status?: string; current_period_end?: string | null }): boolean {
-  if (sub.plan_id !== "pro" || sub.status !== "active" || !sub.current_period_end) return false;
-  const d = new Date(sub.current_period_end);
-  return !Number.isNaN(d.getTime()) && d.getFullYear() >= 2090;
-}
 
 interface PostData {
   id: string;

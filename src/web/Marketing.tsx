@@ -18,6 +18,7 @@ import { LanguageSelect } from "../components/LanguageSelect";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import { trackUsage } from "../lib/usageAnalytics";
+import { isLifetimeComp } from "../lib/lifetimeComp";
 import {
   pickSubSlogan,
 } from "../slogans";
@@ -7215,6 +7216,10 @@ function PlanTab({
 
   if (subPlan === "pro") {
     const isCanceled = subStatus === "canceled";
+    // 평생 무료(무상 제공) 계정 — 결제 정보가 없으므로 가격·다음 결제일·주기 변경·해지를
+    // 보여주면 전부 거짓말이 된다. 특히 "플랜 취소"는 눌러도 만료일이 먼 미래라 PRO 가
+    // 유지되어, 사용자는 해지했다고 믿는데 실제로는 아무 일도 일어나지 않는다.
+    const isLifetime = isLifetimeComp({ plan_id: subPlan, status: subStatus, current_period_end: periodEnd });
     const formattedDate = periodEnd ? new Date(periodEnd).toLocaleDateString(i18n.language, {
       year: "numeric",
       month: "long",
@@ -7225,12 +7230,18 @@ function PlanTab({
     // (planId === 'pro_yearly')은 항상 false 였다 — 연간 구독자에게도 월 요금이 표시됐다.
     // billing_cycle 이 비어 있는 과거 행은 월간으로 본다(청구 로직의 폴백과 동일 방향).
     const isYearly = billingCycle === "yearly";
-    const planPriceText = isYearly ? t("web.priceYear") : t("web.priceMonth");
-    const planPeriodText = isCanceled
-      ? t("web.periodCanceled", { date: formattedDate })
+    const planPriceText = isLifetime
+      ? t("web.lifetimePrice")
       : isYearly
-        ? t("web.periodYear", { date: formattedDate })
-        : t("web.periodMonth", { date: formattedDate });
+        ? t("web.priceYear")
+        : t("web.priceMonth");
+    const planPeriodText = isLifetime
+      ? t("web.lifetimeNote")
+      : isCanceled
+        ? t("web.periodCanceled", { date: formattedDate })
+        : isYearly
+          ? t("web.periodYear", { date: formattedDate })
+          : t("web.periodMonth", { date: formattedDate });
 
     return (
       <>
@@ -7280,13 +7291,13 @@ function PlanTab({
                 <span
                   className="b-chip"
                   style={{
-                    background: "var(--b-sig)",
+                    background: isLifetime ? "var(--b-sig-deep)" : "var(--b-sig)",
                     color: "#fff",
                     borderColor: "transparent",
                     marginBottom: 12,
                   }}
                 >
-                  {t("web.chipPro")}
+                  {isLifetime ? t("web.chipLifetime") : t("web.chipPro")}
                 </span>
               )}
               <div
@@ -7304,7 +7315,7 @@ function PlanTab({
                 {planPeriodText}
               </div>
             </div>
-            {!isCanceled && (
+            {!isCanceled && !isLifetime && (
               <button onClick={handleUpdatePaymentCard} className="b-btn b-btn-ghost">{t("web.changeCard")}</button>
             )}
           </div>
@@ -7364,7 +7375,8 @@ function PlanTab({
               {t("web.pendingYearlyNotice", { date: formattedDate })}
             </div>
           )}
-          <div style={{ display: "flex", gap: 8, marginTop: 18, alignItems: "center" }}>
+          {/* 평생 무료 계정에는 조작할 결제가 없다 — 주기 변경·해지·환불 전부 무의미하다. */}
+          <div style={{ display: isLifetime ? "none" : "flex", gap: 8, marginTop: 18, alignItems: "center" }}>
             {isCanceled ? (
               <button
                 onClick={handleResumeSubscription}

@@ -12,6 +12,7 @@ import { Icon } from "../components/Icon";
 import { AdminTemplateView } from "./AdminTemplateView";
 import { platform } from "../platform";
 import { confirmDialog, alertDialog } from "../lib/dialog";
+import { isLifetimeComp } from "../lib/lifetimeComp";
 import { supabase, extractSocialAvatarUrl, pickInitial } from "../auth/supabase";
 import { useAuth } from "../auth/useAuth";
 import { resolveEffectivePlan, isBetaFree, whenLaunchResolved } from "../launchMode";
@@ -72,6 +73,8 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
   // payment-cancel dryRun 결과. null 이면 환불 불가(구독 해지만 가능).
   const [refundQuote, setRefundQuote] = useState<RefundQuote | null>(null);
   const [subPeriodEnd, setSubPeriodEnd] = useState<string | null>(null);
+  // 평생 무료(무상 제공) 계정 — 웹 프로필·어드민과 동일 판정을 공유한다.
+  const isLifetime = isLifetimeComp({ plan_id: subPlan, status: subStatus, current_period_end: subPeriodEnd });
   // 결제 주기 + 주기 전환 예약(월→연). 웹 프로필과 동등한 기능 — 백엔드는
   // subscription-manage 의 schedule_cycle / cancel_cycle_change 를 공유한다.
   const [subBillingCycle, setSubBillingCycle] = useState<"monthly" | "yearly" | null>(null);
@@ -862,7 +865,7 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
                       : undefined
                   }
                 >
-                  {subPlan === "pro" ? "PRO MEMBER" : "FREE EXPERIENCE"}
+                  {isLifetime ? "LIFETIME FREE" : subPlan === "pro" ? "PRO MEMBER" : "FREE EXPERIENCE"}
                 </span>
               </div>
 
@@ -893,6 +896,13 @@ export function ProfileView({ onGoHome, onOpenAdmin, onOpenPricing }: Props) {
               {isBetaFree() ? (
                 <p className="profile-card-sub" style={{ color: "var(--b-fg-2)" }}>
                   {t("betaPlanBody")}
+                </p>
+              ) : isLifetime ? (
+                /* 평생 무료(무상 제공) — 결제 수단도 청구도 없으므로 카드 정보·구독 관리
+                   블록을 통째로 감춘다. 남겨두면 주기 변경·해지가 아무 일도 하지 않는
+                   죽은 버튼이 되고, 특히 해지는 눌러도 PRO 가 유지돼 사용자를 속인다. */
+                <p className="profile-card-sub" style={{ color: "var(--b-fg-2)" }}>
+                  {t("lifetimePlanBody")}
                 </p>
               ) : subPlan === "pro" ? (
                 <>

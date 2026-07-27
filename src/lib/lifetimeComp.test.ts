@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isLifetimeComp } from "./AdminDashboardView";
+import { isLifetimeComp } from "./lifetimeComp";
 
 // 평생 무료 뱃지와 등급 드롭다운이 같은 판정을 쓰기 때문에, 여기가 어긋나면
 // "뱃지는 PRO 인데 드롭다운은 FREE" 같은 상태 오인이 다시 생긴다.
