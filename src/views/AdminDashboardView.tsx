@@ -203,6 +203,7 @@ export function AdminDashboardView({ onClose }: Props) {
   const [payTo, setPayTo] = useState("");
   const [payStatus, setPayStatus] = useState<"all" | "completed" | "refunded" | "partially_refunded" | "failed">("all");
   const [payRefundingId, setPayRefundingId] = useState<string | null>(null);
+  const [payCopiedId, setPayCopiedId] = useState<string | null>(null); // orderId 복사 피드백
   const [events, setEvents] = useState<PostureEventData[]>([]);
   const [dailyScores, setDailyScores] = useState<DailyScoreData[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -994,6 +995,25 @@ export function AdminDashboardView({ onClose }: Props) {
     } finally {
       setPayRefundingId(null);
     }
+  };
+
+  // orderId 복사. navigator.clipboard 는 보안 컨텍스트(https/localhost)에서만 동작하므로
+  // 실패 시 임시 textarea + execCommand 로 떨어뜨린다.
+  const copyOrderId = async (rowId: string, orderId: string) => {
+    try {
+      await navigator.clipboard.writeText(orderId);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = orderId;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch { /* 복사 불가 환경 */ }
+      document.body.removeChild(ta);
+    }
+    setPayCopiedId(rowId);
+    window.setTimeout(() => setPayCopiedId(cur => (cur === rowId ? null : cur)), 1500);
   };
 
   const handlePurgeData = async (dryRun: boolean) => {
@@ -2496,13 +2516,32 @@ export function AdminDashboardView({ onClose }: Props) {
                                     <span style={{ fontSize: 11, fontWeight: 700, color: st.color }}>{st.label}</span>
                                   </td>
                                   <td style={{ padding: "12px 16px" }}>
-                                    <code
-                                      title={r.order_id || ""}
-                                      onClick={() => { if (r.order_id) { void navigator.clipboard?.writeText(r.order_id); } }}
-                                      style={{ fontSize: 10, opacity: 0.5, cursor: r.order_id ? "copy" : "default" }}
-                                    >
-                                      {r.order_id ? `${String(r.order_id).slice(0, 14)}…` : "—"}
-                                    </code>
+                                    {r.order_id ? (
+                                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <code title={r.order_id} style={{ fontSize: 10, opacity: 0.5 }}>
+                                          {`${String(r.order_id).slice(0, 14)}…`}
+                                        </code>
+                                        <button
+                                          onClick={() => void copyOrderId(r.id, r.order_id)}
+                                          title={`orderId 복사 — ${r.order_id}`}
+                                          style={{
+                                            background: payCopiedId === r.id ? "rgba(126,176,156,0.2)" : "rgba(255,255,255,0.06)",
+                                            border: `1px solid ${payCopiedId === r.id ? "rgba(126,176,156,0.5)" : "rgba(255,255,255,0.12)"}`,
+                                            color: payCopiedId === r.id ? "#7eb09c" : "#bbb",
+                                            borderRadius: 5,
+                                            padding: "2px 8px",
+                                            fontSize: 10,
+                                            fontWeight: 700,
+                                            cursor: "pointer",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                        >
+                                          {payCopiedId === r.id ? "✓ 복사됨" : "복사"}
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: 10, opacity: 0.35 }}>—</span>
+                                    )}
                                   </td>
                                   <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                                     {refundable ? (
@@ -2534,7 +2573,7 @@ export function AdminDashboardView({ onClose }: Props) {
                       )}
                       <div style={{ fontSize: 11, opacity: 0.45, lineHeight: 1.6 }}>
                         · 환불은 토스페이먼츠 결제 취소까지 실제로 실행됩니다. [환불 + FREE] 는 구독을 즉시 무료 등급으로 강등하고, [환불만] 은 등급을 유지합니다.<br />
-                        · 부분 환불이 필요하면 [시스템 제어판]의 강제 환불 폼에서 orderId 와 금액을 직접 지정하세요. orderId 는 위 표에서 클릭하면 복사됩니다.
+                        · 부분 환불이 필요하면 [시스템 제어판]의 강제 환불 폼에서 orderId 와 금액을 직접 지정하세요. orderId 는 위 표의 [복사] 버튼으로 그대로 옮길 수 있습니다.
                       </div>
                     </div>
                   );
