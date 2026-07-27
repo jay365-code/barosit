@@ -126,6 +126,8 @@
     "loggedInNone": "로그인 정보 없음",
     "loggedInProvider": "{{provider}} 로 로그인됨",
     "fieldName": "표시 이름",
+    "fieldNameHint": "커뮤니티에 표시되는 이름이에요. 최대 24자, 자동 저장됩니다.",
+    "fieldNameSaved": "저장되었습니다.",
     "fieldEmail": "이메일",
     "fieldProvider": "로그인 방식",
     "fieldJoined": "가입일",

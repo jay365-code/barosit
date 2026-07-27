@@ -126,6 +126,8 @@
     "loggedInNone": "No login info",
     "loggedInProvider": "Signed in with {{provider}}",
     "fieldName": "Display name",
+    "fieldNameHint": "This is the name shown in the community. Up to 24 characters, saved automatically.",
+    "fieldNameSaved": "Saved.",
     "fieldEmail": "Email",
     "fieldProvider": "Login method",
     "fieldJoined": "Joined",

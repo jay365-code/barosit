@@ -6559,6 +6559,107 @@ function Pricing() {
 
 // ───────── Profile ─────────
 
+/**
+ * 표시 이름 입력 — 데스크톱 프로필과 동등한 편집 경험(자동 저장·24자 제한).
+ *
+ * 웹에서 읽기 전용이던 탓에 웹만 쓰는 사용자는 이름을 바꿀 방법이 아예 없었고,
+ * 그 이름이 커뮤니티 글 작성자로 그대로 노출됐다.
+ *
+ * 저장 대상은 데스크톱과 같은 profiles.name 이고, 로컬 캐시(user_profile_v1)도 함께
+ * 갱신한다 — 캐시를 두면 표시 이름 폴백이 옛 값을 계속 보여준다.
+ */
+function EditableNameField({
+  label,
+  hint,
+  savedLabel,
+  value,
+  userId,
+  onSaved,
+}: {
+  label: string;
+  hint: string;
+  savedLabel: string;
+  value: string;
+  userId: string | undefined;
+  onSaved: (name: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // 외부에서 이름이 바뀌면(최초 DB 조회 완료 등) 편집 중이 아닐 때만 따라간다.
+  const dirty = useRef(false);
+  useEffect(() => {
+    if (!dirty.current) setDraft(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (!dirty.current || !userId) return;
+    const next = draft.trim();
+    const timer = setTimeout(async () => {
+      try {
+        const { error: err } = await supabase
+          .from("profiles")
+          .upsert({ id: userId, name: next, updated_at: new Date().toISOString() }, { onConflict: "id" });
+        if (err) throw err;
+        // 로컬 캐시도 맞춰 둔다(없으면 만들지 않는다 — 웹 전용 사용자에겐 캐시가 없을 수 있다).
+        try {
+          const raw = localStorage.getItem("user_profile_v1");
+          if (raw) localStorage.setItem("user_profile_v1", JSON.stringify({ ...JSON.parse(raw), name: next }));
+        } catch {
+          /* 캐시 갱신 실패는 표시에만 영향 */
+        }
+        onSaved(next);
+        setError(null);
+        setSaved(true);
+      } catch (e: any) {
+        setSaved(false);
+        setError(e?.message || String(e));
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [draft, userId]);
+
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: "var(--b-fg-3)",
+          letterSpacing: "0.04em",
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </div>
+      <input
+        value={draft}
+        maxLength={24}
+        onChange={(e) => {
+          dirty.current = true;
+          setSaved(false);
+          setDraft(e.target.value);
+        }}
+        style={{
+          width: "100%",
+          boxSizing: "border-box",
+          padding: "10px 12px",
+          minHeight: 42,
+          border: "1px solid var(--b-line)",
+          borderRadius: 8,
+          background: "var(--b-bg)",
+          color: "var(--b-fg-1)",
+          fontSize: 13,
+          fontFamily: "inherit",
+        }}
+      />
+      <div style={{ fontSize: 11, marginTop: 6, color: error ? "#dc2626" : "var(--b-fg-4)" }}>
+        {error ?? (saved ? savedLabel : hint)}
+      </div>
+    </div>
+  );
+}
+
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -6768,7 +6869,14 @@ function AccountTab({
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <ReadOnlyField label={t("web.fieldName")} value={fullName} />
+          <EditableNameField
+            label={t("web.fieldName")}
+            hint={t("web.fieldNameHint")}
+            savedLabel={t("web.fieldNameSaved")}
+            value={fullName}
+            userId={user?.id}
+            onSaved={setDbName}
+          />
           <ReadOnlyField label={t("web.fieldEmail")} value={user?.email ?? ""} />
           <ReadOnlyField label={t("web.fieldProvider")} value={provider} />
           <ReadOnlyField label={t("web.fieldJoined")} value={createdAt} />

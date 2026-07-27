@@ -126,6 +126,8 @@
     "loggedInNone": "ログイン情報なし",
     "loggedInProvider": "{{provider}} でログイン中",
     "fieldName": "表示名",
+    "fieldNameHint": "コミュニティに表示される名前です。最大24文字、自動保存されます。",
+    "fieldNameSaved": "保存しました。",
     "fieldEmail": "メール",
     "fieldProvider": "ログイン方法",
     "fieldJoined": "登録日",
