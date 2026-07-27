@@ -170,7 +170,7 @@ interface Props {
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "billing" | "qna" | "ai_review" | "roadmap" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "billing" | "payments" | "qna" | "ai_review" | "roadmap" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
   const [loading, setLoading] = useState(true);
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
@@ -195,6 +195,14 @@ export function AdminDashboardView({ onClose }: Props) {
   const [subEvtUserQuery, setSubEvtUserQuery] = useState(""); // 사용자 이름/ID 검색
   const [subEvtFrom, setSubEvtFrom] = useState(""); // 기간 시작(YYYY-MM-DD)
   const [subEvtTo, setSubEvtTo] = useState(""); // 기간 끝(YYYY-MM-DD)
+  // 결제 원장(billing_history) — 환불 대상을 orderId 복붙 없이 고르기 위한 조회용.
+  // RLS 의 "Admins can do everything on billing_history" 정책으로 전체 조회된다.
+  const [payments, setPayments] = useState<any[]>([]);
+  const [payQuery, setPayQuery] = useState(""); // 사용자 이름/ID/orderId 통합 검색
+  const [payFrom, setPayFrom] = useState("");
+  const [payTo, setPayTo] = useState("");
+  const [payStatus, setPayStatus] = useState<"all" | "completed" | "refunded" | "partially_refunded" | "failed">("all");
+  const [payRefundingId, setPayRefundingId] = useState<string | null>(null);
   const [events, setEvents] = useState<PostureEventData[]>([]);
   const [dailyScores, setDailyScores] = useState<DailyScoreData[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -260,6 +268,13 @@ export function AdminDashboardView({ onClose }: Props) {
         .select("id, user_id, event_type, visibility, actor, detail, created_at")
         .order("created_at", { ascending: false })
         .limit(300);
+
+      // 2-2. 결제 원장(전체) — 환불 대상 선택 및 이중청구·미환불 점검용. 최신 500건.
+      const { data: payData } = await supabase
+        .from("billing_history")
+        .select("id, user_id, order_id, kind, amount, plan, billing_cycle, status, refunded_amount, refunded_at, created_at")
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       // 3. 최근 원시 이벤트 조회 (최대 1000건 제한으로 부하 예방)
       const { data: evtData } = await supabase.from("posture_events").select("*").order("occurred_at", { ascending: false }).limit(1000);
@@ -340,6 +355,7 @@ export function AdminDashboardView({ onClose }: Props) {
       setProfiles(profData || []);
       setSubscriptions(subData || []);
       setSubEvents(subEvtData || []);
+      setPayments(payData || []);
       setEvents(evtData || []);
       setDailyScores(scoreData || []);
       setPosts(postData || []);
@@ -945,6 +961,41 @@ export function AdminDashboardView({ onClose }: Props) {
     }
   };
 
+  // 결제 조회 탭에서 행을 골라 바로 환불한다. orderId 를 사람이 옮겨 적지 않으므로
+  // 오타로 엉뚱한 결제를 건드릴 여지가 없다(admin-refund 는 billingHistoryId 를 받는다).
+  const handleRowRefund = async (row: any, downgrade: boolean) => {
+    const prof = profiles.find(p => p.id === row.user_id);
+    const who = prof?.name || row.user_id.slice(0, 8);
+    const paid = Number(row.amount);
+    const already = Number(row.refunded_amount || 0);
+    const remain = paid - already;
+    if (remain <= 0) { void alertDialog("이미 전액 환불된 결제입니다."); return; }
+    const ok = await confirmDialog(
+      `[${who}] ${new Date(row.created_at).toLocaleString("ko-KR")} 결제를 환불합니다.\n\n` +
+      `결제 금액 ${paid.toLocaleString()}원` +
+      (already > 0 ? ` (기환불 ${already.toLocaleString()}원)` : "") +
+      `\n환불 금액 ${remain.toLocaleString()}원 (전액)` +
+      `\n${downgrade ? "구독을 FREE 로 즉시 강등합니다." : "구독 등급은 그대로 둡니다."}\n\n진행할까요?`,
+    );
+    if (!ok) return;
+    setPayRefundingId(row.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-refund", {
+        body: { billingHistoryId: row.id, downgrade, reason: "관리자 콘솔 환불(결제 조회)" },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "환불 실패");
+      void alertDialog(
+        `✅ ${data.full ? "전액" : "부분"} 환불 완료: ${Number(data.refundedAmount).toLocaleString()}원` +
+        (data.downgraded ? " (FREE 강등됨)" : ""),
+      );
+      await fetchAllData();
+    } catch (e: any) {
+      void alertDialog("❌ 환불 실패: " + (e?.message || e));
+    } finally {
+      setPayRefundingId(null);
+    }
+  };
+
   const handlePurgeData = async (dryRun: boolean) => {
     setIsCleaning(true);
     setCleanLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${dryRun ? "모의 실행" : "실제 실행"} 청소 가동...`]);
@@ -1254,6 +1305,7 @@ export function AdminDashboardView({ onClose }: Props) {
               { id: "dashboard", label: "실시간 대시보드", icon: "target" as const },
               { id: "users", label: "가입자 관리", icon: "shield" as const },
               { id: "billing", label: "구독 이력", icon: "bell" as const },
+              { id: "payments", label: "결제 조회", icon: "shield" as const },
               { id: "qna", label: "커뮤니티 관리", icon: "info" as const },
               { id: "ai_review", label: "AI 응답 검수", icon: "sparkle" as const },
               { id: "roadmap", label: "기능 요청 로드맵", icon: "target" as const },
@@ -2323,6 +2375,167 @@ export function AdminDashboardView({ onClose }: Props) {
                           </tbody>
                         </table>
                       )}
+                    </div>
+                  );
+                })()}
+
+                {/* 2-2. 결제 조회 탭 — 결제 원장에서 대상을 골라 바로 환불한다 */}
+                {activeTab === "payments" && (() => {
+                  const STATUS: Record<string, { label: string; color: string }> = {
+                    completed: { label: "결제 완료", color: "#7eb09c" },
+                    refunded: { label: "전액 환불", color: "#c95c5c" },
+                    partially_refunded: { label: "부분 환불", color: "#d9a752" },
+                    pending: { label: "대기", color: "#8a8a8a" },
+                    failed: { label: "실패", color: "#c95c5c" },
+                  };
+                  const cyc = (c: string) => (c === "yearly" ? "연간" : c === "monthly" ? "월간" : c || "—");
+                  const q = payQuery.trim().toLowerCase();
+                  const fromT = payFrom ? new Date(`${payFrom}T00:00:00`).getTime() : null;
+                  const toT = payTo ? new Date(`${payTo}T23:59:59`).getTime() : null;
+                  const rows = payments.filter(r => {
+                    if (payStatus !== "all" && r.status !== payStatus) return false;
+                    if (fromT != null || toT != null) {
+                      const t = new Date(r.created_at).getTime();
+                      if (fromT != null && t < fromT) return false;
+                      if (toT != null && t > toT) return false;
+                    }
+                    if (q) {
+                      const name = (profiles.find(p => p.id === r.user_id)?.name || "").toLowerCase();
+                      const hay = `${name} ${r.user_id} ${r.order_id || ""}`.toLowerCase();
+                      if (!hay.includes(q)) return false;
+                    }
+                    return true;
+                  });
+                  const sum = rows.reduce((a, r) => a + Number(r.amount || 0), 0);
+                  const refundedSum = rows.reduce((a, r) => a + Number(r.refunded_amount || 0), 0);
+                  const inputStyle: React.CSSProperties = { background: "#222", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", borderRadius: 6, padding: "5px 8px", fontSize: 12 };
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>
+                        결제 조회 <span style={{ fontSize: 12, opacity: 0.5, fontWeight: 400 }}>· 전체 사용자 결제 원장 (최신 500)</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "12px 14px", background: "rgba(255,255,255,0.02)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.85 }}>
+                          <span>검색</span>
+                          <input
+                            type="text"
+                            value={payQuery}
+                            onChange={e => setPayQuery(e.target.value)}
+                            placeholder="이름 · 사용자 ID · orderId"
+                            style={{ ...inputStyle, width: 240 }}
+                          />
+                        </label>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.85 }}>
+                          <span>기간</span>
+                          <input type="date" value={payFrom} onChange={e => setPayFrom(e.target.value)} style={inputStyle} />
+                          <span style={{ opacity: 0.5 }}>~</span>
+                          <input type="date" value={payTo} onChange={e => setPayTo(e.target.value)} style={inputStyle} />
+                        </label>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.85 }}>
+                          <span>상태</span>
+                          <select value={payStatus} onChange={e => setPayStatus(e.target.value as any)} style={inputStyle}>
+                            <option value="all">전체</option>
+                            <option value="completed">결제 완료</option>
+                            <option value="partially_refunded">부분 환불</option>
+                            <option value="refunded">전액 환불</option>
+                            <option value="failed">실패</option>
+                          </select>
+                        </label>
+                        {(payQuery || payFrom || payTo || payStatus !== "all") && (
+                          <button
+                            onClick={() => { setPayQuery(""); setPayFrom(""); setPayTo(""); setPayStatus("all"); }}
+                            style={{ ...inputStyle, cursor: "pointer", opacity: 0.8 }}
+                          >
+                            필터 초기화
+                          </button>
+                        )}
+                        <span style={{ marginLeft: "auto", fontSize: 12, opacity: 0.55 }}>
+                          {rows.length}건 · 결제 {sum.toLocaleString()}원{refundedSum > 0 ? ` · 환불 ${refundedSum.toLocaleString()}원` : ""}
+                        </span>
+                      </div>
+                      {rows.length === 0 ? (
+                        <div style={{ padding: "32px 0", textAlign: "center", opacity: 0.4, fontSize: 13 }}>조건에 맞는 결제 내역이 없습니다.</div>
+                      ) : (
+                        <table style={{ width: "100%", borderCollapse: "collapse", background: "rgba(255,255,255,0.01)", borderRadius: 12, overflow: "hidden" }}>
+                          <thead>
+                            <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.08)", fontSize: 13, textAlign: "left" }}>
+                              <th style={{ padding: "12px 16px" }}>결제일시</th>
+                              <th style={{ padding: "12px 16px" }}>사용자</th>
+                              <th style={{ padding: "12px 16px" }}>금액</th>
+                              <th style={{ padding: "12px 16px" }}>주기</th>
+                              <th style={{ padding: "12px 16px" }}>상태</th>
+                              <th style={{ padding: "12px 16px" }}>orderId</th>
+                              <th style={{ padding: "12px 16px" }}>환불</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(r => {
+                              const prof = profiles.find(p => p.id === r.user_id);
+                              const st = STATUS[r.status] || { label: r.status, color: "#8a8a8a" };
+                              const already = Number(r.refunded_amount || 0);
+                              const remain = Number(r.amount) - already;
+                              const busy = payRefundingId === r.id;
+                              const refundable = r.kind === "payment" && remain > 0 && r.status !== "failed";
+                              return (
+                                <tr key={r.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", fontSize: 13 }}>
+                                  <td style={{ padding: "12px 16px", opacity: 0.7, whiteSpace: "nowrap" }}>
+                                    {new Date(r.created_at).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                                  </td>
+                                  <td style={{ padding: "12px 16px" }}>
+                                    <div style={{ fontWeight: 600 }}>{prof?.name || "사용자"}</div>
+                                    <div style={{ fontSize: 10, opacity: 0.35 }}>{String(r.user_id).slice(0, 8)}</div>
+                                  </td>
+                                  <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                                    <div style={{ fontWeight: 600 }}>{Number(r.amount).toLocaleString()}원</div>
+                                    {already > 0 && (
+                                      <div style={{ fontSize: 10, color: "#c95c5c" }}>환불 {already.toLocaleString()}원</div>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: "12px 16px", opacity: 0.8 }}>{cyc(r.billing_cycle)}</td>
+                                  <td style={{ padding: "12px 16px" }}>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: st.color }}>{st.label}</span>
+                                  </td>
+                                  <td style={{ padding: "12px 16px" }}>
+                                    <code
+                                      title={r.order_id || ""}
+                                      onClick={() => { if (r.order_id) { void navigator.clipboard?.writeText(r.order_id); } }}
+                                      style={{ fontSize: 10, opacity: 0.5, cursor: r.order_id ? "copy" : "default" }}
+                                    >
+                                      {r.order_id ? `${String(r.order_id).slice(0, 14)}…` : "—"}
+                                    </code>
+                                  </td>
+                                  <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                                    {refundable ? (
+                                      <div style={{ display: "flex", gap: 6 }}>
+                                        <button
+                                          disabled={busy}
+                                          onClick={() => handleRowRefund(r, true)}
+                                          style={{ background: "rgba(201,92,92,0.15)", border: "1px solid rgba(201,92,92,0.4)", color: "#e08a8a", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}
+                                        >
+                                          {busy ? "처리 중…" : "환불 + FREE"}
+                                        </button>
+                                        <button
+                                          disabled={busy}
+                                          onClick={() => handleRowRefund(r, false)}
+                                          style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.15)", color: "#bbb", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: busy ? "wait" : "pointer" }}
+                                        >
+                                          환불만
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: 11, opacity: 0.35 }}>—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                      <div style={{ fontSize: 11, opacity: 0.45, lineHeight: 1.6 }}>
+                        · 환불은 토스페이먼츠 결제 취소까지 실제로 실행됩니다. [환불 + FREE] 는 구독을 즉시 무료 등급으로 강등하고, [환불만] 은 등급을 유지합니다.<br />
+                        · 부분 환불이 필요하면 [시스템 제어판]의 강제 환불 폼에서 orderId 와 금액을 직접 지정하세요. orderId 는 위 표에서 클릭하면 복사됩니다.
+                      </div>
                     </div>
                   );
                 })()}
