@@ -82,6 +82,16 @@ describe("resolveEffectivePlan (paid 모드 — 기본)", () => {
   it("pro_yearly (startsWith pro) + active + 기간 남음 → pro", async () => {
     expect(await resolve({ plan_id: "pro_yearly", status: "active", current_period_end: future })).toBe("pro");
   });
+
+  // 어드민 "평생 무료 지정"(무상 제공)이 만드는 행. 만료일을 먼 미래로 두는 이유가
+  // 여기에 있다 — 등급/상태만 바꾸면(구 드롭다운) 아래 케이스처럼 free 로 떨어진다.
+  it("평생 무료(pro + active + 2099 만료) → pro", async () => {
+    expect(await resolve({ plan_id: "pro", status: "active", current_period_end: "2099-01-01T00:00:00.000Z" })).toBe("pro");
+  });
+
+  it("등급·상태만 pro 로 바꾸고 만료일을 안 쓰면 → free (평생 무료 지정이 필요한 이유)", async () => {
+    expect(await resolve({ plan_id: "pro", status: "active", current_period_end: null })).toBe("free");
+  });
 });
 
 describe("resolveEffectivePlan (beta_free 모드)", () => {

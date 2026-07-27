@@ -93,6 +93,18 @@ interface DailyScoreData {
   stretch_count: number;
 }
 
+// 평생 무료(무상 제공) 계정의 구독 만료일. 실질적으로 만료되지 않으면서도
+// current_period_end 를 요구하는 등급 판정(resolveEffectivePlan)을 통과시키는 값.
+const LIFETIME_PERIOD_END = "2099-01-01T00:00:00.000Z";
+
+// 평생 무료로 지정된 계정인가. 만료일 문자열 포맷은 DB 반환값에 따라 달라질 수 있어
+// (타임존 표기 등) 정확한 일치 대신 연도로 판정한다.
+function isLifetimeComp(sub: { plan_id?: string; status?: string; current_period_end?: string | null }): boolean {
+  if (sub.plan_id !== "pro" || sub.status !== "active" || !sub.current_period_end) return false;
+  const d = new Date(sub.current_period_end);
+  return !Number.isNaN(d.getTime()) && d.getFullYear() >= 2090;
+}
+
 interface PostData {
   id: string;
   user_id: string;
@@ -567,6 +579,41 @@ export function AdminDashboardView({ onClose }: Props) {
       void alertDialog("구독 요금제 플랜이 정상 수정되었습니다!");
     } catch (err: any) {
       void alertDialog("플랜 수정 실패: " + err.message);
+    }
+  };
+
+  // 1-1. 평생 무료(무상 제공) 지정 — 크리에이터 아웃리치·협력자용.
+  //
+  // 등급/상태만 바꾸는 위 handleUpdatePlan 으로는 안 된다. resolveEffectivePlan
+  // (launchMode.ts)이 status='active' 에도 current_period_end 가 미래일 것을 요구하기
+  // 때문에(청구 배치가 멈춘 사이 만료 구독이 무기한 PRO 로 남았던 사고의 방어) 기간이
+  // 비어 있으면 FREE 로 판정된다. 그래서 세 필드를 함께 쓴다.
+  //
+  // 만료일을 먼 미래로 두면 charge-renewals 의 대상 조건(current_period_end <= now())
+  // 에서 자연히 빠지므로 카드가 없어도 청구·강등되지 않는다.
+  const handleToggleLifetime = async (userId: string, next: boolean) => {
+    const ok = await confirmDialog(
+      next
+        ? "이 계정을 평생 무료(PRO)로 지정할까요?\n\nPRO · 활성 · 만료일 2099-01-01 로 설정되어 정기청구 대상에서 제외됩니다."
+        : "평생 무료 지정을 해제할까요?\n\nFREE 로 되돌립니다.",
+    );
+    if (!ok) return;
+    try {
+      const { error } = await supabase.from("user_subscriptions").upsert(
+        {
+          user_id: userId,
+          plan_id: next ? "pro" : "free",
+          status: "active",
+          current_period_end: next ? LIFETIME_PERIOD_END : null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+      if (error) throw error;
+      const { data: updatedSubs } = await supabase.from("user_subscriptions").select("*");
+      setSubscriptions(updatedSubs || []);
+    } catch (err: any) {
+      void alertDialog("평생 무료 설정 실패: " + (err?.message || err));
     }
   };
 
@@ -2189,7 +2236,8 @@ export function AdminDashboardView({ onClose }: Props) {
                       </thead>
                       <tbody>
                         {profiles.map(user => {
-                          const sub = subscriptions.find(s => s.user_id === user.id) || { plan_id: "free", status: "active" };
+                          const sub = subscriptions.find(s => s.user_id === user.id) || { plan_id: "free", status: "active", current_period_end: null };
+                          const lifetime = isLifetimeComp(sub);
                           return (
                             <tr key={user.id} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)", fontSize: 13 }}>
                               <td style={{ padding: 16, display: "flex", alignItems: "center", gap: 12 }}>
@@ -2219,6 +2267,22 @@ export function AdminDashboardView({ onClose }: Props) {
                                 >
                                   {sub.plan_id.toUpperCase()}
                                 </span>
+                                {lifetime && (
+                                  <span
+                                    title="평생 무료로 지정된 계정입니다. 정기청구 대상에서 제외됩니다."
+                                    style={{
+                                      marginLeft: 6,
+                                      padding: "4px 8px",
+                                      borderRadius: 6,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      background: "rgba(217, 167, 82, 0.15)",
+                                      color: "#d9a752",
+                                    }}
+                                  >
+                                    ∞ 평생
+                                  </span>
+                                )}
                               </td>
                               <td style={{ padding: 16 }}>
                                 <span style={{ color: sub.status === "active" ? "#5b8c7a" : "#c95c5c" }}>
@@ -2272,6 +2336,23 @@ export function AdminDashboardView({ onClose }: Props) {
                                   <option value="premium-active">PREMIUM (활성)</option>
                                   <option value="free-inactive">FREE (정지)</option>
                                 </select>
+                                <button
+                                  onClick={() => handleToggleLifetime(user.id, !lifetime)}
+                                  title="PRO · 활성 · 만료일 2099-01-01 로 함께 설정합니다. 위 드롭다운은 만료일을 쓰지 않아 등급 판정을 통과하지 못합니다."
+                                  style={{
+                                    marginLeft: 8,
+                                    background: lifetime ? "#d9a752" : "rgba(255,255,255,0.06)",
+                                    color: lifetime ? "#1a1a1a" : "#ccc",
+                                    border: "1px solid rgba(255,255,255,0.1)",
+                                    borderRadius: 6,
+                                    padding: "4px 10px",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {lifetime ? "✓ 평생 무료" : "평생 무료 지정"}
+                                </button>
                               </td>
                             </tr>
                           );
