@@ -6344,6 +6344,7 @@ function Pricing() {
                 name: "Free",
                 price: t("web.freePrice"),
                 sub: t("web.freeSub"),
+                term: "",
                 feats: t("web.freeFeats", { returnObjects: true }) as string[],
                 cta: t("web.freeCta"),
                 primary: false,
@@ -6352,6 +6353,8 @@ function Pricing() {
                 name: "Pro",
                 price: billingCycle === "yearly" ? t("web.proPriceYear") : t("web.proPriceMonth"),
                 sub: billingCycle === "yearly" ? t("web.proSubYear") : t("web.proSubMonth"),
+                // 서비스 제공기간은 카드사·PG 심사 요건상 상품페이지에 직접 노출되어야 한다.
+                term: billingCycle === "yearly" ? t("web.proTermYear") : t("web.proTermMonth"),
                 feats: t("web.proFeats", { returnObjects: true }) as string[],
                 cta: currentPlan === "pro" ? t("web.proCtaCurrent") : t("web.proCtaStart"),
                 primary: true,
@@ -6400,10 +6403,15 @@ function Pricing() {
                 >
                   {p.price}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--b-fg-3)", marginBottom: 24 }}>
+                <div style={{ fontSize: 12, color: "var(--b-fg-3)", marginBottom: p.term ? 6 : 24 }}>
                   {p.sub}
                 </div>
-                
+                {p.term && (
+                  <div style={{ fontSize: 12, color: "var(--b-fg-2)", marginBottom: 24 }}>
+                    {p.term}
+                  </div>
+                )}
+
                 {p.primary ? (
                   <button
                     type="button"
@@ -6463,10 +6471,21 @@ function Pricing() {
               </div>
             ))}
           </div>
+          <p
+            style={{
+              marginTop: 24,
+              fontSize: 12,
+              color: "var(--b-fg-3)",
+              lineHeight: 1.6,
+              textAlign: "center",
+            }}
+          >
+            {t("web.termNote")}
+          </p>
           {t("krwNote") && (
             <p
               style={{
-                marginTop: 24,
+                marginTop: 8,
                 fontSize: 12,
                 color: "var(--b-fg-3)",
                 lineHeight: 1.6,

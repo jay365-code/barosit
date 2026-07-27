@@ -162,7 +162,7 @@
         },
         "price": {
           "q": "Is there a fee?",
-          "a": "It's currently free during the open beta. Try the core features at no cost."
+          "a": "We're in free beta right now, so all the core features are free. After the official launch, a PRO subscription (₩4,900/month or ₩36,000/year, VAT included, auto-renewing) applies — and the free plan stays."
         },
         "data": {
           "q": "Do you collect personal data?",

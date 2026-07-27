@@ -74,6 +74,8 @@
     "proPriceMonth": "월 4,900원",
     "proSubYear": "연간 결제 (월 3,000원 꼴)",
     "proSubMonth": "매월 정기 결제",
+    "proTermYear": "서비스 제공기간: 결제일로부터 12개월",
+    "proTermMonth": "서비스 제공기간: 결제일로부터 1개월",
     "proFeats": [
       "Free의 모든 기능 기본 포함",
       "완벽한 백그라운드 모니터링 (Tauri 앱)",
@@ -84,7 +86,8 @@
     ],
     "proCtaCurrent": "현재 이용 중인 플랜",
     "proCtaStart": "Pro 시작하기",
-    "recommend": "추천"
+    "recommend": "추천",
+    "termNote": "PRO 구독은 해지 전까지 각 주기마다 자동 갱신되며, 12개월을 초과하는 선불 상품은 제공하지 않습니다. 물리적 배송이 없는 온라인 소프트웨어 서비스로 결제 완료 즉시 이용이 개시됩니다."
   },
   "krwNote": "",
   "externalWaiting": "브라우저에서 결제를 진행해 주세요",
