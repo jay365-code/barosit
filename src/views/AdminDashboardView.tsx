@@ -99,7 +99,12 @@ const LIFETIME_PERIOD_END = "2099-01-01T00:00:00.000Z";
 
 // 평생 무료로 지정된 계정인가. 만료일 문자열 포맷은 DB 반환값에 따라 달라질 수 있어
 // (타임존 표기 등) 정확한 일치 대신 연도로 판정한다.
-function isLifetimeComp(sub: { plan_id?: string; status?: string; current_period_end?: string | null }): boolean {
+// 등급 드롭다운에서 평생 무료를 나타내는 값. plan_id-status 조합이 아니라 별도 값인 것은
+// 평생 무료가 만료일까지 함께 쓰는 별개 조작이기 때문(handleToggleLifetime 로 분기).
+const LIFETIME_SELECT_VALUE = "pro-lifetime";
+const PLAN_SELECT_VALUES = ["free-active", "pro-active", "premium-active", "free-inactive"];
+
+export function isLifetimeComp(sub: { plan_id?: string; status?: string; current_period_end?: string | null }): boolean {
   if (sub.plan_id !== "pro" || sub.status !== "active" || !sub.current_period_end) return false;
   const d = new Date(sub.current_period_end);
   return !Number.isNaN(d.getTime()) && d.getFullYear() >= 2090;
@@ -2245,6 +2250,8 @@ export function AdminDashboardView({ onClose }: Props) {
                         {profiles.map(user => {
                           const sub = subscriptions.find(s => s.user_id === user.id) || { plan_id: "free", status: "active", current_period_end: null };
                           const lifetime = isLifetimeComp(sub);
+                          const planSelectValue = lifetime ? LIFETIME_SELECT_VALUE : `${sub.plan_id}-${sub.status}`;
+                          const isKnownPlanValue = lifetime || PLAN_SELECT_VALUES.includes(planSelectValue);
                           return (
                             <tr key={user.id} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)", fontSize: 13 }}>
                               <td style={{ padding: 16, display: "flex", alignItems: "center", gap: 12 }}>
@@ -2326,9 +2333,17 @@ export function AdminDashboardView({ onClose }: Props) {
                               </td>
                               <td style={{ padding: 16 }}>
                                 <select
-                                  defaultValue={`${sub.plan_id}-${sub.status}`}
+                                  // defaultValue(비제어)로 두면 마운트 시점 값에 고정돼, 이후 등급이
+                                  // 바뀌어도(평생 무료 지정 등) 드롭다운만 옛 값으로 남아 상태를 잘못
+                                  // 알린다. 실제로 뱃지는 PRO 인데 드롭다운은 FREE 로 보이는 문제가 있었다.
+                                  value={planSelectValue}
                                   onChange={e => {
-                                    const [p, s] = e.target.value.split("-");
+                                    const v = e.target.value;
+                                    if (v === LIFETIME_SELECT_VALUE) {
+                                      handleToggleLifetime(user.id, true);
+                                      return;
+                                    }
+                                    const [p, s] = v.split("-");
                                     handleUpdatePlan(user.id, p, s);
                                   }}
                                   style={{
@@ -2341,14 +2356,22 @@ export function AdminDashboardView({ onClose }: Props) {
                                     cursor: "pointer",
                                   }}
                                 >
+                                  {/* 알려진 조합이 아니면(예: grace_period·none) 첫 옵션이 선택된 것처럼
+                                      보여 상태를 오인하게 되므로, 실제 값을 그대로 보여주는 옵션을 낸다. */}
+                                  {!isKnownPlanValue && (
+                                    <option value={planSelectValue}>
+                                      {`${(sub.plan_id || "?").toUpperCase()} (${sub.status || "?"})`}
+                                    </option>
+                                  )}
                                   <option value="free-active">FREE (활성)</option>
                                   <option value="pro-active">PRO (활성)</option>
                                   <option value="premium-active">PREMIUM (활성)</option>
                                   <option value="free-inactive">FREE (정지)</option>
+                                  <option value={LIFETIME_SELECT_VALUE}>PRO (평생 무료)</option>
                                 </select>
                                 <button
                                   onClick={() => handleToggleLifetime(user.id, !lifetime)}
-                                  title="PRO · 활성 · 만료일 2099-01-01 로 함께 설정합니다. 위 드롭다운은 만료일을 쓰지 않아 등급 판정을 통과하지 못합니다."
+                                  title="PRO · 활성 · 만료일 2099-01-01 을 함께 설정합니다(해제하면 FREE 로 복원). 드롭다운의 'PRO (활성)'은 만료일을 쓰지 않아 등급 판정을 통과하지 못합니다."
                                   style={{
                                     marginLeft: 8,
                                     background: lifetime ? "#d9a752" : "rgba(255,255,255,0.06)",
