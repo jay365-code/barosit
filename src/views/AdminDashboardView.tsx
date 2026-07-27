@@ -94,6 +94,38 @@ interface DailyScoreData {
   stretch_count: number;
 }
 
+/**
+ * 가입자 목록의 아바타 칸.
+ *
+ * profiles.avatar 에는 두 종류가 섞여 있다 — 앱에서 고른 이모지(😊)와 소셜 로그인이
+ * 준 프로필 이미지 URL. 예전엔 값을 그대로 텍스트로 찍어서, 소셜 계정 행은 긴 URL
+ * 문자열이 표에 그대로 노출되며 레이아웃을 밀어냈다.
+ *
+ * 구글 CDN 은 리퍼러가 붙으면 403 을 주므로 no-referrer 를 강제한다. 이미지가 깨지면
+ * 이모지로 되돌린다 — 소셜 아바타 URL 은 만료되기도 한다.
+ */
+function UserAvatarCell({ avatar }: { avatar?: string | null }) {
+  const [broken, setBroken] = useState(false);
+  const isUrl = !!avatar && /^https?:\/\//i.test(avatar);
+
+  if (isUrl && !broken) {
+    return (
+      <img
+        src={avatar as string}
+        alt=""
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+        style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0, display: "block" }}
+      />
+    );
+  }
+  return (
+    <div style={{ fontSize: 20, width: 28, textAlign: "center", flexShrink: 0 }}>
+      {isUrl ? "😊" : avatar || "😊"}
+    </div>
+  );
+}
+
 // 등급 드롭다운에서 평생 무료를 나타내는 값. plan_id-status 조합이 아니라 별도 값인 것은
 // 평생 무료가 만료일까지 함께 쓰는 별개 조작이기 때문(handleToggleLifetime 로 분기).
 const LIFETIME_SELECT_VALUE = "pro-lifetime";
@@ -2244,7 +2276,7 @@ export function AdminDashboardView({ onClose }: Props) {
                           return (
                             <tr key={user.id} style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.05)", fontSize: 13 }}>
                               <td style={{ padding: 16, display: "flex", alignItems: "center", gap: 12 }}>
-                                <div style={{ fontSize: 20 }}>{user.avatar || "😊"}</div>
+                                <UserAvatarCell avatar={user.avatar} />
                                 <div>
                                   <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
                                     {user.name || "사용자"}
