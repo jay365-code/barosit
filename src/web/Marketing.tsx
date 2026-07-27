@@ -19,6 +19,7 @@ import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import { trackUsage } from "../lib/usageAnalytics";
 import { isLifetimeComp } from "../lib/lifetimeComp";
+import { useDisplayName, setDisplayName, clearDisplayNameCache } from "../lib/displayName";
 import {
   pickSubSlogan,
 } from "../slogans";
@@ -143,22 +144,8 @@ function TopNav({ active }: { active?: string }) {
     items.push({ key: "admin", label: "관리자", hash: "#/admin" });
   }
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
-  let customName = "";
-  if (typeof window !== "undefined") {
-    try {
-      const localProfileRaw = localStorage.getItem("user_profile_v1");
-      if (localProfileRaw) {
-        customName = JSON.parse(localProfileRaw).name || "";
-      }
-    } catch (e) {}
-  }
-  const fullName =
-    customName ||
-    ((meta.full_name as string | undefined) ??
-      (meta.name as string | undefined) ??
-      "");
   const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
-  const initial = (fullName || user?.email || "?").trim().charAt(0).toUpperCase();
+  const { name: fullName, initial } = useDisplayName(user);
   return (
     <div
       style={{
@@ -6574,14 +6561,12 @@ function EditableNameField({
   savedLabel,
   value,
   userId,
-  onSaved,
 }: {
   label: string;
   hint: string;
   savedLabel: string;
   value: string;
   userId: string | undefined;
-  onSaved: (name: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
   const [saved, setSaved] = useState(false);
@@ -6601,14 +6586,8 @@ function EditableNameField({
           .from("profiles")
           .upsert({ id: userId, name: next, updated_at: new Date().toISOString() }, { onConflict: "id" });
         if (err) throw err;
-        // 로컬 캐시도 맞춰 둔다(없으면 만들지 않는다 — 웹 전용 사용자에겐 캐시가 없을 수 있다).
-        try {
-          const raw = localStorage.getItem("user_profile_v1");
-          if (raw) localStorage.setItem("user_profile_v1", JSON.stringify({ ...JSON.parse(raw), name: next }));
-        } catch {
-          /* 캐시 갱신 실패는 표시에만 영향 */
-        }
-        onSaved(next);
+        // 공용 표시 이름 소스를 갱신 — 상단 네비·사이드바 아바타가 즉시 따라온다.
+        setDisplayName(userId, next);
         setError(null);
         setSaved(true);
       } catch (e: any) {
@@ -6702,18 +6681,9 @@ function AccountTab({
 }) {
   const { t, i18n } = useTranslation("profile");
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
-  let customName = "";
-  if (typeof window !== "undefined") {
-    try {
-      const localProfileRaw = localStorage.getItem("user_profile_v1");
-      if (localProfileRaw) {
-        customName = JSON.parse(localProfileRaw).name || "";
-      }
-    } catch (e) {}
-  }
-  // DB(profiles.name)를 진짜 소스로 우선 조회 — 로컬 캐시/메타데이터가 기기마다
-  // 다를 수 있어, 동기화된 DB 이름이 있으면 그 값을 표시한다.
-  const [dbName, setDbName] = useState<string>("");
+  // 표시 이름은 상단 네비·사이드바와 같은 소스를 쓴다 — 각자 계산하던 시절엔
+  // 같은 화면에서 카드 아바타와 헤더 아바타의 이니셜이 서로 달랐다.
+  const { name: fullName, initial } = useDisplayName(user);
   const [deletionScheduledAt, setDeletionScheduledAt] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteAck, setDeleteAck] = useState(false);
@@ -6721,7 +6691,6 @@ function AccountTab({
   useEffect(() => {
     let alive = true;
     if (!user?.id) {
-      setDbName("");
       setDeletionScheduledAt(null);
       return;
     }
@@ -6729,11 +6698,10 @@ function AccountTab({
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("name, deletion_scheduled_at")
+          .select("deletion_scheduled_at")
           .eq("id", user.id)
           .maybeSingle();
         if (alive && !error) {
-          setDbName((data?.name as string | undefined)?.trim() || "");
           setDeletionScheduledAt((data?.deletion_scheduled_at as string | undefined) ?? null);
         }
       } catch (e) {}
@@ -6781,12 +6749,6 @@ function AccountTab({
       setDeleteBusy(false);
     }
   };
-  const fullName =
-    dbName ||
-    customName ||
-    ((meta.full_name as string | undefined) ??
-      (meta.name as string | undefined) ??
-      "");
   const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
   const provider =
     ((user?.app_metadata as Record<string, unknown> | undefined)?.provider as
@@ -6795,7 +6757,6 @@ function AccountTab({
   const createdAt = user?.created_at
     ? new Date(user.created_at).toLocaleDateString(i18n.language)
     : "—";
-  const initial = (fullName || user?.email || "?").trim().charAt(0).toUpperCase();
 
   return (
     <>
@@ -6875,7 +6836,6 @@ function AccountTab({
             savedLabel={t("web.fieldNameSaved")}
             value={fullName}
             userId={user?.id}
-            onSaved={setDbName}
           />
           <ReadOnlyField label={t("web.fieldEmail")} value={user?.email ?? ""} />
           <ReadOnlyField label={t("web.fieldProvider")} value={provider} />
@@ -7852,6 +7812,8 @@ function Profile() {
   const [pendingCycle, setPendingCycle] = useState<"monthly" | "yearly" | null>(null);
   const [subStatus, setSubStatus] = useState<"active" | "canceled" | "none">("none");
   const [periodEnd, setPeriodEnd] = useState<string | null>(null);
+  // 훅은 아래 조기 반환(미설정/로딩)보다 먼저 호출해야 렌더마다 훅 순서가 일정하다.
+  const { name: fullName, initial: sidebarInitial } = useDisplayName(user);
 
   useEffect(() => {
     if (!loading && configured && !user) {
@@ -7958,28 +7920,12 @@ function Profile() {
   if (loading || !user) return <ProfileLoading />;
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-  let customName = "";
-  if (typeof window !== "undefined") {
-    try {
-      const localProfileRaw = localStorage.getItem("user_profile_v1");
-      if (localProfileRaw) {
-        customName = JSON.parse(localProfileRaw).name || "";
-      }
-    } catch (e) {}
-  }
-  const fullName =
-    customName ||
-    ((meta.full_name as string | undefined) ??
-      (meta.name as string | undefined) ??
-      "");
   const avatarUrl = (meta.avatar_url as string | undefined) ?? null;
-  const sidebarInitial = (fullName || user.email || "?")
-    .trim()
-    .charAt(0)
-    .toUpperCase();
 
   const handleSignOut = async () => {
     const cur = window.location.hash || "";
+    // 공용 PC 에서 다음 사용자에게 이전 계정 이름이 잠깐이라도 비치지 않게 비운다.
+    clearDisplayNameCache();
     await signOut();
     // 인증 필수 영역(#/profile, #/account, #/app, #/admin)에서만 #/landing
     // 으로 강제. 그 외 페이지(#/pricing, #/about 등)는 현재 위치 유지 —
