@@ -236,6 +236,8 @@
     "emailPlaceholder": "이메일",
     "pwPlaceholder": "비밀번호",
     "pwPlaceholderNew": "비밀번호 (8자 이상)",
+    "pwShow": "비밀번호 표시",
+    "pwHide": "비밀번호 숨기기",
     "emailPwTooShort": "비밀번호는 8자 이상이어야 해요.",
     "emailAlready": "이미 가입된 이메일이에요. 로그인해 주세요.",
     "emailGenericErr": "처리에 실패했어요. 잠시 후 다시 시도해 주세요.",

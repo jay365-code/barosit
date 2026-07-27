@@ -236,6 +236,8 @@
     "emailPlaceholder": "Email",
     "pwPlaceholder": "Password",
     "pwPlaceholderNew": "Password (8+ characters)",
+    "pwShow": "Show password",
+    "pwHide": "Hide password",
     "emailPwTooShort": "Password must be at least 8 characters.",
     "emailAlready": "This email is already registered. Please sign in.",
     "emailGenericErr": "Something went wrong. Please try again.",

@@ -1353,6 +1353,55 @@ function ForgotPassword() {
 
 // ───────── Reset Password (비밀번호 재설정 — 복구 링크 도착 페이지) ─────────
 
+/**
+ * 비밀번호 입력 + 표시 토글.
+ *
+ * 가입 폼에 확인(재입력) 필드를 두는 대신 이 토글을 쓴다. 입력 단계를 늘리지 않으면서도
+ * 사용자가 자기가 친 값을 검증할 수 있어, 오타로 로그인이 막히는 경우를 줄인다
+ * (NIST SP 800-63B 도 재입력 강요 대신 이 방식을 권한다).
+ *
+ * 계정 비밀번호 입력에만 쓴다 — 커뮤니티 게스트 글의 임시 비밀번호는 성격이 다르다.
+ */
+function PasswordInput({ style, ...rest }: React.InputHTMLAttributes<HTMLInputElement>) {
+  const { t } = useTranslation("marketing");
+  const [shown, setShown] = useState(false);
+  const label = shown ? t("loginPage.pwHide") : t("loginPage.pwShow");
+  return (
+    <div style={{ position: "relative", display: "flex" }}>
+      <input
+        {...rest}
+        type={shown ? "text" : "password"}
+        // 토글 버튼과 글자가 겹치지 않게 오른쪽 여백을 확보한다.
+        style={{ ...style, flex: 1, minWidth: 0, paddingRight: 44, boxSizing: "border-box" }}
+      />
+      <button
+        type="button"
+        onClick={() => setShown((s) => !s)}
+        aria-label={label}
+        aria-pressed={shown}
+        title={label}
+        style={{
+          position: "absolute",
+          right: 4,
+          top: 0,
+          bottom: 0,
+          width: 36,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          color: "var(--b-fg-3)",
+        }}
+      >
+        <Icon name={shown ? "eye-off" : "eye"} size={16} />
+      </button>
+    </div>
+  );
+}
+
 function ResetPassword() {
   const { t } = useTranslation("marketing");
   const { updatePassword, configured } = useAuth();
@@ -1491,8 +1540,7 @@ function ResetPassword() {
               {t("resetPw.desc")}
             </p>
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <input
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 placeholder={t("resetPw.newPw")}
                 value={password}
@@ -1501,8 +1549,7 @@ function ResetPassword() {
                 minLength={8}
                 style={inputStyle}
               />
-              <input
-                type="password"
+              <PasswordInput
                 autoComplete="new-password"
                 placeholder={t("resetPw.confirmPw")}
                 value={confirm}
@@ -5292,8 +5339,7 @@ function Login({ mode = "signin" }: { mode?: "signin" | "signup" }) {
                   fontSize: 14,
                 }}
               />
-              <input
-                type="password"
+              <PasswordInput
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 placeholder={mode === "signup" ? t("loginPage.pwPlaceholderNew") : t("loginPage.pwPlaceholder")}
                 value={password}

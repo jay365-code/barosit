@@ -236,6 +236,8 @@
     "emailPlaceholder": "メールアドレス",
     "pwPlaceholder": "パスワード",
     "pwPlaceholderNew": "パスワード（8文字以上）",
+    "pwShow": "パスワードを表示",
+    "pwHide": "パスワードを非表示",
     "emailPwTooShort": "パスワードは8文字以上で入力してください。",
     "emailAlready": "このメールアドレスは既に登録されています。ログインしてください。",
     "emailGenericErr": "処理に失敗しました。しばらくしてからもう一度お試しください。",
