@@ -7632,28 +7632,32 @@ function PlanTab({
           </div>
         )}
 
-        <div
-          style={{
-            marginTop: 32,
-            padding: "16px 20px",
-            borderRadius: 12,
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid var(--b-line)",
-            fontSize: 12,
-            color: "var(--b-fg-3)",
-            lineHeight: 1.6,
-          }}
-        >
-          ℹ️ <strong>{t("web.refundNoticeTitle")}</strong><br />
-          {t("web.refundNoticePre")}
-          <a
-            href="mailto:support@barosit.com"
-            style={{ color: "var(--b-sig-deep)", fontWeight: 600, textDecoration: "underline" }}
+        {/* 환불·자동결제 안내는 결제한 적도, 앞으로 할 일도 없는 평생 무료 계정에는
+            맞지 않는다. 남겨두면 "내가 뭔가 결제하게 되나?" 하는 인상을 준다. */}
+        {!isLifetime && (
+          <div
+            style={{
+              marginTop: 32,
+              padding: "16px 20px",
+              borderRadius: 12,
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid var(--b-line)",
+              fontSize: 12,
+              color: "var(--b-fg-3)",
+              lineHeight: 1.6,
+            }}
           >
-            support@barosit.com
-          </a>
-          {t("web.refundNoticePost")}
-        </div>
+            ℹ️ <strong>{t("web.refundNoticeTitle")}</strong><br />
+            {t("web.refundNoticePre")}
+            <a
+              href="mailto:support@barosit.com"
+              style={{ color: "var(--b-sig-deep)", fontWeight: 600, textDecoration: "underline" }}
+            >
+              support@barosit.com
+            </a>
+            {t("web.refundNoticePost")}
+          </div>
+        )}
       </>
     );
   }
