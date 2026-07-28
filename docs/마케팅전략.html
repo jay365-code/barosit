@@ -556,8 +556,18 @@ Full disclosure, I built one because I couldn't find what I wanted — so take t
   <div class="callout"><p class="h">💰 제안 설계 결정 (2026-07-28)</p><p>
   <strong>① 레퍼럴(수익 배분) — 검토 후 보류.</strong> 월 4,900원에 통상 수수료 30%면 유료 구독자 1명당 월 1,470원. 크리에이터가 월 50만원을 벌려면 <strong>유료 구독자 340명을 지속 유지</strong>시켜야 한다. 조회수 5만 영상이 데려올 유료 전환은 낙관해도 5~20명(월 7천~3만원)이라 무료 사용권보다 나을 게 없다. 문제는 인센티브 구조가 아니라 <strong>객단가와 거래량</strong>이므로, 유료 사용자가 생기고 전환율이 측정된 뒤 재검토한다. 지금 붙이면 정산·원천징수·부정사용 방어까지 몇 주가 드는데 <strong>베타라 결제 자체가 없다</strong>.<br><br>
   <strong>② 대신 "구독자에게 줄 것"을 준다.</strong> 크리에이터 본인 계정 하나보다, 자기 구독자에게 뿌릴 혜택이 생기는 쪽이 훨씬 강한 동기다(채널 운영 실적이 되고, 우리에겐 유입이 된다). 정산·세무도 없다.<br><br>
-  <strong>③ 상한: 채널당 선착순 100명 평생 무료, 이후는 6개월 무료.</strong> 무제한이면 5만~10만 채널에서 2%만 받아가도 1,000~2,000명이고, 그들이 곧 가장 전환 가능성 높은 집단이다. 선착순은 <strong>손실 상한이 계산되고</strong>, 희소성이 크리에이터의 홍보 명분("선착순 100명")과 시청자의 즉시 행동을 만든다.<br><br>
+  <strong>③ 상한: 채널당 선착순 100명 평생 무료, 이후는 1개월 무료.</strong> 무제한이면 5만~10만 채널에서 2%만 받아가도 1,000~2,000명이고, 그들이 곧 가장 전환 가능성 높은 집단이다. 선착순은 <strong>손실 상한이 계산되고</strong>, 희소성이 크리에이터의 홍보 명분("선착순 100명")과 시청자의 즉시 행동을 만든다. <strong>1개월 무료는 추가 구현이 거의 없다</strong> — <code>pro</code>/<code>active</code>/<code>current_period_end=+1개월</code>/빌링키 없음으로 넣으면, 만료 시 <code>charge-renewals</code> 가 "카드 없음"으로 판단해 <strong>자동으로 FREE 강등</strong>한다(기존 로직 그대로). 30% 할인안은 <strong>기각</strong> — 청구 금액이 <code>PRICE[cycle]</code> 상수라 할인을 넣으려면 청구·환불(국내 일할 계산)·영수증을 전부 고쳐야 해서 평생 무료보다 오히려 무겁다.<br><br>
   <strong>④ 평생 무료 = PRO 완전 동등.</strong> 클라우드 동기화 포함 어떤 기능도 빼지 않는다. 반쪽 제품으로는 증언이 안 나온다. 코드상 이미 그렇게 동작한다(<code>resolveEffectivePlan</code> → <code>pro</code> → localStorage 캐시 → 동기화 게이트 통과).</p></div>
+
+  <div class="callout"><p class="h">🚦 실행 순서 — 프로모는 유료 전환 이후에만 성립 (2026-07-28)</p><p>
+  지금은 <code>staged</code> 모드라 비테스터가 <strong>전원 무료</strong>다. 시청자에게 "선착순 100명 평생 무료"라고 해도 <strong>"어차피 지금 다 무료인데?"</strong> 가 되고, 크리에이터에게 줄 "구독자 혜택"이라는 명분도 성립하지 않는다. <strong>프로모 코드 구현은 유료 전환 뒤로 미룬다</strong>(쓸 데 없는 기능을 먼저 만드는 셈).</p>
+  <ol>
+    <li><strong>토스 계약 심사</strong> — 2026-07-28 기준 <strong>발송 완료·심사 중</strong>. ⛔ <strong>심사 중 홈페이지 수정은 반려 사유</strong>이므로 <code>src/</code>·<code>public/</code> 변경의 main 머지를 <strong>동결</strong>한다(작업은 브랜치에 쌓는다). <code>docs/</code>·<code>.claude/</code> 는 배포 산출물(<code>dist-web</code>)에 포함되지 않아 사이트 내용이 바뀌지 않으므로 안전하다.</li>
+    <li>심사 통과 → 라이브 키 → <strong>런치 모드 <code>paid</code> 전환</strong></li>
+    <li><strong>크리에이터 발송은 병행 가능</strong> — 발송→답장 1~2주→검토 1~2주→영상 제작·공개 2~4주라 <strong>실제 영상은 4~6주 뒤</strong>다. 메일이 약속하는 것도 "정식 출시 후 평생 무료"라 지금 보내도 정직하다.</li>
+    <li>답장 온 채널에 평생 무료 발급 + <code>_video</code> 링크 전달</li>
+    <li>영상이 확정되면 <strong>그때 프로모 코드 구현</strong></li>
+  </ol></div>
 
   <div class="callout"><p class="h">📊 500명(5채널×100명) 무상 제공 시 실제 비용</p><p>
   <strong>인프라는 사실상 0.</strong> ⚠️ 단 <strong>FREE 는 자세 데이터를 서버로 안 보낸다</strong>(syncService 가 원천 차단) — 평생 무료는 PRO 라 동기화가 켜지므로, 우리가 지불하는 건 "무료 사용자"가 아니라 <strong>유료 사용자와 동일한 부하</strong>다.</p>
