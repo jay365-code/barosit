@@ -630,8 +630,18 @@ barosit.com/?utm_source=creator&amp;utm_medium=email&amp;utm_campaign=[チャン
     <li>답장이 오면 <strong>영상 요청 금지</strong>. 감상만 물어보세요. 먼저 제안하게 만드는 게 목적입니다.</li>
   </ul>
 
-  <h3>추적표 (별도 시트 또는 이 문서에 누적)</h3>
-  <p>채널명 · 구독자 · 주제 · 이메일 · 발송일 · 팔로업일 · 응답 · <code>utm_campaign</code> 값 · 결과</p>
+  <h3 id="outreach-tracker">추적표 <span style="font-size:13px;color:var(--fg-3);font-weight:400;">(이 표가 진행 상태의 단일 진실 — 세션이 바뀌어도 여기만 보면 된다)</span></h3>
+
+  <div class="callout"><p class="h">⛔ 이 리포지터리는 <strong>공개(public)</strong>다 — 연락처를 여기 적지 말 것</p><p>채널명·슬러그·상태·날짜만 남긴다. <strong>이메일 주소는 컬럼에 넣지 않는다</strong> — 공개된 비즈니스 메일이라도 리스트로 모아 공개 저장소에 커밋하면 수집 목록처럼 보이고, 당사자도 반기지 않는다. 주소는 본인 메모·메일함에 두고 발송 시점에만 쓴다. 같은 이유로 <strong>구독자 수는 구간으로</strong>(1만~3만) 적는다.</p></div>
+
+  <table>
+    <thead><tr><th>채널명</th><th>슬러그</th><th>구독</th><th>주제</th><th>상태</th><th>1차</th><th>팔로업</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr style="opacity:.45"><td><em>바른자세tv (예시)</em></td><td><code>barunjase_tv</code></td><td>1만~3만</td><td>자세·스트레칭</td><td>후보</td><td>—</td><td>—</td><td>형식 예시 행 — 실제 발송 시 삭제</td></tr>
+    </tbody>
+  </table>
+
+  <p class="note"><strong>상태 값</strong>: <code>후보</code>(리서치됨·미발송) → <code>발송</code> → <code>팔로업</code> → <code>응답</code> / <code>무응답</code>(팔로업 후 7일) → <code>발급</code>(평생 무료 지정 완료) → <code>영상</code>(공개됨). <strong>슬러그 하나로 링크 두 개가 파생</strong>된다 — <code>&lt;슬러그&gt;_outreach</code> / <code>&lt;슬러그&gt;_video</code>. 성과는 어드민 › 사용 분석 › 유입 채널에서 슬러그로 검색해 확인한다(이 표에 숫자를 옮겨 적지 말 것 — 이중 관리가 된다).</p>
   <ul class="tasks">
     <li><label class="task"><input type="checkbox" data-id="yt-list"><span class="body"><span class="title">타깃 채널 10곳 리스트업 <span class="tag content">운영</span></span><span class="desc">기준: 5천~5만 · 최근 3개월 활발 · 비즈니스 이메일 공개. 채널당 utm_campaign 값 지정</span></span></label></li>
     <li><label class="task"><input type="checkbox" data-id="yt-send"><span class="body"><span class="title">1차 5통 발송 <span class="tag content">콘텐츠</span></span><span class="desc">[구체적인 영상 언급] 반드시 채울 것. 발송일 기록</span></span></label></li>
