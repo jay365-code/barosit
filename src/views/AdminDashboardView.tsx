@@ -51,6 +51,16 @@ interface ClientErrorData {
   last_seen: string;
 }
 
+/** admin_usage_channels RPC 한 행 — 서버에서 출처·캠페인별로 집계한 결과. */
+interface ChannelRow {
+  source: string;
+  campaign: string;
+  views: number;
+  cta: number;
+  opened: number;
+  activated: number;
+}
+
 interface UsageEventData {
   id: string;
   install_id: string;
@@ -246,6 +256,15 @@ export function AdminDashboardView({ onClose }: Props) {
   const [payStatus, setPayStatus] = useState<"all" | "completed" | "refunded" | "partially_refunded" | "failed">("all");
   const [payRefundingId, setPayRefundingId] = useState<string | null>(null);
   const [payCopiedId, setPayCopiedId] = useState<string | null>(null); // orderId 복사 피드백
+  // 유입 채널 — 집계는 서버(admin_usage_channels)에서 한다. 클라이언트에서 세면
+  // usage_events 조회 상한(2000건)이 곧 집계 구간이 되어, 이벤트가 늘수록 과거
+  // 캠페인이 표에서 조용히 사라진다.
+  const [channelRows, setChannelRows] = useState<ChannelRow[]>([]);
+  const [channelLoading, setChannelLoading] = useState(false);
+  const [channelError, setChannelError] = useState<string | null>(null);
+  const [channelRange, setChannelRange] = useState<"7" | "30" | "90" | "all">("30");
+  const [channelQuery, setChannelQuery] = useState("");
+  const [channelHideRefs, setChannelHideRefs] = useState(true);
   const [events, setEvents] = useState<PostureEventData[]>([]);
   const [dailyScores, setDailyScores] = useState<DailyScoreData[]>([]);
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -489,6 +508,27 @@ export function AdminDashboardView({ onClose }: Props) {
       console.warn("[AdminDashboard] Web Audio API blocked or failed:", err);
     }
   };
+
+  // 유입 채널 집계 — 사용 분석 탭을 볼 때만, 기간이 바뀔 때마다 서버에서 다시 받는다.
+  useEffect(() => {
+    if (activeTab !== "usage") return;
+    let alive = true;
+    setChannelLoading(true);
+    setChannelError(null);
+    const from =
+      channelRange === "all" ? null : new Date(Date.now() - Number(channelRange) * 86400000).toISOString();
+    void supabase
+      .rpc("admin_usage_channels", { p_from: from, p_to: null })
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) setChannelError(error.message);
+        setChannelRows((data as ChannelRow[] | null) ?? []);
+        setChannelLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [activeTab, channelRange]);
 
   useEffect(() => {
     fetchAllData();
@@ -2008,6 +2048,136 @@ export function AdminDashboardView({ onClose }: Props) {
                 {/* 5-2. 사용 분석 탭 */}
                 {activeTab === "usage" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    {/* 유입 채널 — 아래 퍼널/이벤트 집계와 달리 서버에서 기간별로 집계해
+                        받으므로 2000건 상한의 영향을 받지 않는다. */}
+                    {(() => {
+                      const RANGES: { v: typeof channelRange; label: string }[] = [
+                        { v: "7", label: "7일" },
+                        { v: "30", label: "30일" },
+                        { v: "90", label: "90일" },
+                        { v: "all", label: "전체" },
+                      ];
+                      const q = channelQuery.trim().toLowerCase();
+                      const visible = channelRows.filter(r => {
+                        if (channelHideRefs && r.source.startsWith("ref:")) return false;
+                        if (!q) return true;
+                        return r.source.toLowerCase().includes(q) || r.campaign.toLowerCase().includes(q);
+                      });
+                      const refCount = channelRows.filter(r => r.source.startsWith("ref:")).length;
+                      const sum = (k: keyof ChannelRow) => visible.reduce((a, r) => a + (r[k] as number), 0);
+
+                      return (
+                        <>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>유입 채널</div>
+                            <div style={{ display: "flex", gap: 4 }}>
+                              {RANGES.map(r => (
+                                <button
+                                  key={r.v}
+                                  onClick={() => setChannelRange(r.v)}
+                                  style={{
+                                    background: channelRange === r.v ? "#5b8c7a" : "rgba(255,255,255,0.06)",
+                                    color: channelRange === r.v ? "#fff" : "#ccc",
+                                    border: "1px solid rgba(255,255,255,0.1)",
+                                    borderRadius: 6,
+                                    padding: "3px 10px",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {r.label}
+                                </button>
+                              ))}
+                            </div>
+                            <input
+                              value={channelQuery}
+                              onChange={e => setChannelQuery(e.target.value)}
+                              placeholder="출처·캠페인 검색"
+                              style={{
+                                background: "#222",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                color: "#fff",
+                                borderRadius: 6,
+                                padding: "4px 10px",
+                                fontSize: 12,
+                                minWidth: 180,
+                              }}
+                            />
+                            {refCount > 0 && (
+                              <label style={{ fontSize: 11.5, color: "#ccc", display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
+                                <input type="checkbox" checked={channelHideRefs} onChange={e => setChannelHideRefs(e.target.checked)} />
+                                리퍼러(ref:) 숨김 · {refCount}
+                              </label>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11.5, opacity: 0.45, marginTop: -12, lineHeight: 1.6 }}>
+                            <code>barosit.com/go/&lt;출처&gt;/&lt;캠페인&gt;</code> 또는 <code>?utm_source=…</code> 를 붙여 뿌리면 채널이 구분됩니다.
+                            집계는 서버에서 기간별로 하므로 아래 다른 섹션과 달리 2000건 상한을 받지 않습니다.
+                            브라우저 저장소 기반이라 <strong>절대 유입수가 아니라 채널 간 상대 비교</strong>로 보세요.
+                          </div>
+
+                          {channelError ? (
+                            <div style={{ fontSize: 12.5, color: "#e08866", padding: "12px 0" }}>
+                              유입 채널 조회 실패: {channelError}
+                            </div>
+                          ) : channelLoading ? (
+                            <div style={{ fontSize: 12.5, opacity: 0.4, padding: "16px 0" }}>불러오는 중…</div>
+                          ) : visible.length === 0 ? (
+                            <div style={{ fontSize: 12.5, opacity: 0.4, padding: "16px 0" }}>
+                              {channelRows.length === 0 ? "이 기간에는 유입 데이터가 없습니다." : "검색 결과가 없습니다."}
+                            </div>
+                          ) : (
+                            <div style={{ overflowX: "auto" }}>
+                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                                <thead>
+                                  <tr style={{ textAlign: "left", opacity: 0.5, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                                    <th style={{ padding: "8px 10px" }}>출처</th>
+                                    <th style={{ padding: "8px 10px" }}>캠페인</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>랜딩</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>CTA</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>앱 진입</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>활성화</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {visible.map(r => (
+                                    <tr key={`${r.source}-${r.campaign}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                      <td style={{ padding: "8px 10px", color: "#ccc", fontFamily: "ui-monospace, monospace" }}>
+                                        {r.source || <span style={{ opacity: 0.45 }}>직접/미상</span>}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", color: "#999", fontFamily: "ui-monospace, monospace" }}>
+                                        {r.campaign || <span style={{ opacity: 0.35 }}>—</span>}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.views}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.cta}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.opened}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 800, color: r.activated > 0 ? "#7eb09c" : "#666" }}>
+                                        {r.activated}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr style={{ borderTop: "1px solid rgba(255,255,255,0.12)", opacity: 0.7 }}>
+                                    <td style={{ padding: "8px 10px" }} colSpan={2}>합계 ({visible.length}개 채널)</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right" }}>{sum("views")}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right" }}>{sum("cta")}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right" }}>{sum("opened")}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 800 }}>{sum("activated")}</td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                              <div style={{ fontSize: 11.5, opacity: 0.4, marginTop: 8, lineHeight: 1.6 }}>
+                                판단은 <strong>활성화</strong>(캘리브레이션 성공 = 실제로 써 봄)로 하세요. 랜딩·CTA 만 많고 활성화가 0인 채널은 잘못된 청중입니다.
+                                앱 진입·활성화는 <strong>고유 설치 수</strong>, 랜딩·CTA 는 <strong>건수</strong>라 단위가 다릅니다.
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
                     {(() => {
                       const DAY = 86400000;
                       const now = Date.now();
@@ -2022,33 +2192,6 @@ export function AdminDashboardView({ onClose }: Props) {
                       const calibFail = installsForEvent("calibration_failed");
                       const totalInstalls = new Set(usageEvents.map(e => e.install_id)).size;
                       const conv = onboarded.size > 0 ? Math.round((calibOk.size / onboarded.size) * 100) : 0;
-                      // 유입 채널별 퍼널 — acquisition.ts 가 모든 이벤트 props 에 acq_* 를
-                      // 얹으므로, 같은 이벤트를 출처로 쪼개 보면 "어느 채널이 실제 사용자를
-                      // 데려왔나"가 나온다. 조회/집계 모두 이미 받아온 usageEvents 로 끝난다.
-                      const channels = new Map<
-                        string,
-                        { source: string; campaign: string; views: number; cta: number; opened: Set<string>; activated: Set<string> }
-                      >();
-                      for (const e of usageEvents) {
-                        const source = (e.props?.acq_source as string | undefined) || "";
-                        const campaign = source ? (e.props?.acq_campaign as string | undefined) || "" : "";
-                        const key = JSON.stringify([source, campaign]);
-                        let row = channels.get(key);
-                        if (!row) {
-                          row = { source, campaign, views: 0, cta: 0, opened: new Set(), activated: new Set() };
-                          channels.set(key, row);
-                        }
-                        if (e.event === "landing_view") row.views++;
-                        else if (e.event === "landing_cta_clicked") row.cta++;
-                        else if (e.event === "app_opened") row.opened.add(e.install_id);
-                        else if (e.event === "calibration_succeeded") row.activated.add(e.install_id);
-                      }
-                      // 판단 기준은 조회수가 아니라 활성화다 — 클릭만 많고 활성화가 0인
-                      // 채널은 잘못된 청중을 데려온 것이다.
-                      const channelRows = [...channels.values()]
-                        .filter(r => r.views + r.cta + r.opened.size + r.activated.size > 0)
-                        .sort((a, b) => b.activated.size - a.activated.size || b.views - a.views);
-
                       // 이벤트별 카운트
                       const counts: Record<string, number> = {};
                       for (const e of usageEvents) counts[e.event] = (counts[e.event] || 0) + 1;
@@ -2100,56 +2243,6 @@ export function AdminDashboardView({ onClose }: Props) {
                               );
                             })}
                           </div>
-
-                          {/* 유입 채널 */}
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginTop: 8 }}>
-                            유입 채널 (최근 2000건 내)
-                          </div>
-                          <div style={{ fontSize: 11.5, opacity: 0.45, marginTop: -12, lineHeight: 1.6 }}>
-                            링크에 <code>?utm_source=…</code> 를 붙여 뿌리면 채널이 구분됩니다. utm 이 없으면 리퍼러 호스트(<code>ref:…</code>)로 잡힙니다.
-                            브라우저 저장소 기반이라 <strong>절대 유입수가 아니라 채널 간 상대 비교</strong>로 보세요.
-                          </div>
-                          {channelRows.length === 0 ? (
-                            <div style={{ fontSize: 12.5, opacity: 0.4, padding: "16px 0" }}>
-                              아직 유입 데이터가 없습니다.
-                            </div>
-                          ) : (
-                            <div style={{ overflowX: "auto" }}>
-                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-                                <thead>
-                                  <tr style={{ textAlign: "left", opacity: 0.5, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                                    <th style={{ padding: "8px 10px" }}>출처</th>
-                                    <th style={{ padding: "8px 10px" }}>캠페인</th>
-                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>랜딩</th>
-                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>CTA</th>
-                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>앱 진입</th>
-                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>활성화</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {channelRows.map(r => (
-                                    <tr key={`${r.source}-${r.campaign}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                                      <td style={{ padding: "8px 10px", color: "#ccc", fontFamily: "ui-monospace, monospace" }}>
-                                        {r.source || <span style={{ opacity: 0.45 }}>직접/미상</span>}
-                                      </td>
-                                      <td style={{ padding: "8px 10px", color: "#999", fontFamily: "ui-monospace, monospace" }}>
-                                        {r.campaign || <span style={{ opacity: 0.35 }}>—</span>}
-                                      </td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.views}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.cta}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.opened.size}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 800, color: r.activated.size > 0 ? "#7eb09c" : "#666" }}>
-                                        {r.activated.size}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              <div style={{ fontSize: 11.5, opacity: 0.4, marginTop: 8, lineHeight: 1.6 }}>
-                                판단은 <strong>활성화</strong>(캘리브레이션 성공 = 실제로 써 봄)로 하세요. 랜딩·CTA 만 많고 활성화가 0인 채널은 잘못된 청중입니다.
-                              </div>
-                            </div>
-                          )}
 
                           {/* 이벤트별 카운트 */}
                           <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginTop: 8 }}>이벤트별 발생 수 (최근 2000건 내)</div>
