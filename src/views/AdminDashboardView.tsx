@@ -2022,6 +2022,33 @@ export function AdminDashboardView({ onClose }: Props) {
                       const calibFail = installsForEvent("calibration_failed");
                       const totalInstalls = new Set(usageEvents.map(e => e.install_id)).size;
                       const conv = onboarded.size > 0 ? Math.round((calibOk.size / onboarded.size) * 100) : 0;
+                      // 유입 채널별 퍼널 — acquisition.ts 가 모든 이벤트 props 에 acq_* 를
+                      // 얹으므로, 같은 이벤트를 출처로 쪼개 보면 "어느 채널이 실제 사용자를
+                      // 데려왔나"가 나온다. 조회/집계 모두 이미 받아온 usageEvents 로 끝난다.
+                      const channels = new Map<
+                        string,
+                        { source: string; campaign: string; views: number; cta: number; opened: Set<string>; activated: Set<string> }
+                      >();
+                      for (const e of usageEvents) {
+                        const source = (e.props?.acq_source as string | undefined) || "";
+                        const campaign = source ? (e.props?.acq_campaign as string | undefined) || "" : "";
+                        const key = JSON.stringify([source, campaign]);
+                        let row = channels.get(key);
+                        if (!row) {
+                          row = { source, campaign, views: 0, cta: 0, opened: new Set(), activated: new Set() };
+                          channels.set(key, row);
+                        }
+                        if (e.event === "landing_view") row.views++;
+                        else if (e.event === "landing_cta_clicked") row.cta++;
+                        else if (e.event === "app_opened") row.opened.add(e.install_id);
+                        else if (e.event === "calibration_succeeded") row.activated.add(e.install_id);
+                      }
+                      // 판단 기준은 조회수가 아니라 활성화다 — 클릭만 많고 활성화가 0인
+                      // 채널은 잘못된 청중을 데려온 것이다.
+                      const channelRows = [...channels.values()]
+                        .filter(r => r.views + r.cta + r.opened.size + r.activated.size > 0)
+                        .sort((a, b) => b.activated.size - a.activated.size || b.views - a.views);
+
                       // 이벤트별 카운트
                       const counts: Record<string, number> = {};
                       for (const e of usageEvents) counts[e.event] = (counts[e.event] || 0) + 1;
@@ -2073,6 +2100,56 @@ export function AdminDashboardView({ onClose }: Props) {
                               );
                             })}
                           </div>
+
+                          {/* 유입 채널 */}
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginTop: 8 }}>
+                            유입 채널 (최근 2000건 내)
+                          </div>
+                          <div style={{ fontSize: 11.5, opacity: 0.45, marginTop: -12, lineHeight: 1.6 }}>
+                            링크에 <code>?utm_source=…</code> 를 붙여 뿌리면 채널이 구분됩니다. utm 이 없으면 리퍼러 호스트(<code>ref:…</code>)로 잡힙니다.
+                            브라우저 저장소 기반이라 <strong>절대 유입수가 아니라 채널 간 상대 비교</strong>로 보세요.
+                          </div>
+                          {channelRows.length === 0 ? (
+                            <div style={{ fontSize: 12.5, opacity: 0.4, padding: "16px 0" }}>
+                              아직 유입 데이터가 없습니다.
+                            </div>
+                          ) : (
+                            <div style={{ overflowX: "auto" }}>
+                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                                <thead>
+                                  <tr style={{ textAlign: "left", opacity: 0.5, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                                    <th style={{ padding: "8px 10px" }}>출처</th>
+                                    <th style={{ padding: "8px 10px" }}>캠페인</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>랜딩</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>CTA</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>앱 진입</th>
+                                    <th style={{ padding: "8px 10px", textAlign: "right" }}>활성화</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {channelRows.map(r => (
+                                    <tr key={`${r.source}-${r.campaign}`} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                      <td style={{ padding: "8px 10px", color: "#ccc", fontFamily: "ui-monospace, monospace" }}>
+                                        {r.source || <span style={{ opacity: 0.45 }}>직접/미상</span>}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", color: "#999", fontFamily: "ui-monospace, monospace" }}>
+                                        {r.campaign || <span style={{ opacity: 0.35 }}>—</span>}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.views}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.cta}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#ccc" }}>{r.opened.size}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 800, color: r.activated.size > 0 ? "#7eb09c" : "#666" }}>
+                                        {r.activated.size}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              <div style={{ fontSize: 11.5, opacity: 0.4, marginTop: 8, lineHeight: 1.6 }}>
+                                판단은 <strong>활성화</strong>(캘리브레이션 성공 = 실제로 써 봄)로 하세요. 랜딩·CTA 만 많고 활성화가 0인 채널은 잘못된 청중입니다.
+                              </div>
+                            </div>
+                          )}
 
                           {/* 이벤트별 카운트 */}
                           <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginTop: 8 }}>이벤트별 발생 수 (최근 2000건 내)</div>
