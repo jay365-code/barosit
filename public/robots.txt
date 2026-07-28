@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
+# 유입 추적용 짧은 링크. SPA 폴백으로 랜딩이 200 으로 뜨므로 중복 색인을 막는다.
+Disallow: /go/
 
 Sitemap: https://barosit.com/sitemap.xml
 Sitemap: https://barosit.com/community-sitemap.xml

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { parseAcquisition, getAcquisition, acquisitionProps, __resetAcquisition } from "./acquisition";
+import { parseAcquisition, parseGoPath, getAcquisition, acquisitionProps, __resetAcquisition } from "./acquisition";
 
 const NOW = "2026-07-27T00:00:00.000Z";
 
@@ -26,6 +26,51 @@ describe("parseAcquisition", () => {
   it("utm 값은 소문자화·길이 제한으로 정규화한다", () => {
     const acq = parseAcquisition(`?utm_source=${"A".repeat(60)}`, "", NOW);
     expect(acq?.source).toBe("a".repeat(40));
+  });
+});
+
+describe("parseGoPath — 짧은 유입 링크", () => {
+  it("/go/<출처>/<캠페인> 을 해석한다", () => {
+    expect(parseGoPath("/go/creator/healstory_video", NOW)).toEqual({
+      source: "creator",
+      medium: "link",
+      campaign: "healstory_video",
+      at: NOW,
+    });
+  });
+
+  it("캠페인은 생략할 수 있다", () => {
+    expect(parseGoPath("/go/kin", NOW)).toEqual({ source: "kin", medium: "link", campaign: undefined, at: NOW });
+  });
+
+  it("끝 슬래시를 허용하고 대문자는 소문자로 정규화한다", () => {
+    expect(parseGoPath("/go/Creator/Healstory/", NOW)?.source).toBe("creator");
+    expect(parseGoPath("/go/Creator/Healstory/", NOW)?.campaign).toBe("healstory");
+  });
+
+  it("형식이 안 맞으면 무시한다(직접 유입 처리)", () => {
+    expect(parseGoPath("/go", NOW)).toBeNull();
+    expect(parseGoPath("/go/", NOW)).toBeNull();
+    expect(parseGoPath("/go/a/b/c", NOW)).toBeNull();
+    expect(parseGoPath("/community/p/abc", NOW)).toBeNull();
+    expect(parseGoPath("/", NOW)).toBeNull();
+  });
+
+  it("허용 문자 밖의 값은 기록하지 않는다", () => {
+    expect(parseGoPath("/go/크리에이터", NOW)).toBeNull();
+    expect(parseGoPath("/go/creator/hea%20story", NOW)).toBeNull();
+    expect(parseGoPath("/go/creator/<script>", NOW)).toBeNull();
+  });
+
+  it("경로가 utm 보다 우선한다", () => {
+    const acq = parseAcquisition("?utm_source=reddit", "", NOW, "/go/creator/healstory_video");
+    expect(acq?.source).toBe("creator");
+    expect(acq?.campaign).toBe("healstory_video");
+  });
+
+  it("경로가 없으면 기존 utm·리퍼러 판정을 그대로 탄다", () => {
+    expect(parseAcquisition("?utm_source=reddit", "", NOW, "/")?.source).toBe("reddit");
+    expect(parseAcquisition("", "https://news.ycombinator.com/x", NOW, "/")?.source).toBe("ref:news.ycombinator.com");
   });
 });
 

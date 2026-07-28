@@ -42,10 +42,38 @@ function isSelfHost(host: string): boolean {
 }
 
 /**
- * 순수 함수 — 쿼리스트링과 리퍼러에서 유입 출처를 계산한다(저장·부수효과 없음).
- * 판별 못 하면 null (= 직접 유입으로 취급).
+ * 짧은 유입 링크 `/go/<출처>/<캠페인>` 을 해석한다(캠페인은 생략 가능).
+ *
+ * utm 파라미터가 붙은 긴 주소는 크리에이터가 영상 설명란에 그대로 붙이지 않는다 —
+ * 지저분해 보여서 잘라내거나 자기 단축링크로 바꾸고, 그러면 캠페인이 날아가 전부
+ * 직접 유입으로 잡힌다. 그래서 사람이 보기에 멀쩡한 경로 형태를 함께 지원한다.
+ *
+ * 값이 주소 자체에 들어 있으므로 슬러그 대응표가 없고, 채널이 늘어도 배포가 필요 없다.
  */
-export function parseAcquisition(search: string, referrer: string, now: string): Acquisition | null {
+export function parseGoPath(pathname: string, now: string): Acquisition | null {
+  const m = /^\/go\/([^/]+)(?:\/([^/]+))?\/?$/.exec(pathname);
+  if (!m) return null;
+  const source = norm(decodeURIComponent(m[1]));
+  const campaign = m[2] ? norm(decodeURIComponent(m[2])) : undefined;
+  // 임의 경로로 들어와도 이상한 값이 기록되지 않게 허용 문자를 좁힌다.
+  const ok = (v: string | undefined) => v === undefined || /^[a-z0-9_-]+$/.test(v);
+  if (!source || !ok(source) || !ok(campaign)) return null;
+  return { source, medium: "link", campaign, at: now };
+}
+
+/**
+ * 순수 함수 — 경로·쿼리스트링·리퍼러에서 유입 출처를 계산한다(저장·부수효과 없음).
+ * 우선순위는 `/go/` 경로 > utm > 리퍼러. 판별 못 하면 null (= 직접 유입으로 취급).
+ */
+export function parseAcquisition(
+  search: string,
+  referrer: string,
+  now: string,
+  pathname = "",
+): Acquisition | null {
+  const fromPath = parseGoPath(pathname, now);
+  if (fromPath) return fromPath;
+
   const params = new URLSearchParams(search);
   const utmSource = norm(params.get("utm_source"));
   if (utmSource) {
@@ -90,14 +118,21 @@ export function acquisitionProps(): Record<string, string> {
 }
 
 /**
- * 부팅 시 1회 — 출처를 캡처(최초 1회만)하고 URL 에서 utm_* 를 걷어낸다.
- * utm 외의 파라미터(redirect_route·from 등 결제 복귀 플로우)는 그대로 보존한다.
+ * 부팅 시 1회 — 출처를 캡처(최초 1회만)하고 URL 에서 캠페인 흔적을 걷어낸다.
+ *
+ * `/go/...` 경로는 루트로 되돌리고, utm_* 파라미터는 제거한다. utm 외의 파라미터
+ * (redirect_route·from 등 결제 복귀 플로우)와 해시 라우트는 그대로 보존한다.
  */
 export function captureAcquisition(): void {
   if (typeof window === "undefined") return;
   try {
     if (!getAcquisition()) {
-      const acq = parseAcquisition(window.location.search, document.referrer, new Date().toISOString());
+      const acq = parseAcquisition(
+        window.location.search,
+        document.referrer,
+        new Date().toISOString(),
+        window.location.pathname,
+      );
       if (acq) localStorage.setItem(ACQ_KEY, JSON.stringify(acq));
     }
   } catch {
@@ -113,12 +148,16 @@ export function captureAcquisition(): void {
         touched = true;
       }
     }
-    if (touched) {
+    // `/go/...` 는 유입용 주소일 뿐 실제 라우트가 아니다(SPA 폴백으로 랜딩이 뜬다).
+    // 루트로 정리해 두면 이후 라우팅·공유 주소가 평소와 같아진다.
+    const isGoPath = /^\/go(\/|$)/.test(window.location.pathname);
+    const pathname = isGoPath ? "/" : window.location.pathname;
+    if (touched || isGoPath) {
       const qs = params.toString();
       window.history.replaceState(
         window.history.state,
         "",
-        window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
+        pathname + (qs ? `?${qs}` : "") + window.location.hash,
       );
     }
   } catch {
