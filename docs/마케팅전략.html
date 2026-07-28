@@ -656,6 +656,40 @@ barosit.com/?utm_source=creator&amp;utm_medium=email&amp;utm_campaign=[チャン
     <li>답장이 오면 <strong>영상 요청 금지</strong>. 감상만 물어보세요. 먼저 제안하게 만드는 게 목적입니다.</li>
   </ul>
 
+  <h3>프로모 코드 구현 명세 <span style="font-size:13px;color:var(--fg-3);font-weight:400;">(미구현 — 유료 전환 + 영상 확정 후)</span></h3>
+  <details class="ch"><summary><span class="pill gate">설계 확정 · 2026-07-28</span> 시청자 배포용 코드 — 스키마·부여 시점·함정</summary>
+    <div class="ch-body">
+      <div class="field">왜 링크 자동 부여가 아니라 코드인가</div>
+      <div class="post">코드가 유출되는 건 어차피 못 막는다 — 영상에서 말하는 순간 쿠폰 사이트에 퍼진다. 비용을 묶는 건 비밀 유지가 아니라 소진 상한(100)이다.
+
+진짜 이유는 슬롯 품질이다. 방문만으로 부여하면 의도 없는 방문자·봇이 100자리를 태운다. 부여는 반드시 "회원가입을 마친 계정"에만 붙어야 실사용자에게 간다.</div>
+
+      <div class="field">전달·부여 흐름</div>
+      <div class="post">1. 어드민에서 채널별 코드 발급 (예: MOMSURI / 상한 100 / 혜택=평생무료)
+2. 크리에이터에겐 링크 하나만 준다 — barosit.com/go/creator/momsuri_video?promo=MOMSURI
+   (영상에서 코드를 외우게 하면 랜딩→가입까지 오는 동안 다 잊는다. 가입 폼에 칸을 추가하는 것도 전환율만 떨어뜨린다)
+3. 방문 시 코드를 브라우저에 보관 — acquisition.ts 의 first-touch 저장과 같은 방식
+4. **가입 완료 시점**에 서버가 상한 검사 → 소진 +1 → 구독 행 생성
+5. 소진 후 가입자는 자동으로 다음 혜택(1개월 무료)으로 떨어진다
+6. 코드 직접 입력란은 프로필에 보조 경로로만 (링크 없이 온 사람용)</div>
+
+      <div class="field">스키마</div>
+      <div class="post">promo_codes       code(PK) · benefit('lifetime'|'month1') · cap · used · expires_at · channel_slug · created_at
+promo_redemptions code · user_id · redeemed_at   ← (code, user_id) UNIQUE 로 중복 수령 차단</div>
+
+      <div class="field">혜택별 구독 행</div>
+      <div class="post">평생 무료 : plan_id='pro' · status='active' · current_period_end='2099-01-01' · 빌링키 없음
+1개월 무료: plan_id='pro' · status='active' · current_period_end=now()+1개월 · 빌링키 없음
+            → 만료 시 charge-renewals 가 "카드 없음"으로 판단해 자동 FREE 강등. 추가 구현 불필요.</div>
+
+      <p class="note">⚠️ <strong>함정 1 — 동시성.</strong> 상한 검사와 소진 증가가 원자적이어야 한다. 단순 <code>select used → 비교 → update</code> 로 짜면 동시 요청에서 101번째가 통과한다. 영상 공개 직후가 정확히 그 상황이다. <code>UPDATE … SET used = used + 1 WHERE code = $1 AND used &lt; cap RETURNING *</code> 처럼 <strong>한 문장에서</strong> 처리하고, 갱신된 행이 없으면 소진으로 응답할 것.</p>
+
+      <p class="note">⚠️ <strong>함정 2 — 탬퍼링 트리거.</strong> <code>prevent_subscription_tampering</code> 은 <code>is_admin()</code> 또는 JWT role=service_role 일 때만 유료 구독 행 생성을 허용한다. 일반 사용자가 코드를 사용하는 흐름은 <strong>둘 다 아니라서 그대로 짜면 막힌다</strong>(SECURITY DEFINER 함수 안에서도 <code>request.jwt.claims</code> 는 호출자 것이 그대로 보인다). 대안: ①RPC 안에서 <code>set_config('app.promo_grant','1',true)</code> 를 세우고 트리거에 그 예외를 추가 ②service_role 로 도는 Edge Function 경유. <strong>①을 권하되 구현 시 로컬에서 반드시 검증할 것</strong> — 이 트리거는 이미 두 번(평생 무료 지정·SQL Editor) 발목을 잡았다.</p>
+
+      <p class="note">부수 효과: 코드가 채널 단위라 <code>/go/</code> 링크 클릭 추적과 별개로 <strong>실제 발급 수</strong>가 채널별로 정확히 잡힌다. 링크 클릭은 놓쳐도 소진 수는 정확하다.</p>
+    </div>
+  </details>
+
   <h3 id="outreach-tracker">추적표 <span style="font-size:13px;color:var(--fg-3);font-weight:400;">(이 표가 진행 상태의 단일 진실 — 세션이 바뀌어도 여기만 보면 된다)</span></h3>
 
   <div class="callout"><p class="h">⛔ 이 리포지터리는 <strong>공개(public)</strong>다 — 연락처를 여기 적지 말 것</p><p>채널명·슬러그·상태·날짜만 남긴다. <strong>이메일 주소는 컬럼에 넣지 않는다</strong> — 공개된 비즈니스 메일이라도 리스트로 모아 공개 저장소에 커밋하면 수집 목록처럼 보이고, 당사자도 반기지 않는다. 주소는 본인 메모·메일함에 두고 발송 시점에만 쓴다. 같은 이유로 <strong>구독자 수는 구간으로</strong>(1만~3만) 적는다.</p></div>
@@ -682,7 +716,7 @@ barosit.com/?utm_source=creator&amp;utm_medium=email&amp;utm_campaign=[チャン
     <li><label class="task"><input type="checkbox" data-id="yt-list"><span class="body"><span class="title">타깃 채널 10곳 리스트업 <span class="tag content">운영</span></span><span class="desc">기준: 5천~5만 · 최근 3개월 활발 · 비즈니스 이메일 공개. 채널당 utm_campaign 값 지정</span></span></label></li>
     <li><label class="task"><input type="checkbox" data-id="yt-send"><span class="body"><span class="title">1차 5통 발송 <span class="tag content">콘텐츠</span></span><span class="desc">[구체적인 영상 언급] 반드시 채울 것. 발송일 기록</span></span></label></li>
     <li><label class="task"><input type="checkbox" data-id="yt-followup"><span class="body"><span class="title">7일 후 팔로업 1회 <span class="tag content">운영</span></span><span class="desc">무응답은 거절 처리. 2차 팔로업 금지</span></span></label></li>
-    <li><label class="task"><input type="checkbox" data-id="yt-promo"><span class="body"><span class="title">시청자 배포용 프로모 코드 <span class="tag code">코드</span></span><span class="desc">채널당 선착순 100명 상한이 코드로 강제돼야 함 — 없으면 위 정책이 지켜지지 않고 비용 계산이 무너진다. 코드=채널이라 실제 발급까지 채널별 집계됨. <strong>링크 자동 부여는 금지</strong>(링크만 알면 누구나 받아가 상한이 무의미)</span></span></label></li>
+    <li><label class="task"><input type="checkbox" data-id="yt-promo"><span class="body"><span class="title">시청자 배포용 프로모 코드 <span class="tag code">코드</span></span><span class="desc">채널당 선착순 100명 상한이 코드로 강제돼야 함 — 없으면 정책도 비용 계산도 무너진다. <strong>설계는 위 "프로모 코드 구현 명세" 에 확정돼 있음</strong>(스키마·부여 시점·동시성/트리거 함정). 착수 조건 = 유료 전환 완료 + 영상 확정</span></span></label></li>
     <li><label class="task"><input type="checkbox" data-id="yt-comp-ui" checked><span class="body"><span class="title">어드민에 "평생 무료 지정" 추가 <span class="tag code">코드</span></span><span class="desc">✅ plan_id=pro · status=active · current_period_end=2099-01-01 을 한 번에 + <code>∞ 평생</code> 뱃지. 로컬 DB 로 어드민 통과·비어드민 차단 검증, 판정 회귀 테스트 2건 추가</span></span></label></li>
     <li><label class="task"><input type="checkbox" data-id="yt-comp"><span class="body"><span class="title">정식 출시 시 약속한 평생 무료 일괄 이행 <span class="tag content">운영</span></span><span class="desc">위 버튼으로 추적표의 응답 채널 일괄 처리</span></span></label></li>
   </ul>
