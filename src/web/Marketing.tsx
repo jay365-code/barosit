@@ -510,6 +510,42 @@ function formatPostBody(raw: string): string {
   const HEADING = /^(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d{1,2}\.)\s+\S/;
   const BULLET = /^[▸•·]\s+(.*)$/;
 
+  // 기발행 글은 한 문단이 최대 820자·평균 369자라 소제목만 굵어져도 그 아래가 벽으로 남는다.
+  // 본문 51편을 고치면 그때마다 근거 문장을 건드릴 위험이 생기므로, 표시 문제는 표시에서 푼다.
+  // 마침표 뒤에 공백이 올 때만 끊어 "0.74~0.95"·"et al.,"·"barosit.com" 은 건드리지 않는다.
+  const sentences = (s: string): string[] => {
+    const out: string[] = [];
+    let start = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      const isJa = c === "。";
+      const isEnd = c === "." || c === "!" || c === "?";
+      const next = s[i + 1];
+      if (isJa || (isEnd && (next === undefined || next === " "))) {
+        out.push(s.slice(start, i + 1));
+        start = i + 1;
+      }
+    }
+    if (start < s.length) out.push(s.slice(start));
+    return out.map((x) => x.trim()).filter(Boolean);
+  };
+
+  // 긴 문단만 문장 단위로 다시 묶는다(문단당 대략 200자 이하). 짧은 문단은 그대로 둔다.
+  const reflow = (s: string): string[] => {
+    if (s.length <= 160) return [s];
+    const chunks: string[] = [];
+    let buf = "";
+    for (const sent of sentences(s)) {
+      if (buf && (buf.length + sent.length > 200 || buf.split(/[.。!?]/).length > 2)) {
+        chunks.push(buf.trim());
+        buf = "";
+      }
+      buf += (buf ? " " : "") + sent;
+    }
+    if (buf.trim()) chunks.push(buf.trim());
+    return chunks;
+  };
+
   const out: string[] = [];
   for (const line of (raw || "").split("\n")) {
     const t = line.trim();
@@ -530,7 +566,12 @@ function formatPostBody(raw: string): string {
       );
       continue;
     }
-    out.push('<p style="margin:0;line-height:1.75">' + inline(t) + "</p>");
+    const parts = reflow(t);
+    parts.forEach((p, i) => {
+      out.push(
+        '<p style="margin:' + (i === 0 ? "0" : "12px 0 0") + ';line-height:1.75">' + inline(p) + "</p>",
+      );
+    });
   }
   return out.join("");
 }
