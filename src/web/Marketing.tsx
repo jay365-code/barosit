@@ -492,10 +492,12 @@ function formatAgentContent(raw: string): string {
 // "구조는 있는데 화면에선 안 보인다"는 지적(유저 2026-07-29)에 대한 대응.
 //
 // 저자가 새 문법을 배울 필요가 없도록 **기존 글이 이미 쓰고 있는 관습을 그대로 인식**한다:
-//   · 소제목  "① 제목" / "1. 제목"      → 굵게 + 브랜드색 + 위쪽 여백
-//   · 구분선  "──────" (─ 또는 - 3개 이상) → 옅은 실선
-//   · 불릿    "▸ 항목" / "• 항목"        → 마커에 색을 주고 들여쓰기
-//   · 강조    "**굵게**"                 → <strong>
+//   · 소제목  "① 제목" / "1. 제목"  → 굵게 + 브랜드색 + 위쪽 여백
+//   · 불릿    "▸ 항목" / "• 항목"   → 마커에 색을 주고 들여쓰기
+//   · 강조    "**굵게**"            → <strong>
+// 색은 '구조'(소제목·불릿 마커)에만 쓰고 문장 강조는 볼드로만 한다(유저 결정 2026-07-29).
+// 근거 등급의 미묘한 온도차를 다루는 글이 많아, 문장에 색을 칠하면 그 문장만 근거가 센 것으로 읽힌다.
+// 구분선(──────)은 소제목 서식과 중복이라 쓰지 않기로 함 → 별도 처리 없음(본문에서도 제거됨).
 // 덕분에 기발행 글 전체가 본문 수정 없이 그대로 개선된다.
 //
 // XSS: 사용자 입력이 아니라 운영자 검수를 거친 콘텐츠지만, **이스케이프를 먼저 하고**
@@ -506,17 +508,12 @@ function formatPostBody(raw: string): string {
   const inline = (s: string) => esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 
   const HEADING = /^(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d{1,2}\.)\s+\S/;
-  const DIVIDER = /^[─—–-]{3,}$/;
   const BULLET = /^[▸•·]\s+(.*)$/;
 
   const out: string[] = [];
   for (const line of (raw || "").split("\n")) {
     const t = line.trim();
     if (!t) { out.push('<div style="height:14px"></div>'); continue; }
-    if (DIVIDER.test(t)) {
-      out.push('<hr style="border:0;border-top:1px solid var(--b-line,#e5e5df);margin:26px 0" />');
-      continue;
-    }
     if (HEADING.test(t)) {
       out.push(
         '<div style="font-size:18px;font-weight:700;color:var(--b-sig-deep,#3e6856);' +
