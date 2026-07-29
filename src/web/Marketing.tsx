@@ -487,6 +487,95 @@ function formatAgentContent(raw: string): string {
     .replace(/\n/g, "<br/>");
 }
 
+// 게시글 본문(주로 Aria 블로그) 서식 변환. 댓글용 formatAgentContent 보다 한 단계 위:
+// 소제목·구분선·불릿을 알아봐서 시각적 위계를 만든다. 본문이 pre-wrap 순수 텍스트라
+// "구조는 있는데 화면에선 안 보인다"는 지적(유저 2026-07-29)에 대한 대응.
+//
+// 저자가 새 문법을 배울 필요가 없도록 **기존 글이 이미 쓰고 있는 관습을 그대로 인식**한다:
+//   · 소제목  "① 제목" / "1. 제목"  → 굵게 + 브랜드색 + 위쪽 여백
+//   · 불릿    "▸ 항목" / "• 항목"   → 마커에 색을 주고 들여쓰기
+//   · 강조    "**굵게**"            → <strong>
+// 색은 '구조'(소제목·불릿 마커)에만 쓰고 문장 강조는 볼드로만 한다(유저 결정 2026-07-29).
+// 근거 등급의 미묘한 온도차를 다루는 글이 많아, 문장에 색을 칠하면 그 문장만 근거가 센 것으로 읽힌다.
+// 구분선(──────)은 소제목 서식과 중복이라 쓰지 않기로 함 → 별도 처리 없음(본문에서도 제거됨).
+// 덕분에 기발행 글 전체가 본문 수정 없이 그대로 개선된다.
+//
+// XSS: 사용자 입력이 아니라 운영자 검수를 거친 콘텐츠지만, **이스케이프를 먼저 하고**
+// 그 뒤에 우리가 만든 태그만 주입한다(형식은 formatAgentContent 와 동일한 안전 순서).
+function formatPostBody(raw: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const inline = (s: string) => esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+  const HEADING = /^(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d{1,2}\.)\s+\S/;
+  const BULLET = /^[▸•·]\s+(.*)$/;
+
+  // 기발행 글은 한 문단이 최대 820자·평균 369자라 소제목만 굵어져도 그 아래가 벽으로 남는다.
+  // 본문 51편을 고치면 그때마다 근거 문장을 건드릴 위험이 생기므로, 표시 문제는 표시에서 푼다.
+  // 마침표 뒤에 공백이 올 때만 끊어 "0.74~0.95"·"et al.,"·"barosit.com" 은 건드리지 않는다.
+  const sentences = (s: string): string[] => {
+    const out: string[] = [];
+    let start = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      const isJa = c === "。";
+      const isEnd = c === "." || c === "!" || c === "?";
+      const next = s[i + 1];
+      if (isJa || (isEnd && (next === undefined || next === " "))) {
+        out.push(s.slice(start, i + 1));
+        start = i + 1;
+      }
+    }
+    if (start < s.length) out.push(s.slice(start));
+    return out.map((x) => x.trim()).filter(Boolean);
+  };
+
+  // 긴 문단만 문장 단위로 다시 묶는다(문단당 대략 200자 이하). 짧은 문단은 그대로 둔다.
+  const reflow = (s: string): string[] => {
+    if (s.length <= 160) return [s];
+    const chunks: string[] = [];
+    let buf = "";
+    for (const sent of sentences(s)) {
+      if (buf && (buf.length + sent.length > 200 || buf.split(/[.。!?]/).length > 2)) {
+        chunks.push(buf.trim());
+        buf = "";
+      }
+      buf += (buf ? " " : "") + sent;
+    }
+    if (buf.trim()) chunks.push(buf.trim());
+    return chunks;
+  };
+
+  const out: string[] = [];
+  for (const line of (raw || "").split("\n")) {
+    const t = line.trim();
+    if (!t) { out.push('<div style="height:14px"></div>'); continue; }
+    if (HEADING.test(t)) {
+      out.push(
+        '<div style="font-size:18px;font-weight:700;color:var(--b-sig-deep,#3e6856);' +
+        'margin:30px 0 10px;line-height:1.45">' + inline(t) + "</div>",
+      );
+      continue;
+    }
+    const b = t.match(BULLET);
+    if (b) {
+      out.push(
+        '<div style="display:flex;gap:9px;margin:7px 0 7px 2px;line-height:1.7">' +
+        '<span style="color:var(--b-sig,#5b8c7a);flex:none;font-weight:700">▸</span>' +
+        "<span>" + inline(b[1]) + "</span></div>",
+      );
+      continue;
+    }
+    const parts = reflow(t);
+    parts.forEach((p, i) => {
+      out.push(
+        '<p style="margin:' + (i === 0 ? "0" : "12px 0 0") + ';line-height:1.75">' + inline(p) + "</p>",
+      );
+    });
+  }
+  return out.join("");
+}
+
 // ───────── Landing ─────────
 
 function Landing() {
@@ -4443,19 +4532,18 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                 );
               })()}
 
-              {/* Content text */}
-              <p
+              {/* Content text — 소제목·구분선·불릿·굵게를 서식으로 변환(formatPostBody 주석 참조) */}
+              <div
                 style={{
                   fontSize: 16,
                   color: "var(--b-fg-1)",
                   lineHeight: 1.7,
                   margin: 0,
-                  whiteSpace: "pre-wrap",
                   marginBottom: 36,
+                  wordBreak: "break-word",
                 }}
-              >
-                {activePost.content}
-              </p>
+                dangerouslySetInnerHTML={{ __html: formatPostBody(activePost.content) }}
+              />
 
               {/* Engagement Stats & Deletion Panel */}
               <div
