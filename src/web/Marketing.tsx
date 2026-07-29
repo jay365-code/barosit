@@ -487,6 +487,57 @@ function formatAgentContent(raw: string): string {
     .replace(/\n/g, "<br/>");
 }
 
+// 게시글 본문(주로 Aria 블로그) 서식 변환. 댓글용 formatAgentContent 보다 한 단계 위:
+// 소제목·구분선·불릿을 알아봐서 시각적 위계를 만든다. 본문이 pre-wrap 순수 텍스트라
+// "구조는 있는데 화면에선 안 보인다"는 지적(유저 2026-07-29)에 대한 대응.
+//
+// 저자가 새 문법을 배울 필요가 없도록 **기존 글이 이미 쓰고 있는 관습을 그대로 인식**한다:
+//   · 소제목  "① 제목" / "1. 제목"      → 굵게 + 브랜드색 + 위쪽 여백
+//   · 구분선  "──────" (─ 또는 - 3개 이상) → 옅은 실선
+//   · 불릿    "▸ 항목" / "• 항목"        → 마커에 색을 주고 들여쓰기
+//   · 강조    "**굵게**"                 → <strong>
+// 덕분에 기발행 글 전체가 본문 수정 없이 그대로 개선된다.
+//
+// XSS: 사용자 입력이 아니라 운영자 검수를 거친 콘텐츠지만, **이스케이프를 먼저 하고**
+// 그 뒤에 우리가 만든 태그만 주입한다(형식은 formatAgentContent 와 동일한 안전 순서).
+function formatPostBody(raw: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const inline = (s: string) => esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+  const HEADING = /^(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d{1,2}\.)\s+\S/;
+  const DIVIDER = /^[─—–-]{3,}$/;
+  const BULLET = /^[▸•·]\s+(.*)$/;
+
+  const out: string[] = [];
+  for (const line of (raw || "").split("\n")) {
+    const t = line.trim();
+    if (!t) { out.push('<div style="height:14px"></div>'); continue; }
+    if (DIVIDER.test(t)) {
+      out.push('<hr style="border:0;border-top:1px solid var(--b-line,#e5e5df);margin:26px 0" />');
+      continue;
+    }
+    if (HEADING.test(t)) {
+      out.push(
+        '<div style="font-size:18px;font-weight:700;color:var(--b-sig-deep,#3e6856);' +
+        'margin:30px 0 10px;line-height:1.45">' + inline(t) + "</div>",
+      );
+      continue;
+    }
+    const b = t.match(BULLET);
+    if (b) {
+      out.push(
+        '<div style="display:flex;gap:9px;margin:7px 0 7px 2px;line-height:1.7">' +
+        '<span style="color:var(--b-sig,#5b8c7a);flex:none;font-weight:700">▸</span>' +
+        "<span>" + inline(b[1]) + "</span></div>",
+      );
+      continue;
+    }
+    out.push('<p style="margin:0;line-height:1.75">' + inline(t) + "</p>");
+  }
+  return out.join("");
+}
+
 // ───────── Landing ─────────
 
 function Landing() {
@@ -4443,19 +4494,18 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                 );
               })()}
 
-              {/* Content text */}
-              <p
+              {/* Content text — 소제목·구분선·불릿·굵게를 서식으로 변환(formatPostBody 주석 참조) */}
+              <div
                 style={{
                   fontSize: 16,
                   color: "var(--b-fg-1)",
                   lineHeight: 1.7,
                   margin: 0,
-                  whiteSpace: "pre-wrap",
                   marginBottom: 36,
+                  wordBreak: "break-word",
                 }}
-              >
-                {activePost.content}
-              </p>
+                dangerouslySetInnerHTML={{ __html: formatPostBody(activePost.content) }}
+              />
 
               {/* Engagement Stats & Deletion Panel */}
               <div
