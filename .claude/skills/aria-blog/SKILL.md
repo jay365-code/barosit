@@ -1,0 +1,121 @@
+---
+name: aria-blog
+description: Aria blog authoring & publishing pipeline for the BaroSit community. Use when asked to write/publish an Aria blog post, pick the next blog topic, research blog topic candidates, or seed a blog post to production. Modes - publish (default, one post end-to-end with human review gates) | research (expand the verified topic backlog). Korean/English/Japanese trilingual, seed-migration based.
+---
+
+# Aria 블로그 발행 Skill
+
+BaroSit 커뮤니티에 Aria(자세 코치) 명의로 3언어(ko/en/ja) 블로그 글을 발행하는 전 과정.
+
+## 원칙: 문서 역할 분담 (중복 금지)
+
+- **`docs/blog-topics.html` = 콘텐츠 상태의 단일 진실 문서** — 발행 현황(§1)·백로그(§3)·오귀속 함정 목록(§3 상단)·글 작성 체크리스트(§5). **이 skill에 복사하지 않는다.** 여기엔 절차만.
+- **이 SKILL.md = 절차의 단일 진실 문서** — 단계·검토 게이트·마이그레이션 스펙·검증 방법.
+- 메모리(`barosit-blog-content`)는 세션 간 포인터일 뿐. 원칙이 충돌하면 blog-topics.html과 이 파일이 우선.
+
+## 모드 파싱
+
+인자에서: `research`가 있으면 리서치 모드, 아니면 **발행 모드(기본)**. 주제가 인자로 주어지면 1단계 주제 선정을 그 주제 검증으로 대체.
+
+---
+
+## 발행 모드 (기본)
+
+**대원칙: 사람 검토는 노이즈가 아니라 품질 파이프라인의 핵심 단계다.** 지금까지 매 글 발행 직전 사용자 검토가 실제 오류(§5 인과 미끄러짐, 제목 과잉 약속, 자기모순)를 잡았다. 게이트를 건너뛰고 발행하지 말 것.
+
+### 0. 로드
+
+1. `docs/blog-topics.html` 전체를 읽는다 (§1 발행 현황, §3 백로그+오귀속 함정, §5 체크리스트).
+2. 최근 발행 글 2~3편의 시드 마이그레이션(`supabase/migrations/*seed_aria_blog*.sql`)을 훑어 형식·톤 감각을 로드한다.
+
+### 1. 주제 선정 → [게이트 A: 사용자 확인]
+
+- §3 백로그에서 후보 선정. **배치 규칙 3개 필수**: ①유형 교차(직전이 debunk면 권고형, 반대도) ②테마 교차(같은 테마 연속 금지) ③기발행 글과 중복 위험 노트 확인(예: "스트레칭vs근력"은 하루2분글과 중복 위험 실화).
+- **⭐배치 규칙만으로 고르면 실패한다(2026-07-30 실증: 한 회차에 주제가 두 번 기각됨).** 배치 규칙을 통과한 후보에 §5 체크리스트의 **ⓐⓑ 두 관문**을 추가로 적용할 것:
+  - **ⓐ 이미 곤란을 겪는 독자가 존재하는가.** 후보마다 두 칸을 채운다 — ①곤란을 겪는 독자는 누구인가 ②읽고 나면 무엇이 달라지는가. 안 채워지면 **근거 검증에 들어가기 전에 버린다**. 기각된 "무거운 건 허리 펴고 들어라"는 근거가 튼튼했는데도 결론이 "근거가 없다" 하나뿐이라 **ko 초안을 다 쓴 뒤 게이트 C에서 "하나마나한 내용"으로 기각**됐다. debunk가 특히 잘 빠지는 함정.
+  - **ⓑ 그 debunk가 신뢰 자산을 깎지 않는가.** 대상이 장비·통념·상품이면 안전하고, **의료 행위·검사·전문가 판단**에 닿으면 위험하다. 기각된 "MRI 디스크 소견"은 게이트 B를 통과하고도 **"MRI에 대한 불신을 조장하는 것 아닌가"**로 기각됐다.
+- 후보·이유(유형/테마/중복 + ⓐⓑ 판정)를 제시하고 **사용자 확정을 받은 뒤** 진행.
+- **기각돼도 검증 결과는 §3에 남긴다** — 원문 대조는 그대로 자산이고, "되살리려면 어떤 축으로 바꿔야 하는지"까지 적어두면 다음 회차가 거의 공짜가 된다.
+
+### 2. 근거 검증 → [게이트 B: 검증 리포트 제시]
+
+- **원문 fetch 없이는 한 줄도 쓰지 않는다. 기억·검색엔진 요약 인용 금지.** 검색엔진은 서로 다른 논문을 합쳐 허위 서지를 만든다(반복 확인된 사고 패턴) — §3 상단 '오귀속 함정' 목록을 먼저 대조.
+- 근거마다: ①1저자·연도·저널을 원문에서 직접 대조 ②핵심 수치(효과크기·CI·n) 원문 확인 ③**"그 연구가 다루지 않은 것"** 명시(치료↔예방, 측정 안 한 지표, 기간 한계) ④"효과 없음(연구됨)" vs "근거 없음(미연구)" 구분 ⑤COI(자금원·저자 소속) ⑥동명이인 주의(Andersen LL≠CH 전례).
+- **백로그 앵커가 오래됐으면(5년+) 후속·최신 메타를 반드시 찾아본다.** 2026-07-27 발행에서 백로그 앵커(2006 메타) 위에 **642개 검정 규모의 2024 메타**가 존재함을 발견 — 최신 것이 있는데 옛 수치만 쓰면 근거가 낡아 보인다.
+- **⭐인용할 수치마다 "이건 무엇에 의존하는 값인가"를 먼저 묻는다**(2026-07-30, 유저 질문 "퍼센트의 의미가 뭐지?"로 적발). 사후확률·오즈비·상대위험도는 **기준선이 바뀌면 의미가 통째로 달라진다** — 특히 **사후확률은 사전확률(그 진료 환경의 유병률) 의존**이라 독자 상황에 대입되지 않는다. 임상의용 수치·도구(Wells 점수 등)를 독자용으로 옮기면 자가진단 도구가 된다. **한 구절로 설명할 수 없는 수치는 본문에서 뺀다.** 뺀 자리에 "왜 옮기지 않았는지"를 한 문단으로 쓰면 오히려 글이 단단해진다(실증됨).
+- **정오표(erratum)·republication 표시를 확인한다.** PubMed 초록 상단의 `Erratum in` / `Republished in` 줄을 볼 것. 2026-07-30 앵커(Downie 2013)에 정오표가 붙어 있어 PMC로 원문을 받아 대조했고 결과는 "쉼표 하나 + 부록 인용번호"였지만, **확인하지 않고 쓰는 것과 확인하고 쓰는 건 다르다**.
+- **백로그에 적힌 서지·수치도 검증 대상이다**(그 자체를 신뢰하지 말 것). 실제로 "보강 X 2013 d=0.59"가 **동일 저자·동일 연도의 다른 논문**(메타 ↔ RCT) 수치와 뒤섞여 기재돼 있었다. 앵커의 **연구 설계(메타/RCT/코호트)를 원문에서 직접 확인**할 것.
+- **원문 접근 경로(막히는 순서대로 시도)** — 2026-07-28 발행에서 전부 겪음:
+  1. PubMed **웹페이지가 reCAPTCHA를 반환**할 수 있다(연속 요청 시). CAPTCHA는 풀지 말고 **NCBI E-utilities**로 우회: `curl -s "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=<PMID1>,<PMID2>&rettype=abstract&retmode=text"` — 여러 PMID를 한 번에 받을 수 있고 공식 초록이라 신뢰 가능.
+  2. **초록으로 부족하면(층화 수치·저자 한계 서술) 리포지터리의 저자 원고**를 찾는다 — White Rose(eprints.whiterose.ac.uk)·PMC·대학 리포지터리. 페이월 논문도 accepted manuscript 는 공개인 경우가 많고, **한계 서술 전문**이 여기 있다.
+  3. PDF 텍스트 추출: 이 환경엔 **poppler(pdftotext) 없음 → Read 도구의 PDF 렌더도 실패**한다. `python3` + **pypdf** 는 있으니 `PdfReader(...).pages[i].extract_text()` 로 텍스트를 뽑아 grep 할 것.
+- **출판사 사이트가 403이면 PMC로 우회**(2026-07-30 실증): BMJ·NICE 모두 curl·WebFetch에 403을 준다. PMC에 있으면 `efetch.fcgi?db=pmc&id=<PMCID>&rettype=xml`로 **전문 XML**을 받을 수 있고(정오표 본문도 여기서 확인), **NICE는 브라우저 도구(preview_start/get_page_text)로 읽힌다** — 권고 번호·문구를 그대로 인용해야 하니 원문 확인 필수. PDF는 `pypdf`(poppler·Read의 PDF 렌더는 이 환경에서 안 됨).
+- **PubMed 미색인 저널 함정**: PubMed에서 안 잡힌다고 "없는 논문"으로 판단하지 말 것(예: *Health Psychology Review*). 출판사 페이지가 403이면 **Semantic Scholar API**(`api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=…`)로 서지를, **healthevidence.org·McMaster Optimal Aging Portal** 같은 큐레이션 DB로 초록·수치를 대조한다. 검색 요약 자체를 출처로 삼는 것과는 다르다.
+- 컨텍스트가 큰 검증은 Explore/general-purpose 에이전트에 위임하고 **검증 리포트만 받는다**. 단 에이전트 결과도 서지·수치는 원문 링크 재확인.
+- 리포트(근거별 결론·경계·함정 회피 확인)를 사용자에게 제시. 근거가 흔들리면 여기서 중단하고 주제 재선정. **이번 검증에서 새로 적발한 오귀속·COI는 그 자리에서 §3 상단 목록에 추가한다**(발행 후로 미루지 말 것).
+
+### 3. ko 집필 → [게이트 C: 사용자 검토 필수]
+
+- 집필 전 **§5 체크리스트를 다시 열고** 항목별 대조하며 쓴다 (3중 경계·상황별 분기 착지·BaroSit 연결 원칙·서비스명 `BaroSit(바로씻)` 첫 언급 병기·어휘 뉘앙스·red flag 고지 등 — 전부 §5가 진실 소스).
+- 구조: 번호 섹션(§1~§5) → (자연스러울 때만) BaroSit 연결+CTA → /science 링크 → 출처 목록(수치·CI 포함) → 의학 고지.
+- 제목·부제 점검: **우리 근거로 답할 수 없는 걸 약속하지 않는가.** 마지막 섹션은 독자 상황별 분기(하는 중/곤욕/안 함)로 행동을 쥐여주고 질문 전환으로 착지.
+- 초안을 사용자에게 제시하고 **검토·수정을 받은 뒤** 다음 단계로.
+- **게이트 C에서 "이 부분 굳이 필요한가" 축약 요청이 오면**: 경계를 삭제하지 말고 §5의 '경계는 전진 문장으로' 원칙대로 <u>수치 단서는 한 구절로 압축</u> + <u>미검증 영역은 다리 문장으로 전환</u>해서 다시 제시한다. 그래도 빼길 원하면 **그 수치도 함께 뺀다**(수치는 남기고 단서만 빼는 조합만 금지). 축약 요청은 대체로 옳다 — 실제로 2026-07-27 발행에서 본문이 여덟 문장 짧아지면서 더 좋아졌다.
+
+### 4. en/ja 작성
+
+- ko 확정본 기준으로 작성하되 **직역 금지 — 각 언어 원어민 문장으로 따로 쓴다.** 제목은 언어별 실검색어 반영(마이그레이션 주석에 검색어 기록). en/ja 서비스명은 `BaroSit` 그대로.
+
+### 5. 시드 마이그레이션 작성
+
+파일 2개, **git 커밋하지 않는다**(유저 지시 2026-07-07 — prod에만 apply, untracked로 남김):
+
+- `supabase/migrations/<YYYYMMDD>010000_seed_aria_blog_<slug>.sql` (ko)
+- `supabase/migrations/<YYYYMMDD>020000_seed_blog_<slug>_en_ja.sql` (en+ja)
+
+형식 (기존 시드 파일이 살아있는 예시):
+
+```sql
+-- 상단 주석: 주제·유형(debunk/권고형)·직전 글과의 균형·근거 검증 요약(수치·경계)·정직 경계 목록
+SET session_replication_role = replica;  -- anon은 is_agent=true 삽입 불가 → BEFORE 트리거 우회
+INSERT INTO public.posts
+  (id, title, content, author_name, category, is_agent, agent_role, user_id, password_hash, language, translation_group_id)
+VALUES ('<고정 UUID>', '<제목>', $body$...$body$,
+  'Aria', '📝 블로그', true, 'coach', NULL, '', '<ko|en|ja>', '<ko 글 UUID>')
+ON CONFLICT (id) DO NOTHING;
+SET session_replication_role = DEFAULT;
+```
+
+- UUID는 `uuidgen | tr A-Z a-z`로 언어별 3개 생성·고정. **ko UUID = 3개 언어 공통 `translation_group_id`** (한 그룹·한 댓글 스레드).
+- `password_hash`는 빈 문자열 `''` 필수(NOT NULL 드리프트), `author_name` 필수.
+- 본문 내 작은따옴표는 `$body$` 달러쿼팅이라 이스케이프 불필요(제목은 `''`).
+
+### 6. prod 적용
+
+- **Supabase MCP `apply_migration`으로 적용.** CLI `supabase db push` 금지(remote-only 이력 042244/042336 때문에 이력 수술 유발).
+- **적용 전 반드시 `get_project`로 대상이 BaroSit(`kllcnllkcewnutxodwhx`)인지 확인** — MCP가 조직 스코프라 QueTick 등 다른 프로젝트 오조작 위험.
+- ko → en/ja 순서로 2개 적용.
+
+### 7. 검증 (3건 모두)
+
+- SSR: `curl -s https://barosit.com/community/p/<ko UUID>`에 og:title·JSON-LD 반영 확인(en/ja UUID도).
+- 사이트맵: `curl -s https://barosit.com/community-sitemap.xml`에 3개 URL 포함 확인. (Cloudflare PoP 전파 지연 있음 — 미반영이면 몇 분 뒤 재시도.)
+- ko 본문에 `BaroSit(바로씻)` 병기 렌더 확인.
+
+### 8. 사후 처리
+
+1. `docs/blog-topics.html` 갱신: §1 발행 표에 행 추가(UUID·근거·정직 처리 요약), §3 백로그 해당 항목 취소선, §5에 이번에 새로 확립된 원칙이 있으면 추가. **이 docs 변경은 커밋한다**(시드 SQL은 제외: `git add docs/blog-topics.html`).
+2. 메모리 `barosit-blog-content` 갱신(발행 요점·UUID·다음 주제 방향).
+3. **이 SKILL.md 갱신**: 이번 발행에서 절차상 배운 것(새 함정·순서 변경)이 있으면 반영 — 이 skill은 살아있는 문서다.
+4. 사용자에게 안내: **네이버 "웹페이지 수집" 수동 요청**(clean URL, 하루 한도 — 사람만 가능). 구글은 사이트맵 자동.
+
+---
+
+## 리서치 모드
+
+백로그 확충. 산출물은 글이 아니라 **blog-topics.html §3 갱신**.
+
+1. §3 현황 파악: 유형별 잔량 확인. **백로그는 debunk(특히 장비)로 기울기 쉬움 → 권고형 후보를 의도적으로 확보**(톤 균형 재발 방지).
+2. 클러스터 3~4개(예: 행동 습관/장비/작업 환경/운동)로 나눠 **병렬 에이전트 리서치**. 각 에이전트에 요구: 후보별 앵커 논문 **원문 fetch 검증**(1저자·연도·저널·수치·COI), 검색 의도/실검색어, 기발행 글과의 중복 판단.
+3. 에이전트 결과의 서지를 §3 오귀속 함정 목록과 대조 + 의심 건은 직접 재확인.
+4. 후보를 유형(권고형/debunk 행동/debunk 장비)별로 정리해 사용자와 우선순위 논의 → §3에 반영(근거 링크·중복 노트·함정 노트 포함). 새로 발견한 오귀속은 §3 상단 목록에 추가.
