@@ -76,6 +76,30 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// 이스케이프가 끝난 본문에서 barosit.com URL 만 <a> 로 승격한다(크롤러용 noscript 전용).
+//
+// 왜: 게시글 본문은 pre-wrap 순수 텍스트라 URL 을 평문으로 적어 왔고, noscript 에도
+// escapeHtml 결과가 그대로 들어가 크롤러 눈에는 링크가 하나도 없었다. 2026-08-03 실측으로
+// 블로그 57편 전부가 사이트 내 링크 그래프에서 고립돼 있음을 확인(내부 글 링크 0건,
+// /science 언급 25편도 전부 평문) → 페이지 간 권위 전달·주제 클러스터 인식이 되지 않음.
+// 본문 데이터를 고치지 않고 렌더 시점에 해결하므로 기발행 57편에 소급 적용된다.
+//
+// 안전: 반드시 escapeHtml 이후에만 호출한다. 입력에는 이미 <>&"' 가 남아 있지 않으므로
+// 아래 패턴이 매치하는 건 순수한 URL 문자열뿐이고, 새로 만드는 태그의 속성값도 그 문자열이다.
+// 자기 도메인으로 한정해 외부 링크 무단 생성(스팸 글 악용)을 차단한다.
+function linkifyBarositUrls(escaped: string): string {
+  return escaped.replace(
+    /\b((?:https?:\/\/)?barosit\.com(?:\/[^\s<>"']*)?)/g,
+    (m) => {
+      // 문장 끝 구두점은 URL 이 아니다("…barosit.com/science." 의 마침표) → 링크 밖으로 뺀다.
+      const trail = m.match(/[.,;:!?)\]}]+$/)?.[0] ?? "";
+      const url = trail ? m.slice(0, -trail.length) : m;
+      const href = url.startsWith("http") ? url : `https://${url}`;
+      return `<a href="${href}">${url}</a>${trail}`;
+    },
+  );
+}
+
 // JSON-LD <script> 컨텍스트 이스케이프 — JSON.stringify 후 </script> 브레이크아웃 차단.
 function jsonLdSafe(obj: unknown): string {
   return JSON.stringify(obj)
@@ -277,7 +301,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     `<p>${escapeHtml(authorLabel)} · ${escapeHtml(dateLabel)}` +
     (post.category ? ` · ${escapeHtml(post.category)}` : "") +
     `</p>` +
-    `<div>${escapeHtml(post.content)}</div>` +
+    `<div>${linkifyBarositUrls(escapeHtml(post.content))}</div>` +
     `</article></noscript>`;
 
   rewriter = rewriter
