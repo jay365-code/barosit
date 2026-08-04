@@ -25,6 +25,20 @@ const MAX_FACE_PITCH = 20 * DEG;
 const MAX_FACE_ROLL = 15 * DEG;
 const MAX_POSE_DRIFT = 0.07;        // 자연스러운 호흡·미세 움직임 허용
 
+// drift() 를 계산하기에 충분한 최소 샘플 수.
+//
+// Why: 예전엔 창이 maxLen(12) 까지 다 차야 drift 를 냈고, 그 전엔 Infinity →
+// stable=false 였다. 캡처 시작마다 창을 비웠으므로 **모든 캡처의 앞 12프레임이
+// 불합격 확정**이었다. 5초·65% 기준에서 이는 유효 6fps 이하 기기에서 아무리
+// 미동도 없이 앉아 있어도 통과가 수학적으로 불가능하다는 뜻이다(측정: 6fps →
+// 최대 okRatio 0.633 < 0.65). 실제로 프로덕션 실패 21건 중 20건이 `stable` 단독
+// 사유였다.
+//
+// How: 샘플이 이만큼만 모이면 판정을 시작한다. 샘플이 적을수록 평균 대비 편차도
+// 작게 나오므로 워밍업 구간은 관대한 쪽으로 기운다 — 게이트의 목적(캡처 대부분이
+// 정지 상태일 것)은 나머지 프레임이 지킨다.
+const MIN_STABILITY_SAMPLES = 4;
+
 interface StabilitySample {
   midX: number;
   midY: number;
@@ -46,7 +60,9 @@ export class StabilityWindow {
 
   /** 충분한 샘플이 모이면 평균 대비 최대 편차를 반환, 아니면 Infinity. */
   drift(): number {
-    if (this.samples.length < this.maxLen) return Infinity;
+    if (this.samples.length < Math.min(this.maxLen, MIN_STABILITY_SAMPLES)) {
+      return Infinity;
+    }
     let mx = 0, my = 0, mw = 0;
     for (const s of this.samples) {
       mx += s.midX;
@@ -151,33 +167,59 @@ const CHECK_FIELDS: (keyof CalibrationCheck)[] = [
 export class CalibrationCollector {
   private frames: Landmarks[] = [];
   private faceFrames: FaceData[] = [];
+  // frames/faceFrames 와 같은 길이의 적합 여부 플래그 — build() 가 적합 프레임만 쓰기 위함.
+  private poseOk: boolean[] = [];
+  private faceOk: boolean[] = [];
   private okFrames = 0;
   private totalFrames = 0;
   // UX-1: 항목별 통과 프레임 수 — 실패 시 "무엇이 부족했는지" 안내용
   private checkPass: Record<string, number> = {};
-  private stability = new StabilityWindow();
+  private stability: StabilityWindow;
+  // 외부에서 주입된 창은 소유자가 아니므로 reset() 이 건드리지 않는다.
+  private readonly ownsStability: boolean;
 
-  pushPose(landmarks: Landmarks): void {
+  /**
+   * @param stability 라이브 미리보기에서 이미 돌고 있던 창을 넘기면 캡처가
+   *   **예열된 상태로** 시작한다(A: 워밍업 구멍 제거). 넘기지 않으면 자체 창을
+   *   만들어 쓰고 reset() 이 함께 비운다.
+   *   주의: 같은 프레임에 대해 checkCalibrationFrame 을 중복 호출하면 창에
+   *   같은 샘플이 두 번 들어가 유효 창 길이가 절반이 된다. 캡처 중에는
+   *   pushFrame 이 돌려주는 결과를 재사용할 것.
+   */
+  constructor(stability?: StabilityWindow) {
+    this.stability = stability ?? new StabilityWindow();
+    this.ownsStability = !stability;
+  }
+
+  pushPose(landmarks: Landmarks, ok = true): void {
     this.frames.push(landmarks);
+    this.poseOk.push(ok);
   }
-  pushFace(face: FaceData): void {
+  pushFace(face: FaceData, ok = true): void {
     this.faceFrames.push(face);
+    this.faceOk.push(ok);
   }
-  pushFrame(frame: DetectionFrame): void {
-    if (frame.pose) this.pushPose(frame.pose);
-    if (frame.face) this.pushFace(frame.face);
+  /** 프레임을 적재하고 그 프레임의 적합성 판정을 돌려준다(호출부가 재사용). */
+  pushFrame(frame: DetectionFrame): CalibrationCheck {
     const check = checkCalibrationFrame(frame, this.stability);
+    if (frame.pose) this.pushPose(frame.pose, check.allOk);
+    if (frame.face) this.pushFace(frame.face, check.allOk);
     this.totalFrames += 1;
     if (check.allOk) this.okFrames += 1;
     for (const k of CHECK_FIELDS) {
       if (check[k]) this.checkPass[k] = (this.checkPass[k] || 0) + 1;
     }
+    return check;
   }
   push(landmarks: Landmarks): void {
     this.pushPose(landmarks);
   }
   count(): number {
     return this.frames.length;
+  }
+  /** 측정용 — 적재된 전체 프레임 수(유효 fps 역산에 쓰인다). */
+  frameCount(): number {
+    return this.totalFrames;
   }
   okRatio(): number {
     if (this.totalFrames === 0) return 0;
@@ -201,29 +243,47 @@ export class CalibrationCollector {
   reset(): void {
     this.frames = [];
     this.faceFrames = [];
+    this.poseOk = [];
+    this.faceOk = [];
     this.okFrames = 0;
     this.totalFrames = 0;
     this.checkPass = {};
-    this.stability.reset();
+    // 주입된 창은 라이브 미리보기가 계속 채우고 있으므로 비우지 않는다 — 이걸
+    // 비우면 캡처가 다시 12프레임 데드존에서 시작한다(A 가 고친 그 문제).
+    if (this.ownsStability) this.stability.reset();
   }
   build(): CalibrationBaseline {
-    if (this.frames.length === 0) {
+    // F: baseline 은 **적합(allOk) 프레임만**으로 만든다.
+    //
+    // Why: 게이트는 65% 만 넘으면 통과시키는데 예전 build() 는 불합격 프레임까지
+    // 전부 평균에 넣었다. 즉 통과한 캘리브레이션조차 최대 35% 의 불량 프레임(고개
+    // 숙임·턱 괴기·움직이는 중)이 섞인 baseline 을 만들었고, 그 baseline 이 이후
+    // 모든 자세 판정의 기준이 됐다. 실패한 사용자가 아니라 **성공한 사용자 전원**에게
+    // 적용되던 품질 손실이다.
+    //
+    // 부수효과: 빌더가 튼튼해진 만큼 게이트를 더 풀어도 정확도가 나빠지지 않는다.
+    const okPose = this.frames.filter((_, i) => this.poseOk[i]);
+    const frames = okPose.length > 0 ? okPose : this.frames;
+    const okFace = this.faceFrames.filter((_, i) => this.faceOk[i]);
+    const faceFrames = okFace.length > 0 ? okFace : this.faceFrames;
+
+    if (frames.length === 0) {
       throw new Error("No calibration frames collected");
     }
-    const numLm = this.frames[0].length;
+    const numLm = frames[0].length;
     const mean: Landmark[] = [];
     for (let i = 0; i < numLm; i++) {
       let x = 0,
         y = 0,
         z = 0,
         v = 0;
-      for (const f of this.frames) {
+      for (const f of frames) {
         x += f[i].x;
         y += f[i].y;
         z += f[i].z;
         v += f[i].visibility;
       }
-      const n = this.frames.length;
+      const n = frames.length;
       mean.push({ x: x / n, y: y / n, z: z / n, visibility: v / n });
     }
 
@@ -237,12 +297,12 @@ export class CalibrationCollector {
     // 카메라가 측면이면 yaw/shoulderTiltY가 0이 아니어도 그게 그 사용자의
     // 자연스러운 기준. analyzer는 이 베이스라인 대비 "변화량"을 검사한다.
     let face: FaceData | null = null;
-    if (this.faceFrames.length > 0) {
+    if (faceFrames.length > 0) {
       let pitch = 0, yaw = 0, roll = 0, tz = 0;
-      for (const f of this.faceFrames) {
+      for (const f of faceFrames) {
         pitch += f.pitch; yaw += f.yaw; roll += f.roll; tz += f.tz;
       }
-      const n = this.faceFrames.length;
+      const n = faceFrames.length;
       face = {
         pitch: pitch / n,
         yaw: yaw / n,

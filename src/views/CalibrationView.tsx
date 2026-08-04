@@ -53,8 +53,13 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
   const [okRatio, setOkRatio] = useState(0);
   // UX-1: 실패 시 "무엇이 부족했는지" 안내용 — rejected 시 부족 항목, error 시 사유
   const [weakChecks, setWeakChecks] = useState<(keyof CalibrationCheck)[]>([]);
-  const collectorRef = useRef(new CalibrationCollector());
+  // A: 라이브 미리보기와 캡처가 **같은** 안정성 창을 공유한다. 사용자가 화면을
+  // 보고 있는 동안 창이 이미 차 있으므로 캡처가 예열된 상태로 시작한다.
+  // 프레임당 checkCalibrationFrame 은 정확히 한 번만 불러야 한다(중복 push 금지).
   const liveStabilityRef = useRef(new StabilityWindow());
+  const collectorRef = useRef(new CalibrationCollector(liveStabilityRef.current));
+  // G: 시도 회차 — 몇 번째에 성공/포기하는지 측정용
+  const attemptRef = useRef(0);
 
   const {
     ready: detectorReady,
@@ -67,10 +72,14 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
     onFrame: (frame: DetectionFrame) => {
       setLandmarks(frame.pose);
       setFaceLandmarks(frame.face?.landmarks || null);
-      setLiveCheck(checkCalibrationFrame(frame, liveStabilityRef.current));
       if (phase === "capturing") {
-        collectorRef.current.pushFrame(frame);
+        // 캡처 중엔 collector 가 창을 밀고, 그 판정을 라이브 표시에 재사용한다.
+        // 여기서 checkCalibrationFrame 을 또 부르면 같은 샘플이 두 번 들어가
+        // 유효 창 길이가 절반이 된다.
+        setLiveCheck(collectorRef.current.pushFrame(frame));
         setOkRatio(collectorRef.current.okRatio());
+      } else {
+        setLiveCheck(checkCalibrationFrame(frame, liveStabilityRef.current));
       }
     },
   });
@@ -79,12 +88,35 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
     if (phase !== "capturing") return;
     if (secondsLeft <= 0) {
       const ratio = collectorRef.current.okRatio();
+      // G: 실패 원인을 사후 역산하지 않아도 되게 실제 수치를 같이 남긴다.
+      // frames/fps 가 없으면 "사용자가 움직였다" 와 "기기가 느려 프레임이 모자랐다"를
+      // 구분할 수 없다 — 이 구분이 없어서 1043mol@gmail.com 케이스를 코드 실측으로
+      // 역산해야 했다. fps 는 5초 캡처 중 실제 적재된 프레임 수에서 나온 유효값.
+      const frames = collectorRef.current.frameCount();
+      const measured = {
+        okRatio: Math.round(ratio * 100) / 100,
+        frames,
+        fps: Math.round((frames / CALIBRATION_DURATION_SECS) * 10) / 10,
+        attempt: attemptRef.current,
+      };
       if (ratio < MIN_OK_RATIO) {
         // UX-1: 어떤 적합성 항목이 부족했는지 캡처해 안내
         const weak = collectorRef.current.weakestChecks();
+        const ratios = collectorRef.current.checkPassRatios();
         setWeakChecks(weak);
         setPhase("rejected");
-        trackUsage("calibration_failed", { props: { reason: "rejected", weak } });
+        trackUsage("calibration_failed", {
+          props: {
+            reason: "rejected",
+            weak,
+            ...measured,
+            // 항목별 통과율 — weak(임계 미달 목록)만으로는 "간신히 미달"과
+            // "0% 통과"가 구분되지 않는다.
+            ratios: Object.fromEntries(
+              CHECK_KEYS.map((k) => [k, Math.round(ratios[k] * 100) / 100]),
+            ),
+          },
+        });
         return;
       }
       try {
@@ -92,13 +124,15 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
         saveBaseline(baseline);
         setPhase("done");
         onComplete(baseline);
-        trackUsage("calibration_succeeded");
+        trackUsage("calibration_succeeded", { props: measured });
       } catch (e) {
         // UX-1: 조용히 idle 로 가지 않고 사유를 표시 + OPS-1 관측 리포트
         console.error(e);
         reportError(e, "react", { stack: e instanceof Error ? e.stack : undefined });
         setPhase("error");
-        trackUsage("calibration_failed", { props: { reason: "build_error" } });
+        trackUsage("calibration_failed", {
+          props: { reason: "build_error", ...measured },
+        });
       }
       return;
     }
@@ -107,7 +141,10 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
   }, [phase, secondsLeft, onComplete]);
 
   const start = () => {
+    // reset() 은 공유 창을 비우지 않는다 — 라이브 미리보기가 채워둔 예열 상태를
+    // 그대로 물려받아 첫 프레임부터 stable 판정이 산다.
     collectorRef.current.reset();
+    attemptRef.current += 1;
     setSecondsLeft(CALIBRATION_DURATION_SECS);
     setOkRatio(0);
     setPhase("capturing");
@@ -115,6 +152,8 @@ export function CalibrationView({ onComplete, onCancel }: Props) {
 
   const retry = () => {
     collectorRef.current.reset();
+    // 실패 후엔 사용자가 자세를 크게 고쳐 앉을 수 있으므로 창을 비운다. idle 로
+    // 돌아가면 라이브 루프가 0.4초 안에 다시 채운다(MIN_STABILITY_SAMPLES).
     liveStabilityRef.current.reset();
     setSecondsLeft(CALIBRATION_DURATION_SECS);
     setOkRatio(0);
