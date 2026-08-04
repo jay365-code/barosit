@@ -22,6 +22,80 @@ interface UserProfileData {
   social_avatar_url?: string;
 }
 
+/** admin_user_activity RPC 한 행 — 가입자가 아직 쓰는지/떠났는지 판정용. */
+interface UserActivityData {
+  id: string;
+  last_seen_at: string | null;
+  /** 최종 사용을 어느 신호에서 얻었는지(sign_in·usage·settings…) — 해석 오독 방지용. */
+  last_seen_source: string | null;
+  first_active_on: string | null;
+  last_active_on: string | null;
+  active_days: number;
+  active_days_7d: number;
+  active_days_30d: number;
+  active_days_after_join: number;
+  recent_active_dates: string[] | null;
+  os: string | null;
+  cores: number | null;
+  clients: string[] | null;
+}
+
+/** 로컬 날짜 키(YYYY-MM-DD) — RPC 가 Asia/Seoul 기준으로 주므로 표시도 로컬로 맞춘다. */
+export function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * "오늘 / 어제 / N일 전" — 절대 시각은 title 로 함께 노출한다.
+ *
+ * 시각이 아니라 **날짜 경계**로 센다. 경과 시간으로 나누면 어젯밤 23:50 활동이
+ * 오늘 00:10 에 "0일 전 = 오늘"로 보여 이탈 판정이 하루씩 밀린다.
+ */
+export function relativeDays(
+  iso: string | null,
+  now: Date = new Date(),
+): { label: string; days: number } {
+  if (!iso) return { label: "기록 없음", days: Infinity };
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return { label: "기록 없음", days: Infinity };
+  const a = new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime();
+  const b = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((b - a) / 86400000);
+  if (days <= 0) return { label: "오늘", days: 0 };
+  if (days === 1) return { label: "어제", days: 1 };
+  return { label: `${days}일 전`, days };
+}
+
+/**
+ * 최근 14일 활동 점그래프. 집계 숫자만으로는 "꾸준히 쓰는 사람"과 "한 번 몰아 쓴
+ * 사람"이 구분되지 않아 패턴을 그대로 보여준다.
+ */
+function ActivityStrip({ dates }: { dates: string[] | null }) {
+  const set = new Set(dates ?? []);
+  const cells = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - i));
+    const key = dayKey(d);
+    return { key, on: set.has(key) };
+  });
+  return (
+    <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
+      {cells.map((c) => (
+        <div
+          key={c.key}
+          title={c.key}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 1,
+            background: c.on ? "#5b8c7a" : "rgba(255,255,255,0.09)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface AdminNotificationData {
   id: string;
   event_type: string; // 'signup', 'cancellation', 'refund_requested', 'payment_failed', 'tampering_detected', 'system_error'
@@ -240,6 +314,7 @@ export function AdminDashboardView({ onClose }: Props) {
   
   // 데이터 상태
   const [profiles, setProfiles] = useState<UserProfileData[]>([]);
+  const [activityById, setActivityById] = useState<Map<string, UserActivityData>>(new Map());
   const [subscriptions, setSubscriptions] = useState<SubscriptionData[]>([]);
   // 구독 라이프사이클 이벤트(전체 사용자) — RLS 의 admin 정책이 내부(admin) 이벤트까지 허용한다.
   const [subEvents, setSubEvents] = useState<any[]>([]);
@@ -331,6 +406,15 @@ export function AdminDashboardView({ onClose }: Props) {
       );
       const socialAvatarById = new Map<string, string>(
         rows.flatMap(r => (r.avatar_url ? [[r.id, r.avatar_url] as [string, string]] : [])),
+      );
+
+      // 1-1. 활동 요약(최종 사용·활동일수·OS). 여러 테이블을 합집합해야 하는 계산이라
+      // 서버(RPC)에서 끝낸다 — 클라이언트로 원본을 끌어오면 posture_events 30k 행을
+      // 통째로 받아야 한다. 실패해도 목록은 보여야 하므로 삼킨다.
+      const { data: actRows, error: actErr } = await supabase.rpc("admin_user_activity");
+      if (actErr) console.warn("[admin] 활동 요약 조회 실패:", actErr.message);
+      setActivityById(
+        new Map(((actRows as UserActivityData[] | null) ?? []).map(a => [a.id, a])),
       );
 
       // 2. 구독 정보 조회
@@ -2448,6 +2532,8 @@ export function AdminDashboardView({ onClose }: Props) {
                           <th style={{ padding: 16 }}>등급(플랜)</th>
                           <th style={{ padding: 16 }}>구독 상태</th>
                           <th style={{ padding: 16 }}>테스터(결제 시험)</th>
+                          <th style={{ padding: 16 }}>최근 활동</th>
+                          <th style={{ padding: 16 }}>환경</th>
                           <th style={{ padding: 16 }}>가입 일시</th>
                           <th style={{ padding: 16 }}>등급 변경 조작</th>
                         </tr>
@@ -2533,6 +2619,60 @@ export function AdminDashboardView({ onClose }: Props) {
                                     {user.is_beta_tester ? "✓ 테스터" : "테스터 지정"}
                                   </button>
                                 )}
+                              </td>
+                              <td style={{ padding: 16, whiteSpace: "nowrap" }}>
+                                {(() => {
+                                  const act = activityById.get(user.id);
+                                  const rel = relativeDays(act?.last_seen_at ?? null);
+                                  // 7일 넘게 조용하면 주의, 30일 넘으면 이탈로 본다.
+                                  const color =
+                                    rel.days <= 7 ? "#5b8c7a" : rel.days <= 30 ? "#d9a752" : "#c95c5c";
+                                  return (
+                                    <>
+                                      <div
+                                        style={{ fontWeight: 700, color }}
+                                        title={
+                                          act?.last_seen_at
+                                            ? `${new Date(act.last_seen_at).toLocaleString("ko-KR")} (출처: ${act.last_seen_source ?? "-"})`
+                                            : "활동 기록이 없습니다"
+                                        }
+                                      >
+                                        {rel.label}
+                                      </div>
+                                      <div style={{ fontSize: 11, opacity: 0.6 }}>
+                                        활동 {act?.active_days ?? 0}일 · 최근 7일 {act?.active_days_7d ?? 0}일
+                                      </div>
+                                      {/* 가입한 날 말고 다시 온 날 — 0 이면 단발 이탈(가입 당일은 제외 판정) */}
+                                      {act && act.active_days_after_join === 0 && rel.days >= 1 && (
+                                        <div style={{ fontSize: 10, color: "#c95c5c", marginTop: 2 }}>
+                                          가입 후 재방문 없음
+                                        </div>
+                                      )}
+                                      <ActivityStrip dates={act?.recent_active_dates ?? null} />
+                                    </>
+                                  );
+                                })()}
+                              </td>
+                              <td style={{ padding: 16, fontSize: 11, opacity: 0.7, whiteSpace: "nowrap" }}>
+                                {(() => {
+                                  const act = activityById.get(user.id);
+                                  if (!act) return <span style={{ opacity: 0.5 }}>-</span>;
+                                  const osLabel: Record<string, string> = {
+                                    windows: "Windows", macos: "macOS", linux: "Linux",
+                                    android: "Android", ios: "iOS", other: "기타",
+                                  };
+                                  return (
+                                    <>
+                                      <div>{act.os ? osLabel[act.os] ?? act.os : <span style={{ opacity: 0.5 }}>미상</span>}</div>
+                                      {act.cores != null && <div style={{ opacity: 0.6 }}>{act.cores}코어</div>}
+                                      {act.clients && act.clients.length > 0 && (
+                                        <div style={{ opacity: 0.6 }}>
+                                          {act.clients.map(c => (c === "desktop" ? "데스크톱" : "웹")).join("·")}
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </td>
                               <td style={{ padding: 16, opacity: 0.6 }}>
                                 {new Date(user.created_at).toLocaleDateString()}
