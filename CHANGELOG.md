@@ -31,6 +31,18 @@
 - (구 포맷: 한국어 단일 + *(en)* 한 줄. v0.9.4 이하. CI 는 이 경우 한국어만 전파.)
 -->
 
+## v0.9.17 — 2026-08-04
+
+**한국어**
+
+- 느린 컴퓨터에서 자세 기준 설정이 아무리 가만히 있어도 계속 실패하던 문제를 수정했습니다.
+- 자세 기준을 더 정확하게 잡도록 개선했습니다.
+
+**English**
+
+- Fixed an issue where posture setup could keep failing on slower computers, no matter how still you sat.
+- Improved how accurately your posture baseline is captured.
+
 ## v0.9.16 — 2026-07-24
 
 **한국어**
