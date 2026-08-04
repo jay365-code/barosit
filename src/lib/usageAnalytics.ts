@@ -6,6 +6,7 @@ import { supabase } from "../auth/supabase";
 import { platform } from "../platform";
 import { loadLang } from "../i18n/lang";
 import { acquisitionProps } from "./acquisition";
+import { deviceProps } from "./deviceProfile";
 
 const CONSENT_KEY = "usage_analytics_enabled";
 const INSTALL_ID_KEY = "barosit:install_id";
@@ -101,9 +102,10 @@ export function trackUsage(
         p_client: platform.features.multiWindow ? "desktop" : "web",
         p_app_version: cachedVersion,
         p_lang: loadLang(),
-        // 유입 출처(acq_*)를 모든 이벤트에 얹어 채널 → 활성화 퍼널을 이을 수 있게 한다.
+        // 유입 출처(acq_*)와 기기 프로파일(os·cores)을 모든 이벤트에 얹어
+        // 채널 → 활성화 퍼널, 기기 성능 → 통과율을 각각 쪼개 볼 수 있게 한다.
         // 이벤트가 명시한 props 가 우선(같은 키가 겹치면 호출부 값이 이김).
-        p_props: { ...acquisitionProps(), ...(opts.props ?? {}) },
+        p_props: { ...acquisitionProps(), ...deviceProps(), ...(opts.props ?? {}) },
       })
       .then(({ error }) => {
         if (error) console.warn("[usage] track failed:", error.message);
