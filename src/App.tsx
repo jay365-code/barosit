@@ -44,6 +44,7 @@ import { pullProfileFromServer, pullSettingsFromServer } from "./lib/syncService
 import { reportError } from "./lib/errorReporting";
 import { DATA_WARNING_EVENT, type DataWarningDetail } from "./pose/eventLog";
 import { trackUsage } from "./lib/usageAnalytics";
+import { dailyUsageProps } from "./lib/dailyUsage";
 import { recordSession, shouldShowNudge, markNudgeDone } from "./lib/feedbackNudge";
 import { FeedbackModal } from "./components/FeedbackModal";
 
@@ -310,9 +311,11 @@ export default function App() {
     };
   }, []);
 
-  // 측정: 앱 실행(하루 1회) — 재방문/리텐션
+  // 측정: 앱 실행(하루 1회) — 재방문/리텐션 + 완료된 날의 감지 시간(최대 7일 백필).
+  // 사용 시간을 별도 이벤트로 보내지 않는 이유는 dailyUsage.ts 주석 참고 — 이미 하루
+  // 1회 날아가는 이벤트에 얹어 행 수 증가를 0으로 유지한다.
   useEffect(() => {
-    trackUsage("app_opened", { scope: "daily" });
+    trackUsage("app_opened", { scope: "daily", props: dailyUsageProps() });
   }, []);
 
   // 능동 피드백 넛지: 세션 기록 후, 조건 충족 시 잠시 뒤 노출(좌절 직후 회피 위해 지연)
