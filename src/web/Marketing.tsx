@@ -13,6 +13,7 @@ import { reportPlanMismatch } from "../lib/planMismatch";
 import type { RefundQuote } from "../lib/refund";
 import { interpolateLegalTemplate } from "../lib/legal";
 import { uploadPostImage, ACCEPTED_IMAGE_TYPES } from "../lib/uploadPostImage";
+import { useDocumentTitle } from "../lib/documentTitle";
 import i18n from "../i18n";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { Icon, type IconName } from "../components/Icon";
@@ -2665,6 +2666,13 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
     setView("list");
     setActivePost(null);
   };
+
+  // 목록 화면의 탭 제목. 상세는 글 제목이 이기므로 list 일 때만 넣는다.
+  // (다른 라우트에서 넘어오면 이전 제목이 남아 있으므로 여기서 되돌린다)
+  useEffect(() => {
+    if (typeof document === "undefined" || view === "detail") return;
+    document.title = POST_TITLE_SUFFIX[uiLang] ?? POST_TITLE_SUFFIX.ko;
+  }, [uiLang, view]);
 
   // 최초 진입/마운트 시 permalink(/community/p/<id>) 면 해당 글 자동 오픈(#18 SEO).
   // back/forward 로 다른 라우트에서 커뮤니티로 돌아와 재마운트될 때도 현재 pathname 기준으로 연다.
@@ -8296,6 +8304,29 @@ export function routeFromHash(hash: string): MarketingRoute | null {
   return null;
 }
 
+// 라우트 → marketing:pageTitle.* 키. community 는 Contact 가 글 제목으로
+// 스스로 채우므로 null(부모가 덮어쓰면 글 제목이 사라진다).
+const ROUTE_TITLE_KEY: Record<MarketingRoute, string | null> = {
+  landing: "pageTitle.landing",
+  login: "pageTitle.login",
+  signup: "pageTitle.signup",
+  "download-mac": "pageTitle.download",
+  "download-win": "pageTitle.download",
+  download: "pageTitle.download",
+  pricing: "pageTitle.pricing",
+  profile: "pageTitle.profile",
+  privacy: "pageTitle.privacy",
+  terms: "pageTitle.terms",
+  refund: "pageTitle.refund",
+  community: null,
+  changelog: "pageTitle.changelog",
+  roadmap: "pageTitle.roadmap",
+  science: "pageTitle.science",
+  "auth-callback": "pageTitle.authCallback",
+  "forgot-password": "pageTitle.forgotPassword",
+  "reset-password": "pageTitle.resetPassword",
+};
+
 function routeBody(route: MarketingRoute, initialPostId?: string | null) {
   switch (route) {
     case "landing":
@@ -8355,6 +8386,8 @@ export function handleContactClick() {
 export function Marketing({ route, initialPostId }: { route: MarketingRoute; initialPostId?: string | null }) {
   const { t } = useTranslation("marketing");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useDocumentTitle(ROUTE_TITLE_KEY[route]);
 
   // 부팅 시 런치 모드 원격값 + 테스터 여부 동기화 (베타↔시험↔유료). 실패해도 캐시/env 폴백.
   useEffect(() => {

@@ -9,5 +9,6 @@
   "start": "はじめる",
   "retry": "再試行",
   "refresh": "更新",
-  "userFallback": "ユーザー"
+  "userFallback": "ユーザー",
+  "pageTitleApp": "BaroSit"
 }

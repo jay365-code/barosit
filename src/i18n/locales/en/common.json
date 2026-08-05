@@ -9,5 +9,6 @@
   "start": "Get started",
   "retry": "Retry",
   "refresh": "Refresh",
-  "userFallback": "User"
+  "userFallback": "User",
+  "pageTitleApp": "BaroSit"
 }

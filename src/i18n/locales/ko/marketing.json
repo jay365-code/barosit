@@ -466,5 +466,22 @@
     "saving": "변경 중…",
     "submit": "비밀번호 변경",
     "mismatch": "비밀번호가 일치하지 않아요."
+  },
+  "pageTitle": {
+    "landing": "자세 교정 앱 BaroSit (바로씻) — 거북목·자세 알림 | 웹캠 실시간 감지",
+    "login": "로그인 — BaroSit",
+    "signup": "회원가입 — BaroSit",
+    "download": "다운로드 — BaroSit",
+    "pricing": "요금제 — BaroSit",
+    "profile": "내 정보 — BaroSit",
+    "privacy": "개인정보 처리방침 — BaroSit",
+    "terms": "이용약관 — BaroSit",
+    "refund": "환불정책 — BaroSit",
+    "changelog": "업데이트 내역 — BaroSit",
+    "roadmap": "로드맵 — BaroSit",
+    "science": "자세 과학 — BaroSit",
+    "forgotPassword": "비밀번호 재설정 — BaroSit",
+    "resetPassword": "새 비밀번호 설정 — BaroSit",
+    "authCallback": "로그인 중… — BaroSit"
   }
 }

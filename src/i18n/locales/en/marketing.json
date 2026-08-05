@@ -469,5 +469,22 @@
     "saving": "Saving…",
     "submit": "Change password",
     "mismatch": "Passwords don't match."
+  },
+  "pageTitle": {
+    "landing": "BaroSit — Webcam posture reminders, 100% on-device",
+    "login": "Sign in — BaroSit",
+    "signup": "Sign up — BaroSit",
+    "download": "Download — BaroSit",
+    "pricing": "Pricing — BaroSit",
+    "profile": "Account — BaroSit",
+    "privacy": "Privacy Policy — BaroSit",
+    "terms": "Terms of Service — BaroSit",
+    "refund": "Refund Policy — BaroSit",
+    "changelog": "What's new — BaroSit",
+    "roadmap": "Roadmap — BaroSit",
+    "science": "The science — BaroSit",
+    "forgotPassword": "Reset password — BaroSit",
+    "resetPassword": "Set a new password — BaroSit",
+    "authCallback": "Signing in… — BaroSit"
   }
 }

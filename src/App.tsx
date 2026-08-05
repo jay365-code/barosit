@@ -18,6 +18,7 @@ import { UpdateRequiredGate } from "./components/UpdateRequiredGate";
 import { IS_WEB } from "./platform";
 import { useMemoryReloadGuard } from "./hooks/useMemoryReloadGuard";
 import { loadSnapshot, clearSnapshot } from "./lib/viewportSnapshot";
+import { useDocumentTitle } from "./lib/documentTitle";
 import {
   LegalDocument,
   type LegalDocKind,
@@ -193,6 +194,9 @@ export default function App() {
   const [baseline, setBaseline] = useState<CalibrationBaseline | null>(() =>
     loadBaseline(),
   );
+
+  // 앱 셸도 index.html 의 ko 고정 <title> 을 그대로 쓰고 있었다.
+  useDocumentTitle("pageTitleApp", "common");
 
   // 트레이 메뉴/툴팁 다국어 — 시작 시 네이티브로 push + 언어 변경 구독.
   useEffect(() => {

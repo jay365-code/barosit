@@ -466,5 +466,22 @@
     "saving": "変更中…",
     "submit": "パスワードを変更",
     "mismatch": "パスワードが一致しません。"
+  },
+  "pageTitle": {
+    "landing": "BaroSit — ウェブカメラで姿勢リマインド、100% オンデバイス",
+    "login": "ログイン — BaroSit",
+    "signup": "新規登録 — BaroSit",
+    "download": "ダウンロード — BaroSit",
+    "pricing": "料金プラン — BaroSit",
+    "profile": "アカウント — BaroSit",
+    "privacy": "プライバシーポリシー — BaroSit",
+    "terms": "利用規約 — BaroSit",
+    "refund": "返金ポリシー — BaroSit",
+    "changelog": "アップデート履歴 — BaroSit",
+    "roadmap": "ロードマップ — BaroSit",
+    "science": "姿勢の科学 — BaroSit",
+    "forgotPassword": "パスワード再設定 — BaroSit",
+    "resetPassword": "新しいパスワードの設定 — BaroSit",
+    "authCallback": "ログイン中… — BaroSit"
   }
 }

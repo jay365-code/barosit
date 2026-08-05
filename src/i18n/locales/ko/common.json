@@ -9,5 +9,6 @@
   "start": "시작하기",
   "retry": "다시 시도",
   "refresh": "새로고침",
-  "userFallback": "사용자"
+  "userFallback": "사용자",
+  "pageTitleApp": "BaroSit (바로씻)"
 }
