@@ -6,6 +6,60 @@
 <meta http-equiv="cache-control" content="no-store" />
 <meta name="robots" content="noindex" />
 <title>BaroSit — 데스크탑 앱으로 돌아가는 중</title>
+<script>
+/*
+ * 이 페이지는 데스크탑 OAuth 로그인 중 *모든 언어* 사용자에게 노출된다.
+ * 앱이 redirectTo 에 붙여준 ?lang= 을 1순위로, 없으면 브라우저 로케일을
+ * 쓴다(앱과 같은 en 폴백). supabase-js 는 여기서도 절대 로드하지 않는다.
+ */
+window.__bsStrings = {
+  ko: {
+    title: 'BaroSit — 데스크탑 앱으로 돌아가는 중',
+    heading: '데스크탑 앱으로 돌아가는 중…',
+    line1: '잠시 후 BaroSit 앱이 자동으로 열립니다.',
+    line2a: '열리지 않으면 ',
+    link: '여기를 클릭',
+    line2b: '해주세요.',
+    empty: '인증 코드를 찾을 수 없습니다. 데스크탑 앱에서 다시 시도해주세요.',
+    errPrefix: '오류: '
+  },
+  en: {
+    title: 'BaroSit — Returning to the desktop app',
+    heading: 'Returning to the desktop app…',
+    line1: 'BaroSit will open automatically in a moment.',
+    line2a: "If it doesn't, ",
+    link: 'click here',
+    line2b: '.',
+    empty: "We couldn't find the sign-in code. Please try again from the desktop app.",
+    errPrefix: 'Error: '
+  },
+  ja: {
+    title: 'BaroSit — デスクトップアプリに戻っています',
+    heading: 'デスクトップアプリに戻っています…',
+    line1: 'まもなく BaroSit アプリが自動的に開きます。',
+    line2a: '開かない場合は ',
+    link: 'ここをクリック',
+    line2b: ' してください。',
+    empty: '認証コードが見つかりませんでした。デスクトップアプリからもう一度お試しください。',
+    errPrefix: 'エラー: '
+  }
+};
+window.__bsLang = (function () {
+  try {
+    var q = new URL(window.location.href).searchParams.get('lang');
+    var cands = [q, navigator.language, 'en'];
+    for (var i = 0; i < cands.length; i++) {
+      if (!cands[i]) continue;
+      var base = String(cands[i]).split('-')[0].toLowerCase();
+      if (window.__bsStrings[base]) return base;
+    }
+  } catch (e) {}
+  return 'en';
+})();
+window.__bsT = window.__bsStrings[window.__bsLang];
+document.documentElement.lang = window.__bsLang;
+document.title = window.__bsT.title;
+</script>
 <style>
   html, body { margin: 0; padding: 0; height: 100%; }
   body {
@@ -249,10 +303,22 @@
       </g>
     </svg>
 
-    <h1>데스크탑 앱으로 돌아가는 중…</h1>
-    <p>잠시 후 BaroSit 앱이 자동으로 열립니다.<br>
-       열리지 않으면 <a id="manual-link" href="barosit://auth-callback">여기를 클릭</a>해주세요.</p>
+    <h1 id="t-heading">데스크탑 앱으로 돌아가는 중…</h1>
+    <p><span id="t-line1">잠시 후 BaroSit 앱이 자동으로 열립니다.</span><br>
+       <span id="t-line2a">열리지 않으면 </span><a id="manual-link" href="barosit://auth-callback">여기를 클릭</a><span id="t-line2b">해주세요.</span></p>
     <p class="err" id="err"></p>
+    <script>
+      // HTML 기본값은 ko. 파싱 도중 동기 실행되므로 첫 페인트 전에 교체된다
+      // (다른 언어 사용자에게 한국어가 깜빡이지 않음).
+      if (window.__bsLang !== 'ko') {
+        var T = window.__bsT;
+        document.getElementById('t-heading').textContent = T.heading;
+        document.getElementById('t-line1').textContent = T.line1;
+        document.getElementById('t-line2a').textContent = T.line2a;
+        document.getElementById('manual-link').textContent = T.link;
+        document.getElementById('t-line2b').textContent = T.line2b;
+      }
+    </script>
   </div>
   <script>
     // 1.5초 후에도 페이지가 그대로면 에러 상황 가능성 — 사용자에게 상태 안내.
@@ -261,9 +327,9 @@
       var errFlag = document.documentElement.getAttribute('data-err');
       var err = document.getElementById('err');
       if (emptyFlag === '1') {
-        err.textContent = '인증 코드를 찾을 수 없습니다. 데스크탑 앱에서 다시 시도해주세요.';
+        err.textContent = window.__bsT.empty;
       } else if (errFlag) {
-        err.textContent = '오류: ' + errFlag;
+        err.textContent = window.__bsT.errPrefix + errFlag;
       }
     }, 1500);
   </script>
