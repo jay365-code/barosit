@@ -1204,7 +1204,7 @@ const VERIFY_META: Record<string, { tier: VerifyTier; note: string }> = {
   "MONI-10": { tier: "unit", note: "npx vitest run src/pose/breakTracker.test.ts. movementGoalSecs=60 dose-gate — 누적 움직임 60초 채워야 리셋, 순간 스트레치로는 리셋 안 됨. 6개 케이스." },
   "SET-11": { tier: "code", note: "alertConfig.ts forceMode 기본 false(옵트인) + IPC onForceBlur + 30초 자동해제·5분 쿨다운·35초 실패안전·click-through. 데스크톱=AlertWindow/웹=AlertOverlay." },
   "SET-12": { tier: "code", note: "Widget.tsx 착석 1분+ 경과 상시표시 + 30분 근접 톤 상승(회→황→주황) + breakBadge 상호배타(breakStage==='none' 게이트). 데스크톱 위젯 전용." },
-  "SYNC-05": { tier: "code", note: "useEntitlement.ts — 검증 이력 있는 Pro 는 오프라인/조회실패 시 마지막 plan 유지(강등 없음), 이력 전무면 free(변조 방어), 온라인 복구 시 verify() 서버값 정정. 14일 캡 제거. Pro 게이팅은 유지." },
+  "SYNC-05": { tier: "code", note: "useEntitlement.ts — 검증 이력 있는 Pro 는 오프라인/조회실패 시 마지막 plan 유지(강등 없음), 온라인 복구 시 verify() 서버값 정정. 강등 판정은 순수 함수 lib/entitlement.ts 의 isOfflineGraceExpired: 이력 전무(0/음수)면 즉시 free(변조 방어), 마지막 검증 후 OFFLINE_GRACE_MS(14일) 초과해도 free. Pro 게이팅은 유지." },
   "COMM-05": { tier: "integration", note: "toggle_post_like(p_id) SECURITY DEFINER RPC(migration 20260630090000) → post_likes 1인1행 insert/삭제 + posts.likes 증감. 게스트 localStorage 하이브리드." },
   "COMM-06": { tier: "integration", note: "비어드민 JWT 로 category=📝 블로그(또는 📣 공지) INSERT → enforce_notice_admin_only 트리거(migration 20260701000000) 거부(BEFORE INSERT). 읽기 공개. 클라 게이팅 ADMIN_ONLY_CATEGORIES." },
   "COMM-07": { tier: "integration", note: "migration 20260701030000/040000 — posts +language·translation_group_id·comment_count, comments +thread_id. BEFORE INSERT 트리거가 thread_id=COALESCE(translation_group_id,id) 서버 강제, AFTER 트리거가 그룹 전체 comment_count 동기화. UGC(group=null)는 다국어 강제 안 함." },
