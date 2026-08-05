@@ -851,7 +851,7 @@
       "Windows"
     ],
     "verifyTier": "code",
-    "verifyNote": "코드: useEntitlement.ts — 검증 이력 있는 Pro 는 오프라인/조회실패 시 마지막 plan 유지(강등 없음, :92-99), 이력 전무면 Free(변조 방어), 온라인 복구 시 verify() 서버값 정정. 기존 14일 캡 제거됨. Pro 전용 게이팅 자체는 유지."
+    "verifyNote": "코드: useEntitlement.ts — 검증 이력 있는 Pro 는 오프라인/조회실패 시 마지막 plan 유지(강등 없음), 온라인 복구 시 verify() 서버값 정정. 강등 판정은 순수 함수 lib/entitlement.ts 의 isOfflineGraceExpired 로 추출돼 있다(42b47b7): 이력 전무(0/음수)면 즉시 Free(변조 방어), 마지막 검증 후 OFFLINE_GRACE_MS(14일) 초과해도 Free. Pro 전용 게이팅 자체는 유지."
   },
   {
     "id": "COMM-01",

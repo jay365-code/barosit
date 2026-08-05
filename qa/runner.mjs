@@ -380,9 +380,19 @@ function runCode() {
     },
     "SYNC-05": () => {
       // 오프라인 Pro 회복 탄력성: 검증 이력 있으면 강등 안 함, 이력 전무면 free.
+      //
+      // ⚠️ 예전엔 useEntitlement 안의 인라인 문자열(`if (!at) apply("free"`)을 찾았는데,
+      // 42b47b7 에서 그 판정이 순수 함수 isOfflineGraceExpired 로 추출되면서 매칭이
+      // 깨져 **동작은 멀쩡한데 Fail 로 뜨는 오탐**이 됐다. 리팩터링에 부러지지 않도록
+      // 호출 와이어링 + 함수의 실제 규칙을 각각 확인한다.
       const keep = has("src/auth/useEntitlement.ts", "강등하지 않는다");
-      const noHist = has("src/auth/useEntitlement.ts", 'if (!at) apply("free"');
-      return [keep && noHist ? "Pass" : "Fail", `[정적] 검증이력 Pro 비강등=${keep}, 이력 전무→free=${noHist}`];
+      const wired = has("src/auth/useEntitlement.ts", "isOfflineGraceExpired", 'apply("free", false)');
+      // 이력 전무(0/음수) → 즉시 강등. 유예 상한도 함께.
+      const noHist = has("src/lib/entitlement.ts", "isOfflineGraceExpired", "verifiedAt <= 0", "OFFLINE_GRACE_MS");
+      return [
+        keep && wired && noHist ? "Pass" : "Fail",
+        `[정적] 검증이력 Pro 비강등=${keep}, 강등 판정 와이어링=${wired}, 이력 전무→free(entitlement.ts)=${noHist}`,
+      ];
     },
     "LIFE-04": () => {
       // 능동 피드백 넛지: 3일+/2세션+ 게이트 + markNudgeDone + i18n.
