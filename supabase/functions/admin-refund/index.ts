@@ -11,7 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, getUser } from "../_shared/admin.ts";
 import { cancelPayment } from "../_shared/toss.ts";
-import { sendUserEmail, tplRefunded } from "../_shared/email.ts";
+import { sendUserEmail, tplRefunded, userMailLang } from "../_shared/email.ts";
 import { logSubEvent } from "../_shared/events.ts";
 
 serve(async (req) => {
@@ -76,7 +76,7 @@ serve(async (req) => {
     // 5. 환불 완료 안내 메일 (대상 사용자) — 실패해도 환불 결과엔 영향 없음
     try {
       const { data: u } = await supabase.auth.admin.getUserById(target.user_id);
-      const m = tplRefunded(refundAmount, isFull);
+      const m = tplRefunded(await userMailLang(supabase, target.user_id), refundAmount, isFull);
       await sendUserEmail(u?.user?.email ?? null, m.subject, m.html);
     } catch { /* 무시 */ }
 

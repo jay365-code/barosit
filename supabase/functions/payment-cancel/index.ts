@@ -19,7 +19,7 @@ import {
   PRORATED_REFUND_CYCLES,
   type BillingCycle,
 } from "../_shared/toss.ts";
-import { sendUserEmail, tplRefunded } from "../_shared/email.ts";
+import { sendUserEmail, tplRefunded, userMailLang } from "../_shared/email.ts";
 import { logSubEvent } from "../_shared/events.ts";
 
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
@@ -227,7 +227,7 @@ serve(async (req) => {
     });
 
     // 환불 완료 안내 메일 (§11 H2) — 발송 실패해도 환불 결과엔 영향 없음
-    const m = tplRefunded(refundAmount, isFullRefund);
+    const m = tplRefunded(await userMailLang(supabase, user.id), refundAmount, isFullRefund);
     await sendUserEmail(user.email, m.subject, m.html);
 
     return json({ success: true, refundedAmount: cancelResult.cancels?.[0]?.cancelAmount ?? refundAmount });

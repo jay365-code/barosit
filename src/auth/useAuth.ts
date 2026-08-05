@@ -3,6 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { IS_AUTH_CONFIGURED, authRedirectUrl, supabase } from "./supabase";
 import { isExpiredFlowError, isStaleExchangeError } from "./oauthErrorClassify";
 import i18n from "../i18n";
+import { initPreferredLangSync, syncPreferredLang } from "../lib/preferredLang";
 
 export interface AuthState {
   user: User | null;
@@ -95,6 +96,11 @@ export function useAuth() {
         user: session?.user ?? null,
         loading: false,
       }));
+      // 서버가 보내는 거래 메일의 언어 판단용 — 로그인 시 UI 언어를 올려둔다.
+      if (session?.user?.id) {
+        initPreferredLangSync();
+        void syncPreferredLang(session.user.id);
+      }
     });
 
     // 전역 동기화 채널 — 다른 useAuth 인스턴스가 발화한 state 전파를 수신.

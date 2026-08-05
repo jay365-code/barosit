@@ -13,7 +13,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, getUser } from "../_shared/admin.ts";
-import { sendUserEmail, tplDeletionCanceled, tplDeletionRequested } from "../_shared/email.ts";
+import { sendUserEmail, tplDeletionCanceled, tplDeletionRequested, userMailLang } from "../_shared/email.ts";
 
 const GRACE_DAYS = 30;
 
@@ -39,7 +39,7 @@ serve(async (req) => {
       }).eq("id", user.id);
       if (error) throw new Error(error.message);
 
-      const m = tplDeletionCanceled();
+      const m = tplDeletionCanceled(await userMailLang(supabase, user.id));
       await sendUserEmail(user.email, m.subject, m.html);
       return json({ success: true, status: "active" });
     }
@@ -77,7 +77,7 @@ serve(async (req) => {
     });
 
     // 접수 안내 메일 (발송 실패해도 처리 결과엔 영향 없음)
-    const m = tplDeletionRequested(scheduled.toISOString());
+    const m = tplDeletionRequested(await userMailLang(supabase, user.id), scheduled.toISOString());
     await sendUserEmail(user.email, m.subject, m.html);
 
     return json({ success: true, status: "pending_deletion", scheduled_at: scheduled.toISOString() });

@@ -14,7 +14,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, getUser } from "../_shared/admin.ts";
-import { sendUserEmail, tplCanceled } from "../_shared/email.ts";
+import { sendUserEmail, tplCanceled, userMailLang } from "../_shared/email.ts";
 import { logSubEvent } from "../_shared/events.ts";
 
 serve(async (req) => {
@@ -165,7 +165,7 @@ serve(async (req) => {
 
     // 해지 예약 접수 안내 메일 (§11 H2) — 발송 실패해도 처리 결과엔 영향 없음
     if (action === "cancel") {
-      const m = tplCanceled(sub.current_period_end);
+      const m = tplCanceled(await userMailLang(supabase, user.id), sub.current_period_end);
       await sendUserEmail(user.email, m.subject, m.html);
     }
 

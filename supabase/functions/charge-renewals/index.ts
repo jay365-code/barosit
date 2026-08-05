@@ -11,7 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { adminClient, makeOrderId, isServiceRole } from "../_shared/admin.ts";
 import { chargeBilling, getPaymentByOrderId, PRICE, type BillingCycle } from "../_shared/toss.ts";
-import { sendUserEmail, tplPaymentFailed, tplDowngraded } from "../_shared/email.ts";
+import { sendUserEmail, tplPaymentFailed, tplDowngraded, userMailLang } from "../_shared/email.ts";
 import { decryptSecret } from "../_shared/crypto.ts";
 import { nextPeriodEnd } from "../_shared/period.ts";
 import { logSubEvent } from "../_shared/events.ts";
@@ -252,7 +252,7 @@ serve(async (req) => {
             updated_at: nowIsoTs,
           }).eq("user_id", sub.user_id);
           // 결제 실패 + 카드 갱신 유도 메일 (§11 H2)
-          const m = tplPaymentFailed(graceUntil.toISOString());
+          const m = tplPaymentFailed(await userMailLang(supabase, sub.user_id), graceUntil.toISOString());
           await sendUserEmail(userEmail, m.subject, m.html);
           await logSubEvent(supabase, {
             userId: sub.user_id, type: "payment_failed", actor: "system",
@@ -270,7 +270,7 @@ serve(async (req) => {
             updated_at: nowIsoTs,
           }).eq("user_id", sub.user_id);
           // FREE 강등 안내 메일
-          const m = tplDowngraded();
+          const m = tplDowngraded(await userMailLang(supabase, sub.user_id));
           await sendUserEmail(userEmail, m.subject, m.html);
           await logSubEvent(supabase, {
             userId: sub.user_id, type: "downgraded", actor: "system",
