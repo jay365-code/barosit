@@ -114,6 +114,27 @@ export async function syncEventsToServer(): Promise<boolean> {
 }
 
 /**
+ * 하루 평균 자세 점수 — 매초 누적된 점수 합을 감지 시간으로 나눈 시간가중 평균.
+ *
+ * 감지가 한 번도 안 돌았으면 **null**(점수 없음)이다. 0 이나 100 을 넣으면
+ * "안 썼다"가 "최악"이나 "완벽"으로 둔갑해 집계 평균을 오염시킨다. daily_scores.avg_score
+ * 는 nullable 이라 그대로 저장된다.
+ *
+ * 순수 함수 — 테스트 가능.
+ */
+export function computeDailyAvgScore(
+  scoreSum: number,
+  activeSecs: number,
+): number | null {
+  if (!Number.isFinite(scoreSum) || !Number.isFinite(activeSecs)) return null;
+  if (activeSecs <= 0) return null;
+  const avg = Math.round(scoreSum / activeSecs);
+  // 매초 더해지는 값이 0~100 이라 이론상 넘칠 수 없지만, localStorage 는 사용자가
+  // 만질 수 있고 다른 탭/창이 같은 키를 쓰므로 방어한다.
+  return Math.min(100, Math.max(0, avg));
+}
+
+/**
  * 2. 가벼운 일별 요약 통계(daily_scores - 단 1행)를 계산하여 Supabase에 실시간 upsert
  */
 export async function syncDailyScoreToServer(): Promise<boolean> {
@@ -151,8 +172,20 @@ export async function syncDailyScoreToServer(): Promise<boolean> {
   const stretchesTodayRaw = localStorage.getItem("stretches_today");
   const stretchCount = stretchesTodayRaw ? parseInt(stretchesTodayRaw, 10) || 0 : 0;
   
-  // 점수 계산 (기본 100점에서 시작하여 위반 1당 -2점 감점, 최소 0점)
-  const avgScore = Math.max(0, 100 - violationCount * 2);
+  // 점수 = 감지가 돌아간 시간에 대한 **시간가중 평균**.
+  //
+  // 이전 공식(`max(0, 100 - violationCount * 2)`)은 노출 시간을 무시해서, 오래 쓸수록
+  // 무조건 0점이 됐다. 위반 50건이면 바닥이고 그 위로는 전부 구분이 안 된다. 실측에서
+  // 하루 7시간 쓴 사용자는 8/02·8/03 모두 0점, 반면 짧게 쓴 사용자는 100점이었다.
+  // **열심히 쓴 사람을 벌하는 지표**라 리텐션·자세개선 어느 쪽도 읽을 수 없었다.
+  //
+  // score_sum_today 는 useMonitoringEngine 이 매초 그 시점 점수(0~100)를 더해 둔
+  // 값이다 — 애초에 일평균을 내려고 쌓던 것인데 아무도 나누지 않고 있었다. 초 수로
+  // 나누면 사용자가 실제로 본 점수의 시간가중 평균이 되고, 범위도 0~100 으로 자연히
+  // 닫힌다. 새로 수집할 데이터가 없다.
+  const activeSecs = Number(localStorage.getItem("active_duration_today") || "0");
+  const scoreSum = Number(localStorage.getItem("score_sum_today") || "0");
+  const avgScore = computeDailyAvgScore(scoreSum, activeSecs);
 
   try {
     const { error } = await supabase
