@@ -177,9 +177,12 @@ export function useAuth() {
       // http://localhost:1430/desktop-auth-redirect.html 같이 지정 가능.
       const bridgeBase = (import.meta.env.VITE_DESKTOP_AUTH_REDIRECT as string | undefined)
         ?? "https://barosit.com/desktop-auth-redirect.html";
-      const bridgeUrl = loopbackPort !== null
-        ? `${bridgeBase}${bridgeBase.includes("?") ? "&" : "?"}port=${loopbackPort}`
-        : bridgeBase;
+      // 브리지 페이지는 정적 HTML 이라 앱의 i18n 을 못 본다. 사용자가 고른
+      // 언어를 ?lang= 으로 실어 보내야 en/ja 사용자가 한국어 안내를 보지 않는다.
+      // (브리지는 code/state/error 만 딥링크·loopback 으로 넘기므로 무해)
+      const bridgeParams = [`lang=${encodeURIComponent((i18n.language || "en").split("-")[0])}`];
+      if (loopbackPort !== null) bridgeParams.push(`port=${loopbackPort}`);
+      const bridgeUrl = `${bridgeBase}${bridgeBase.includes("?") ? "&" : "?"}${bridgeParams.join("&")}`;
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,

@@ -62,6 +62,12 @@
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://barosit.com/en/guide</loc>
+    <lastmod>2026-08-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
   <!-- /en/blog/posture-myth → 커뮤니티 EN 블로그로 301 이전. community-sitemap.xml 에서 노출 -->
 
   <url>
@@ -87,6 +93,12 @@
     <lastmod>2026-06-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://barosit.com/ja/guide</loc>
+    <lastmod>2026-08-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <!-- /ja/blog/posture-myth → 커뮤니티 JA 블로그로 301 이전. community-sitemap.xml 에서 노출 -->
 </urlset>

@@ -94,6 +94,15 @@ export const trackPaymentEvent = (
 
 // ───────── Shared ─────────
 
+// 시작 가이드는 SPA 라우트가 아니라 언어별 정적 페이지다(public/guide.html · en/ · ja/).
+// 현재 UI 언어에 맞는 파일로 보내지 않으면 en/ja 사용자도 한국어 페이지를 보게 된다.
+function guideHref(): string {
+  const lang = (i18n.language || "ko").split("-")[0];
+  if (lang === "en") return "/en/guide.html";
+  if (lang === "ja") return "/ja/guide.html";
+  return "/guide.html";
+}
+
 function TopNav({ active }: { active?: string }) {
   const { user } = useAuth();
   const { t } = useTranslation("marketing");
@@ -293,7 +302,7 @@ function Footer() {
           <a href="#/changelog" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.changelog")}
           </a>
-          <a href="/guide.html" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
+          <a href={guideHref()} style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
             {t("footer.guide")}
           </a>
           <a href="#/science" style={{ color: "var(--b-fg-2)", textDecoration: "none" }}>
@@ -1086,7 +1095,7 @@ function Landing() {
           ))}
         </div>
         <a
-          href="/guide.html"
+          href={guideHref()}
           style={{
             display: "inline-block",
             marginTop: 20,
@@ -4919,7 +4928,7 @@ function Contact({ initialPostId }: { initialPostId?: string | null }) {
                   {t("community.guideDesc")}
                 </p>
                 <a
-                  href="/guide.html"
+                  href={guideHref()}
                   style={{
                     display: "inline-block",
                     marginBottom: 14,
@@ -5790,7 +5799,7 @@ function Download({ os = "mac" }: { os?: "mac" | "win" }) {
               )}
             </ol>
             <a
-              href="/guide.html"
+              href={guideHref()}
               style={{
                 display: "inline-block",
                 marginTop: 10,
