@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Getting Started — From Install to Your First Detection | BaroSit Guide</title>
+    <meta
+      name="description"
+      content="A getting-started guide for first-time BaroSit users. Download and install, camera placement, setting your baseline posture, the 6 postures it detects, and how to respond to nudges — ready in 5 minutes."
+    />
+    <link rel="canonical" href="https://barosit.com/en/guide" />
+    <link rel="alternate" hreflang="ko" href="https://barosit.com/guide" />
+    <link rel="alternate" hreflang="en" href="https://barosit.com/en/guide" />
+    <link rel="alternate" hreflang="ja" href="https://barosit.com/ja/guide" />
+    <link rel="alternate" hreflang="x-default" href="https://barosit.com/guide" />
+    <meta name="theme-color" content="#fafaf7" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Getting Started — From Install to Your First Detection" />
+    <meta
+      property="og:description"
+      content="Download and install, camera placement, setting your baseline, and how to respond to nudges. Ready in 5 minutes."
+    />
+    <meta property="og:url" content="https://barosit.com/en/guide" />
+    <meta property="og:site_name" content="BaroSit" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://barosit.com/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://barosit.com/og-image.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Getting started with BaroSit",
+        "description": "How to get set up, from installing BaroSit to your first posture detection.",
+        "image": "https://barosit.com/og-image.png",
+        "inLanguage": "en",
+        "step": [
+          { "@type": "HowToStep", "name": "Install the app", "text": "Download the app for your OS (macOS or Windows) from barosit.com and install it." },
+          { "@type": "HowToStep", "name": "Camera placement and permission", "text": "Place the camera in front of you (a webcam above your monitor) or off to the side (a laptop next to a second monitor) so your upper body is clearly visible, then allow camera access. BaroSit detects well from either angle." },
+          { "@type": "HowToStep", "name": "Set your baseline posture", "text": "Sit the way you normally do and stay still for 5 seconds — that becomes your personal baseline." },
+          { "@type": "HowToStep", "name": "Respond to nudges", "text": "When your posture slips you get a gentle nudge, and moving for a moment earns you points." },
+          { "@type": "HowToStep", "name": "Fine-tune the settings", "text": "Nudge sensitivity, nudge style, break intervals, privacy (silhouette mode) and performance mode are all adjustable in settings." }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is my webcam video sent to a server?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. Posture detection runs 100% on this computer. Your video is never stored and never leaves the device — it even works with no internet connection." }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I put the camera right in front of me?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Front-facing (a webcam above your monitor) and side-facing (a laptop next to a second monitor) both work well. Plenty of people use a side angle in dual-monitor setups, so BaroSit was built for both. Just keep your upper body in frame with enough light." }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I try it before installing?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can try it right in your web browser at barosit.com. Features like the mini bar and widget mode (detection continues with only the mini bar showing) and system notifications come with the desktop app." }
+          },
+          {
+            "@type": "Question",
+            "name": "I get too many nudges — or too few.",
+            "acceptedAnswer": { "@type": "Answer", "text": "Adjust the sensitivity in settings. If you have changed where you sit or moved the camera, re-running 'Set baseline again' is the most accurate fix." }
+          }
+        ]
+      }
+    </script>
+    <style>
+      :root {
+        --bg: #fafaf7;
+        --surface: #ffffff;
+        --line: #e7e6df;
+        --fg-1: #1f2421;
+        --fg-2: #4a514c;
+        --fg-3: #6c7470;
+        --sig: #5f8d76;
+        --sig-deep: #3f6b54;
+        --sig-bg: #f1f4ef;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+          system-ui, sans-serif;
+        line-height: 1.7;
+        font-size: 17px;
+      }
+      .wrap { max-width: 760px; margin: 0 auto; padding: 56px 22px 96px; }
+      .eyebrow {
+        font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+        color: var(--sig); text-transform: uppercase; margin-bottom: 12px;
+      }
+      h1 { font-size: 34px; line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 16px; font-weight: 800; }
+      .intro { font-size: 18px; color: var(--fg-2); margin: 0 0 20px; }
+      .meta-row { font-size: 13px; color: var(--fg-3); margin: 0 0 36px; }
+      h2 {
+        font-size: 15px; font-weight: 700; letter-spacing: 0.02em;
+        color: var(--sig-deep); margin: 44px 0 16px; text-transform: uppercase;
+      }
+      .card {
+        padding: 22px; border-radius: 14px; background: var(--surface);
+        border: 1px solid var(--line); margin-bottom: 16px;
+      }
+      .step-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+      .num {
+        font-size: 13px; font-weight: 800; color: #fff; background: var(--sig);
+        min-width: 26px; height: 26px; border-radius: 8px; display: inline-flex;
+        align-items: center; justify-content: center; font-variant-numeric: tabular-nums;
+        flex: 0 0 auto; align-self: center;
+      }
+      .step-title { font-size: 18px; font-weight: 700; margin: 0; }
+      .claim { font-size: 15px; line-height: 1.65; margin: 0 0 6px; color: var(--fg-2); }
+      .claim strong { color: var(--fg-1); font-weight: 700; }
+      ul.tight { margin: 10px 0 0; padding-left: 20px; }
+      ul.tight li { font-size: 15px; line-height: 1.6; color: var(--fg-2); margin-bottom: 6px; }
+      .os { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+      .os-box { flex: 1 1 240px; padding: 16px; border-radius: 12px; background: var(--sig-bg); border: 1px solid var(--line); }
+      .os-box .os-name { font-size: 13px; font-weight: 700; color: var(--sig-deep); margin-bottom: 6px; }
+      .os-box p { font-size: 14px; line-height: 1.6; color: var(--fg-2); margin: 0; }
+      .postures { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+      .posture { font-size: 14px; padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); color: var(--fg-1); }
+      .posture b { display: block; font-weight: 700; margin-bottom: 2px; }
+      .posture span { font-size: 12.5px; color: var(--fg-3); }
+      .cta { display: inline-block; margin-top: 8px; padding: 12px 22px; border-radius: 12px; background: var(--sig-deep); color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; }
+      .cta:hover { background: #35583f; }
+      .privacy {
+        margin-top: 36px; padding: 22px; border-radius: 14px;
+        background: var(--sig-bg); border: 1px solid var(--line);
+        font-size: 15px; line-height: 1.7; color: var(--fg-2);
+      }
+      .privacy strong { color: var(--fg-1); }
+      details { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 4px 18px; margin-bottom: 10px; }
+      summary { font-size: 15.5px; font-weight: 600; cursor: pointer; padding: 14px 0; color: var(--fg-1); }
+      details p { font-size: 14.5px; color: var(--fg-2); margin: 0 0 14px; line-height: 1.65; }
+      .disclaimer { font-size: 12px; color: var(--fg-3); margin-top: 28px; }
+      .back { display: inline-block; margin-top: 22px; font-size: 14px; color: var(--sig-deep); text-decoration: none; font-weight: 600; }
+      footer { font-size: 13px; color: var(--fg-3); margin-top: 40px; }
+      a { color: var(--sig-deep); }
+      @media (max-width: 480px) { .postures { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <article class="wrap">
+      <div class="eyebrow">Guide · Get started</div>
+      <h1>Getting started with BaroSit</h1>
+      <p class="intro">
+        BaroSit watches how you sit through your webcam and gently points it out when your
+        posture slips. Five minutes is all it takes, from install to your first detection.
+        Just follow along in order.
+      </p>
+      <p class="meta-row">What you need: a webcam (built-in or external) · About 5 minutes</p>
+
+      <h2>Install and first setup</h2>
+
+      <div class="card">
+        <div class="step-head"><span class="num">1</span><p class="step-title">Download and install the app</p></div>
+        <p class="claim">
+          Get the app for your computer at <a href="https://barosit.com/">barosit.com</a>.
+          You can also <strong>try it in your web browser first</strong>, with nothing to install.
+        </p>
+        <div class="os">
+          <div class="os-box">
+            <div class="os-name">macOS</div>
+            <p>Open the <b>.dmg</b> you downloaded and drag BaroSit into your <b>Applications</b> folder. If a warning appears the first time you open it, <b>right-click the app → Open</b> — you only need to do this once.</p>
+          </div>
+          <div class="os-box">
+            <div class="os-name">Windows</div>
+            <p>Run the <b>installer (.exe)</b> you downloaded and follow the prompts. Once it finishes, you can open BaroSit from the Start menu.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="step-head"><span class="num">2</span><p class="step-title">Camera placement and permission</p></div>
+        <p class="claim">
+          <strong>Front-facing (a webcam above your monitor) or side-facing (a laptop next to a
+          second monitor) — either is fine.</strong>
+          BaroSit detects well from both. Just make sure your <strong>upper body sits well
+          inside the frame</strong> while you are seated.
+        </p>
+        <ul class="tight">
+          <li>Move the camera a little further away, or slide your chair back slightly, so everything from your shoulders to your head is in frame.</li>
+          <li>On a dual-monitor setup you can keep using the laptop camera beside your second monitor — side angles are recognized well.</li>
+          <li><strong>Allow camera access</strong> the first time you launch it. You can change the permission later in your system settings.</li>
+          <li>Very dim lighting makes detection harder, so keep your face and screen well lit.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="step-head"><span class="num">3</span><p class="step-title">Set your baseline posture</p></div>
+        <p class="claim">
+          BaroSit does not push you into one "correct" posture. Instead it takes
+          <strong>the way you comfortably sit when looking at your monitor</strong> as the baseline.
+          Follow the prompt and <strong>stay still for 5 seconds</strong> to save it.
+        </p>
+        <ul class="tight">
+          <li>Keep movement to a minimum while it measures, and don't rest your chin or face on your hand.</li>
+          <li>Keep your head slightly up, look comfortably ahead, and don't tilt your head to either side.</li>
+          <li>If you change seats or move the camera, re-measure with <strong>"Set baseline again"</strong> in settings.</li>
+        </ul>
+      </div>
+
+      <h2>Everyday use</h2>
+
+      <div class="card">
+        <div class="step-head"><span class="num">4</span><p class="step-title">The six postures it detects</p></div>
+        <p class="claim">When you drift away from your baseline, BaroSit tells these six apart.</p>
+        <div class="postures">
+          <div class="posture"><b>Forward head</b><span>Head juts forward</span></div>
+          <div class="posture"><b>Chin on hand</b><span>Propping up your chin or face</span></div>
+          <div class="posture"><b>Leaning to one side</b><span>Body tips to the left or right</span></div>
+          <div class="posture"><b>Slouched back</b><span>Back rounds and curls over</span></div>
+          <div class="posture"><b>Too close to the monitor</b><span>Face right up against the screen</span></div>
+          <div class="posture"><b>Uneven shoulders</b><span>Shoulders sit at different heights</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="step-head"><span class="num">5</span><p class="step-title">Respond to nudges and build your score</p></div>
+        <p class="claim">
+          When your posture slips you get a <strong>gentle signal, not nagging</strong>. That's your
+          cue to shift position or get up and move for a moment. When you recover, BaroSit cheers
+          you on with <strong>points and rewards</strong>.
+        </p>
+        <ul class="tight">
+          <li><strong>Away detection</strong> — step away briefly and it pauses on its own, then picks back up when you return.</li>
+          <li><strong>Mini widget and tray status</strong> (desktop app) — check your current state at a glance while you work on something else.</li>
+          <li><strong>Stretch score and posture grade</strong> — see the day's movement and posture habits at a glance.</li>
+          <li>The longer you sit, the more it helps to stand up, walk, or stretch for about <strong>1 minute every 50</strong>.</li>
+        </ul>
+        <p class="claim" style="margin-top:14px">
+          Curious why the goal is "move often" rather than "perfect posture"? →
+          See <a href="/en/science">the science behind BaroSit</a>.
+        </p>
+      </div>
+
+      <h2>Fine-tuning settings</h2>
+
+      <div class="card">
+        <div class="step-head"><span class="num">6</span><p class="step-title">The defaults are enough at first</p></div>
+        <p class="claim">
+          Settings have grown along with the features, but you don't need to touch all of them.
+          Just remember these for <strong>when you need them</strong>.
+        </p>
+        <ul class="tight">
+          <li><strong>Nudges</strong> — sensitivity presets (strict, normal, relaxed) and how long a nudge stays up. Start here if nudges feel too frequent or too rare.</li>
+          <li><strong>Stronger nudges</strong> — screen-edge glow, a briefly expanded widget, a center toast, or sound, whichever you prefer. If you keep missing nudges, try focus mode or forced mode.</li>
+          <li><strong>Break reminders</strong> — three tiers: a 30-minute reset, standing up at 50 minutes, and a long break at 120. The intervals are adjustable.</li>
+          <li><strong>Smarter nudges</strong> — cumulative load (when short stretches of bad posture keep piling up), posture variability (when even good posture is held too long), and adaptive sensitivity (automatic correction for the afternoon slump).</li>
+          <li><strong>Stretch calibration</strong> — tunes detection to your own flexibility and corrects for a side-angle camera.</li>
+          <li><strong>Privacy</strong> — silhouette mode (outlines instead of video). Error reports and anonymous stats are optional.</li>
+          <li><strong>Performance mode</strong> — on a low-spec laptop, switch to "saver" to ease the load on CPU and battery.</li>
+          <li><strong>Desktop</strong> — launch at login, show the mini bar.</li>
+          <li><strong>Data</strong> — back up and restore your scores, history, and baseline posture as JSON, or reset your records.</li>
+        </ul>
+        <p class="claim" style="margin-top:14px">
+          💡 <strong>In a web browser, detection slows down or stops when the window is covered by
+          another one.</strong> The desktop app is different — press the
+          <strong>"widget mode"</strong> button on the main screen and the main window closes,
+          leaving only a small mini bar so detection keeps running while you work on other things.
+        </p>
+      </div>
+
+      <div class="privacy">
+        <strong>🔒 Your video never leaves this computer.</strong><br />
+        Posture detection runs 100% on-device. Webcam video is not stored, is never sent anywhere,
+        and everything keeps working with no internet connection. You can turn the camera off at
+        any time.
+      </div>
+
+      <h2>Frequently asked questions</h2>
+
+      <details>
+        <summary>Is my webcam video sent to a server?</summary>
+        <p>No. Posture detection runs 100% on this computer. Your video is never stored and never leaves the device — it even works with no internet connection.</p>
+      </details>
+      <details>
+        <summary>Can I put the camera right in front of me?</summary>
+        <p>Yes. Front-facing (a webcam above your monitor) and side-facing (a laptop next to a second monitor) both work well. Plenty of people use a side angle in dual-monitor setups, so BaroSit was built for both. Just keep your upper body in frame with enough light.</p>
+      </details>
+      <details>
+        <summary>Can I try it before installing?</summary>
+        <p>Yes. You can try it right in your web browser at barosit.com. Features like the mini bar and widget mode (detection continues with only the mini bar showing, even when the main window is minimized) and system notifications come with the desktop app.</p>
+      </details>
+      <details>
+        <summary>I get too many nudges — or too few.</summary>
+        <p>Adjust the sensitivity in settings. If you have changed where you sit or moved the camera, re-measuring with "Set baseline again" is the most accurate fix.</p>
+      </details>
+
+      <p style="margin-top:28px">
+        <a class="cta" href="https://barosit.com/">Get started with BaroSit →</a>
+      </p>
+
+      <p class="disclaimer">
+        This page is general health information, not medical advice. If pain persists, please
+        consult a professional.
+      </p>
+      <a class="back" href="https://barosit.com/">← Back to BaroSit home</a>
+      <footer>© BaroSit · <a href="https://barosit.com/">barosit.com</a></footer>
+    </article>
+  </body>
+</html>
