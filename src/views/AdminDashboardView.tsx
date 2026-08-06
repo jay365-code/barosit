@@ -309,6 +309,7 @@ export function AdminDashboardView({ onClose }: Props) {
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
   const [filterTester, setFilterTester] = useState<"all" | "yes" | "no">("all");
   const [filterAdmin, setFilterAdmin] = useState<"all" | "yes" | "no">("all");
+  const [filterDeletion, setFilterDeletion] = useState<"all" | "pending" | "none">("all");
   
   // 릴리즈 관리 상태
   const [releases, setReleases] = useState<ReleaseData[]>([]);
@@ -780,9 +781,10 @@ export function AdminDashboardView({ onClose }: Props) {
       if (filterStatus !== "all" && sub.status !== filterStatus) return false;
       if (filterTester !== "all" && !!user.is_beta_tester !== (filterTester === "yes")) return false;
       if (filterAdmin !== "all" && !!user.is_admin !== (filterAdmin === "yes")) return false;
+      if (filterDeletion !== "all" && !!user.deletion_requested_at !== (filterDeletion === "pending")) return false;
       return true;
     });
-  }, [profiles, subscriptions, userSearch, filterPlan, filterStatus, filterTester, filterAdmin]);
+  }, [profiles, subscriptions, userSearch, filterPlan, filterStatus, filterTester, filterAdmin, filterDeletion]);
 
   // 1-1. 평생 무료(무상 제공) 지정 — 크리에이터 아웃리치·협력자용.
   //
@@ -2609,6 +2611,7 @@ export function AdminDashboardView({ onClose }: Props) {
                         { label: "구독", value: filterStatus, set: setFilterStatus, opts: [["all", "구독 전체"], ["active", "활성"], ["inactive", "비활성"]] },
                         { label: "테스터", value: filterTester, set: setFilterTester, opts: [["all", "테스터 전체"], ["yes", "테스터만"], ["no", "테스터 아님"]] },
                         { label: "어드민", value: filterAdmin, set: setFilterAdmin, opts: [["all", "어드민 전체"], ["yes", "어드민만"], ["no", "어드민 아님"]] },
+                        { label: "탈퇴", value: filterDeletion, set: setFilterDeletion, opts: [["all", "탈퇴 전체"], ["pending", "탈퇴 예정만"], ["none", "정상 계정만"]] },
                       ] as const).map((f) => (
                         <select
                           key={f.label}
@@ -2634,9 +2637,9 @@ export function AdminDashboardView({ onClose }: Props) {
                           ? `${profiles.length}명`
                           : `${visibleProfiles.length} / ${profiles.length}명`}
                       </span>
-                      {(userSearch || filterPlan !== "all" || filterStatus !== "all" || filterTester !== "all" || filterAdmin !== "all") && (
+                      {(userSearch || filterPlan !== "all" || filterStatus !== "all" || filterTester !== "all" || filterAdmin !== "all" || filterDeletion !== "all") && (
                         <button
-                          onClick={() => { setUserSearch(""); setFilterPlan("all"); setFilterStatus("all"); setFilterTester("all"); setFilterAdmin("all"); }}
+                          onClick={() => { setUserSearch(""); setFilterPlan("all"); setFilterStatus("all"); setFilterTester("all"); setFilterAdmin("all"); setFilterDeletion("all"); }}
                           style={{ background: "none", border: "none", color: "#5b8c7a", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
                         >
                           초기화
@@ -2690,11 +2693,28 @@ export function AdminDashboardView({ onClose }: Props) {
                                         어드민
                                       </span>
                                     )}
+                                    {user.deletion_requested_at && (
+                                      // soft delete — 유예 중에는 계정·데이터가 그대로 남아 목록에도 보인다.
+                                      // 파기 예정일을 함께 보여줘야 "왜 아직 있지?" 를 묻지 않는다.
+                                      <span
+                                        title={`탈퇴 신청 ${new Date(user.deletion_requested_at).toLocaleString("ko-KR")}\n파기 예정 ${user.deletion_scheduled_at ? new Date(user.deletion_scheduled_at).toLocaleString("ko-KR") : "-"}\n유예 중 재로그인 후 '탈퇴 취소' 로 복구 가능`}
+                                        style={{ fontSize: 10, background: "rgba(201, 92, 92, 0.22)", color: "#e08866", padding: "1px 5px", borderRadius: 4 }}
+                                      >
+                                        탈퇴 예정
+                                      </span>
+                                    )}
                                   </div>
                                   <div style={{ fontSize: 12, opacity: 0.75, userSelect: "text" }}>
                                     {user.email || <span style={{ opacity: 0.5 }}>이메일 없음</span>}
                                   </div>
                                   <div style={{ fontSize: 10, opacity: 0.35, userSelect: "text" }}>{user.id}</div>
+                                  {user.deletion_scheduled_at && (
+                                    <div style={{ fontSize: 11, color: "#e08866", marginTop: 2 }}>
+                                      파기 예정 {new Date(user.deletion_scheduled_at).toLocaleDateString("ko-KR")}
+                                      {" · "}
+                                      {Math.max(0, Math.ceil((new Date(user.deletion_scheduled_at).getTime() - Date.now()) / 86400000))}일 남음
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                               <td style={{ padding: 16 }}>
