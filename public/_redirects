@@ -8,19 +8,19 @@
 /ja/blog/posture-myth      /community/p/c8e3f0b5-2d14-4f69-8a32-1b7c4d9e6f22   301
 /ja/blog/posture-myth.html /community/p/c8e3f0b5-2d14-4f69-8a32-1b7c4d9e6f22   301
 
-# 없는 빌드 자산은 SPA 폴백으로 삼키지 말 것 (2026-08-06 백지 화면 사고).
-# 새 index.html 이 먼저 배포되고 번들이 아직 없던 찰나에, 번들 요청이 아래
-# catch-all 에 걸려 index.html 이 200 으로 응답됐다. Vite 자산은
-# `immutable, max-age=1년` 이라 그 HTML 이 JS 로 1년짜리 캐시에 박혔고,
-# 모듈 스크립트가 실행되지 않아 사이트가 백지가 됐다.
-# 404 면 브라우저가 그 응답을 자산으로 캐시하지 않아 다음 로드에서 자연 복구된다.
+# ⚠️ /assets/* 를 404 로 빼려는 시도는 실패했다(2026-08-06, 세 가지 목적지 실측).
+# Cloudflare Pages 의 _redirects 는 404 상태코드를 지원하지 않는다.
+#   · `/404.html` 목적지 → 404 는 나오지만, 그 파일이 배포에 존재하는 순간 CF 가
+#     그것을 사이트 기본 404 로 채택해 아래 catch-all 을 덮는다(/download 등이 전부 404).
+#   · `/index.html` 목적지 → 상태코드가 무시되고 200 리라이트가 된다.
+#   · 전용 파일(asset-missing.html) 목적지 → 규칙 자체가 무시되고 200 이 유지된다.
 #
-# 목적지 파일명 주의(둘 다 실측):
-#  - `404.html` 로 두면 Cloudflare Pages 가 그것을 사이트 기본 404 로 채택해
-#    아래 SPA 폴백까지 덮어버린다 → /download 등 임의 경로가 전부 404.
-#  - `/index.html` 로 두면 상태코드 404 가 무시되고 200 리라이트가 된다.
-# 그래서 404.html 이 아닌 전용 파일을 목적지로 쓴다.
-/assets/*   /asset-missing.html   404
+# 배경: 새 index.html 이 먼저 배포되고 번들이 아직 없던 찰나에 번들 요청이 아래
+# catch-all 에 걸려 HTML 이 200 으로 응답됐고, 브라우저가 그것을 JS 로 캐시해
+# 사이트가 백지가 됐다. 다만 이 폴백 응답은 index.html 의 헤더
+# (max-age=14400, must-revalidate)를 따르므로 최대 4시간이면 스스로 풀린다.
+# 즉시 복구는 하드 리로드. 근본 차단이 필요해지면 Pages Function 으로만 가능한데,
+# 모든 자산 요청이 함수를 거치게 되는 비용이 커서 채택하지 않았다.
 
 # SPA 폴백 — 정적 자산·Pages Function(/community/p/*) 이후에 평가됨.
 # JS 없이 임의 경로로 진입해도 SPA 셸을 200 으로 서빙.
