@@ -20,6 +20,10 @@ interface UserProfileData {
   email?: string;
   /** 소셜 로그인이 준 프로필 사진(auth.users 메타데이터). profiles.avatar 가 비었을 때의 폴백. */
   social_avatar_url?: string;
+  /** 회원탈퇴 신청 시각. soft delete 라 유예 동안 행이 그대로 남는다(null 이면 정상 계정). */
+  deletion_requested_at?: string | null;
+  /** 파기 예정 시각(신청 +30일). pg_cron purge_deleted_accounts 가 이 시각 이후 실제 삭제. */
+  deletion_scheduled_at?: string | null;
 }
 
 /** admin_user_activity RPC 한 행 — 가입자가 아직 쓰는지/떠났는지 판정용. */
