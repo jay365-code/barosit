@@ -456,7 +456,8 @@
     "oauthTitle": "ソーシャルログインで登録されたアカウントです",
     "oauthDesc": "{{email}} は {{provider}} ログインで登録されています。パスワードではなく {{provider}} でログインしてください。",
     "oauthCta": "ログイン画面へ",
-    "tryAgain": "別のメールアドレスで試す"
+    "tryAgain": "別のメールアドレスで試す",
+    "checkFailed": "現在確認できません。しばらくしてからもう一度お試しください。"
   },
   "resetPw": {
     "verifying": "リンクを確認中…",

@@ -459,7 +459,8 @@
     "oauthTitle": "This account uses social sign-in",
     "oauthDesc": "{{email}} is registered through {{provider}}. Sign in with {{provider}} instead of a password.",
     "oauthCta": "Go to sign in",
-    "tryAgain": "Try a different email"
+    "tryAgain": "Try a different email",
+    "checkFailed": "We couldn't check that right now. Please try again in a moment."
   },
   "resetPw": {
     "verifying": "Verifying link…",

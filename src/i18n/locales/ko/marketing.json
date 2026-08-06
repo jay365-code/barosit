@@ -456,7 +456,8 @@
     "oauthTitle": "소셜 로그인으로 가입된 계정이에요",
     "oauthDesc": "{{email}} 은(는) {{provider}} 로그인으로 가입되어 있어요. 비밀번호 대신 {{provider}} 로 로그인해 주세요.",
     "oauthCta": "로그인 화면으로 가기",
-    "tryAgain": "다른 이메일로 다시 시도"
+    "tryAgain": "다른 이메일로 다시 시도",
+    "checkFailed": "지금은 확인이 어려워요. 잠시 후 다시 시도해 주세요."
   },
   "resetPw": {
     "verifying": "링크를 확인하는 중…",

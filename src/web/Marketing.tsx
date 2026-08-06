@@ -1346,15 +1346,22 @@ function ForgotPassword() {
     try {
       // 가입 여부·로그인 수단을 먼저 확인한다(사용자 결정 2026-08-06).
       // 안 오는 메일을 기다리게 하는 대신 "가입되지 않음"·"소셜 계정"을 그대로 알린다.
-      // 조회가 막히거나(레이트리밋) 실패하면 기존처럼 그냥 보내고 "보냈어요"로 폴백한다.
+      //
+      // 확인이 안 되면(레이트리밋 429·함수 장애) 결과를 단정하지 않는다. 예전처럼
+      // "보냈어요"를 띄우면 가입되지 않은 주소에도 보냈다고 말하게 된다 — 지금 고치려는
+      // 바로 그 문제다. 이 경우엔 발송하지 않고 "잠시 후 다시 시도"로 돌려보낸다.
       const { data, error: fnErr } = await supabase.functions.invoke("auth-email-status", {
         body: { email },
       });
-      if (!fnErr && data?.status === "not_found") {
+      if (fnErr || !data?.status) {
+        setError(t("forgotPw.checkFailed"));
+        return;
+      }
+      if (data.status === "not_found") {
         setStatus("not_found");
         return;
       }
-      if (!fnErr && data?.status === "oauth") {
+      if (data.status === "oauth") {
         setOauthProvider(providerLabel(data.providers?.[0]));
         setStatus("oauth");
         return;
