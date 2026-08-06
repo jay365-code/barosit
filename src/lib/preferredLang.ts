@@ -40,8 +40,28 @@ export async function syncPreferredLang(userId?: string | null): Promise<void> {
       return;
     }
     lastWritten = key;
+
+    // Auth 메일(가입 확인·비밀번호 재설정)은 Supabase 가 자기 템플릿으로 보내고,
+    // 템플릿이 볼 수 있는 값은 user_metadata(`{{ .Data }}`) 뿐이다. profiles 로는
+    // 닿지 않으므로 같은 값을 메타데이터에도 둔다 — 가입 이전 사용자의 백필도
+    // 이 경로로 자연히 이뤄진다.
+    await syncAuthMetadataLang(lang);
   } catch (e) {
     console.warn("[preferredLang] 저장 예외(무시):", e);
+  }
+}
+
+// 값이 이미 같으면 쓰지 않는다. updateUser 는 USER_UPDATED 를 발화시켜
+// onAuthStateChange → syncPreferredLang 로 되돌아오므로, 이 비교가 루프를 끊는다.
+async function syncAuthMetadataLang(lang: string): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
+    if (data.user.user_metadata?.lang === lang) return;
+    const { error } = await supabase.auth.updateUser({ data: { lang } });
+    if (error) console.warn("[preferredLang] 메타데이터 저장 실패(무시):", error.message);
+  } catch (e) {
+    console.warn("[preferredLang] 메타데이터 저장 예외(무시):", e);
   }
 }
 

@@ -1,0 +1,1 @@
+{{ if eq .Data.lang "en" }}[BaroSit] Please confirm your email address{{ else if eq .Data.lang "ja" }}[BaroSit] メールアドレスをご確認ください{{ else }}[BaroSit] 이메일 주소를 확인해 주세요{{ end }}

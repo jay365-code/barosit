@@ -35,10 +35,6 @@ inspector_port = 8084
 [functions.toss-webhook]
 verify_jwt = false
 
-# Supabase Auth 가 훅으로 직접 호출한다(JWT 없음) — 대신 standard-webhooks 서명 검증
-[functions.auth-email-hook]
-verify_jwt = false
-
 [auth]
 site_url = "http://localhost:1430"
 # 1430 = 웹 dev 콜백 / 1420 = tauri dev 의 OAuth loopback relay (vite.config.ts devAuthRelay)
