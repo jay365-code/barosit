@@ -1315,6 +1315,14 @@ function AuthCallback() {
 
 // ───────── Forgot Password (비밀번호 찾기) ─────────
 
+// auth.identities 의 provider 값 → 사용자에게 보여줄 이름.
+function providerLabel(provider?: string): string {
+  if (provider === "google") return "Google";
+  if (provider === "apple") return "Apple";
+  if (provider === "kakao") return i18n.language?.startsWith("ko") ? "카카오" : "Kakao";
+  return provider ?? "";
+}
+
 function ForgotPassword() {
   const { t } = useTranslation("marketing");
   const { resetPasswordForEmail, configured } = useAuth();
@@ -1322,18 +1330,36 @@ function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 조회 결과. null = 아직 제출 전.
+  const [status, setStatus] = useState<"not_found" | "oauth" | null>(null);
+  const [oauthProvider, setOauthProvider] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setStatus(null);
     if (!configured) {
       setError(t("auth.errSupabase"));
       return;
     }
     setLoading(true);
     try {
+      // 가입 여부·로그인 수단을 먼저 확인한다(사용자 결정 2026-08-06).
+      // 안 오는 메일을 기다리게 하는 대신 "가입되지 않음"·"소셜 계정"을 그대로 알린다.
+      // 조회가 막히거나(레이트리밋) 실패하면 기존처럼 그냥 보내고 "보냈어요"로 폴백한다.
+      const { data, error: fnErr } = await supabase.functions.invoke("auth-email-status", {
+        body: { email },
+      });
+      if (!fnErr && data?.status === "not_found") {
+        setStatus("not_found");
+        return;
+      }
+      if (!fnErr && data?.status === "oauth") {
+        setOauthProvider(providerLabel(data.providers?.[0]));
+        setStatus("oauth");
+        return;
+      }
       await resetPasswordForEmail(email);
-      // 이메일 enumeration 방어 — 가입 여부와 무관하게 동일 "보냈어요" 안내.
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("loginPage.emailGenericErr"));
@@ -1366,7 +1392,40 @@ function ForgotPassword() {
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
           <Logo size={36} stroke="var(--b-sig)" />
         </div>
-        {sent ? (
+        {status === "not_found" ? (
+          <div style={{ textAlign: "center" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.018em", marginBottom: 8 }}>
+              {t("forgotPw.notFoundTitle")}
+            </h2>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.6, marginBottom: 18 }}>
+              {t("forgotPw.notFoundDesc", { email })}
+            </p>
+            <a href="#/signup" className="b-btn b-btn-primary" style={{ textDecoration: "none" }}>
+              {t("forgotPw.notFoundCta")}
+            </a>
+            <div style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                onClick={() => { setStatus(null); setEmail(""); }}
+                style={{ background: "none", border: "none", color: "var(--b-fg-3)", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+              >
+                {t("forgotPw.tryAgain")}
+              </button>
+            </div>
+          </div>
+        ) : status === "oauth" ? (
+          <div style={{ textAlign: "center" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.018em", marginBottom: 8 }}>
+              {t("forgotPw.oauthTitle")}
+            </h2>
+            <p style={{ fontSize: 13, color: "var(--b-fg-3)", lineHeight: 1.6, marginBottom: 18 }}>
+              {t("forgotPw.oauthDesc", { email, provider: oauthProvider })}
+            </p>
+            <a href="#/login" onClick={navigateToLogin} className="b-btn b-btn-primary" style={{ textDecoration: "none" }}>
+              {t("forgotPw.oauthCta")}
+            </a>
+          </div>
+        ) : sent ? (
           <div style={{ textAlign: "center" }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.018em", marginBottom: 8 }}>
               {t("forgotPw.sentTitle")}

@@ -449,7 +449,14 @@
     "submit": "재설정 링크 받기",
     "sending": "보내는 중…",
     "sentTitle": "메일을 보냈어요",
-    "sentDesc": "{{email}} 로 비밀번호 재설정 링크를 보냈어요. 메일이 안 보이면 스팸함도 확인해 주세요."
+    "sentDesc": "{{email}} 로 비밀번호 재설정 링크를 보냈어요. 메일이 안 보이면 스팸함도 확인해 주세요.",
+    "notFoundTitle": "가입되지 않은 이메일이에요",
+    "notFoundDesc": "{{email}} 로 가입된 계정이 없어요. 이메일 주소를 다시 확인하시거나, 새로 가입해 주세요.",
+    "notFoundCta": "회원가입하기",
+    "oauthTitle": "소셜 로그인으로 가입된 계정이에요",
+    "oauthDesc": "{{email}} 은(는) {{provider}} 로그인으로 가입되어 있어요. 비밀번호 대신 {{provider}} 로 로그인해 주세요.",
+    "oauthCta": "로그인 화면으로 가기",
+    "tryAgain": "다른 이메일로 다시 시도"
   },
   "resetPw": {
     "verifying": "링크를 확인하는 중…",

@@ -452,7 +452,14 @@
     "submit": "Send reset link",
     "sending": "Sending…",
     "sentTitle": "Email sent",
-    "sentDesc": "We sent a password reset link to {{email}}. Check your spam folder if you don't see it."
+    "sentDesc": "We sent a password reset link to {{email}}. Check your spam folder if you don't see it.",
+    "notFoundTitle": "No account with that email",
+    "notFoundDesc": "There's no account registered to {{email}}. Double-check the address, or create a new account.",
+    "notFoundCta": "Create an account",
+    "oauthTitle": "This account uses social sign-in",
+    "oauthDesc": "{{email}} is registered through {{provider}}. Sign in with {{provider}} instead of a password.",
+    "oauthCta": "Go to sign in",
+    "tryAgain": "Try a different email"
   },
   "resetPw": {
     "verifying": "Verifying link…",
