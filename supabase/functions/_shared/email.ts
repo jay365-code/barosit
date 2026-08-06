@@ -8,7 +8,12 @@
 // 가입자는 한국어 UI 사용자였다).
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const FROM = "BaroSit <support@barosit.com>";
+// Resend 에 검증된 발신 도메인은 apex(barosit.com)가 아니라 send.barosit.com 이고,
+// API 키도 그 도메인 전용이다. apex 로 보내면 403 "not authorized to send emails
+// from barosit.com" 로 거부된다(2026-08-06 실측).
+// 회신은 사람이 읽는 주소로 받아야 하므로 reply_to 만 apex 로 둔다.
+const FROM = "BaroSit <support@send.barosit.com>";
+const REPLY_TO = "support@barosit.com";
 
 export type MailLang = "ko" | "en" | "ja";
 
@@ -87,7 +92,7 @@ export async function sendUserEmail(
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
-      body: JSON.stringify({ from: FROM, to: [to], subject, html }),
+      body: JSON.stringify({ from: FROM, reply_to: REPLY_TO, to: [to], subject, html }),
     });
     if (!res.ok) {
       await recordFailure(opts?.supabase, context, to, subject, `HTTP ${res.status} ${await res.text()}`);

@@ -108,7 +108,9 @@ serve(async (req) => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "BaroSit Support <support@barosit.com>",
+        // 검증된 발신 도메인은 send.barosit.com (키도 그 도메인 전용). 회신만 apex 로 받는다.
+        from: "BaroSit Support <support@send.barosit.com>",
+        reply_to: "support@barosit.com",
         to: ["jhlee@gubed.co.kr"],
         subject: `[BaroSit 신규 문의] ${type}`,
         html: `
@@ -155,7 +157,9 @@ serve(async (req) => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "BaroSit Support <support@barosit.com>",
+        // 검증된 발신 도메인은 send.barosit.com (키도 그 도메인 전용). 회신만 apex 로 받는다.
+        from: "BaroSit Support <support@send.barosit.com>",
+        reply_to: "support@barosit.com",
         to: [email],
         subject: s.subject,
         html: `
