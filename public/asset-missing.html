@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BaroSit — asset not found</title>
+    <meta name="robots" content="noindex" />
+  </head>
+  <body>
+    <!--
+      /assets/* 중 배포에 없는 파일에 대한 404 본문.
+      파일명을 404.html 로 두면 Cloudflare Pages 가 이것을 사이트 기본 404 로
+      채택해 _redirects 의 SPA 폴백(/* → /index.html 200)까지 덮어버린다
+      (2026-08-06 실측: /download 등 임의 경로가 전부 404 가 됐다).
+      그래서 일부러 404.html 이 아닌 이름을 쓴다.
+    -->
+    <p>Asset not found.</p>
+  </body>
+</html>
