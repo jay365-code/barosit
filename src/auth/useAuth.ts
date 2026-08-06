@@ -531,6 +531,9 @@ export function useAuth() {
       password,
       options: {
         emailRedirectTo: authRedirectUrl("/#/auth/callback"),
+        // 가입 확인 메일은 profiles 행이 생기기 전에 나가므로, 언어를 메타데이터로
+        // 실어 보낸다. auth-email-hook 이 이 값을 1순위로 읽는다.
+        data: { lang: (i18n.language || "ko").split("-")[0] },
       },
     });
     if (error) throw error;
