@@ -228,7 +228,7 @@ serve(async (req) => {
 
     // 환불 완료 안내 메일 (§11 H2) — 발송 실패해도 환불 결과엔 영향 없음
     const m = tplRefunded(await userMailLang(supabase, user.id), refundAmount, isFullRefund);
-    await sendUserEmail(user.email, m.subject, m.html);
+    await sendUserEmail(user.email, m.subject, m.html, { supabase, context: "환불 완료 안내" });
 
     return json({ success: true, refundedAmount: cancelResult.cancels?.[0]?.cancelAmount ?? refundAmount });
   } catch (e: any) {

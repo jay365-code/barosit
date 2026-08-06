@@ -166,7 +166,7 @@ serve(async (req) => {
     // 해지 예약 접수 안내 메일 (§11 H2) — 발송 실패해도 처리 결과엔 영향 없음
     if (action === "cancel") {
       const m = tplCanceled(await userMailLang(supabase, user.id), sub.current_period_end);
-      await sendUserEmail(user.email, m.subject, m.html);
+      await sendUserEmail(user.email, m.subject, m.html, { supabase, context: "구독 해지 예약 안내" });
     }
 
     return json({ success: true, status: nextStatus });

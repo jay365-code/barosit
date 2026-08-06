@@ -38,13 +38,49 @@ export async function userMailLang(
   }
 }
 
-export async function sendUserEmail(to: string | null | undefined, subject: string, html: string): Promise<boolean> {
+// 발송 실패를 어드민 알림에 남긴다. 로그만 남기면 아무도 안 본다 —
+// 실제로 RESEND_API_KEY 가 무효가 된 채 탈퇴·문의 메일이 조용히 실패하고
+// 있었고, 사용자가 "메일 안 왔다" 고 말해서야 드러났다(2026-08-06).
+async function recordFailure(
+  supabase: EmailNotifier | undefined,
+  context: string,
+  to: string | null | undefined,
+  subject: string,
+  reason: string,
+): Promise<void> {
+  console.error(`[email] 발송 실패(${context}):`, reason);
+  if (!supabase) return;
+  try {
+    await supabase.from("admin_notifications").insert({
+      event_type: "email_send_failed",
+      severity: "warning",
+      message: `메일 발송 실패 — ${context}`,
+      payload: { to: to ?? null, subject, reason: reason.slice(0, 500) },
+    });
+  } catch (e) {
+    // 알림 기록까지 실패하면 더 할 수 있는 게 없다. 본 로직은 막지 않는다.
+    console.error("[email] 실패 기록도 실패:", e);
+  }
+}
+
+/** admin_notifications 에 실패를 남길 수 있는 최소 인터페이스(service-role 클라이언트). */
+export interface EmailNotifier {
+  from: (table: string) => any;
+}
+
+export async function sendUserEmail(
+  to: string | null | undefined,
+  subject: string,
+  html: string,
+  opts?: { supabase?: EmailNotifier; context?: string },
+): Promise<boolean> {
+  const context = opts?.context ?? subject;
   if (!RESEND_API_KEY) {
-    console.warn("[email] RESEND_API_KEY 미설정 — 이메일 생략:", subject);
+    await recordFailure(opts?.supabase, context, to, subject, "RESEND_API_KEY 미설정");
     return false;
   }
   if (!to) {
-    console.warn("[email] 수신자 없음 — 생략:", subject);
+    await recordFailure(opts?.supabase, context, to, subject, "수신자 주소 없음");
     return false;
   }
   try {
@@ -54,12 +90,12 @@ export async function sendUserEmail(to: string | null | undefined, subject: stri
       body: JSON.stringify({ from: FROM, to: [to], subject, html }),
     });
     if (!res.ok) {
-      console.error("[email] 발송 실패:", res.status, await res.text());
+      await recordFailure(opts?.supabase, context, to, subject, `HTTP ${res.status} ${await res.text()}`);
       return false;
     }
     return true;
   } catch (e) {
-    console.error("[email] 발송 예외:", e);
+    await recordFailure(opts?.supabase, context, to, subject, `예외: ${e instanceof Error ? e.message : String(e)}`);
     return false;
   }
 }

@@ -77,7 +77,7 @@ serve(async (req) => {
     try {
       const { data: u } = await supabase.auth.admin.getUserById(target.user_id);
       const m = tplRefunded(await userMailLang(supabase, target.user_id), refundAmount, isFull);
-      await sendUserEmail(u?.user?.email ?? null, m.subject, m.html);
+      await sendUserEmail(u?.user?.email ?? null, m.subject, m.html, { supabase, context: "환불 완료 안내(관리자 집행)" });
     } catch { /* 무시 */ }
 
     // 6. 감사 로그

@@ -40,7 +40,7 @@ serve(async (req) => {
       if (error) throw new Error(error.message);
 
       const m = tplDeletionCanceled(await userMailLang(supabase, user.id));
-      await sendUserEmail(user.email, m.subject, m.html);
+      await sendUserEmail(user.email, m.subject, m.html, { supabase, context: "탈퇴 취소 안내" });
       return json({ success: true, status: "active" });
     }
 
@@ -78,7 +78,7 @@ serve(async (req) => {
 
     // 접수 안내 메일 (발송 실패해도 처리 결과엔 영향 없음)
     const m = tplDeletionRequested(await userMailLang(supabase, user.id), scheduled.toISOString());
-    await sendUserEmail(user.email, m.subject, m.html);
+    await sendUserEmail(user.email, m.subject, m.html, { supabase, context: "탈퇴 접수 안내" });
 
     return json({ success: true, status: "pending_deletion", scheduled_at: scheduled.toISOString() });
   } catch (e: any) {

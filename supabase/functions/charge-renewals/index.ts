@@ -253,7 +253,7 @@ serve(async (req) => {
           }).eq("user_id", sub.user_id);
           // 결제 실패 + 카드 갱신 유도 메일 (§11 H2)
           const m = tplPaymentFailed(await userMailLang(supabase, sub.user_id), graceUntil.toISOString());
-          await sendUserEmail(userEmail, m.subject, m.html);
+          await sendUserEmail(userEmail, m.subject, m.html, { supabase, context: "정기결제 실패 안내" });
           await logSubEvent(supabase, {
             userId: sub.user_id, type: "payment_failed", actor: "system",
             detail: { attempts, grace_until: graceUntil.toISOString(), cycle },
@@ -271,7 +271,7 @@ serve(async (req) => {
           }).eq("user_id", sub.user_id);
           // FREE 강등 안내 메일
           const m = tplDowngraded(await userMailLang(supabase, sub.user_id));
-          await sendUserEmail(userEmail, m.subject, m.html);
+          await sendUserEmail(userEmail, m.subject, m.html, { supabase, context: "FREE 강등 안내" });
           await logSubEvent(supabase, {
             userId: sub.user_id, type: "downgraded", actor: "system",
             detail: { reason: "dunning_exhausted", attempts },
