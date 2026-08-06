@@ -8,6 +8,14 @@
 /ja/blog/posture-myth      /community/p/c8e3f0b5-2d14-4f69-8a32-1b7c4d9e6f22   301
 /ja/blog/posture-myth.html /community/p/c8e3f0b5-2d14-4f69-8a32-1b7c4d9e6f22   301
 
+# 없는 빌드 자산은 SPA 폴백으로 삼키지 말 것 (2026-08-06 백지 화면 사고).
+# 새 index.html 이 먼저 배포되고 번들이 아직 없던 찰나에, 번들 요청이 아래
+# catch-all 에 걸려 index.html 이 200 으로 응답됐다. Vite 자산은
+# `immutable, max-age=1년` 이라 그 HTML 이 JS 로 1년짜리 캐시에 박혔고,
+# 모듈 스크립트가 실행되지 않아 사이트가 백지가 됐다.
+# 404 면 브라우저가 그 응답을 자산으로 캐시하지 않아 다음 로드에서 자연 복구된다.
+/assets/*   /404.html   404
+
 # SPA 폴백 — 정적 자산·Pages Function(/community/p/*) 이후에 평가됨.
 # JS 없이 임의 경로로 진입해도 SPA 셸을 200 으로 서빙.
 /*    /index.html   200
