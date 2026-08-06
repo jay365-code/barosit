@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../auth/supabase";
 import { getLaunchMode, setLaunchModeRemote, isPreviewAsUser, setPreviewAsUser, type LaunchMode } from "../launchMode";
 import { getMinSupportedVersion, setMinSupportedVersion } from "../updateGate";
@@ -300,7 +300,15 @@ export function AdminDashboardView({ onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
-  const [currentUser, setCurrentUser] = useState<{ email?: string; avatarUrl?: string; name?: string } | null>(null);
+  // id 는 자기 자신의 어드민 권한 해제를 막는 데 쓴다(잠금 사고 방지).
+  const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string; avatarUrl?: string; name?: string } | null>(null);
+
+  // 가입자 목록 검색·필터. 가입자가 늘면 눈으로 찾기 어려워진다.
+  const [userSearch, setUserSearch] = useState("");
+  const [filterPlan, setFilterPlan] = useState<"all" | "free" | "pro" | "premium" | "lifetime">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
+  const [filterTester, setFilterTester] = useState<"all" | "yes" | "no">("all");
+  const [filterAdmin, setFilterAdmin] = useState<"all" | "yes" | "no">("all");
   
   // 릴리즈 관리 상태
   const [releases, setReleases] = useState<ReleaseData[]>([]);
@@ -536,6 +544,7 @@ export function AdminDashboardView({ onClose }: Props) {
         if (session?.user) {
           const myProfile = (profData || []).find((p: any) => p.id === session.user.id);
           setCurrentUser({
+            id: session.user.id,
             email: session.user.email,
             avatarUrl: myProfile?.avatar || session.user.user_metadata?.avatar_url || session.user.user_metadata?.avatar,
             name: myProfile?.name || session.user.user_metadata?.name || session.user.user_metadata?.full_name || "어드민",
@@ -754,6 +763,27 @@ export function AdminDashboardView({ onClose }: Props) {
     }
   };
 
+  // 가입자 목록 필터링. 검색어는 이름·이메일·user id 를 모두 훑는다(어드민이
+  // 문의 대응 중 id 로 찾는 경우가 잦다). 필터는 컬럼별 AND 조건.
+  const visibleProfiles = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    return profiles.filter((user: any) => {
+      if (q) {
+        const hay = `${user.name ?? ""} ${user.email ?? ""} ${user.id ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      const sub = subscriptions.find((s: any) => s.user_id === user.id)
+        || { plan_id: "free", status: "active", current_period_end: null };
+      const lifetime = isLifetimeComp(sub);
+
+      if (filterPlan === "lifetime" ? !lifetime : filterPlan !== "all" && sub.plan_id !== filterPlan) return false;
+      if (filterStatus !== "all" && sub.status !== filterStatus) return false;
+      if (filterTester !== "all" && !!user.is_beta_tester !== (filterTester === "yes")) return false;
+      if (filterAdmin !== "all" && !!user.is_admin !== (filterAdmin === "yes")) return false;
+      return true;
+    });
+  }, [profiles, subscriptions, userSearch, filterPlan, filterStatus, filterTester, filterAdmin]);
+
   // 1-1. 평생 무료(무상 제공) 지정 — 크리에이터 아웃리치·협력자용.
   //
   // 등급/상태만 바꾸는 위 handleUpdatePlan 으로는 안 된다. resolveEffectivePlan
@@ -786,6 +816,46 @@ export function AdminDashboardView({ onClose }: Props) {
       setSubscriptions(updatedSubs || []);
     } catch (err: any) {
       void alertDialog("평생 무료 설정 실패: " + (err?.message || err));
+    }
+  };
+
+  // 1-2. 어드민 권한 지정·해제 — 기존 가입자용.
+  //
+  // admin_emails 화이트리스트는 *가입 순간*에만 적용되므로 이미 가입한 사람은
+  // 그것만으로 승격되지 않는다. 그 조작을 여기서 한다.
+  //
+  // 자기 자신은 해제할 수 없다. 마지막 어드민이 스스로를 내리면 어드민 화면에
+  // 아무도 들어올 수 없게 되고, 복구하려면 DB 를 직접 만져야 한다.
+  const handleToggleAdmin = async (userId: string, next: boolean, label: string) => {
+    if (!next && userId === currentUser?.id) {
+      void alertDialog("자기 자신의 어드민 권한은 해제할 수 없습니다.\n\n다른 어드민 계정으로 로그인해 해제해 주세요.");
+      return;
+    }
+    const ok = await confirmDialog(
+      next
+        ? `${label} 계정에 어드민 권한을 부여할까요?\n\n어드민 제어 센터의 모든 기능(가입자·결제·커뮤니티 관리)에 접근할 수 있게 됩니다.`
+        : `${label} 계정의 어드민 권한을 해제할까요?`,
+    );
+    if (!ok) return;
+    try {
+      const { error } = await supabase.from("profiles").update({ is_admin: next }).eq("id", userId);
+      if (error) throw error;
+
+      // 감사 기록 — 권한 변경은 사후 추적이 가능해야 한다.
+      await supabase.from("admin_notifications").insert({
+        event_type: next ? "admin_granted" : "admin_revoked",
+        severity: "warning",
+        message: `어드민 권한 ${next ? "부여" : "해제"} — 대상 ${label}`,
+        payload: { target_user_id: userId, by: currentUser?.id ?? null, by_email: currentUser?.email ?? null },
+      });
+
+      const { data: updatedProfiles } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (updatedProfiles) setProfiles(updatedProfiles);
+    } catch (err: any) {
+      void alertDialog("어드민 권한 변경 실패: " + (err?.message || err));
     }
   };
 
@@ -2516,7 +2586,64 @@ export function AdminDashboardView({ onClose }: Props) {
                 {activeTab === "users" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>전체 가입자 상세 관리</div>
-                    
+
+                    {/* 검색·필터. 가입자가 늘면 목록만으로는 못 찾는다. */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+                      <input
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        placeholder="이름 · 이메일 · user id 검색"
+                        style={{
+                          flex: "1 1 260px",
+                          minWidth: 220,
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          color: "#fff",
+                          borderRadius: 8,
+                          padding: "8px 12px",
+                          fontSize: 13,
+                        }}
+                      />
+                      {([
+                        { label: "등급", value: filterPlan, set: setFilterPlan, opts: [["all", "등급 전체"], ["free", "FREE"], ["pro", "PRO"], ["premium", "PREMIUM"], ["lifetime", "평생 무료"]] },
+                        { label: "구독", value: filterStatus, set: setFilterStatus, opts: [["all", "구독 전체"], ["active", "활성"], ["inactive", "비활성"]] },
+                        { label: "테스터", value: filterTester, set: setFilterTester, opts: [["all", "테스터 전체"], ["yes", "테스터만"], ["no", "테스터 아님"]] },
+                        { label: "어드민", value: filterAdmin, set: setFilterAdmin, opts: [["all", "어드민 전체"], ["yes", "어드민만"], ["no", "어드민 아님"]] },
+                      ] as const).map((f) => (
+                        <select
+                          key={f.label}
+                          value={f.value}
+                          onChange={(e) => (f.set as (v: string) => void)(e.target.value)}
+                          style={{
+                            background: f.value === "all" ? "rgba(255,255,255,0.04)" : "rgba(91,140,122,0.18)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            color: "#fff",
+                            borderRadius: 8,
+                            padding: "8px 10px",
+                            fontSize: 12,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {f.opts.map(([v, label]) => (
+                            <option key={v} value={v}>{label}</option>
+                          ))}
+                        </select>
+                      ))}
+                      <span style={{ fontSize: 12, opacity: 0.6 }}>
+                        {visibleProfiles.length === profiles.length
+                          ? `${profiles.length}명`
+                          : `${visibleProfiles.length} / ${profiles.length}명`}
+                      </span>
+                      {(userSearch || filterPlan !== "all" || filterStatus !== "all" || filterTester !== "all" || filterAdmin !== "all") && (
+                        <button
+                          onClick={() => { setUserSearch(""); setFilterPlan("all"); setFilterStatus("all"); setFilterTester("all"); setFilterAdmin("all"); }}
+                          style={{ background: "none", border: "none", color: "#5b8c7a", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+                        >
+                          초기화
+                        </button>
+                      )}
+                    </div>
+
                     <table
                       style={{
                         width: "100%",
@@ -2539,7 +2666,14 @@ export function AdminDashboardView({ onClose }: Props) {
                         </tr>
                       </thead>
                       <tbody>
-                        {profiles.map(user => {
+                        {visibleProfiles.length === 0 && (
+                          <tr>
+                            <td colSpan={8} style={{ padding: 28, textAlign: "center", fontSize: 13, opacity: 0.6 }}>
+                              조건에 맞는 가입자가 없어요.
+                            </td>
+                          </tr>
+                        )}
+                        {visibleProfiles.map(user => {
                           const sub = subscriptions.find(s => s.user_id === user.id) || { plan_id: "free", status: "active", current_period_end: null };
                           const lifetime = isLifetimeComp(sub);
                           const planSelectValue = lifetime ? LIFETIME_SELECT_VALUE : `${sub.plan_id}-${sub.status}`;
@@ -2731,6 +2865,29 @@ export function AdminDashboardView({ onClose }: Props) {
                                   }}
                                 >
                                   {lifetime ? "✓ 평생 무료" : "평생 무료 지정"}
+                                </button>
+                                <button
+                                  onClick={() => handleToggleAdmin(user.id, !user.is_admin, user.email || user.name || user.id)}
+                                  disabled={user.is_admin && user.id === currentUser?.id}
+                                  title={
+                                    user.is_admin && user.id === currentUser?.id
+                                      ? "자기 자신의 어드민 권한은 해제할 수 없습니다."
+                                      : "어드민 제어 센터 접근 권한을 부여·해제합니다."
+                                  }
+                                  style={{
+                                    marginLeft: 8,
+                                    background: user.is_admin ? "rgba(91, 140, 122, 0.3)" : "rgba(255,255,255,0.06)",
+                                    color: user.is_admin ? "#5b8c7a" : "#ccc",
+                                    border: "1px solid rgba(255,255,255,0.1)",
+                                    borderRadius: 6,
+                                    padding: "4px 10px",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor: user.is_admin && user.id === currentUser?.id ? "not-allowed" : "pointer",
+                                    opacity: user.is_admin && user.id === currentUser?.id ? 0.5 : 1,
+                                  }}
+                                >
+                                  {user.is_admin ? "✓ 어드민" : "어드민 지정"}
                                 </button>
                               </td>
                             </tr>
