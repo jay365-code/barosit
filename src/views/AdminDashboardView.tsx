@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../auth/supabase";
 import { getLaunchMode, setLaunchModeRemote, isPreviewAsUser, setPreviewAsUser, type LaunchMode } from "../launchMode";
 import { getMinSupportedVersion, setMinSupportedVersion } from "../updateGate";
@@ -168,20 +168,20 @@ interface SubscriptionData {
   updated_at: string;
 }
 
-interface PostureEventData {
-  id: string;
-  user_id: string;
-  posture_type: string;
-  duration_secs: number;
-  occurred_at: string;
-}
-
-interface DailyScoreData {
-  user_id: string;
-  date: string;
-  avg_score: number;
-  violation_count: number;
-  stretch_count: number;
+/**
+ * 대시보드 통계 — 서버(admin_posture_overview RPC)에서 집계해 온 값.
+ *
+ * 예전엔 posture_events 원본 1000건을 받아 클라이언트에서 셌다. 실측 336 kB·서버 140 ms 로
+ * 어드민 진입에서 가장 비싼 요청이었고(RLS 의 is_admin() 이 행마다 도는 탓),
+ * limit 때문에 건수 카드가 데이터가 얼마나 쌓이든 늘 "1000건" 이었다.
+ * 집계를 서버로 옮기면서 두 문제가 함께 사라졌다 — 여기서 다시 원본을 세지 말 것.
+ */
+interface PostureOverview {
+  event_total: number;   // 전체 누적(상한 없음)
+  event_30d: number;     // 최근 30일 = 아래 두 분포의 모수
+  score_days: number;
+  by_hour: number[];     // 24칸, KST 시(0~23)별 건수
+  by_type: Record<string, number>;
 }
 
 /**
@@ -295,13 +295,23 @@ const FEATURE_STATUS_LABELS: Record<FeatureRequestData["status"], string> = {
   declined: "반려",
 };
 
+type TabId =
+  | "dashboard" | "users" | "billing" | "payments" | "qna" | "ai_review" | "roadmap"
+  | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches";
+
 interface Props {
   onClose: () => void;
 }
 
 export function AdminDashboardView({ onClose }: Props) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "billing" | "payments" | "qna" | "ai_review" | "roadmap" | "system" | "alerts" | "feedback" | "errors" | "usage" | "releases" | "stretches">("dashboard");
+  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  // loading = 코어 로드(첫 화면). tabLoading = 그 탭 전용 데이터.
+  // 둘을 나눠야 탭 데이터를 기다리는 동안 사이드바·헤더가 사라지지 않는다.
   const [loading, setLoading] = useState(true);
+  const [tabLoading, setTabLoading] = useState(false);
+  // 이미 받아온 탭. state 가 아니라 ref 인 이유 — 여기에 값을 넣는 것이 렌더를
+  // 유발하면 로드 직후 불필요한 재렌더가 한 번 더 돈다.
+  const loadedTabs = useRef<Set<TabId>>(new Set());
   const [launchMode, setLaunchModeState] = useState<LaunchMode>(getLaunchMode());
   const [previewAsUser, setPreviewAsUserState] = useState<boolean>(isPreviewAsUser());
   // id 는 자기 자신의 어드민 권한 해제를 막는 데 쓴다(잠금 사고 방지).
@@ -353,8 +363,7 @@ export function AdminDashboardView({ onClose }: Props) {
   const [channelRange, setChannelRange] = useState<"7" | "30" | "90" | "all">("30");
   const [channelQuery, setChannelQuery] = useState("");
   const [channelHideRefs, setChannelHideRefs] = useState(true);
-  const [events, setEvents] = useState<PostureEventData[]>([]);
-  const [dailyScores, setDailyScores] = useState<DailyScoreData[]>([]);
+  const [postureOverview, setPostureOverview] = useState<PostureOverview | null>(null);
   const [posts, setPosts] = useState<PostData[]>([]);
   const [comments, setComments] = useState<CommentData[]>([]);
   const [notifications, setNotifications] = useState<AdminNotificationData[]>([]);
@@ -402,18 +411,54 @@ export function AdminDashboardView({ onClose }: Props) {
   const [featureRequests, setFeatureRequests] = useState<FeatureRequestData[]>([]);
   const [frBusy, setFrBusy] = useState(false);
 
-  // 데이터 로드 함수
-  const fetchAllData = async () => {
+  // ── 데이터 로드 ─────────────────────────────────────────────────────────────
+  //
+  // 왜 이렇게 나누는가 (2026-08-06)
+  //   예전엔 fetchAllData() 하나가 14개 탭 전부의 데이터를 **순차 await** 로 16번 받아왔고,
+  //   사이드바 탭을 누를 때마다 그걸 통째로 다시 돌렸다(setLoading(true) 라 화면도 매번 비었다).
+  //   프로덕션 왕복이 60~95 ms 이니 서버 연산이 0이어도 진입·탭전환마다 1초 이상이
+  //   순수 대기로 나갔다. 가입자 관리 탭이 실제로 쓰는 건 그중 4개뿐이다.
+  //
+  //   그래서 두 층으로 나눈다.
+  //     ① 코어(fetchCore) — 첫 화면과 사이드바 배지에 필요한 것만. 전부 **병렬**.
+  //     ② 탭별(fetchTabData) — 그 탭을 처음 열 때 한 번. 다시 열면 재요청하지 않는다.
+  //   조작 후 갱신은 refreshLoaded() 로 **이미 받아둔 것만** 다시 받는다.
+  //
+  //   client_errors·ai_response_drafts 는 자기 탭이 아니라 코어에 있다 — 사이드바 배지
+  //   (미해결 오류 수·검수 대기 수)가 탭을 열기 전부터 떠야 하기 때문. 합쳐서 11 kB 다.
+
+  const fetchCore = async () => {
     setLoading(true);
     try {
-      // 1. 프로필 목록 조회 + 가입 이메일 병합.
-      // 이메일은 auth.users 에만 있어 어드민 전용 RPC 로 따로 읽는다(profiles 에 복제하면
-      // 사용자가 이메일을 바꿨을 때 어긋난다). 실패해도 목록 자체는 보여야 하므로 삼킨다.
-      const { data: profData } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-      const { data: identityRows, error: identityErr } = await supabase.rpc("admin_list_user_identities");
-      if (identityErr) console.warn("[admin] 가입 이메일·아바타 조회 실패:", identityErr.message);
+      // 이메일·소셜 아바타는 auth.users 에만 있어 어드민 전용 RPC 로 따로 읽는다
+      // (profiles 에 복제하면 사용자가 이메일을 바꿨을 때 어긋난다).
+      // 활동 요약도 마찬가지로 서버에서 끝낸다 — 클라이언트로 원본을 끌어오면
+      // posture_events 를 통째로 받아야 한다. 둘 다 실패해도 목록은 보여야 하므로 삼킨다.
+      const [
+        profRes,
+        identityRes,
+        actRes,
+        subRes,
+        notifRes,
+        overviewRes,
+        errRes,
+        draftRes,
+        sessionRes,
+      ] = await Promise.all([
+        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        supabase.rpc("admin_list_user_identities"),
+        supabase.rpc("admin_user_activity"),
+        supabase.from("user_subscriptions").select("*"),
+        supabase.from("admin_notifications").select("*").order("created_at", { ascending: false }).limit(100),
+        supabase.rpc("admin_posture_overview"),
+        supabase.from("client_errors").select("*").order("last_seen", { ascending: false }).limit(200),
+        supabase.from("ai_response_drafts").select("*").order("created_at", { ascending: false }).limit(200),
+        supabase.auth.getSession(),
+      ]);
+
+      if (identityRes.error) console.warn("[admin] 가입 이메일·아바타 조회 실패:", identityRes.error.message);
       type IdentityRow = { id: string; email: string | null; avatar_url: string | null };
-      const rows = (identityRows as IdentityRow[] | null) ?? [];
+      const rows = (identityRes.data as IdentityRow[] | null) ?? [];
       const emailById = new Map<string, string>(
         rows.flatMap(r => (r.email ? [[r.id, r.email] as [string, string]] : [])),
       );
@@ -421,148 +466,133 @@ export function AdminDashboardView({ onClose }: Props) {
         rows.flatMap(r => (r.avatar_url ? [[r.id, r.avatar_url] as [string, string]] : [])),
       );
 
-      // 1-1. 활동 요약(최종 사용·활동일수·OS). 여러 테이블을 합집합해야 하는 계산이라
-      // 서버(RPC)에서 끝낸다 — 클라이언트로 원본을 끌어오면 posture_events 30k 행을
-      // 통째로 받아야 한다. 실패해도 목록은 보여야 하므로 삼킨다.
-      const { data: actRows, error: actErr } = await supabase.rpc("admin_user_activity");
-      if (actErr) console.warn("[admin] 활동 요약 조회 실패:", actErr.message);
+      if (actRes.error) console.warn("[admin] 활동 요약 조회 실패:", actRes.error.message);
       setActivityById(
-        new Map(((actRows as UserActivityData[] | null) ?? []).map(a => [a.id, a])),
+        new Map(((actRes.data as UserActivityData[] | null) ?? []).map(a => [a.id, a])),
       );
 
-      // 2. 구독 정보 조회
-      const { data: subData } = await supabase.from("user_subscriptions").select("*");
-
-      // 2-1. 구독 라이프사이클 이벤트(전체) — admin RLS 로 내부 이벤트까지 조회. 최신 300건.
-      const { data: subEvtData } = await supabase
-        .from("subscription_events")
-        .select("id, user_id, event_type, visibility, actor, detail, created_at")
-        .order("created_at", { ascending: false })
-        .limit(300);
-
-      // 2-2. 결제 원장(전체) — 환불 대상 선택 및 이중청구·미환불 점검용. 최신 500건.
-      const { data: payData } = await supabase
-        .from("billing_history")
-        .select("id, user_id, order_id, kind, amount, plan, billing_cycle, status, refunded_amount, refunded_at, created_at")
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      // 3. 최근 원시 이벤트 조회 (최대 1000건 제한으로 부하 예방)
-      const { data: evtData } = await supabase.from("posture_events").select("*").order("occurred_at", { ascending: false }).limit(1000);
-      
-      // 4. 일일 스코어 조회
-      const { data: scoreData } = await supabase.from("daily_scores").select("*").order("date", { ascending: false });
-
-      // 5. Q&A 포스트 조회
-      const { data: postData } = await supabase.from("posts").select("*").order("created_at", { ascending: false });
-
-      // 6. Q&A 댓글 조회
-      const { data: commentData } = await supabase.from("comments").select("*").order("created_at", { ascending: true });
-
-      // 7. 실시간 어드민 알림 조회 (최신 100건 제한)
-      const { data: notifData } = await supabase.from("admin_notifications").select("*").order("created_at", { ascending: false }).limit(100);
-
-      // 7-1. 클라이언트 에러 리포트 조회 (최신 last_seen 순, 최대 200건)
-      let errData: ClientErrorData[] = [];
-      try {
-        const { data } = await supabase
-          .from("client_errors")
-          .select("*")
-          .order("last_seen", { ascending: false })
-          .limit(200);
-        errData = (data as ClientErrorData[]) || [];
-      } catch (err) {
-        console.warn("Failed to fetch client_errors. table might not exist yet.", err);
-      }
-
-      // 7-2. 사용 분석 이벤트 조회 (최근 2000건)
-      let usageData: UsageEventData[] = [];
-      try {
-        const { data } = await supabase
-          .from("usage_events")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(2000);
-        usageData = (data as UsageEventData[]) || [];
-      } catch (err) {
-        console.warn("Failed to fetch usage_events. table might not exist yet.", err);
-      }
-
-      // 7-3. AI 답변 초안(Aria) 조회 — pending 우선, 최신순
-      let draftData: AiDraftData[] = [];
-      try {
-        const { data } = await supabase
-          .from("ai_response_drafts")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(200);
-        draftData = (data as AiDraftData[]) || [];
-      } catch (err) {
-        console.warn("Failed to fetch ai_response_drafts. table might not exist yet.", err);
-      }
-
-      // 8. 릴리즈 정보 조회 (최신 정보 순 정렬)
-      let relData: any[] = [];
-      try {
-        const { data } = await supabase.from("releases").select("*").order("released_at", { ascending: false });
-        relData = data || [];
-      } catch (err) {
-        console.warn("Failed to fetch releases. releases table might not exist yet.", err);
-      }
-
-      // 9. 기능 요청 클러스터(Ethan 로드맵) 조회
-      let frData: FeatureRequestData[] = [];
-      try {
-        const { data } = await supabase
-          .from("feature_requests")
-          .select("*")
-          .order("updated_at", { ascending: false });
-        frData = (data as FeatureRequestData[]) || [];
-      } catch (err) {
-        console.warn("Failed to fetch feature_requests. table might not exist yet.", err);
-      }
-      setFeatureRequests(frData);
-
+      const profData = (profRes.data as UserProfileData[] | null) ?? [];
       setProfiles(
-        (profData || []).map((p: UserProfileData) => ({
+        profData.map(p => ({
           ...p,
           email: emailById.get(p.id),
           social_avatar_url: socialAvatarById.get(p.id),
         })),
       );
-      setSubscriptions(subData || []);
-      setSubEvents(subEvtData || []);
-      setPayments(payData || []);
-      setEvents(evtData || []);
-      setDailyScores(scoreData || []);
-      setPosts(postData || []);
-      setComments(commentData || []);
-      setNotifications(notifData || []);
-      setClientErrors(errData);
-      setUsageEvents(usageData);
-      setDrafts(draftData);
-      setReleases(relData);
+      setSubscriptions(subRes.data || []);
+      setNotifications(notifRes.data || []);
+      setClientErrors((errRes.data as ClientErrorData[]) || []);
+      setDrafts((draftRes.data as AiDraftData[]) || []);
 
-      // 현재 로그인한 어드민 사용자 프로필 로드
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const myProfile = (profData || []).find((p: any) => p.id === session.user.id);
-          setCurrentUser({
-            id: session.user.id,
-            email: session.user.email,
-            avatarUrl: myProfile?.avatar || session.user.user_metadata?.avatar_url || session.user.user_metadata?.avatar,
-            name: myProfile?.name || session.user.user_metadata?.name || session.user.user_metadata?.full_name || "어드민",
-          });
-        }
-      } catch (err) {
-        console.warn("[AdminDashboard] Failed to fetch current session user info:", err);
+      // 통계는 서버 집계. 실패해도 나머지 화면은 살아야 하므로 삼키고 카드만 비운다.
+      if (overviewRes.error) console.warn("[admin] 대시보드 통계 조회 실패:", overviewRes.error.message);
+      const ov = (overviewRes.data as PostureOverview[] | PostureOverview | null);
+      setPostureOverview(Array.isArray(ov) ? ov[0] ?? null : ov);
+
+      // 현재 로그인한 어드민 사용자 프로필
+      const session = sessionRes.data?.session;
+      if (session?.user) {
+        const myProfile = profData.find((p: any) => p.id === session.user.id);
+        setCurrentUser({
+          id: session.user.id,
+          email: session.user.email,
+          avatarUrl: (myProfile as any)?.avatar || session.user.user_metadata?.avatar_url || session.user.user_metadata?.avatar,
+          name: myProfile?.name || session.user.user_metadata?.name || session.user.user_metadata?.full_name || "어드민",
+        });
       }
     } catch (err) {
       console.error("[AdminDashboard] Failed to fetch data:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 탭 하나가 필요로 하는 데이터. 없는 탭(dashboard·users·alerts·feedback·errors·
+  // ai_review·system·stretches)은 코어만으로 그려진다.
+  const fetchTabData = async (tab: TabId) => {
+    try {
+      switch (tab) {
+        case "billing": {
+          // 구독 라이프사이클 이벤트(전체) — admin RLS 로 내부 이벤트까지. 최신 300건.
+          const { data } = await supabase
+            .from("subscription_events")
+            .select("id, user_id, event_type, visibility, actor, detail, created_at")
+            .order("created_at", { ascending: false })
+            .limit(300);
+          setSubEvents(data || []);
+          break;
+        }
+        case "payments": {
+          // 결제 원장 — 환불 대상 선택 및 이중청구·미환불 점검용. 최신 500건.
+          const { data } = await supabase
+            .from("billing_history")
+            .select("id, user_id, order_id, kind, amount, plan, billing_cycle, status, refunded_amount, refunded_at, created_at")
+            .order("created_at", { ascending: false })
+            .limit(500);
+          setPayments(data || []);
+          break;
+        }
+        case "qna": {
+          // 화면이 실제로 쓰는 컬럼만(PostData 와 동일). 본문(content)은 관리자가
+          // 읽어야 해서 남긴다 — 이 260 kB(실측, 블로그 3개 언어 본문이 대부분)가
+          // 어드민 진입을 막지 않는 건 이제 이 탭을 열 때만 받기 때문이다.
+          const [postRes, commentRes] = await Promise.all([
+            supabase
+              .from("posts")
+              .select("id, user_id, title, content, views, likes, created_at")
+              .order("created_at", { ascending: false }),
+            supabase.from("comments").select("*").order("created_at", { ascending: true }),
+          ]);
+          setPosts((postRes.data as PostData[]) || []);
+          setComments((commentRes.data as CommentData[]) || []);
+          break;
+        }
+        case "usage": {
+          const { data } = await supabase
+            .from("usage_events")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(2000);
+          setUsageEvents((data as UsageEventData[]) || []);
+          break;
+        }
+        case "releases": {
+          const { data } = await supabase.from("releases").select("*").order("released_at", { ascending: false });
+          setReleases(data || []);
+          break;
+        }
+        case "roadmap": {
+          const { data } = await supabase
+            .from("feature_requests")
+            .select("*")
+            .order("updated_at", { ascending: false });
+          setFeatureRequests((data as FeatureRequestData[]) || []);
+          break;
+        }
+        default:
+          break;
+      }
+    } catch (err) {
+      // 테이블이 아직 없는 환경(로컬 등)에서도 화면 자체는 떠야 한다.
+      console.warn(`[AdminDashboard] '${tab}' 탭 데이터 조회 실패:`, err);
+    }
+  };
+
+  // 탭 진입 시 1회 로드. force=true 면 조작 후 강제 갱신.
+  const loadTab = async (tab: TabId, force = false) => {
+    if (!force && loadedTabs.current.has(tab)) return;
+    setTabLoading(true);
+    try {
+      await fetchTabData(tab);
+      loadedTabs.current.add(tab);
+    } finally {
+      setTabLoading(false);
+    }
+  };
+
+  // 조작 후 갱신 — 아직 열지 않은 탭까지 끌어오지 않는다.
+  const refreshLoaded = async () => {
+    await Promise.all([fetchCore(), ...[...loadedTabs.current].map(t => fetchTabData(t))]);
   };
 
   // Web Audio API를 활용한 효과음 실시간 합성 재생 헬퍼
@@ -628,8 +658,14 @@ export function AdminDashboardView({ onClose }: Props) {
     };
   }, [activeTab, channelRange]);
 
+  // 탭 진입 시 그 탭의 데이터만 1회 로드. 사이드바 클릭이 전체 재조회를 부르던
+  // 예전 동작(탭 버튼 onClick 의 fetchAllData)을 이 이펙트가 대신한다.
   useEffect(() => {
-    fetchAllData();
+    void loadTab(activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchCore();
 
     // Supabase Realtime 채널을 이용한 실시간 알림 테이블 INSERT 구독
     const channel = supabase
@@ -1051,7 +1087,7 @@ export function AdminDashboardView({ onClose }: Props) {
       if (res.error) throw res.error;
 
       // 성공! 릴리즈 데이터를 다시 불러온 후 폼을 초기화합니다.
-      await fetchAllData();
+      await loadTab("releases", true);
       handleResetForm();
     } catch (err: any) {
       console.error("Failed to save release:", err);
@@ -1073,7 +1109,7 @@ export function AdminDashboardView({ onClose }: Props) {
 
       if (error) throw error;
 
-      await fetchAllData();
+      await loadTab("releases", true);
       if (selectedRelease?.id === id) {
         handleResetForm();
       }
@@ -1284,7 +1320,7 @@ export function AdminDashboardView({ onClose }: Props) {
         `✅ ${data.full ? "전액" : "부분"} 환불 완료: ${Number(data.refundedAmount).toLocaleString()}원` +
         (data.downgraded ? " (FREE 강등됨)" : ""),
       );
-      await fetchAllData();
+      await Promise.all([loadTab("payments", true), fetchCore()]);
     } catch (e: any) {
       void alertDialog("❌ 환불 실패: " + (e?.message || e));
     } finally {
@@ -1343,7 +1379,7 @@ export function AdminDashboardView({ onClose }: Props) {
         setCleanLog(prev => [...prev, `✓ 모의 실행이 성공적으로 끝났습니다. (데이터 변경 없음)`]);
       }
 
-      await fetchAllData(); // 데이터 통계 갱신
+      await fetchCore(); // 통계 카드 갱신 (건수는 서버 집계라 이것만 다시 받으면 된다)
     } catch (err: any) {
       setCleanLog(prev => [...prev, `✗ 실패: ${err.message}`]);
     } finally {
@@ -1441,7 +1477,7 @@ export function AdminDashboardView({ onClose }: Props) {
       }
 
       setCleanLog(prev => [...prev, `✓ QA용 더미 데이터 주입 성공! 차트 통계를 새로 고쳐주세요.`]);
-      await fetchAllData();
+      await refreshLoaded();
     } catch (err: any) {
       setCleanLog(prev => [...prev, `✗ 주입 실패: ${err.message}`]);
     } finally {
@@ -1449,22 +1485,15 @@ export function AdminDashboardView({ onClose }: Props) {
     }
   };
 
-  // 통계 차트용 연산 데이터
-  // 1. 시간대별 빈도수 (24시간)
-  const hourCounts = new Array(24).fill(0);
-  events.forEach(e => {
-    const hour = new Date(e.occurred_at).getHours();
-    hourCounts[hour]++;
-  });
-
-  // 2. 위반 유형별 비중
-  const typeCounts: Record<string, number> = {};
-  events.forEach(e => {
-    typeCounts[e.posture_type] = (typeCounts[e.posture_type] || 0) + 1;
-  });
-
+  // 통계 차트용 데이터 — 서버 집계(admin_posture_overview)를 그대로 쓴다.
+  // 시(hour) 버킷 기준 시간대는 브라우저 로컬이 아니라 Asia/Seoul 이다(운영자 기준,
+  // admin_user_activity 와 동일). 분포의 모수는 최근 30일 고정 구간 —
+  // 예전의 "최신 1000건"은 데이터가 늘수록 구간이 저절로 좁아져 어제 그래프와
+  // 오늘 그래프가 서로 다른 기간을 뜻했다.
+  const hourCounts = postureOverview?.by_hour ?? new Array(24).fill(0);
+  const typeCounts: Record<string, number> = postureOverview?.by_type ?? {};
   const postureTypes = Object.keys(typeCounts);
-  const totalViolations = events.length;
+  const totalViolations = postureOverview?.event_30d ?? 0;
 
   return (
     <div
@@ -1649,10 +1678,7 @@ export function AdminDashboardView({ onClose }: Props) {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id as any);
-                    fetchAllData();
-                  }}
+                  onClick={() => setActiveTab(tab.id as TabId)}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -1753,6 +1779,14 @@ export function AdminDashboardView({ onClose }: Props) {
               </div>
             ) : (
               <>
+                {/* 탭 전용 데이터 로딩. 화면을 비우지 않고 얇은 띠로만 알린다 —
+                    이미 그려진 표가 사라졌다 다시 나타나면 더 느리게 느껴진다. */}
+                {tabLoading && (
+                  <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 12 }}>
+                    이 탭의 데이터를 불러오는 중...
+                  </div>
+                )}
+
                 {/* 5. 실시간 알림 탭 */}
                 {activeTab === "alerts" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -2428,8 +2462,9 @@ export function AdminDashboardView({ onClose }: Props) {
                       {[
                         { title: "총 가입자 수", val: `${profiles.length}명`, sub: "누적 가입 회원", color: "#5b8c7a" },
                         { title: "유료 구독자 수", val: `${subscriptions.filter(s => s.plan_id !== "free" && s.status === "active").length}명`, sub: "Pro / Premium 실유저", color: "#d9a752" },
-                        { title: "최근 동기화 로그 수", val: `${events.length}건`, sub: "서버 수집 posture_events", color: "#c95c5c" },
-                        { title: "통계 데이터 적재일", val: `${dailyScores.length}일`, sub: "일일 평균 점수 테이블 기록", color: "#5c8fc9" },
+                        // 예전엔 조회 상한(1000건)이 그대로 표시돼 데이터가 얼마나 쌓이든 "1000건" 이었다.
+                        { title: "누적 동기화 로그 수", val: `${(postureOverview?.event_total ?? 0).toLocaleString()}건`, sub: "서버 수집 posture_events 전체", color: "#c95c5c" },
+                        { title: "통계 데이터 적재일", val: `${postureOverview?.score_days ?? 0}일`, sub: "일일 평균 점수 테이블 기록", color: "#5c8fc9" },
                       ].map((card, i) => (
                         <div
                           key={i}
@@ -2463,7 +2498,7 @@ export function AdminDashboardView({ onClose }: Props) {
                       >
                         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#5b8c7a" }}></span>
-                          시간대별 활성 모니터링 이벤트 분포 (24시간)
+                          시간대별 활성 모니터링 이벤트 분포 (최근 30일 · KST)
                         </div>
                         {totalViolations === 0 ? (
                           <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.4, fontSize: 12 }}>
